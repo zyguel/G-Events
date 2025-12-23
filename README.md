@@ -51,7 +51,7 @@ We utilize a strict branching workflow to ensure stability while allowing for ra
 ### Installation
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/YourUsername/g-events.git](https://github.com/YourUsername/g-events.git)
+    git clone [https://github.com/zyguel/G-Events.git](https://github.com/zyguel/G-Events.git)
     ```
 2.  **Checkout the development branch:**
     ```bash
