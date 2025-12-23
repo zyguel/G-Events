@@ -103,14 +103,12 @@ We follow the **Conventional Commits** specification. This allows us to automati
 
 ### 🔄 Pull Request Process
 
-1.  **Fork and Branch:** Create a new branch for your feature or fix based on `nightly`.
-    * `git checkout -b feat/your-feature-name`
-2.  **Commit:** Commit your changes using the standards defined above.
-3.  **Sync:** Ensure your branch is up to date with the upstream `nightly` branch to minimize conflicts.
-4.  **Open PR:** Submit a Pull Request targeting the **`nightly`** branch.
+1.  **Commit:** Commit your changes using the standards defined above.
+2.  **Sync:** Ensure your branch is up to date with the upstream `nightly` branch to minimize conflicts.
+3.  **Open PR:** Submit a Pull Request targeting the **`nightly`** branch.
     * *Note: PRs targeting `main` will be closed.*
-5.  **Description:** Clearly describe the problem you are solving and the solution you implemented.
-6.  **Review:** Wait for code review. Address any comments or requested changes.
+4.  **Description:** Clearly describe the problem you are solving and the solution you implemented.
+5.  **Review:** Wait for code review. Address any comments or requested changes.
 
 ---
 
