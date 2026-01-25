@@ -1,6 +1,6 @@
 "use client";
 
-import { Settings, LayoutDashboard, FileText, BarChart3, Ticket, ClipboardList, CheckCircle, Send, Users, Mail, UserCheck, Award, Clock, Presentation } from "lucide-react";
+import { LayoutDashboard, FileText, BarChart3, Ticket, ClipboardList, CheckCircle, Send, Users, Mail, UserCheck, Award, Clock, Presentation } from "lucide-react";
 import Link from "next/link";
 
 interface SidebarEvent {
@@ -53,6 +53,8 @@ export default function AnalyticsSidebar({ event }: AnalyticsSidebarProps) {
                         </ul>
                     </div>
 
+                    <hr className="border-gray-200 dark:border-gray-700" />
+
                     {/* Section: Order Options */}
                     <div>
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Order Options</h3>
@@ -83,6 +85,8 @@ export default function AnalyticsSidebar({ event }: AnalyticsSidebarProps) {
                             </li>
                         </ul>
                     </div>
+
+                    <hr className="border-gray-200 dark:border-gray-700" />
 
                     {/* Section: Manage Attendees */}
                     <div>
@@ -127,6 +131,8 @@ export default function AnalyticsSidebar({ event }: AnalyticsSidebarProps) {
                         </ul>
                     </div>
 
+                    <hr className="border-gray-200 dark:border-gray-700" />
+
                     {/* Section: Reporting */}
                     <div>
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Reporting</h3>
@@ -150,13 +156,6 @@ export default function AnalyticsSidebar({ event }: AnalyticsSidebarProps) {
                     </div>
 
                 </nav>
-            </div>
-
-            {/* 3. Bottom Settings Icon */}
-            <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex-shrink-0">
-                <button className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors">
-                    <Settings size={20} />
-                </button>
             </div>
         </aside>
     );
