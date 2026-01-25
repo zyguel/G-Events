@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getEventData } from "@/lib/api";
 import Header from "@/components/Header";
 import Sidebar from "@/components/Sidebar";
-import AnalyticsSidebar from "@/components/AnalyticsSidebar";
+import EventsSidebar from "@/components/EventsSidebar";
 import { Calendar, MapPin, Users, Ticket, DollarSign } from "lucide-react";
 
 export default async function EventOverviewPage({ params }: { params: Promise<{ eventId: string }> }) {
@@ -31,7 +31,7 @@ export default async function EventOverviewPage({ params }: { params: Promise<{ 
 
                 {/* Event Specific Sidebar */}
                 <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-                    <AnalyticsSidebar event={sidebarEvent} activePage="overview" />
+                    <EventsSidebar event={sidebarEvent} activePage="overview" />
                 </div>
 
                 {/* Main Content Area */}

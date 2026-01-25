@@ -16,19 +16,21 @@ interface AnalyticsHeaderProps {
     currentEventId: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any; // Full data object for ExportButton
+    title?: string;
+    description?: string;
 }
 
-export default function AnalyticsHeader({ events, currentEventId, data }: AnalyticsHeaderProps) {
+export default function AnalyticsHeader({ events, currentEventId, data, title = "Analytics", description = "Track and analyze your event performance metrics" }: AnalyticsHeaderProps) {
     const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
     return (
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                    Analytics
+                    {title}
                 </h1>
                 <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-                    Track and analyze your event performance metrics
+                    {description}
                 </p>
             </div>
 

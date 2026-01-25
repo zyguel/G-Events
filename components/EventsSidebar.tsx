@@ -10,18 +10,18 @@ interface SidebarEvent {
     status: "Ongoing" | "Completed";
 }
 
-interface AnalyticsSidebarProps {
+interface EventsSidebarProps {
     event: SidebarEvent;
-    activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'publish';
+    activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'publish' | 'checkin' | 'certificates' | 'waitlist' | 'breakouts';
 }
 
-export default function AnalyticsSidebar({ event, activePage }: AnalyticsSidebarProps) {
+export default function EventsSidebar({ event, activePage }: EventsSidebarProps) {
     return (
         <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col transition-colors duration-300">
 
             {/* 1. Event Context Card - Fixed height with truncation */}
             <div className="p-4 flex-shrink-0">
-                <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 dark:from-indigo-700 dark:to-indigo-800 rounded-lg p-4 text-white shadow-lg relative overflow-hidden h-[120px]">
+                <div className="bg-gradient-to-br from-[#3D518C] to-[#091540] rounded-lg p-4 text-white shadow-lg relative overflow-hidden h-[120px]">
                     <div className="relative z-10">
                         <h2 className="font-bold text-lg leading-tight line-clamp-2" title={event.name}>{event.name}</h2>
                         <p className="text-xs text-indigo-100 mt-1">{event.date}</p>
@@ -33,7 +33,7 @@ export default function AnalyticsSidebar({ event, activePage }: AnalyticsSidebar
                         </div>
                     </div>
                     {/* Decorative circle */}
-                    <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-indigo-500 rounded-full opacity-50"></div>
+                    <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-white/10 rounded-full"></div>
                 </div>
             </div>
 
@@ -48,9 +48,9 @@ export default function AnalyticsSidebar({ event, activePage }: AnalyticsSidebar
                             <li>
                                 <Link
                                     href={`/events/overview/${event.id}`}
-                                    className={`flex items-center gap-2 text-sm font-medium px-2 py-1.5 -mx-2 rounded-md transition-colors ${activePage === 'overview'
-                                        ? 'text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30'
-                                        : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'overview'
+                                        ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                         }`}
                                 >
                                     <LayoutDashboard size={16} />
@@ -67,25 +67,37 @@ export default function AnalyticsSidebar({ event, activePage }: AnalyticsSidebar
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Order Options</h3>
                         <ul className="space-y-1">
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'tickets'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <Ticket size={16} />
                                     Tickets
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'orderform'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <ClipboardList size={16} />
                                     Order Form
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'confirmation'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <CheckCircle size={16} />
                                     Order Confirmation
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'publish'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <Send size={16} />
                                     Publish Event
                                 </a>
@@ -100,37 +112,55 @@ export default function AnalyticsSidebar({ event, activePage }: AnalyticsSidebar
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Manage Attendees</h3>
                         <ul className="space-y-1">
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'orders'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <Users size={16} />
                                     Manage Orders
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'attendees'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <Mail size={16} />
                                     Email to Attendees
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'checkin'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <UserCheck size={16} />
                                     Check-In
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'certificates'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <Award size={16} />
                                     Certificates
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'waitlist'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <Clock size={16} />
                                     Manage Waitlist
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'breakouts'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <Presentation size={16} />
                                     Manage Breakout Sessions
                                 </a>
@@ -145,7 +175,10 @@ export default function AnalyticsSidebar({ event, activePage }: AnalyticsSidebar
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Reporting</h3>
                         <ul className="space-y-1">
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'reports'
+                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}>
                                     <FileText size={16} />
                                     Event Reports
                                 </a>
@@ -153,9 +186,9 @@ export default function AnalyticsSidebar({ event, activePage }: AnalyticsSidebar
                             <li>
                                 <Link
                                     href={`/events/overview/${event.id}`}
-                                    className={`flex items-center gap-2 text-sm font-medium px-2 py-1.5 -mx-2 rounded-md transition-colors ${activePage === 'analytics'
-                                        ? 'text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30'
-                                        : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'analytics'
+                                        ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                         }`}
                                 >
                                     <BarChart3 size={16} />
