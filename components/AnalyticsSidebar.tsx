@@ -12,9 +12,10 @@ interface SidebarEvent {
 
 interface AnalyticsSidebarProps {
     event: SidebarEvent;
+    activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'publish';
 }
 
-export default function AnalyticsSidebar({ event }: AnalyticsSidebarProps) {
+export default function AnalyticsSidebar({ event, activePage }: AnalyticsSidebarProps) {
     return (
         <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col transition-colors duration-300">
 
@@ -45,10 +46,16 @@ export default function AnalyticsSidebar({ event }: AnalyticsSidebarProps) {
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Event Page</h3>
                         <ul className="space-y-1">
                             <li>
-                                <a href="#" className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 py-1.5 transition-colors">
+                                <Link
+                                    href={`/events/overview/${event.id}`}
+                                    className={`flex items-center gap-2 text-sm font-medium px-2 py-1.5 -mx-2 rounded-md transition-colors ${activePage === 'overview'
+                                        ? 'text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30'
+                                        : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+                                        }`}
+                                >
                                     <LayoutDashboard size={16} />
                                     Overview
-                                </a>
+                                </Link>
                             </li>
                         </ul>
                     </div>
@@ -145,8 +152,11 @@ export default function AnalyticsSidebar({ event }: AnalyticsSidebarProps) {
                             </li>
                             <li>
                                 <Link
-                                    href={`/analytics/${event.id}`}
-                                    className="flex items-center gap-2 text-sm font-medium text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 rounded-md px-2 py-1.5 -mx-2 transition-colors"
+                                    href={`/events/overview/${event.id}`}
+                                    className={`flex items-center gap-2 text-sm font-medium px-2 py-1.5 -mx-2 rounded-md transition-colors ${activePage === 'analytics'
+                                        ? 'text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30'
+                                        : 'text-gray-600 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400'
+                                        }`}
                                 >
                                     <BarChart3 size={16} />
                                     Analytics

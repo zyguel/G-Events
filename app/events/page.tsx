@@ -154,7 +154,7 @@ export default function EventsPage() {
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredEvents.map((event) => (
-                                        <Link key={event.id} href={event.analyticsId ? `/analytics/${event.analyticsId}` : '#'} className="block">
+                                        <Link key={event.id} href={event.analyticsId ? `/events/overview/${event.analyticsId}` : '#'} className="block">
                                             <div className="p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
                                                 <div className="flex items-center justify-between gap-4">
                                                     <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -207,7 +207,7 @@ export default function EventsPage() {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {filteredEvents.map((event) => (
-                                    <Link key={event.id} href={event.analyticsId ? `/analytics/${event.analyticsId}` : '#'} className="block">
+                                    <Link key={event.id} href={event.analyticsId ? `/events/overview/${event.analyticsId}` : '#'} className="block">
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">
                                             <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
                                                 <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
