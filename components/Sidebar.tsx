@@ -36,9 +36,10 @@ const SidebarItem = ({ iconSrc, active = false, alt = "icon", href, label, isExp
 
 interface SidebarProps {
     activePage?: 'dashboard' | 'events' | 'analytics' | 'management' | 'settings' | 'profile';
+    disableExpand?: boolean;
 }
 
-const Sidebar = ({ activePage = 'dashboard' }: SidebarProps) => {
+const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
 
     // Calculate the position of the sliding indicator based on active page
@@ -64,9 +65,9 @@ const Sidebar = ({ activePage = 'dashboard' }: SidebarProps) => {
 
     return (
         <aside
-            className={`fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-6 pb-6 gap-2 z-40 transition-all duration-300 ease-in-out ${isExpanded ? 'w-52' : 'w-20'
+            className={`fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-6 pb-6 gap-2 z-40 transition-all duration-300 ease-in-out ${!disableExpand && isExpanded ? 'w-52' : 'w-20'
                 }`}
-            onMouseEnter={() => setIsExpanded(true)}
+            onMouseEnter={() => !disableExpand && setIsExpanded(true)}
             onMouseLeave={() => setIsExpanded(false)}
         >
             {/* Main navigation items */}

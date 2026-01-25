@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Search, Filter, Plus, Calendar, List, Grid, MoreVertical, Users, Ticket, MapPin } from 'lucide-react';
 
 type FilterOption = 'all' | 'drafts' | 'upcoming' | 'past';
@@ -18,14 +19,15 @@ interface Event {
     status: 'Draft' | 'Upcoming' | 'Live' | 'Completed';
     type: 'draft' | 'upcoming' | 'past';
     image?: string;
+    analyticsId?: string; // Maps to the API event ID for analytics
 }
 
 const eventsData: Event[] = [
-    { id: 1, name: 'Google I/O Extended 2025', location: 'USC MR Hall', date: 'July 20, 2025', ticketsSold: 0, totalTickets: 200, attendees: 0, status: 'Draft', type: 'draft' },
-    { id: 2, name: 'DevFest Cebu 2025', location: 'USC MR Hall', date: 'November 20, 2025', ticketsSold: 150, totalTickets: 350, attendees: 0, status: 'Upcoming', type: 'upcoming' },
-    { id: 3, name: 'DevFest Cebu 2024', location: 'Ayala Center Cebu', date: 'November 25, 2024', ticketsSold: 302, totalTickets: 450, attendees: 290, status: 'Completed', type: 'past' },
-    { id: 4, name: 'Google I/O Cebu 2024', location: 'Ayala Center Cebu', date: 'July 15, 2024', ticketsSold: 210, totalTickets: 350, attendees: 198, status: 'Completed', type: 'past' },
-    { id: 5, name: 'Women Techmakers 2025', location: 'SMX Convention', date: 'March 8, 2025', ticketsSold: 89, totalTickets: 200, attendees: 0, status: 'Upcoming', type: 'upcoming' },
+    { id: 1, name: 'Google I/O Extended 2025', location: 'USC MR Hall', date: 'July 20, 2025', ticketsSold: 0, totalTickets: 200, attendees: 0, status: 'Draft', type: 'draft', analyticsId: 'io-extended-2025' },
+    { id: 2, name: 'DevFest Cebu 2025', location: 'USC MR Hall', date: 'November 20, 2025', ticketsSold: 150, totalTickets: 350, attendees: 0, status: 'Upcoming', type: 'upcoming', analyticsId: 'devfest-2025' },
+    { id: 3, name: 'DevFest Cebu 2024', location: 'Ayala Center Cebu', date: 'November 25, 2024', ticketsSold: 302, totalTickets: 450, attendees: 290, status: 'Completed', type: 'past', analyticsId: 'devfest-2025' },
+    { id: 4, name: 'Google I/O Cebu 2024', location: 'Ayala Center Cebu', date: 'July 15, 2024', ticketsSold: 210, totalTickets: 350, attendees: 198, status: 'Completed', type: 'past', analyticsId: 'io-extended-2025' },
+    { id: 5, name: 'Women Techmakers 2025', location: 'SMX Convention', date: 'March 8, 2025', ticketsSold: 89, totalTickets: 200, attendees: 0, status: 'Upcoming', type: 'upcoming', analyticsId: 'wtm-2025' },
 ];
 
 export default function EventsPage() {
@@ -152,92 +154,96 @@ export default function EventsPage() {
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredEvents.map((event) => (
-                                        <div key={event.id} className="p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
-                                            <div className="flex items-center justify-between gap-4">
-                                                <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
-                                                        {event.name.charAt(0)}
-                                                    </div>
-                                                    <div className="min-w-0">
-                                                        <div className="flex items-center gap-2">
-                                                            <Image
-                                                                src={getStatusIcon(event.status)}
-                                                                alt={event.status}
-                                                                width={18}
-                                                                height={18}
-                                                            />
-                                                            <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
+                                        <Link key={event.id} href={event.analyticsId ? `/analytics/${event.analyticsId}` : '#'} className="block">
+                                            <div className="p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
+                                                <div className="flex items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                                                            {event.name.charAt(0)}
                                                         </div>
-                                                        <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
-                                                            <span className="flex items-center gap-1">
-                                                                <MapPin size={14} /> {event.location}
-                                                            </span>
-                                                            <span className="flex items-center gap-1">
-                                                                <Calendar size={14} /> {event.date}
-                                                            </span>
+                                                        <div className="min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <Image
+                                                                    src={getStatusIcon(event.status)}
+                                                                    alt={event.status}
+                                                                    width={18}
+                                                                    height={18}
+                                                                />
+                                                                <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
+                                                            </div>
+                                                            <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                                <span className="flex items-center gap-1">
+                                                                    <MapPin size={14} /> {event.location}
+                                                                </span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <Calendar size={14} /> {event.date}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                <div className="flex items-center gap-6">
-                                                    <div className="text-center hidden md:block">
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Tickets</p>
-                                                        <p className="font-semibold text-gray-900 dark:text-white">{event.ticketsSold}/{event.totalTickets}</p>
+                                                    <div className="flex items-center gap-6">
+                                                        <div className="text-center hidden md:block">
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Tickets</p>
+                                                            <p className="font-semibold text-gray-900 dark:text-white">{event.ticketsSold}/{event.totalTickets}</p>
+                                                        </div>
+                                                        <div className="text-center hidden md:block">
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Attendees</p>
+                                                            <p className="font-semibold text-gray-900 dark:text-white">{event.attendees}</p>
+                                                        </div>
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
+                                                            {event.status}
+                                                        </span>
+                                                        <button onClick={(e) => e.preventDefault()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                                            <MoreVertical size={18} className="text-gray-400" />
+                                                        </button>
                                                     </div>
-                                                    <div className="text-center hidden md:block">
-                                                        <p className="text-xs text-gray-500 dark:text-gray-400">Attendees</p>
-                                                        <p className="font-semibold text-gray-900 dark:text-white">{event.attendees}</p>
-                                                    </div>
-                                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
-                                                        {event.status}
-                                                    </span>
-                                                    <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                                        <MoreVertical size={18} className="text-gray-400" />
-                                                    </button>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </Link>
                                     ))}
                                 </div>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {filteredEvents.map((event) => (
-                                    <div key={event.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">
-                                        <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
-                                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
-                                            <span className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
-                                                {event.status}
-                                            </span>
-                                        </div>
-                                        <div className="p-5">
-                                            <div className="flex items-center gap-2">
-                                                <Image
-                                                    src={getStatusIcon(event.status)}
-                                                    alt={event.status}
-                                                    width={18}
-                                                    height={18}
-                                                />
-                                                <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
+                                    <Link key={event.id} href={event.analyticsId ? `/analytics/${event.analyticsId}` : '#'} className="block">
+                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">
+                                            <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
+                                                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+                                                <span className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
+                                                    {event.status}
+                                                </span>
                                             </div>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                                                <MapPin size={14} /> {event.location}
-                                            </p>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                                                <Calendar size={14} /> {event.date}
-                                            </p>
-                                            <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                                                <div className="flex items-center gap-1 text-sm">
-                                                    <Ticket size={14} className="text-gray-400" />
-                                                    <span className="text-gray-600 dark:text-gray-300">{event.ticketsSold}/{event.totalTickets}</span>
+                                            <div className="p-5">
+                                                <div className="flex items-center gap-2">
+                                                    <Image
+                                                        src={getStatusIcon(event.status)}
+                                                        alt={event.status}
+                                                        width={18}
+                                                        height={18}
+                                                    />
+                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
                                                 </div>
-                                                <div className="flex items-center gap-1 text-sm">
-                                                    <Users size={14} className="text-gray-400" />
-                                                    <span className="text-gray-600 dark:text-gray-300">{event.attendees} attended</span>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                                    <MapPin size={14} /> {event.location}
+                                                </p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                                    <Calendar size={14} /> {event.date}
+                                                </p>
+                                                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                                    <div className="flex items-center gap-1 text-sm">
+                                                        <Ticket size={14} className="text-gray-400" />
+                                                        <span className="text-gray-600 dark:text-gray-300">{event.ticketsSold}/{event.totalTickets}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-sm">
+                                                        <Users size={14} className="text-gray-400" />
+                                                        <span className="text-gray-600 dark:text-gray-300">{event.attendees} attended</span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    </Link>
                                 ))}
                             </div>
                         )}

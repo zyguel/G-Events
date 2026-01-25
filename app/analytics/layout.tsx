@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import Sidebar from "@/components/Sidebar";
 
 export default function AnalyticsLayout({ children }: { children: React.ReactNode }) {
     return (
@@ -8,13 +7,8 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
             <Header />
 
             <div className="flex flex-1 overflow-hidden">
-                {/* Sidebar */}
-                <Sidebar activePage="analytics" />
-
-                {/* Main Content Area */}
-                <main className="flex-1 ml-20 overflow-y-auto p-8">
-                    {children}
-                </main>
+                {/* Sidebar and Main Content handled by children */}
+                {children}
             </div>
         </div>
     );
