@@ -89,7 +89,7 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                             <li>
                                 <Link
                                     href={`/events/orderconfirmation/${event.id}`}
-                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'confirmation'
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'orderconfirmation'
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                         }`}>
@@ -98,13 +98,16 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                                 </Link>
                             </li>
                             <li>
-                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'publish'
-                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}>
+                                <Link
+                                    href={`/events/publish/${event.id}`}
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'publish'
+                                        ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}
+                                >
                                     <Send size={16} />
                                     Publish Event
-                                </a>
+                                </Link>
                             </li>
                         </ul>
                     </div>

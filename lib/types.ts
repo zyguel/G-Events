@@ -28,6 +28,11 @@ export interface EventData {
     revenueBreakdown: { name: string; value: number; percentage: number }[];
     recentTransactions: { id: string; user: string; type: string; amount: number; date: string; status: string }[];
     topEvents?: { id: string; name: string; registrations: number; revenue: number; satisfaction: number; attendance: number }[];
+    location?: string;
+    description?: string;
+    bannerImage?: string;
+    startTime?: string;
+    endTime?: string;
 }
 
 export interface Comment {
