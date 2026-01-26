@@ -12,7 +12,7 @@ interface SidebarEvent {
 
 interface EventsSidebarProps {
     event: SidebarEvent;
-    activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'publish' | 'checkin' | 'certificates' | 'waitlist' | 'breakouts';
+    activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'publish' | 'checkin' | 'certificates' | 'waitlist' | 'breakouts' | 'orderconfirmation' | 'email-attendees';
 }
 
 export default function EventsSidebar({ event, activePage }: EventsSidebarProps) {
