@@ -14,7 +14,7 @@ interface SidebarItemProps {
 
 const SidebarItem = ({ iconSrc, active = false, alt = "icon", href, label, isExpanded }: SidebarItemProps) => (
     <Link href={href} className="w-full relative z-10">
-        <div className={`flex items-center gap-3 px-3 py-3 rounded-xl cursor-pointer transition-all duration-300 ${active
+        <div className={`flex items-center py-3 rounded-xl cursor-pointer transition-all duration-300 ${isExpanded ? 'gap-3 px-3' : 'justify-center'} ${active
             ? ''
             : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
             <Image
@@ -82,7 +82,7 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
                 <SidebarItem iconSrc="/icons/home.png" alt="Dashboard" href="/dashboard" active={activePage === 'dashboard'} label="Dashboard" isExpanded={isExpanded} />
                 <SidebarItem iconSrc="/icons/calendar.png" alt="Events" href="/events" active={activePage === 'events'} label="Events" isExpanded={isExpanded} />
                 <SidebarItem iconSrc="/icons/bar-chart.png" alt="Analytics" href="/analytics/all" active={activePage === 'analytics'} label="Analytics" isExpanded={isExpanded} />
-                <SidebarItem iconSrc="/icons/team.svg" alt="Management" href="/management" active={activePage === 'management'} label="Management" isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/team.png" alt="Management" href="/management" active={activePage === 'management'} label="Management" isExpanded={isExpanded} />
             </div>
 
             {/* Bottom navigation items */}

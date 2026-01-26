@@ -366,11 +366,11 @@ export default function ManagementPage() {
                                             }`}
                                     >
                                         <Image
-                                            src="/icons/team.png"
+                                            src="/icons/user.png"
                                             alt="Team"
                                             width={16}
                                             height={16}
-                                            className={activeFilter === 'Team' ? '' : 'opacity-60'}
+                                            className={`brightness-0 dark:invert ${activeFilter === 'Team' ? '' : 'opacity-60'}`}
                                         />
                                         Team
                                     </button>
@@ -386,7 +386,7 @@ export default function ManagementPage() {
                                             alt="Role"
                                             width={16}
                                             height={16}
-                                            className={activeFilter === 'Role' ? '' : 'opacity-60'}
+                                            className={`dark:invert ${activeFilter === 'Role' ? '' : 'opacity-60'}`}
                                         />
                                         Roles
                                     </button>
@@ -459,7 +459,7 @@ export default function ManagementPage() {
                                                         alt="Menu"
                                                         width={20}
                                                         height={20}
-                                                        className="opacity-60"
+                                                        className="opacity-60 dark:invert"
                                                     />
                                                 </button>
                                             </div>
@@ -496,7 +496,7 @@ export default function ManagementPage() {
                                                             alt="Menu"
                                                             width={20}
                                                             height={20}
-                                                            className="opacity-60"
+                                                            className="opacity-60 dark:invert"
                                                         />
                                                     </button>
 

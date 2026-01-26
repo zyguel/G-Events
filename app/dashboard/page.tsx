@@ -3,7 +3,6 @@
 import React from 'react';
 import Header from '@/components/Header';
 import Sidebar from '@/components/Sidebar';
-import StatCard from '@/components/StatCard';
 import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -54,32 +53,46 @@ export default function DashboardPage() {
                             </div>
                         </div>
 
-                        {/* KPI Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <StatCard
-                                title="Total Events"
-                                value="24"
-                                growth="12%"
-                                trend="up"
-                            />
-                            <StatCard
-                                title="Active Registrations"
-                                value="1,239"
-                                growth="8%"
-                                trend="up"
-                            />
-                            <StatCard
-                                title="This Month Revenue"
-                                value="$45,620"
-                                growth="15%"
-                                trend="up"
-                            />
-                            <StatCard
-                                title="Avg. Attendance Rate"
-                                value="87%"
-                                growth="3%"
-                                trend="up"
-                            />
+                        {/* Quick Stats Row */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-indigo-100 text-sm font-medium">Next Event</p>
+                                        <h3 className="text-xl font-bold mt-1">DevFest Cebu 2025</h3>
+                                        <p className="text-indigo-200 text-sm mt-2">November 20, 2025</p>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                                        <Calendar size={24} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-emerald-100 text-sm font-medium">Today's Registrations</p>
+                                        <h3 className="text-xl font-bold mt-1">47 new</h3>
+                                        <p className="text-emerald-200 text-sm mt-2">+12% from yesterday</p>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                                        <Users size={24} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-amber-100 text-sm font-medium">Pending Reviews</p>
+                                        <h3 className="text-xl font-bold mt-1">23 applications</h3>
+                                        <p className="text-amber-200 text-sm mt-2">Needs attention</p>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                                        <Clock size={24} />
+                                    </div>
+                                </div>
+                            </div>
                         </div>
 
                         {/* Main Content Grid */}
@@ -150,48 +163,6 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                        </div>
-
-                        {/* Quick Stats Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-indigo-100 text-sm font-medium">Next Event</p>
-                                        <h3 className="text-xl font-bold mt-1">DevFest Cebu 2025</h3>
-                                        <p className="text-indigo-200 text-sm mt-2">November 20, 2025</p>
-                                    </div>
-                                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                                        <Calendar size={24} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-emerald-100 text-sm font-medium">Today's Registrations</p>
-                                        <h3 className="text-xl font-bold mt-1">47 new</h3>
-                                        <p className="text-emerald-200 text-sm mt-2">+12% from yesterday</p>
-                                    </div>
-                                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                                        <Users size={24} />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-amber-100 text-sm font-medium">Pending Reviews</p>
-                                        <h3 className="text-xl font-bold mt-1">23 applications</h3>
-                                        <p className="text-amber-200 text-sm mt-2">Needs attention</p>
-                                    </div>
-                                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                                        <Clock size={24} />
-                                    </div>
-                                </div>
-                            </div>
                         </div>
 
                     </div>
