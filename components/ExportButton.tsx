@@ -49,14 +49,14 @@ export default function ExportButton({ data }: ExportButtonProps) {
         }
     }, [exportedFormat]);
 
-    const handleExport = (format: ExportFormat) => {
+    const handleExport = async (format: ExportFormat) => {
         try {
             switch (format) {
                 case 'csv':
                     exportToCSV(data);
                     break;
                 case 'xlsx':
-                    exportToXLSX(data);
+                    await exportToXLSX(data);
                     break;
                 case 'pdf':
                     exportToPDF(data);

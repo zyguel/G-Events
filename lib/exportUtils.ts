@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -76,58 +76,74 @@ export function exportToCSV(data: ExportData) {
 /**
  * Export data as XLSX (Excel)
  */
-export function exportToXLSX(data: ExportData) {
+export async function exportToXLSX(data: ExportData) {
     const timestamp = getTimestamp();
     const filename = `${data.name.replace(/\s+/g, '_')}_Report_${timestamp}.xlsx`;
 
-    const workbook = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
 
     // Stats Summary Sheet
-    const statsData = [
-        ['Metric', 'Value'],
-        ['Total Events', data.stats.totalEvents],
-        ['Total Registrations', data.stats.registrations],
-        ['Revenue', `$${data.stats.revenue.toLocaleString()}`],
-        ['Expenses', `$${data.stats.expenses.toLocaleString()}`],
-        ['Net Profit', `$${data.stats.netProfit.toLocaleString()}`],
-        ['Satisfaction', `${data.stats.satisfaction}/5`],
+    const statsSheet = workbook.addWorksheet('Stats Summary');
+    statsSheet.columns = [
+        { header: 'Metric', key: 'metric', width: 20 },
+        { header: 'Value', key: 'value', width: 20 }
     ];
-    const statsSheet = XLSX.utils.aoa_to_sheet(statsData);
-    statsSheet['!cols'] = [{ wch: 20 }, { wch: 20 }];
-    XLSX.utils.book_append_sheet(workbook, statsSheet, 'Stats Summary');
+
+    const statsData = [
+        { metric: 'Total Events', value: data.stats.totalEvents },
+        { metric: 'Total Registrations', value: data.stats.registrations },
+        { metric: 'Revenue', value: `$${data.stats.revenue.toLocaleString()}` },
+        { metric: 'Expenses', value: `$${data.stats.expenses.toLocaleString()}` },
+        { metric: 'Net Profit', value: `$${data.stats.netProfit.toLocaleString()}` },
+        { metric: 'Satisfaction', value: `${data.stats.satisfaction}/5` },
+    ];
+
+    statsSheet.addRows(statsData);
+    statsSheet.getRow(1).font = { bold: true };
 
     // Revenue Breakdown Sheet
-    const revenueData = [
-        ['Source', 'Amount', 'Percentage'],
-        ...data.revenueBreakdown.map(item => [
-            item.name,
-            `$${item.value.toLocaleString()}`,
-            `${item.percentage}%`
-        ])
+    const revenueSheet = workbook.addWorksheet('Revenue Breakdown');
+    revenueSheet.columns = [
+        { header: 'Source', key: 'name', width: 20 },
+        { header: 'Amount', key: 'value', width: 15 },
+        { header: 'Percentage', key: 'percentage', width: 12 }
     ];
-    const revenueSheet = XLSX.utils.aoa_to_sheet(revenueData);
-    revenueSheet['!cols'] = [{ wch: 20 }, { wch: 15 }, { wch: 12 }];
-    XLSX.utils.book_append_sheet(workbook, revenueSheet, 'Revenue Breakdown');
+
+    const revenueData = data.revenueBreakdown.map(item => ({
+        name: item.name,
+        value: `$${item.value.toLocaleString()}`,
+        percentage: `${item.percentage}%`
+    }));
+
+    revenueSheet.addRows(revenueData);
+    revenueSheet.getRow(1).font = { bold: true };
 
     // Transactions Sheet
-    const txData = [
-        ['ID', 'User', 'Type', 'Amount', 'Date', 'Status'],
-        ...data.recentTransactions.map(tx => [
-            tx.id,
-            tx.user,
-            tx.type,
-            `$${tx.amount.toLocaleString()}`,
-            tx.date,
-            tx.status
-        ])
+    const txSheet = workbook.addWorksheet('Transactions');
+    txSheet.columns = [
+        { header: 'ID', key: 'id', width: 12 },
+        { header: 'User', key: 'user', width: 18 },
+        { header: 'Type', key: 'type', width: 15 },
+        { header: 'Amount', key: 'amount', width: 12 },
+        { header: 'Date', key: 'date', width: 12 },
+        { header: 'Status', key: 'status', width: 10 }
     ];
-    const txSheet = XLSX.utils.aoa_to_sheet(txData);
-    txSheet['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 15 }, { wch: 12 }, { wch: 12 }, { wch: 10 }];
-    XLSX.utils.book_append_sheet(workbook, txSheet, 'Transactions');
+
+    const txData = data.recentTransactions.map(tx => ({
+        id: tx.id,
+        user: tx.user,
+        type: tx.type,
+        amount: `$${tx.amount.toLocaleString()}`,
+        date: tx.date,
+        status: tx.status
+    }));
+
+    txSheet.addRows(txData);
+    txSheet.getRow(1).font = { bold: true };
 
     // Generate file
-    const xlsxBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-    const blob = new Blob([xlsxBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     downloadFile(blob, filename);
 }
 
