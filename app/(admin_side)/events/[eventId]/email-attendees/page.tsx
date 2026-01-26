@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import EventsSidebar from '@/components/admin/EventsSidebar';
-import { Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, Indent, List, Image, Link2, Mail, Filter, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw } from 'lucide-react';
+import { Mail, Filter, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
+import RichTextEditor from '@/components/admin/RichTextEditor';
 
 // Toast notification component
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
@@ -254,7 +255,7 @@ const TimeInputWithPicker = ({ value, onChange }: { value: string; onChange: (va
 export default function EmailAttendeesPage() {
     const params = useParams();
     const eventId = params.eventId as string;
-    const editorRef = useRef<HTMLDivElement>(null);
+    // const editorRef = useRef<HTMLDivElement>(null); // Removed ref
 
     const [activeTab, setActiveTab] = useState<'create' | 'emails'>('create');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -292,12 +293,14 @@ export default function EmailAttendeesPage() {
 
     // Email composer states
     const [emailSubject, setEmailSubject] = useState('');
+    const [emailBody, setEmailBody] = useState(''); // New state for RichTextEditor
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
 
     // Save options states
     const [scheduleOption, setScheduleOption] = useState<'immediately' | 'later'>('immediately');
     const [sendOption, setSendOption] = useState<'preview' | 'attendees'>('preview');
+    const [isFiltersExpanded, setIsFiltersExpanded] = useState(true);
 
     // Sent emails list
     const [sentEmails, setSentEmails] = useState<SentEmail[]>([
@@ -319,13 +322,6 @@ export default function EmailAttendeesPage() {
         }
     ]);
 
-    // Active formatting states
-    const [activeFormats, setActiveFormats] = useState({
-        bold: false,
-        italic: false,
-        underline: false,
-        strikethrough: false,
-    });
 
     // Calculate attendees count based on filters
     const getAttendeesCount = () => {
@@ -376,36 +372,13 @@ export default function EmailAttendeesPage() {
             breakoutSession: newValue,
         });
     };
-
-    // Execute formatting command
-    const execCommand = (command: string, value?: string) => {
-        document.execCommand(command, false, value);
-        editorRef.current?.focus();
-        updateActiveFormats();
-    };
-
-    // Update active format states based on selection
-    const updateActiveFormats = () => {
-        setActiveFormats({
-            bold: document.queryCommandState('bold'),
-            italic: document.queryCommandState('italic'),
-            underline: document.queryCommandState('underline'),
-            strikethrough: document.queryCommandState('strikeThrough'),
-        });
-    };
-
-    // Handle editor selection change
-    const handleSelectionChange = () => {
-        updateActiveFormats();
-    };
-
     // Validate form
     const validateForm = () => {
         if (!emailSubject.trim()) {
             setToast({ message: 'Please enter an email subject', type: 'error' });
             return false;
         }
-        if (!editorRef.current?.innerHTML || editorRef.current.innerHTML === '<br>') {
+        if (!emailBody || emailBody === '<p></p>' || emailBody.trim() === '') {
             setToast({ message: 'Please enter email content', type: 'error' });
             return false;
         }
@@ -426,7 +399,7 @@ export default function EmailAttendeesPage() {
         const draft: SentEmail = {
             id: Date.now().toString(),
             subject: emailSubject,
-            body: editorRef.current?.innerHTML || '',
+            body: emailBody,
             recipientCount: getAttendeesCount(),
             sentAt: new Date(),
             status: 'draft'
@@ -448,7 +421,7 @@ export default function EmailAttendeesPage() {
         const newEmail: SentEmail = {
             id: Date.now().toString(),
             subject: emailSubject,
-            body: editorRef.current?.innerHTML || '',
+            body: emailBody,
             recipientCount: getAttendeesCount(),
             sentAt: new Date(),
             status: scheduleOption === 'later' ? 'scheduled' : 'sent',
@@ -467,7 +440,7 @@ export default function EmailAttendeesPage() {
 
         // Reset form
         setEmailSubject('');
-        if (editorRef.current) editorRef.current.innerHTML = '';
+        setEmailBody('');
         setScheduledDate('');
         setScheduledTime('');
         setIsLoading(false);
@@ -482,7 +455,7 @@ export default function EmailAttendeesPage() {
     // Load draft into editor
     const handleLoadDraft = (email: SentEmail) => {
         setEmailSubject(email.subject);
-        if (editorRef.current) editorRef.current.innerHTML = email.body;
+        setEmailBody(email.body);
         setActiveTab('create');
         setToast({ message: 'Draft loaded into editor', type: 'info' });
     };
@@ -597,64 +570,76 @@ export default function EmailAttendeesPage() {
                                 {/* Email Filters Section */}
                                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
                                     <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                                                <Filter className="w-5 h-5 text-white" />
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                                                    <Filter className="w-5 h-5 text-white" />
+                                                </div>
+                                                <div>
+                                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                                        Email Filters
+                                                    </h2>
+                                                    <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Select who should receive this email</p>
+                                                </div>
                                             </div>
-                                            <div>
-                                                <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                    Email Filters
-                                                </h2>
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Select who should receive this email</p>
-                                            </div>
+                                            <button
+                                                onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+                                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
+                                            >
+                                                <ChevronDown
+                                                    className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${isFiltersExpanded ? 'rotate-180' : ''}`}
+                                                />
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <div className="p-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                            {/* Select Ticket Type */}
-                                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
-                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                                    <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
-                                                    Ticket Type
-                                                </h3>
-                                                <div className="space-y-1">
-                                                    <Checkbox label="Select All" checked={ticketTypes.selectAll} onChange={handleTicketSelectAll} />
-                                                    <Checkbox label="General Admission" checked={ticketTypes.generalAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, generalAdmission: !prev.generalAdmission, selectAll: false }))} />
-                                                    <Checkbox label="Premium Admission" checked={ticketTypes.premiumAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, premiumAdmission: !prev.premiumAdmission, selectAll: false }))} />
+                                    {isFiltersExpanded && (
+                                        <div className="p-6 animate-slide-up">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                                {/* Select Ticket Type */}
+                                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
+                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                                        <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
+                                                        Ticket Type
+                                                    </h3>
+                                                    <div className="space-y-1">
+                                                        <Checkbox label="Select All" checked={ticketTypes.selectAll} onChange={handleTicketSelectAll} />
+                                                        <Checkbox label="General Admission" checked={ticketTypes.generalAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, generalAdmission: !prev.generalAdmission, selectAll: false }))} />
+                                                        <Checkbox label="Premium Admission" checked={ticketTypes.premiumAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, premiumAdmission: !prev.premiumAdmission, selectAll: false }))} />
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Select Status */}
-                                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
-                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                                                    Status
-                                                </h3>
-                                                <div className="space-y-1">
-                                                    <Checkbox label="Select All" checked={statuses.selectAll} onChange={handleStatusSelectAll} />
-                                                    <Checkbox label="Pending" checked={statuses.pending} onChange={() => setStatuses(prev => ({ ...prev, pending: !prev.pending, selectAll: false }))} />
-                                                    <Checkbox label="Confirmed" checked={statuses.confirmed} onChange={() => setStatuses(prev => ({ ...prev, confirmed: !prev.confirmed, selectAll: false }))} />
-                                                    <Checkbox label="Attended" checked={statuses.attended} onChange={() => setStatuses(prev => ({ ...prev, attended: !prev.attended, selectAll: false }))} />
-                                                    <Checkbox label="Not Attended" checked={statuses.notAttended} onChange={() => setStatuses(prev => ({ ...prev, notAttended: !prev.notAttended, selectAll: false }))} />
-                                                    <Checkbox label="Waitlisted" checked={statuses.waitlisted} onChange={() => setStatuses(prev => ({ ...prev, waitlisted: !prev.waitlisted, selectAll: false }))} />
+                                                {/* Select Status */}
+                                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
+                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                                                        Status
+                                                    </h3>
+                                                    <div className="space-y-1">
+                                                        <Checkbox label="Select All" checked={statuses.selectAll} onChange={handleStatusSelectAll} />
+                                                        <Checkbox label="Pending" checked={statuses.pending} onChange={() => setStatuses(prev => ({ ...prev, pending: !prev.pending, selectAll: false }))} />
+                                                        <Checkbox label="Confirmed" checked={statuses.confirmed} onChange={() => setStatuses(prev => ({ ...prev, confirmed: !prev.confirmed, selectAll: false }))} />
+                                                        <Checkbox label="Attended" checked={statuses.attended} onChange={() => setStatuses(prev => ({ ...prev, attended: !prev.attended, selectAll: false }))} />
+                                                        <Checkbox label="Not Attended" checked={statuses.notAttended} onChange={() => setStatuses(prev => ({ ...prev, notAttended: !prev.notAttended, selectAll: false }))} />
+                                                        <Checkbox label="Waitlisted" checked={statuses.waitlisted} onChange={() => setStatuses(prev => ({ ...prev, waitlisted: !prev.waitlisted, selectAll: false }))} />
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Select Attendance Type */}
-                                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
-                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                                    <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-                                                    Attendance Type
-                                                </h3>
-                                                <div className="space-y-1">
-                                                    <Checkbox label="Select All" checked={attendanceTypes.selectAll} onChange={handleAttendanceSelectAll} />
-                                                    <Checkbox label="Main Event" checked={attendanceTypes.mainEvent} onChange={() => setAttendanceTypes(prev => ({ ...prev, mainEvent: !prev.mainEvent, selectAll: false }))} />
-                                                    <Checkbox label="Breakout Session" checked={attendanceTypes.breakoutSession} onChange={() => setAttendanceTypes(prev => ({ ...prev, breakoutSession: !prev.breakoutSession, selectAll: false }))} />
+                                                {/* Select Attendance Type */}
+                                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
+                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                                        <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                                                        Attendance Type
+                                                    </h3>
+                                                    <div className="space-y-1">
+                                                        <Checkbox label="Select All" checked={attendanceTypes.selectAll} onChange={handleAttendanceSelectAll} />
+                                                        <Checkbox label="Main Event" checked={attendanceTypes.mainEvent} onChange={() => setAttendanceTypes(prev => ({ ...prev, mainEvent: !prev.mainEvent, selectAll: false }))} />
+                                                        <Checkbox label="Breakout Session" checked={attendanceTypes.breakoutSession} onChange={() => setAttendanceTypes(prev => ({ ...prev, breakoutSession: !prev.breakoutSession, selectAll: false }))} />
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
+                                    )}
                                 </div>
 
                                 {/* Email Composer Section */}
@@ -689,101 +674,11 @@ export default function EmailAttendeesPage() {
                                         {/* Rich Text Editor */}
                                         <div className="space-y-2">
                                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Body <span className="text-red-500">*</span></label>
-                                            <div className="border border-gray-200 dark:border-gray-600 rounded-xl overflow-hidden bg-white dark:bg-gray-900">
-                                                {/* Toolbar */}
-                                                <div className="flex flex-wrap items-center gap-0.5 p-3 bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-                                                    {/* Font Size Dropdown */}
-                                                    <select
-                                                        className="px-3 py-1.5 text-xs bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                        onChange={(e) => execCommand('fontSize', e.target.value)}
-                                                    >
-                                                        <option value="3">14px</option>
-                                                        <option value="4">16px</option>
-                                                        <option value="5">18px</option>
-                                                        <option value="6">24px</option>
-                                                        <option value="7">32px</option>
-                                                    </select>
-
-                                                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-2" />
-
-                                                    {/* Formatting Buttons */}
-                                                    <button
-                                                        onClick={() => execCommand('bold')}
-                                                        className={`p-2 rounded-lg transition-colors ${activeFormats.bold ? 'bg-[#3D518C] text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500'}`}
-                                                    >
-                                                        <Bold size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => execCommand('italic')}
-                                                        className={`p-2 rounded-lg transition-colors ${activeFormats.italic ? 'bg-[#3D518C] text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500'}`}
-                                                    >
-                                                        <Italic size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => execCommand('underline')}
-                                                        className={`p-2 rounded-lg transition-colors ${activeFormats.underline ? 'bg-[#3D518C] text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500'}`}
-                                                    >
-                                                        <Underline size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => execCommand('strikeThrough')}
-                                                        className={`p-2 rounded-lg transition-colors ${activeFormats.strikethrough ? 'bg-[#3D518C] text-white' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500'}`}
-                                                    >
-                                                        <Strikethrough size={16} />
-                                                    </button>
-
-                                                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-2" />
-
-                                                    {/* Alignment Buttons */}
-                                                    <button onClick={() => execCommand('justifyLeft')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors">
-                                                        <AlignLeft size={16} />
-                                                    </button>
-                                                    <button onClick={() => execCommand('justifyCenter')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors">
-                                                        <AlignCenter size={16} />
-                                                    </button>
-                                                    <button onClick={() => execCommand('justifyRight')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors">
-                                                        <AlignRight size={16} />
-                                                    </button>
-                                                    <button onClick={() => execCommand('justifyFull')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors">
-                                                        <AlignJustify size={16} />
-                                                    </button>
-
-                                                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-2" />
-
-                                                    {/* List Buttons */}
-                                                    <button onClick={() => execCommand('indent')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors">
-                                                        <Indent size={16} />
-                                                    </button>
-                                                    <button onClick={() => execCommand('insertUnorderedList')} className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors">
-                                                        <List size={16} />
-                                                    </button>
-
-                                                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-600 mx-2" />
-
-                                                    {/* Link Button */}
-                                                    <button
-                                                        onClick={() => {
-                                                            const url = prompt('Enter URL:');
-                                                            if (url) execCommand('createLink', url);
-                                                        }}
-                                                        className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 transition-colors"
-                                                    >
-                                                        <Link2 size={16} />
-                                                    </button>
-                                                </div>
-
-                                                {/* Editable Content Area */}
-                                                <div
-                                                    ref={editorRef}
-                                                    contentEditable
-                                                    onSelect={handleSelectionChange}
-                                                    onKeyUp={handleSelectionChange}
-                                                    onMouseUp={handleSelectionChange}
-                                                    className="w-full min-h-[250px] p-5 bg-white dark:bg-gray-900 text-sm text-gray-700 dark:text-gray-300 focus:outline-none leading-relaxed"
-                                                    style={{ whiteSpace: 'pre-wrap' }}
-                                                    data-placeholder="Start typing your email content here..."
-                                                />
-                                            </div>
+                                            <RichTextEditor
+                                                content={emailBody}
+                                                onChange={setEmailBody}
+                                                placeholder="Start typing your email content here..."
+                                            />
                                         </div>
                                     </div>
                                 </div>
