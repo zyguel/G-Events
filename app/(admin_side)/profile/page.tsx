@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import Header from '@/components/Header';
-import Sidebar from '@/components/Sidebar';
+import Header from '@/components/admin/Header';
+import Sidebar from '@/components/admin/Sidebar';
 import { Camera, Mail, Phone, MapPin, Calendar, Briefcase, Edit3, Shield, Award } from 'lucide-react';
 
 export default function ProfilePage() {

@@ -2,9 +2,9 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import Header from '@/components/Header';
-import Sidebar from '@/components/Sidebar';
-import EventsSidebar from '@/components/EventsSidebar';
+import Header from '@/components/admin/Header';
+import Sidebar from '@/components/admin/Sidebar';
+import EventsSidebar from '@/components/admin/EventsSidebar';
 import { Bold, Italic, Underline, Strikethrough, AlignLeft, AlignCenter, AlignRight, AlignJustify, Indent, List, Image, Link2, Mail, Filter, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw } from 'lucide-react';
 
 // Toast notification component

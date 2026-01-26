@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { getEventData } from "@/lib/api";
-import Header from "@/components/Header";
-import Sidebar from "@/components/Sidebar";
-import EventsSidebar from "@/components/EventsSidebar";
-import OrderConfirmation from "@/components/OrderConfirmation";
+import Header from "@/components/admin/Header";
+import Sidebar from "@/components/admin/Sidebar";
+import EventsSidebar from "@/components/admin/EventsSidebar";
+import OrderConfirmation from "@/components/admin/OrderConfirmation";
 
 export default async function OrderConfirmationPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;

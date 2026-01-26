@@ -1,7 +1,7 @@
 "use client";
 
-import EventSelector from "@/components/EventSelector";
-import ExportButton from "@/components/ExportButton";
+import EventSelector from "@/components/admin/EventSelector";
+import ExportButton from "@/components/admin/ExportButton";
 import { useState } from "react";
 
 interface EventOption {

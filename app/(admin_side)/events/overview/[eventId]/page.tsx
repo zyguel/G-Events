@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
 import { getEventData } from "@/lib/api";
-import Header from "@/components/Header";
-import Sidebar from "@/components/Sidebar";
-import EventsSidebar from "@/components/EventsSidebar";
-import EventOverview from "@/components/EventOverview";
+import Header from "@/components/admin/Header";
+import Sidebar from "@/components/admin/Sidebar";
+import EventsSidebar from "@/components/admin/EventsSidebar";
+import EventOverview from "@/components/admin/EventOverview";
 
 export default async function EventOverviewPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;

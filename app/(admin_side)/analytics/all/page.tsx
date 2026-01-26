@@ -1,9 +1,9 @@
 import React from 'react';
-import Header from '@/components/Header';
-import Sidebar from '@/components/Sidebar';
-import StatCard from '@/components/StatCard';
-import DashboardTabs from '@/components/DashboardTabs';
-import AnalyticsHeader from '@/components/AnalyticsHeader';
+import Header from '@/components/admin/Header';
+import Sidebar from '@/components/admin/Sidebar';
+import StatCard from '@/components/admin/StatCard';
+import DashboardTabs from '@/components/admin/DashboardTabs';
+import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
 import { getAggregatedData, getAllEvents } from '@/lib/api';
 
 export default async function AggregatedAnalyticsPage() {
