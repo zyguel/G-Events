@@ -11,14 +11,12 @@ interface SidebarEvent {
 }
 
 
+
 interface EventsSidebarProps {
     event: SidebarEvent;
-<<<<<<< Updated upstream:components/admin/EventsSidebar.tsx
     activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'orderconfirmation' | 'email-attendees' | 'publish' | 'checkin' | 'certificates' | 'waitlist' | 'breakouts';
-=======
-    activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'email-attendees' | 'publish' | 'checkin' | 'certificates' | 'waitlist' | 'breakouts';
->>>>>>> Stashed changes:components/EventsSidebar.tsx
 }
+
 
 
 export default function EventsSidebar({ event, activePage }: EventsSidebarProps) {

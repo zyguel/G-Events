@@ -1,9 +1,6 @@
 @import "tailwindcss";
-<<<<<<< Updated upstream
 /* Enable class-based dark mode for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
-=======
->>>>>>> Stashed changes
 
 :root {
   --background: #ffffff;
