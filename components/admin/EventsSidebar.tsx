@@ -13,7 +13,11 @@ interface SidebarEvent {
 
 interface EventsSidebarProps {
     event: SidebarEvent;
+<<<<<<< Updated upstream:components/admin/EventsSidebar.tsx
     activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'orderconfirmation' | 'email-attendees' | 'publish' | 'checkin' | 'certificates' | 'waitlist' | 'breakouts';
+=======
+    activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'email-attendees' | 'publish' | 'checkin' | 'certificates' | 'waitlist' | 'breakouts';
+>>>>>>> Stashed changes:components/EventsSidebar.tsx
 }
 
 
@@ -89,7 +93,7 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                             <li>
                                 <Link
                                     href={`/events/orderconfirmation/${event.id}`}
-                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'orderconfirmation'
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'confirmation'
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                         }`}>
