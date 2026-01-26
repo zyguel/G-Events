@@ -192,7 +192,7 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                             </li>
                             <li>
                                 <Link
-                                    href={`/events/overview/${event.id}`}
+                                    href={`/analytics/${event.id}`}
                                     className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'analytics'
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
