@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil } from "lucide-react";
+import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List } from "lucide-react";
 import Modal from "./Modal";
 import Image from "next/image";
 
@@ -203,162 +203,264 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     // ... existing handlers ...
 
     return (
-        <div className="max-w-3xl mx-auto p-6 space-y-6 pb-20 animate-in fade-in duration-500 font-sans text-gray-900 dark:text-gray-100">
+        <div className="max-w-5xl mx-auto p-8 space-y-8 pb-20 animate-in fade-in duration-500 font-sans text-gray-900 dark:text-gray-100">
+
+            {/* Page Header */}
+            <div className="flex items-center gap-4">
+                <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                    <Calendar className="w-7 h-7 text-white" />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        Event Overview
+                    </h1>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                        Manage your event details, schedule, and content
+                    </p>
+                </div>
+            </div>
 
             {/* 1. Banner */}
-            <div className="relative w-full aspect-[21/9] bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm group">
-                {event.bannerUrl ? (
-                    <div className="absolute inset-0">
-                        <Image
-                            src={event.bannerUrl}
-                            alt="Event Banner"
-                            fill
-                            className="object-cover"
-                        />
-                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-colors" />
-                    </div>
-                ) : (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                        <div
-                            onClick={() => setActiveModal('banner')}
-                            className="w-64 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col items-center gap-3 cursor-pointer hover:shadow-md hover:scale-105 transition-all"
-                        >
-                            <Upload className="text-indigo-600 dark:text-indigo-400" size={24} />
-                            <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 text-center leading-tight">
-                                Upload event banner image
-                            </span>
+            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md group/card">
+                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
+                            <ImageIcon className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                Event Banner
+                            </h2>
+                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
+                                The main visual representation of your event
+                            </p>
                         </div>
                     </div>
-                )}
+                    {event.bannerUrl && (
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleDeleteBanner}
+                                className="p-2 bg-white/80 dark:bg-gray-800/80 rounded-lg text-red-500 hover:text-red-700 shadow-sm hover:scale-105 transition-all"
+                                title="Delete Banner"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                            <button
+                                onClick={() => setActiveModal('banner')}
+                                className="p-2 bg-white/80 dark:bg-gray-800/80 rounded-lg text-indigo-600 dark:text-indigo-400 shadow-sm hover:scale-105 transition-all"
+                                title="Change Banner"
+                            >
+                                <Pencil size={16} />
+                            </button>
+                        </div>
+                    )}
+                </div>
 
-                {/* Actions: Delete and Edit */}
-                {event.bannerUrl && (
-                    <div className="absolute top-4 right-4 flex gap-2 z-20">
-                        <button
-                            onClick={handleDeleteBanner}
-                            className="p-2 bg-white/80 dark:bg-gray-800/80 rounded-full text-red-500 hover:text-red-700 shadow-sm hover:scale-110 transition-transform"
-                            title="Delete Banner"
-                        >
-                            <Trash2 size={18} />
-                        </button>
-                        <button
-                            onClick={() => setActiveModal('banner')}
-                            className="p-2 bg-white/80 dark:bg-gray-800/80 rounded-full text-indigo-600 dark:text-indigo-400 shadow-sm hover:scale-110 transition-transform"
-                            title="Change Banner"
-                        >
-                            <Plus size={18} />
-                        </button>
+                <div className="p-6">
+                    <div className="relative w-full aspect-[21/9] bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-inner group">
+                        {event.bannerUrl ? (
+                            <div className="absolute inset-0">
+                                <Image
+                                    src={event.bannerUrl!}
+                                    alt="Event Banner"
+                                    fill
+                                    className="object-cover"
+                                />
+                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+                            </div>
+                        ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                                <div
+                                    onClick={() => setActiveModal('banner')}
+                                    className="w-64 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col items-center gap-3 cursor-pointer hover:shadow-md hover:scale-105 transition-all border border-dashed border-gray-300 dark:border-gray-600"
+                                >
+                                    <Upload className="text-indigo-600 dark:text-indigo-400" size={24} />
+                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 text-center leading-tight">
+                                        Upload event banner image
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
+                </div>
+            </section>
 
-            {/* 2. Title */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-200 dark:border-gray-700 shadow-sm relative group">
-                {event.name && (
-                    <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 font-sans">
-                        Event Title
-                    </span>
-                )}
-                <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-2">
-                    {event.name || <span className="opacity-50">Event Title</span>}
-                </h1>
-                <p className="text-gray-500 dark:text-gray-400 font-medium italic">
-                    {event.subtitle}
-                </p>
-                <button
-                    onClick={() => setActiveModal('title')}
-                    className="absolute top-6 right-6 p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"
-                >
-                    <Plus size={20} />
-                </button>
-            </div>
+            {/* 2. Title & Details */}
+            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md relative">
+                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                            <Type className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                Event Details
+                            </h2>
+                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
+                                Basic information about your event
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setActiveModal('title')}
+                        className="p-2 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50"
+                    >
+                        <Pencil size={20} />
+                    </button>
+                </div>
+
+                <div className="p-8">
+                    <div className="space-y-2">
+                        {event.name && (
+                            <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 font-sans">
+                                Event Title
+                            </span>
+                        )}
+                        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
+                            {event.name || <span className="opacity-50">Event Title</span>}
+                        </h1>
+                        <p className="text-lg text-gray-500 dark:text-gray-400 font-medium italic">
+                            {event.subtitle}
+                        </p>
+                    </div>
+                </div>
+            </section>
 
             {/* 3. Date & Location */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-200 dark:border-gray-700 shadow-sm relative">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-700 align-top">
-                    <div className="space-y-3">
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Date and Time</h2>
-                        <div className="flex items-start gap-3">
-                            <div className="mt-1">
-                                <Calendar className="text-indigo-500" size={20} />
-                            </div>
-                            <div className="flex flex-col">
+            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center">
+                            <MapPin className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                Date & Location
+                            </h2>
+                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
+                                When and where the event will take place
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        onClick={() => setActiveModal('dateLocation')}
+                        className="p-2 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50"
+                    >
+                        <Pencil size={20} />
+                    </button>
+                </div>
+
+                <div className="p-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-700 align-top">
+                        <div className="space-y-4">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <Clock className="text-[#3D518C]" size={18} /> Time & Date
+                            </h2>
+                            <div className="flex flex-col pl-7">
                                 {event.date ? (
-                                    <span className="text-base font-semibold text-gray-900 dark:text-white">{formatDateDisplay(event.date)}</span>
+                                    <span className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">{formatDateDisplay(event.date)}</span>
                                 ) : (
-                                    <span className="text-base font-medium text-gray-400 italic">Date TBD</span>
+                                    <span className="text-xl font-medium text-gray-400 italic">Date TBD</span>
                                 )}
-                                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-0.5">
+                                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
                                     {formatTimeDisplay(event.startTime || "")} - {formatTimeDisplay(event.endTime || "")} PST
                                 </span>
                             </div>
                         </div>
-                    </div>
-                    <div className="md:pl-8 pt-6 md:pt-0 space-y-3">
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white">Location</h2>
-                        <div className="flex items-start gap-3">
-                            <div className="mt-1">
-                                <MapPin className="text-red-500" size={20} />
-                            </div>
-                            <div className="text-base text-gray-600 dark:text-gray-300 font-medium">
+                        <div className="md:pl-8 pt-6 md:pt-0 space-y-4">
+                            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                <MapPin className="text-[#3D518C]" size={18} /> Venue
+                            </h2>
+                            <div className="text-lg text-gray-700 dark:text-gray-300 font-medium pl-7">
                                 {event.location || <span className="text-gray-400 italic">No location set</span>}
                             </div>
                         </div>
                     </div>
                 </div>
-                <button
-                    onClick={() => setActiveModal('dateLocation')}
-                    className="absolute top-6 right-6 p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"
-                >
-                    <Plus size={20} />
-                </button>
-            </div>
+            </section>
 
             {/* 4. Overview */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-200 dark:border-gray-700 shadow-sm relative">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Overview</h2>
-                {event.description ? (
-                    <div className="space-y-4">
-                        <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">
-                            {event.description}
-                        </p>
-                        {event.theme && (
-                            <div className="mt-4">
-                                <span className="text-sm font-semibold text-gray-900 dark:text-white block mb-1">Theme</span>
-                                <span className="text-sm text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded inline-block">
-                                    {event.theme}
-                                </span>
-                            </div>
-                        )}
-                        {event.objectives && event.objectives.length > 0 && (
-                            <div className="mt-4">
-                                <span className="text-sm font-semibold text-gray-900 dark:text-white block mb-2">Objectives</span>
-                                <ul className="space-y-1">
-                                    {event.objectives.map((obj, i) => (
-                                        <li key={i} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0" />
-                                            {obj}
-                                        </li>
-                                    ))}
-                                </ul>
-                            </div>
-                        )}
+            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-xl flex items-center justify-center">
+                            <AlignLeft className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                Overview
+                            </h2>
+                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
+                                Detailed description and objectives
+                            </p>
+                        </div>
                     </div>
-                ) : (
-                    <p className="text-gray-400 italic">No overview added yet. Click the + button to add details.</p>
-                )}
-                <button
-                    onClick={() => setActiveModal('overview')}
-                    className="absolute top-6 right-6 p-1.5 text-gray-400 hover:text-indigo-600 transition-colors"
-                >
-                    <Plus size={20} />
-                </button>
-            </div>
+                    <button
+                        onClick={() => setActiveModal('overview')}
+                        className="p-2 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50"
+                    >
+                        <Pencil size={20} />
+                    </button>
+                </div>
+
+                <div className="p-8">
+                    {event.description ? (
+                        <div className="space-y-6">
+                            <div className="prose dark:prose-invert max-w-none">
+                                <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line text-base">
+                                    {event.description}
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                {event.theme && (
+                                    <div>
+                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Theme</span>
+                                        <span className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium">
+                                            {event.theme}
+                                        </span>
+                                    </div>
+                                )}
+
+                                {event.objectives && event.objectives.length > 0 && (
+                                    <div className="flex-1 min-w-[200px]">
+                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Key Objectives</span>
+                                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {event.objectives.map((obj, i) => (
+                                                <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
+                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5" />
+                                                    {obj}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8">
+                            <p className="text-gray-400 italic">No overview added yet.</p>
+                        </div>
+                    )}
+                </div>
+            </section>
 
             {/* 5. Agenda */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-200 dark:border-gray-700 shadow-sm relative">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Agenda</h2>
+            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-violet-500 to-fuchsia-500 rounded-xl flex items-center justify-center">
+                            <List className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                Agenda
+                            </h2>
+                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
+                                Schedule of activities
+                            </p>
+                        </div>
+                    </div>
                     {event.agenda.length > 0 && (
                         <button
                             onClick={() => {
@@ -366,92 +468,106 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                                 setEditingAgendaId(null);
                                 setActiveModal('agenda');
                             }}
-                            className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors font-sans"
+                            className="text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-md px-4 py-2 rounded-lg transition-all transform hover:-translate-y-0.5 font-sans"
                         >
                             + Add Item
                         </button>
                     )}
                 </div>
 
-                {event.agenda.length > 0 ? (
-                    <div className="space-y-2">
-                        {[...event.agenda]
-                            .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
-                            .map((slot, i) => (
-                                <div key={i} className="flex gap-4 py-3 px-4 rounded-lg border border-gray-100 dark:border-gray-700 hover:border-indigo-100 dark:hover:border-indigo-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors bg-white dark:bg-gray-800/50 group/item">
-                                    <div className="min-w-[140px] text-sm font-semibold text-indigo-600 dark:text-indigo-400 pt-0.5 whitespace-nowrap">
-                                        {formatTimeDisplay(slot.startTime)}
-                                        {slot.endTime && ` - ${formatTimeDisplay(slot.endTime)}`}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-baseline justify-between gap-2">
-                                            <h3 className="font-bold text-gray-900 dark:text-white text-base truncate">{slot.title}</h3>
-                                            <div className="flex items-center gap-2">
-                                                {slot.speaker && (
-                                                    <div className="flex items-center gap-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 flex-shrink-0 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-md">
-                                                        <Users size={14} className="text-gray-500 dark:text-gray-400" />
-                                                        <span className="truncate max-w-[150px]">{slot.speaker}</span>
-                                                    </div>
-                                                )}
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEditAgendaItem(slot);
-                                                    }}
-                                                    className="text-gray-400 hover:text-indigo-500 transition-colors p-1 opacity-0 group-hover/item:opacity-100"
-                                                    title="Edit Item"
-                                                >
-                                                    <Pencil size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        setEvent(prev => ({
-                                                            ...prev,
-                                                            agenda: prev.agenda.filter(item => item.id !== slot.id)
-                                                        }));
-                                                    }}
-                                                    className="text-gray-400 hover:text-red-500 transition-colors p-1 opacity-0 group-hover/item:opacity-100"
-                                                    title="Remove Item"
-                                                >
-                                                    <X size={16} />
-                                                </button>
+                <div className="p-6">
+                    {event.agenda.length > 0 ? (
+                        <div className="space-y-3">
+                            {[...event.agenda]
+                                .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
+                                .map((slot, i) => (
+                                    <div key={i} className="flex gap-4 py-4 px-6 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800 hover:bg-slate-50 dark:hover:bg-gray-750 transition-all bg-white dark:bg-gray-800/50 group/item shadow-sm">
+                                        <div className="min-w-[120px] pt-1">
+                                            <div className="text-sm font-bold text-[#3D518C] dark:text-indigo-400 whitespace-nowrap bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-lg inline-block">
+                                                {formatTimeDisplay(slot.startTime)}
                                             </div>
+                                            {slot.endTime && (
+                                                <div className="text-xs text-gray-400 mt-1 pl-1">
+                                                    to {formatTimeDisplay(slot.endTime)}
+                                                </div>
+                                            )}
                                         </div>
-                                        {slot.description && (
-                                            <p className="text-sm text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">{slot.description}</p>
-                                        )}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-baseline justify-between gap-2">
+                                                <h3 className="font-bold text-gray-900 dark:text-white text-lg truncate">{slot.title}</h3>
+                                                <div className="flex items-center gap-2">
+                                                    {slot.speaker && (
+                                                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 flex-shrink-0 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-md uppercase tracking-wide">
+                                                            <Users size={12} className="text-gray-400 dark:text-gray-500" />
+                                                            <span className="truncate max-w-[150px]">{slot.speaker}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex gap-1 ml-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleEditAgendaItem(slot);
+                                                            }}
+                                                            className="text-gray-400 hover:text-indigo-500 transition-colors p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg"
+                                                            title="Edit Item"
+                                                        >
+                                                            <Pencil size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEvent(prev => ({
+                                                                    ...prev,
+                                                                    agenda: prev.agenda.filter(item => item.id !== slot.id)
+                                                                }));
+                                                            }}
+                                                            className="text-gray-400 hover:text-red-500 transition-colors p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg"
+                                                            title="Remove Item"
+                                                        >
+                                                            <X size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {slot.description && (
+                                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2 leading-relaxed">{slot.description}</p>
+                                            )}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
-                    </div>
-                ) : (
-                    <div className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50/50 dark:bg-gray-800/50">
-                        <p className="text-gray-400 mb-2 text-sm">No agenda items yet</p>
-                        <button
-                            onClick={() => {
-                                setNewAgenda({});
-                                setEditingAgendaId(null);
-                                setActiveModal('agenda');
-                            }}
-                            className="text-sm font-medium text-indigo-600 hover:text-indigo-700 font-sans"
-                        >
-                            + Add Agenda Item
-                        </button>
-                    </div>
-                )}
-            </div>
+                                ))}
+                        </div>
+                    ) : (
+                        <div className="text-center py-12 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50/50 dark:bg-gray-800/50">
+                            <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-400 rounded-full flex items-center justify-center mx-auto mb-3">
+                                <List size={24} />
+                            </div>
+                            <h3 className="text-gray-900 dark:text-white font-medium mb-1">No agenda items</h3>
+                            <p className="text-gray-500 text-sm mb-4">Start building your event schedule</p>
+                            <button
+                                onClick={() => {
+                                    setNewAgenda({});
+                                    setEditingAgendaId(null);
+                                    setActiveModal('agenda');
+                                }}
+                                className="text-sm font-semibold text-white bg-[#3D518C] hover:bg-[#2D4178] px-5 py-2.5 rounded-xl transition-colors shadow-sm"
+                            >
+                                + Add First Item
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </section>
 
             {/* --- MODALS --- */}
 
             {/* Banner Modal */}
-            <Modal isOpen={activeModal === 'banner'} onClose={() => setActiveModal(null)} title="Upload Banner">
+            <Modal isOpen={activeModal === 'banner'} onClose={() => setActiveModal(null)} title="Upload Banner" size="md">
                 <div className="space-y-6">
-                    <div className="group relative border-2 border-dashed border-gray-300 dark:border-gray-600 bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-10 flex flex-col items-center justify-center text-center hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-all duration-300 cursor-pointer hover:border-indigo-400">
-                        <div className="w-16 h-16 bg-white dark:bg-gray-700 rounded-2xl shadow-sm flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300 border border-gray-100 dark:border-gray-600">
+                    <div className="group relative border-2 border-dashed border-gray-300 dark:border-gray-600 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-all duration-300 cursor-pointer hover:border-indigo-400">
+                        <div className="w-14 h-14 bg-white dark:bg-gray-700 rounded-xl shadow-sm flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300 border border-gray-100 dark:border-gray-600">
                             <Upload size={28} className="drop-shadow-sm" />
                         </div>
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Click to upload</h4>
+                        <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Click to upload</h4>
                         <p className="text-sm text-gray-500 dark:text-gray-400">SVG, PNG, JPG or GIF (max. 20MB)</p>
                     </div>
                     <div className="flex justify-end gap-3 pt-2">
@@ -462,8 +578,8 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             </Modal>
 
             {/* Title Modal */}
-            <Modal isOpen={activeModal === 'title'} onClose={() => setActiveModal(null)} title="Edit Event Details">
-                <form onSubmit={handleSaveTitle} className="space-y-5">
+            <Modal isOpen={activeModal === 'title'} onClose={() => setActiveModal(null)} title="Edit Event Details" size="md">
+                <form onSubmit={handleSaveTitle} className="space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Title</label>
                         <input name="name" defaultValue={event.name} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm font-sans" placeholder="Input event title" />
@@ -480,7 +596,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             </Modal>
 
             {/* Date/Location Modal */}
-            <Modal isOpen={activeModal === 'dateLocation'} onClose={() => setActiveModal(null)} title="Edit Date & Location" size="lg">
+            <Modal isOpen={activeModal === 'dateLocation'} onClose={() => setActiveModal(null)} title="Edit Date & Location" size="md">
                 <form onSubmit={handleSaveDateLocation} className="space-y-6">
                     <div className="grid grid-cols-2 gap-6">
                         <div className="col-span-2">
@@ -511,7 +627,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             </Modal>
 
             {/* Overview Modal */}
-            <Modal isOpen={activeModal === 'overview'} onClose={() => setActiveModal(null)} title="Edit Overview" size="lg">
+            <Modal isOpen={activeModal === 'overview'} onClose={() => setActiveModal(null)} title="Edit Overview" size="md">
                 <form onSubmit={handleSaveOverview} className="space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Description</label>
@@ -573,7 +689,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
             {/* Agenda Modal */}
             <Modal isOpen={activeModal === 'agenda'} onClose={() => setActiveModal(null)} title="Add Agenda Item" size="md">
-                <form onSubmit={(e) => { e.preventDefault(); handleAddAgendaSlot(); }} className="space-y-5">
+                <form onSubmit={(e) => { e.preventDefault(); handleAddAgendaSlot(); }} className="space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Title <span className="text-red-500">*</span></label>
                         <input

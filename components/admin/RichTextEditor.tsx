@@ -88,7 +88,6 @@ const FontSize = Extension.create({
 });
 
 const FONT_FAMILIES = [
-    { label: 'Default', value: '' },
     { label: 'Arial', value: 'Arial, sans-serif' },
     { label: 'Times New Roman', value: 'Times New Roman, serif' },
     { label: 'Courier New', value: 'Courier New, monospace' },
@@ -188,6 +187,7 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
             <div className="flex flex-wrap items-center gap-2 p-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800/50 rounded-t-xl overflow-hidden">
                 {/* Font Family */}
                 <select
+                    defaultValue="Arial, sans-serif"
                     onChange={(e) => editor.chain().focus().setFontFamily(e.target.value).run()}
                     className="text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-lg pl-1 pr-4 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-w-[140px]"
                     title="Font Family"
@@ -423,6 +423,6 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
                 onClose={() => setImageModalOpen(false)}
                 onSubmit={handleAddImage}
             />
-        </div>
+        </div >
     );
 }

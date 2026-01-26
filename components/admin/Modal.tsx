@@ -48,14 +48,14 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, size
                 className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full ${sizeClasses} max-h-[90vh] flex flex-col transition-all animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 overflow-hidden font-sans`}
             >
                 {/* Gradient Header */}
-                <div className="bg-gradient-to-r from-[#3D518C] to-indigo-600 px-8 py-6 rounded-t-2xl">
+                <div className={`bg-gradient-to-r from-[#3D518C] to-indigo-600 ${size === 'sm' ? 'px-6 py-4' : 'px-8 py-6'} rounded-t-2xl`}>
                     <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
-                            <h2 className="text-xl font-bold text-white">
+                            <h2 className={`${size === 'sm' ? 'text-lg' : 'text-xl'} font-bold text-white`}>
                                 {title}
                             </h2>
                             {subtitle && (
-                                <p className="text-indigo-200 text-sm mt-1">
+                                <p className={`text-indigo-200 ${size === 'sm' ? 'text-xs' : 'text-sm'} mt-1`}>
                                     {subtitle}
                                 </p>
                             )}
@@ -71,7 +71,7 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, size
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-white dark:bg-gray-800">
+                <div className={`flex-1 overflow-y-auto bg-white dark:bg-gray-800 ${size === 'sm' ? 'p-6' : 'p-6 md:p-8'}`}>
                     {children}
                 </div>
             </div>
