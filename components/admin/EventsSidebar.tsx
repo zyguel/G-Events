@@ -160,13 +160,16 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                                 </a>
                             </li>
                             <li>
-                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'waitlist'
-                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}>
+                                <Link
+                                    href={`/events/${event.id}/waitlist`}
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'waitlist'
+                                        ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}
+                                >
                                     <Clock size={16} />
                                     Manage Waitlist
-                                </a>
+                                </Link>
                             </li>
                             <li>
                                 <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'breakouts'

@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import Link from 'next/link';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
@@ -8,9 +9,9 @@ import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
 export default function DashboardPage() {
     // Mock data for upcoming events
     const upcomingEvents = [
-        { id: 1, name: "DevFest Cebu 2025", date: "November 20, 2025", registrations: 350, status: "Upcoming" },
-        { id: 2, name: "Google I/O Extended", date: "July 20, 2025", registrations: 200, status: "Draft" },
-        { id: 3, name: "Women Techmakers 2025", date: "March 8, 2025", registrations: 150, status: "Completed" },
+        { id: "devfest-2025", name: "DevFest Cebu 2025", date: "November 20, 2025", registrations: 350, status: "Upcoming" },
+        { id: "io-extended-2025", name: "Google I/O Extended", date: "July 20, 2025", registrations: 200, status: "Draft" },
+        { id: "wtm-2025", name: "Women Techmakers 2025", date: "March 8, 2025", registrations: 150, status: "Completed" },
     ];
 
     // Mock recent activity
@@ -111,7 +112,11 @@ export default function DashboardPage() {
                                 </div>
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {upcomingEvents.map((event) => (
-                                        <div key={event.id} className="p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
+                                        <Link
+                                            key={event.id}
+                                            href={`/events/overview/${event.id}`}
+                                            className="block p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
+                                        >
                                             <div className="flex items-center justify-between">
                                                 <div className="flex items-center gap-4">
                                                     <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
@@ -134,7 +139,7 @@ export default function DashboardPage() {
                                                     </span>
                                                 </div>
                                             </div>
-                                        </div>
+                                        </Link>
                                     ))}
                                 </div>
                             </div>
