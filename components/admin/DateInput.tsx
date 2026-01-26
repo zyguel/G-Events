@@ -5,14 +5,14 @@ import "react-datepicker/dist/react-datepicker.css";
 import { Calendar } from "lucide-react";
 import { forwardRef } from "react";
 
-interface DateTimeInputProps {
+interface DateInputProps {
     value: Date | null;
     onChange: (date: Date | null) => void;
     placeholder?: string;
     className?: string;
 }
 
-// Custom input component to match the authorized design
+// Custom input component to match DateTimeInput design
 const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeholder, className }, ref) => (
     <div className="relative group cursor-pointer" onClick={onClick}>
         <Calendar
@@ -24,19 +24,22 @@ const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeho
             value={value}
             readOnly
             placeholder={placeholder}
-            className={`w-full pl-9 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm cursor-pointer hover:border-indigo-300 font-sans ${className}`}
+            className={`w-full pl-10 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm cursor-pointer hover:border-indigo-300 font-sans ${className}`}
         />
     </div>
 ));
 
 CustomInput.displayName = "CustomInput";
 
-export default function DateTimeInput({ value, onChange, placeholder, className }: DateTimeInputProps) {
+export default function DateInput({ value, onChange, placeholder, className }: DateInputProps) {
     return (
-        <div className="datetime-input-wrapper">
+        <div className="date-input-wrapper">
             <style jsx global>{`
                 .react-datepicker-wrapper {
                     width: 100%;
+                }
+                .react-datepicker-popper {
+                    z-index: 9999 !important;
                 }
                 .react-datepicker {
                     font-family: inherit;
@@ -44,6 +47,7 @@ export default function DateTimeInput({ value, onChange, placeholder, className 
                     border: 1px solid #e5e7eb;
                     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
                     overflow: hidden;
+                    z-index: 9999 !important;
                 }
                 .dark .react-datepicker {
                     background-color: #1f2937;
@@ -89,38 +93,12 @@ export default function DateTimeInput({ value, onChange, placeholder, className 
                 .react-datepicker__day--keyboard-selected {
                     background-color: #60a5fa;
                 }
-                .react-datepicker__time-container {
-                    border-left: 1px solid #e5e7eb;
-                }
-                .dark .react-datepicker__time-container {
-                    border-color: #374151;
-                }
-                .react-datepicker__time-container .react-datepicker__time {
-                    background-color: white;
-                }
-                .dark .react-datepicker__time-container .react-datepicker__time {
-                    background-color: #1f2937;
-                }
-                .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item:hover {
-                    background-color: #f3f4f6;
-                }
-                .dark .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item:hover {
-                    background-color: #374151;
-                }
-                .react-datepicker__time-container .react-datepicker__time .react-datepicker__time-box ul.react-datepicker__time-list li.react-datepicker__time-list-item--selected {
-                    background-color: #3b82f6 !important;
-                    color: white !important;
-                }
             `}</style>
             <DatePicker
                 selected={value}
                 onChange={onChange}
-                showTimeSelect
-                timeIntervals={15}
-                timeInputLabel="Time:"
-                showTimeInput
-                dateFormat="MM/dd/yyyy h:mm aa"
-                placeholderText={placeholder || "Select date and time"}
+                dateFormat="MM/dd/yyyy"
+                placeholderText={placeholder || "Select date"}
                 customInput={<CustomInput className={className} />}
                 calendarClassName="shadow-xl"
             />

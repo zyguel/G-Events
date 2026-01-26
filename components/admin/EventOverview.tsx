@@ -4,6 +4,9 @@ import { useState, useRef, useEffect } from "react";
 import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List } from "lucide-react";
 import Modal from "./Modal";
 import Image from "next/image";
+import DateTimeInput from "./DateTimeInput";
+import TimeInput from "./TimeInput";
+import DateInput from "./DateInput";
 
 // Types
 interface AgendaItem {
@@ -43,6 +46,11 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         agenda: initialData.agenda || []
     });
 
+    // Temporary state for date/time modal (using Date objects for DateTimeInput)
+    const [tempEventDate, setTempEventDate] = useState<Date | null>(null);
+    const [tempStartTime, setTempStartTime] = useState<string>('');
+    const [tempEndTime, setTempEndTime] = useState<string>('');
+
     const [activeModal, setActiveModal] = useState<null | 'banner' | 'title' | 'dateLocation' | 'overview' | 'agenda' | 'deleteBanner'>(null);
 
     // Form States
@@ -67,14 +75,30 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         setActiveModal(null);
     };
 
+    // Initialize date/time modal values when it opens
+    useEffect(() => {
+        if (activeModal === 'dateLocation') {
+            // Parse the event date into a Date object
+            const eventDate = event.date ? new Date(event.date) : null;
+            setTempEventDate(eventDate);
+            setTempStartTime(event.startTime || '');
+            setTempEndTime(event.endTime || '');
+        }
+    }, [activeModal, event.date, event.startTime, event.endTime]);
+
+
     const handleSaveDateLocation = (e: React.FormEvent) => {
         e.preventDefault();
         const formData = new FormData(e.target as HTMLFormElement);
+
+        // Format date from Date object to YYYY-MM-DD
+        const formattedDate = tempEventDate ? tempEventDate.toISOString().split('T')[0] : event.date;
+
         setEvent(prev => ({
             ...prev,
-            date: formData.get('date') as string,
-            startTime: formData.get('startTime') as string,
-            endTime: formData.get('endTime') as string,
+            date: formattedDate,
+            startTime: tempStartTime,
+            endTime: tempEndTime,
             location: formData.get('location') as string
         }));
         setActiveModal(null);
@@ -596,20 +620,34 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             </Modal>
 
             {/* Date/Location Modal */}
-            <Modal isOpen={activeModal === 'dateLocation'} onClose={() => setActiveModal(null)} title="Edit Date & Location" size="md">
+            <Modal isOpen={activeModal === 'dateLocation'} onClose={() => setActiveModal(null)} title="Edit Date & Location" size="lg">
                 <form onSubmit={handleSaveDateLocation} className="space-y-6">
-                    <div className="grid grid-cols-2 gap-6">
-                        <div className="col-span-2">
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Date</label>
-                            <input type="date" name="date" defaultValue={event.date} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm" />
-                        </div>
+                    <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Start Time</label>
-                            <input type="time" name="startTime" defaultValue={event.startTime} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm" />
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Date</label>
+                            <DateInput
+                                value={tempEventDate}
+                                onChange={(date) => setTempEventDate(date)}
+                                placeholder="Select event date"
+                            />
                         </div>
-                        <div>
-                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">End Time</label>
-                            <input type="time" name="endTime" defaultValue={event.endTime} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm" />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Start Time</label>
+                                <TimeInput
+                                    value={tempStartTime}
+                                    onChange={(time) => setTempStartTime(time)}
+                                    placeholder="Select start time"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">End Time</label>
+                                <TimeInput
+                                    value={tempEndTime}
+                                    onChange={(time) => setTempEndTime(time)}
+                                    placeholder="Select end time"
+                                />
+                            </div>
                         </div>
                     </div>
                     <div>
@@ -716,22 +754,20 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Start Time <span className="text-red-500">*</span></label>
-                            <input
+                            <TimeInput
                                 required
-                                type="time"
                                 value={newAgenda.startTime || ''}
-                                onChange={e => setNewAgenda({ ...newAgenda, startTime: e.target.value })}
-                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                                onChange={(time) => setNewAgenda({ ...newAgenda, startTime: time })}
+                                placeholder="Select start time"
                             />
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">End Time <span className="text-red-500">*</span></label>
-                            <input
+                            <TimeInput
                                 required
-                                type="time"
                                 value={newAgenda.endTime || ''}
-                                onChange={e => setNewAgenda({ ...newAgenda, endTime: e.target.value })}
-                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                                onChange={(time) => setNewAgenda({ ...newAgenda, endTime: time })}
+                                placeholder="Select end time"
                             />
                         </div>
                     </div>
