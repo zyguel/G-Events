@@ -8,11 +8,12 @@ interface ModalProps {
     isOpen: boolean;
     onClose: () => void;
     title?: string;
+    subtitle?: string;
     children: React.ReactNode;
     size?: "sm" | "md" | "lg" | "xl";
 }
 
-export default function Modal({ isOpen, onClose, title, children, size = "md" }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, subtitle, children, size = "md" }: ModalProps) {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -44,23 +45,33 @@ export default function Modal({ isOpen, onClose, title, children, size = "md" }:
                 aria-hidden="true"
             />
             <div
-                className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full ${sizeClasses} max-h-[90vh] flex flex-col transition-all animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 border border-gray-200 dark:border-gray-700 font-sans`}
+                className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full ${sizeClasses} max-h-[90vh] flex flex-col transition-all animate-in zoom-in-95 slide-in-from-bottom-2 duration-200 overflow-hidden font-sans`}
             >
-                {/* Header */}
-                <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-700">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-                        {title}
-                    </h3>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
-                    >
-                        <X size={20} />
-                    </button>
+                {/* Gradient Header */}
+                <div className="bg-gradient-to-r from-[#3D518C] to-indigo-600 px-8 py-6 rounded-t-2xl">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                            <h2 className="text-xl font-bold text-white">
+                                {title}
+                            </h2>
+                            {subtitle && (
+                                <p className="text-indigo-200 text-sm mt-1">
+                                    {subtitle}
+                                </p>
+                            )}
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="text-white hover:bg-white/20 transition-colors rounded-lg p-2 flex-shrink-0"
+                            aria-label="Close modal"
+                        >
+                            <X size={20} />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-6 md:p-8">
+                <div className="flex-1 overflow-y-auto p-6 md:p-8 bg-white dark:bg-gray-800">
                     {children}
                 </div>
             </div>

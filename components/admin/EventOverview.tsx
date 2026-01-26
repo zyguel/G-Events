@@ -455,8 +455,8 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         <p className="text-sm text-gray-500 dark:text-gray-400">SVG, PNG, JPG or GIF (max. 20MB)</p>
                     </div>
                     <div className="flex justify-end gap-3 pt-2">
-                        <button onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
-                        <button onClick={handleSaveBanner} className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all font-sans">Save Changes</button>
+                        <button onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
+                        <button onClick={handleSaveBanner} className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save Changes</button>
                     </div>
                 </div>
             </Modal>
@@ -473,8 +473,8 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         <textarea name="subtitle" rows={3} defaultValue={event.subtitle} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none transition-all shadow-sm font-sans" placeholder="Input subtitle" />
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
-                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all font-sans">Save</button>
+                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
+                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save</button>
                     </div>
                 </form>
             </Modal>
@@ -505,7 +505,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
                         <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
-                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all font-sans">Save</button>
+                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save</button>
                     </div>
                 </form>
             </Modal>
@@ -566,7 +566,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         </div>
                     </div>
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all font-sans">Save Changes</button>
+                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save Changes</button>
                     </div>
                 </form>
             </Modal>
@@ -630,8 +630,8 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         />
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
-                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all font-sans">{editingAgendaId ? "Save Changes" : "Add Item"}</button>
+                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
+                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">{editingAgendaId ? "Save Changes" : "Add Item"}</button>
                     </div>
                 </form>
             </Modal>
