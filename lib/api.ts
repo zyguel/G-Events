@@ -32,7 +32,12 @@ const eventsData: Record<string, EventData> = {
         ],
 
         trends: {
-            registrations: { allTime: [120, 180, 250, 320, 480, 580, 720, 850, 950, 1100, 1250, 1400], last30Days: [350, 420, 380, 450], last7Days: [65, 82, 74, 91, 88, 102, 95] },
+            registrations: {
+                weekly: [120, 245, 380, 520, 685, 820, 950, 1100],
+                weekLabels: ["May 26", "Jun 2", "Jun 9", "Jun 16", "Jun 23", "Jun 30", "Jul 7", "Jul 14"],
+                registrationOpenDate: "May 22, 2025",
+                eventDate: "July 22, 2025"
+            },
             attendance: { checkedIn: 72, noShow: 18, waitlisted: 10 },
         },
 
@@ -72,7 +77,12 @@ const eventsData: Record<string, EventData> = {
         ],
 
         trends: {
-            registrations: { allTime: [80, 120, 180, 220, 280, 350, 420, 500, 580, 650, 720, 800], last30Days: [180, 220, 250, 300], last7Days: [42, 55, 48, 62, 58, 70, 65] },
+            registrations: {
+                weekly: [80, 165, 280, 420, 580, 720],
+                weekLabels: ["Jan 27", "Feb 3", "Feb 10", "Feb 17", "Feb 24", "Mar 3"],
+                registrationOpenDate: "Jan 22, 2025",
+                eventDate: "March 8, 2025"
+            },
             attendance: { checkedIn: 85, noShow: 10, waitlisted: 5 },
         },
 
@@ -112,7 +122,12 @@ const eventsData: Record<string, EventData> = {
         ],
 
         trends: {
-            registrations: { allTime: [150, 220, 300, 400, 550, 680, 820, 980, 1150, 1350, 1580, 1800], last30Days: [420, 480, 520, 580], last7Days: [75, 92, 85, 105, 98, 115, 110] },
+            registrations: {
+                weekly: [150, 320, 550, 820, 1150, 1480, 1800],
+                weekLabels: ["Mar 31", "Apr 7", "Apr 14", "Apr 21", "Apr 28", "May 5", "May 12"],
+                registrationOpenDate: "Mar 25, 2025",
+                eventDate: "May 15, 2025"
+            },
             attendance: { checkedIn: 78, noShow: 15, waitlisted: 7 },
         },
 
@@ -228,9 +243,8 @@ export async function getAggregatedData(): Promise<EventData> {
         comments: allComments,
         trends: {
             registrations: {
-                allTime: aggregateArray(allEvents.map(e => e.trends.registrations.allTime)),
-                last30Days: aggregateArray(allEvents.map(e => e.trends.registrations.last30Days)),
-                last7Days: aggregateArray(allEvents.map(e => e.trends.registrations.last7Days)),
+                monthly: [350, 520, 680, 920, 1180, 1450, 1720, 1980, 2250, 2520, 2800, 3100],
+                monthLabels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
             },
             attendance: {
                 checkedIn: Math.round(allEvents.reduce((sum, e) => sum + e.trends.attendance.checkedIn, 0) / allEvents.length),

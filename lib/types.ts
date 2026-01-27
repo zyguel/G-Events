@@ -15,9 +15,14 @@ export interface EventData {
     comments: Comment[];
     trends: {
         registrations: {
-            allTime: number[];
-            last30Days: number[];
-            last7Days: number[];
+            // Weekly format for individual events
+            weekly?: number[];
+            weekLabels?: string[];
+            registrationOpenDate?: string;
+            eventDate?: string;
+            // Monthly format for all events overview
+            monthly?: number[];
+            monthLabels?: string[];
         };
         attendance: {
             checkedIn: number;

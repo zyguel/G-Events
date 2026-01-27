@@ -5,7 +5,11 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import EventsSidebar from '@/components/admin/EventsSidebar';
+<<<<<<< Updated upstream
 import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown } from 'lucide-react';
+=======
+import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown, Ticket } from 'lucide-react';
+>>>>>>> Stashed changes
 
 // Mock waitlist data
 const mockWaitlistEntries = [
@@ -93,6 +97,24 @@ export default function ManageWaitlistPage() {
 
     // Waitlist entries state
     const [entries] = useState(mockWaitlistEntries);
+
+    // Extract unique ticket types from entries
+    const ticketTypes = Array.from(new Set(entries.map(e => e.ticketType)));
+
+    // Determine default ticket type: General Admission if it has entries, otherwise the first tier with entries
+    const getDefaultTicketType = () => {
+        const generalAdmission = 'General Admission';
+        const hasGeneralAdmission = entries.some(e => e.ticketType === generalAdmission);
+        if (hasGeneralAdmission) return generalAdmission;
+        // Find first ticket type that has entries
+        return ticketTypes.length > 0 ? ticketTypes[0] : '';
+    };
+
+    // Ticket type filter state
+    const [selectedTicketType, setSelectedTicketType] = useState(getDefaultTicketType());
+
+    // Filtered entries based on selected ticket type
+    const filteredEntries = entries.filter(e => e.ticketType === selectedTicketType);
 
     // Mock event data for sidebar
     const sidebarEvent = {
@@ -284,15 +306,38 @@ export default function ManageWaitlistPage() {
                         {/* Waitlist Queue Management Section */}
                         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
                             <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                                        <Users className="w-5 h-5 text-white" />
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                                            <Users className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                                Waitlist Queue Management
+                                            </h2>
+                                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">View and manage people in the waitlist</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                            Waitlist Queue Management
-                                        </h2>
-                                        <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">View and manage people in the waitlist</p>
+                                    {/* Ticket Type Filter Dropdown */}
+                                    <div className="flex items-center gap-2">
+                                        <Ticket size={16} className="text-gray-500 dark:text-gray-400" />
+                                        <div className="relative">
+                                            <select
+                                                value={selectedTicketType}
+                                                onChange={(e) => setSelectedTicketType(e.target.value)}
+                                                className="appearance-none pl-4 pr-10 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent cursor-pointer transition-all duration-200 hover:border-[#3D518C]"
+                                            >
+                                                {ticketTypes.map((type) => (
+                                                    <option key={type} value={type}>
+                                                        {type}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                                        </div>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                            ({filteredEntries.length} in queue)
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -322,7 +367,7 @@ export default function ManageWaitlistPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                        {entries.map((entry) => (
+                                        {filteredEntries.map((entry) => (
                                             <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -364,12 +409,12 @@ export default function ManageWaitlistPage() {
                                 </table>
                             </div>
 
-                            {entries.length === 0 && (
+                            {filteredEntries.length === 0 && (
                                 <div className="p-12 text-center">
                                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                         <Users className="w-8 h-8 text-gray-400" />
                                     </div>
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No one in waitlist</h3>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No one in waitlist for {selectedTicketType}</h3>
                                     <p className="text-sm text-gray-500 dark:text-gray-400">When tickets sell out, people will be added to the waitlist here.</p>
                                 </div>
                             )}
