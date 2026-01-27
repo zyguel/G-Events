@@ -437,8 +437,8 @@ const ExportDropdown = ({ onExport, exportedFormat }: { onExport: (format: strin
                                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors group"
                                 >
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isExported
-                                            ? 'bg-green-100 dark:bg-green-900/30'
-                                            : `bg-${opt.color}-100 dark:bg-${opt.color}-900/30`
+                                        ? 'bg-green-100 dark:bg-green-900/30'
+                                        : `bg-${opt.color}-100 dark:bg-${opt.color}-900/30`
                                         }`}>
                                         {isExported ? (
                                             <Check size={16} className="text-green-600 dark:text-green-400" />
@@ -448,8 +448,8 @@ const ExportDropdown = ({ onExport, exportedFormat }: { onExport: (format: strin
                                     </div>
                                     <div className="text-left">
                                         <p className={`text-sm font-medium ${isExported
-                                                ? 'text-green-700 dark:text-green-400'
-                                                : 'text-gray-900 dark:text-white'
+                                            ? 'text-green-700 dark:text-green-400'
+                                            : 'text-gray-900 dark:text-white'
                                             }`}>
                                             {isExported ? 'Downloaded!' : opt.label}
                                         </p>
@@ -694,7 +694,7 @@ export default function EventReportsPage() {
                                 </div>
                                 <div>
                                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        Event <span className="bg-[#ABD2FA] dark:bg-[#3D518C] px-2 py-0.5 rounded">Reports</span>
+                                        Event Reports
                                     </h1>
                                 </div>
                             </div>
