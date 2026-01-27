@@ -6,40 +6,51 @@ import ThemeToggle from './ThemeToggle';
 
 const Header = () => {
     return (
-        <header className="bg-[#F8F9FA] dark:bg-gray-800 text-gray-800 dark:text-gray-100 h-16 flex items-center justify-between px-6 shadow-md z-10 border-b border-gray-200 dark:border-gray-700 transition-colors">
+        <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-gray-800 dark:text-gray-100 h-16 flex items-center justify-between px-8 shadow-sm z-10 border-b border-gray-200/50 dark:border-gray-700/50 transition-all duration-300">
             {/* Logo Section */}
-            <div className="flex items-center gap-2">
-                <Image
-                    src="/icons/Logo.png"
-                    alt="G Events Logo"
-                    width={50}
-                    height={50}
-                    className="rounded-md"
-                />
-                <span className="font-bold text-3xl tracking-wide text-[#3D518C] dark:text-white">G Events</span>
+            <div className="flex items-center gap-3">
+                <div className="relative">
+                    <Image
+                        src="/icons/company-logo.svg"
+                        alt="G Events Logo"
+                        width={40}
+                        height={40}
+                        className="drop-shadow-sm"
+                    />
+                </div>
+                <div className="flex flex-col">
+                    <span className="font-bold text-xl tracking-tight text-[#3D518C] dark:text-white leading-none">
+                        G Events
+                    </span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wider uppercase">
+                        Event Management
+                    </span>
+                </div>
             </div>
 
             {/* Right Side Profile */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
                 {/* Theme Toggle */}
                 <ThemeToggle />
 
-                <button className="relative p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition">
-                    <Bell size={20} className="text-gray-600 dark:text-gray-300" />
-                    <span className="absolute top-1 right-1.5 w-2 h-2 bg-red-500 rounded-full border border-white dark:border-gray-800"></span>
+                {/* Notification Bell */}
+                <button className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-xl transition-all duration-200 group">
+                    <Bell size={20} className="text-gray-600 dark:text-gray-300 group-hover:text-[#3D518C] dark:group-hover:text-white transition-colors" />
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse"></span>
                 </button>
 
-                <div className="flex items-center gap-3 pl-6 border-l border-gray-300 dark:border-gray-600">
-                    <div className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden relative">
+                {/* User Profile */}
+                <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 shadow-sm">
                         <img
                             src="https://api.dicebear.com/7.x/avataaars/svg?seed=Karylle"
                             alt="Profile"
                             className="object-cover w-full h-full"
                         />
                     </div>
-                    <div className="flex flex-col text-xs">
-                        <span className="font-semibold text-gray-800 dark:text-white">Karylle Bernate</span>
-                        <span className="text-gray-500 dark:text-gray-400 font-light">notestobunny@gmail.com</span>
+                    <div className="flex flex-col">
+                        <span className="font-semibold text-sm text-gray-800 dark:text-white leading-tight">Karylle Bernate</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">notestobunny@gmail.com</span>
                     </div>
                 </div>
             </div>

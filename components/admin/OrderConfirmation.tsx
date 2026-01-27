@@ -103,7 +103,7 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         )}
                         <button
                             onClick={handleSaveSubmissionMessage}
-                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5 rounded-lg shadow-md transition-all transform"
+                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.02] rounded-xl transition-all duration-200"
                         >
                             Save Changes
                         </button>
@@ -155,7 +155,7 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         )}
                         <button
                             onClick={() => handleSaveEmail('submission')}
-                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5 rounded-lg shadow-md transition-all transform"
+                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.02] rounded-xl transition-all duration-200"
                         >
                             Save Changes
                         </button>
@@ -207,7 +207,7 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         )}
                         <button
                             onClick={() => handleSaveEmail('confirmation')}
-                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5 rounded-lg shadow-md transition-all transform"
+                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.02] rounded-xl transition-all duration-200"
                         >
                             Save Changes
                         </button>
@@ -259,7 +259,7 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         )}
                         <button
                             onClick={() => handleSaveEmail('rejection')}
-                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5 rounded-lg shadow-md transition-all transform"
+                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.02] rounded-xl transition-all duration-200"
                         >
                             Save Changes
                         </button>

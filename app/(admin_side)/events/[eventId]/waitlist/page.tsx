@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import EventsSidebar from '@/components/admin/EventsSidebar';
-import { Clock, Settings, Users, Check, Mail, RefreshCw } from 'lucide-react';
+import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown } from 'lucide-react';
 
 // Mock waitlist data
 const mockWaitlistEntries = [
@@ -84,6 +84,7 @@ export default function ManageWaitlistPage() {
 
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Collapsed by default
 
     // Waitlist settings state
     const [expiryDays, setExpiryDays] = useState('7');
@@ -143,6 +144,12 @@ export default function ManageWaitlistPage() {
                     to { opacity: 1; transform: translateY(0); }
                 }
                 .animate-slide-up { animation: slide-up 0.3s ease-out; }
+                
+                @keyframes slide-down {
+                    from { opacity: 0; max-height: 0; }
+                    to { opacity: 1; max-height: 1000px; }
+                }
+                .animate-slide-down { animation: slide-down 0.3s ease-out; }
             `}</style>
 
             <div className="flex flex-1 overflow-hidden">
@@ -166,7 +173,7 @@ export default function ManageWaitlistPage() {
                                 </div>
                                 <div>
                                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        Manage <span className="bg-[#ABD2FA] dark:bg-[#3D518C] px-2 py-0.5 rounded">Waitlist</span>
+                                        Manage <span className="dark:bg-[#3D518C] px-2 py-0.5 rounded">Waitlist</span>
                                     </h1>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                                         Configure waitlist settings and manage queue
@@ -183,7 +190,7 @@ export default function ManageWaitlistPage() {
 
                         {/* Waitlist Settings Section */}
                         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                            <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                            <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
                                 <div className="flex items-center gap-3">
                                     <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
                                         <Settings className="w-5 h-5 text-white" />
@@ -195,73 +202,83 @@ export default function ManageWaitlistPage() {
                                         <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Configure how your waitlist operates</p>
                                     </div>
                                 </div>
+                                <button
+                                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                                    className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
+                                >
+                                    <ChevronDown
+                                        className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}
+                                    />
+                                </button>
                             </div>
 
-                            <div className="p-6 space-y-6">
-                                {/* Waitlist Expiry */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Waitlist Expiry (in Days)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={expiryDays}
-                                        onChange={(e) => setExpiryDays(e.target.value)}
-                                        min="1"
-                                        max="30"
-                                        className="w-32 px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
-                                    />
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        How many days the invite remains valid once a slot opens and invite is sent.
-                                    </p>
-                                </div>
-
-                                {/* Invite Type */}
-                                <div className="space-y-3">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Invite Type
-                                    </label>
+                            {isSettingsOpen && (
+                                <div className="p-6 space-y-6 animate-slide-down">
+                                    {/* Waitlist Expiry */}
                                     <div className="space-y-2">
-                                        <RadioButton
-                                            label="Auto-Invite Next User when Slot Available"
-                                            checked={inviteType === 'auto'}
-                                            onChange={() => setInviteType('auto')}
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Waitlist Expiry (in Days)
+                                        </label>
+                                        <input
+                                            type="number"
+                                            value={expiryDays}
+                                            onChange={(e) => setExpiryDays(e.target.value)}
+                                            min="1"
+                                            max="30"
+                                            className="w-32 px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
                                         />
-                                        <RadioButton
-                                            label="Manual Invite Only"
-                                            checked={inviteType === 'manual'}
-                                            onChange={() => setInviteType('manual')}
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            How many days the invite remains valid once a slot opens and invite is sent.
+                                        </p>
+                                    </div>
+
+                                    {/* Invite Type */}
+                                    <div className="space-y-3">
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                            Invite Type
+                                        </label>
+                                        <div className="space-y-2">
+                                            <RadioButton
+                                                label="Auto-Invite Next User when Slot Available"
+                                                checked={inviteType === 'auto'}
+                                                onChange={() => setInviteType('auto')}
+                                            />
+                                            <RadioButton
+                                                label="Manual Invite Only"
+                                                checked={inviteType === 'manual'}
+                                                onChange={() => setInviteType('manual')}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Show Position */}
+                                    <div className="pt-2">
+                                        <Checkbox
+                                            label="Show users current position in the queue."
+                                            checked={showPosition}
+                                            onChange={() => setShowPosition(!showPosition)}
                                         />
                                     </div>
-                                </div>
 
-                                {/* Show Position */}
-                                <div className="pt-2">
-                                    <Checkbox
-                                        label="Show users current position in the queue."
-                                        checked={showPosition}
-                                        onChange={() => setShowPosition(!showPosition)}
-                                    />
+                                    {/* Save Button */}
+                                    <div className="pt-4">
+                                        <button
+                                            onClick={handleSaveSettings}
+                                            disabled={isLoading}
+                                            className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                        >
+                                            {isLoading ? (
+                                                <>
+                                                    <RefreshCw size={16} className="animate-spin" />
+                                                    Saving...
+                                                </>
+                                            ) : (
+                                                'Save Settings'
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
-
-                                {/* Save Button */}
-                                <div className="pt-4">
-                                    <button
-                                        onClick={handleSaveSettings}
-                                        disabled={isLoading}
-                                        className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                    >
-                                        {isLoading ? (
-                                            <>
-                                                <RefreshCw size={16} className="animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            'Save Settings'
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* Waitlist Queue Management Section */}

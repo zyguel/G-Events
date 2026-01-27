@@ -302,7 +302,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     // Save options states
     const [scheduleOption, setScheduleOption] = useState<'immediately' | 'later'>('immediately');
     const [sendOption, setSendOption] = useState<'preview' | 'attendees'>('preview');
-    const [isFiltersExpanded, setIsFiltersExpanded] = useState(true);
+    const [isFiltersExpanded, setIsFiltersExpanded] = useState(false);
     const [selectedEmail, setSelectedEmail] = useState<SentEmail | null>(null);
     const [emailToDelete, setEmailToDelete] = useState<SentEmail | null>(null);
 

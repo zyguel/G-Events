@@ -1,12 +1,31 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List } from "lucide-react";
+import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List, Check } from "lucide-react";
 import Modal from "./Modal";
 import Image from "next/image";
 import DateTimeInput from "./DateTimeInput";
 import TimeInput from "./TimeInput";
 import DateInput from "./DateInput";
+
+// Toast Component
+const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 4000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    const bgColor = type === 'success' ? 'from-emerald-500 to-green-600' : type === 'error' ? 'from-red-500 to-rose-600' : 'from-blue-500 to-indigo-600';
+
+    return (
+        <div className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r ${bgColor} text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-up`}>
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <Check size={18} />
+            </div>
+            <span className="font-medium">{message}</span>
+        </div>
+    );
+};
 
 // Types
 interface AgendaItem {
@@ -46,6 +65,9 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         agenda: initialData.agenda || []
     });
 
+    // Toast state
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
     // Temporary state for date/time modal (using Date objects for DateTimeInput)
     const [tempEventDate, setTempEventDate] = useState<Date | null>(null);
     const [tempStartTime, setTempStartTime] = useState<string>('');
@@ -73,6 +95,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             subtitle: formData.get('subtitle') as string
         }));
         setActiveModal(null);
+        setToast({ message: 'Event details updated successfully!', type: 'success' });
     };
 
     // Initialize date/time modal values when it opens
@@ -102,6 +125,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             location: formData.get('location') as string
         }));
         setActiveModal(null);
+        setToast({ message: 'Date and location updated successfully!', type: 'success' });
     };
 
     const handleSaveOverview = (e: React.FormEvent) => {
@@ -113,6 +137,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             theme: formData.get('theme') as string,
         }));
         setActiveModal(null);
+        setToast({ message: 'Overview updated successfully!', type: 'success' });
     };
 
     const handleAddObjective = () => {
@@ -146,6 +171,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         : item
                 )
             }));
+            setToast({ message: 'Agenda item updated successfully!', type: 'success' });
         } else {
             // Add new item
             const newItem: AgendaItem = {
@@ -161,6 +187,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 ...prev,
                 agenda: [...(prev.agenda || []), newItem]
             }));
+            setToast({ message: 'Agenda item added successfully!', type: 'success' });
         }
         setNewAgenda({});
         setEditingAgendaId(null);
@@ -193,6 +220,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             bannerUrl: "/api/placeholder/800/400" // Mock URL to trigger the "filled" state
         }));
         setActiveModal(null);
+        setToast({ message: 'Banner uploaded successfully!', type: 'success' });
     };
 
     // Helper to format time for display
@@ -228,6 +256,16 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     return (
         <div className="max-w-5xl mx-auto p-8 space-y-8 pb-20 animate-in fade-in duration-500 font-sans text-gray-900 dark:text-gray-100">
+            {/* Toast Notification */}
+            {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+
+            <style jsx global>{`
+                @keyframes slide-up {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-slide-up { animation: slide-up 0.3s ease-out; }
+            `}</style>
 
             {/* Page Header */}
             <div className="flex items-center gap-4">

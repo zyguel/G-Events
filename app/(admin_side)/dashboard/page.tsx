@@ -114,7 +114,7 @@ export default function DashboardPage() {
                                     {upcomingEvents.map((event) => (
                                         <Link
                                             key={event.id}
-                                            href={`/events/overview/${event.id}`}
+                                            href={`/events/${event.id}/overview`}
                                             className="block p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
                                         >
                                             <div className="flex items-center justify-between">

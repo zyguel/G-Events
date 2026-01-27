@@ -80,39 +80,49 @@ export default function CheckInClient({ event }: CheckInClientProps) {
     // --- UI Components ---
 
     return (
-        <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans selection:bg-indigo-500/30 transition-colors duration-300">
+        <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans selection:bg-indigo-500/30 transition-colors duration-300 relative">
             <Header />
 
-            <div className="flex flex-1 overflow-hidden relative">
+            {/* Background Glow Effects (Dark Mode Only) - Adjusted to blend with gray theme */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0 opacity-0 dark:opacity-50 transition-opacity duration-500">
+                <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-900/10 rounded-full blur-[120px]" />
+                <div className="absolute bottom-[-10%] left-[10%] w-[400px] h-[400px] bg-blue-900/10 rounded-full blur-[100px]" />
+            </div>
+
+            <div className="flex flex-1 overflow-hidden relative z-10">
                 <Sidebar activePage="events" disableExpand={true} />
 
-                {/* Background Glow Effects (Dark Mode Only) - Adjusted to blend with gray theme */}
-                <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0 opacity-0 dark:opacity-50 transition-opacity duration-500">
-                    <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-900/10 rounded-full blur-[120px]" />
-                    <div className="absolute bottom-[-10%] left-[10%] w-[400px] h-[400px] bg-blue-900/10 rounded-full blur-[100px]" />
-                </div>
-
-                <div className="ml-20 hidden lg:block h-full flex-shrink-0 z-10 relative">
+                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
                     <EventsSidebar event={event} activePage="checkin" />
                 </div>
 
-                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto p-8 scrollbar-hide z-10 relative">
+                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto p-8 scrollbar-hide">
                     <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
-                        {/* Header Section */}
-                        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                        {/* Page Header */}
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                                <UserCheck className="w-7 h-7 text-white" />
+                            </div>
                             <div>
-                                <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">Check-In</h1>
-                                <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                        <span className="font-medium text-gray-700 dark:text-gray-300">{stats.checkedIn}</span> Checked In
-                                    </div>
-                                    <div className="w-px h-4 bg-gray-300 dark:bg-gray-700" />
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-2 h-2 rounded-full bg-amber-500" />
-                                        <span className="font-medium text-gray-700 dark:text-gray-300">{stats.pending}</span> Pending
-                                    </div>
-                                </div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    Check-In
+                                </h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Manage attendee check-ins and track event attendance
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Stats Section */}
+                        <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                <span className="font-medium text-gray-700 dark:text-gray-300">{stats.checkedIn}</span> Checked In
+                            </div>
+                            <div className="w-px h-4 bg-gray-300 dark:bg-gray-700" />
+                            <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full bg-amber-500" />
+                                <span className="font-medium text-gray-700 dark:text-gray-300">{stats.pending}</span> Pending
                             </div>
                         </div>
 

@@ -52,7 +52,7 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                         <ul className="space-y-1">
                             <li>
                                 <Link
-                                    href={`/events/overview/${event.id}`}
+                                    href={`/events/${event.id}/overview`}
                                     className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'overview'
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -91,8 +91,8 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                             </li>
                             <li>
                                 <Link
-                                    href={`/events/orderconfirmation/${event.id}`}
-                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'confirmation'
+                                    href={`/events/${event.id}/orderconfirmation`}
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'orderconfirmation'
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                         }`}>
@@ -102,7 +102,7 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                             </li>
                             <li>
                                 <Link
-                                    href={`/events/publish/${event.id}`}
+                                    href={`/events/${event.id}/publish`}
                                     className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'publish'
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
