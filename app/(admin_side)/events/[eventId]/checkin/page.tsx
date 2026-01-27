@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { getEventData } from "@/lib/api";
-import EmailAttendeesClient from "./EmailAttendeesClient";
+import CheckInClient from "./CheckInClient";
 
-export default async function EmailAttendeesPage({ params }: { params: Promise<{ eventId: string }> }) {
+export default async function CheckInPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 
     const data = await getEventData(eventId);
@@ -18,5 +18,5 @@ export default async function EmailAttendeesPage({ params }: { params: Promise<{
         status: data.status
     };
 
-    return <EmailAttendeesClient event={event} />;
+    return <CheckInClient event={event} />;
 }

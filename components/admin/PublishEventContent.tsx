@@ -239,7 +239,7 @@ export default function PublishEventContent({ event }: { event: EventData }) {
                 <div className="p-0 overflow-x-auto">
                     {tickets.length > 0 ? (
                         <table className="w-full text-left">
-                            <thead className="bg-gray-50/50 dark:bg-gray-700/50 text-xs uppercase text-gray-500 font-semibold tracking-wider border-b border-gray-100 dark:border-gray-700">
+                            <thead className="bg-[#ABD2FA] text-gray-700 dark:bg-[#3D518C] dark:text-white uppercase font-semibold text-xs tracking-wider">
                                 <tr>
                                     <th className="px-8 py-4">Ticket Name</th>
                                     <th className="px-8 py-4">Price</th>

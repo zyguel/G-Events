@@ -282,24 +282,24 @@ export default function ManageWaitlistPage() {
 
                             <div className="overflow-x-auto">
                                 <table className="w-full">
-                                    <thead>
-                                        <tr className="bg-[#3D518C]/5 dark:bg-[#3D518C]/20">
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-[#3D518C] dark:text-[#ABD2FA] uppercase tracking-wider">
+                                    <thead className="bg-[#ABD2FA] text-gray-700 dark:bg-[#3D518C] dark:text-white uppercase font-semibold text-xs tracking-wider">
+                                        <tr>
+                                            <th className="px-6 py-4 text-left">
                                                 Full Name
                                             </th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-[#3D518C] dark:text-[#ABD2FA] uppercase tracking-wider">
+                                            <th className="px-6 py-4 text-left">
                                                 Email Address
                                             </th>
-                                            <th className="px-6 py-4 text-left text-xs font-semibold text-[#3D518C] dark:text-[#ABD2FA] uppercase tracking-wider">
+                                            <th className="px-6 py-4 text-left">
                                                 Ticket Type
                                             </th>
-                                            <th className="px-6 py-4 text-center text-xs font-semibold text-[#3D518C] dark:text-[#ABD2FA] uppercase tracking-wider">
+                                            <th className="px-6 py-4 text-center">
                                                 Queue
                                             </th>
-                                            <th className="px-6 py-4 text-center text-xs font-semibold text-[#3D518C] dark:text-[#ABD2FA] uppercase tracking-wider">
+                                            <th className="px-6 py-4 text-center">
                                                 Status
                                             </th>
-                                            <th className="px-6 py-4 text-center text-xs font-semibold text-[#3D518C] dark:text-[#ABD2FA] uppercase tracking-wider">
+                                            <th className="px-6 py-4 text-center">
                                                 Actions
                                             </th>
                                         </tr>
