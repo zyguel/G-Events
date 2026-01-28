@@ -265,7 +265,7 @@ interface EmailAttendeesProps {
 export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     // const editorRef = useRef<HTMLDivElement>(null); // Removed ref
 
-    const [activeTab, setActiveTab] = useState<'create' | 'emails'>('create');
+    const [activeTab, setActiveTab] = useState<'create' | 'emails' | 'drafts'>('create');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -573,9 +573,23 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                     }`}
                             >
                                 Sent Emails
-                                {sentEmails.length > 0 && (
+                                {sentEmails.filter(e => e.status !== 'draft').length > 0 && (
                                     <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'emails' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
-                                        {sentEmails.length}
+                                        {sentEmails.filter(e => e.status !== 'draft').length}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('drafts')}
+                                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'drafts'
+                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}
+                            >
+                                Drafts
+                                {sentEmails.filter(e => e.status === 'draft').length > 0 && (
+                                    <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'drafts' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
+                                        {sentEmails.filter(e => e.status === 'draft').length}
                                     </span>
                                 )}
                             </button>
@@ -802,10 +816,10 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                     </div>
                                 </div>
                             </div>
-                        ) : (
+                        ) : activeTab === 'emails' ? (
                             /* Emails Tab - List of sent emails */
                             <div className="space-y-4">
-                                {sentEmails.length === 0 ? (
+                                {sentEmails.filter(e => e.status !== 'draft').length === 0 ? (
                                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
                                         <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                             <Mail className="w-8 h-8 text-gray-400" />
@@ -820,7 +834,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                         </button>
                                     </div>
                                 ) : (
-                                    sentEmails.map((email) => (
+                                    sentEmails.filter(e => e.status !== 'draft').map((email) => (
                                         <div key={email.id}
                                             className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
                                             onClick={() => setSelectedEmail(email)}
@@ -829,11 +843,8 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-3 mb-2">
                                                         <h3 className="font-semibold text-gray-900 dark:text-white truncate">{email.subject}</h3>
-                                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${email.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' :
-                                                            email.status === 'scheduled' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
-                                                                'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                                                            }`}>
-                                                            {email.status === 'sent' ? 'Sent' : email.status === 'scheduled' ? 'Scheduled' : 'Draft'}
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${email.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
+                                                            {email.status === 'sent' ? 'Sent' : 'Scheduled'}
                                                         </span>
                                                     </div>
                                                     <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />
@@ -852,15 +863,73 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                    {email.status === 'draft' && (
-                                                        <button
-                                                            onClick={() => handleLoadDraft(email)}
-                                                            className="p-2 text-gray-400 hover:text-[#3D518C] hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                                            title="Edit Draft"
-                                                        >
-                                                            <RefreshCw size={16} />
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteEmail(email.id);
+                                                        }}
+                                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        ) : (
+                            /* Drafts Tab */
+                            <div className="space-y-4">
+                                {sentEmails.filter(e => e.status === 'draft').length === 0 ? (
+                                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
+                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                            <Mail className="w-8 h-8 text-gray-400" />
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No drafts found</h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Create a new email and save it as a draft</p>
+                                        <button
+                                            onClick={() => setActiveTab('create')}
+                                            className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200"
+                                        >
+                                            Create New Draft
+                                        </button>
+                                    </div>
+                                ) : (
+                                    sentEmails.filter(e => e.status === 'draft').map((email) => (
+                                        <div key={email.id}
+                                            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
+                                            onClick={() => handleLoadDraft(email)}
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">{email.subject}</h3>
+                                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                                            Draft
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />
+                                                    <div className="flex items-center gap-4 text-xs text-gray-400">
+                                                        <span className="flex items-center gap-1">
+                                                            <Users size={12} />
+                                                            {email.recipientCount} (Planned)
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <Calendar size={12} />
+                                                            Last edited {formatDate(email.sentAt)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                    <button
+                                                        onClick={() => handleLoadDraft(email)}
+                                                        className="p-2 text-[#3D518C] hover:bg-[#3D518C]/10 rounded-lg transition-colors"
+                                                        title="Continue Editing"
+                                                    >
+                                                        <RefreshCw size={16} />
+                                                    </button>
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();

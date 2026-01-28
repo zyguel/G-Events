@@ -412,7 +412,7 @@ export default function ManagementPage() {
                         {/* Content based on active filter */}
                         {activeFilter === 'Team' ? (
                             /* Team Members List */
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg">
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-lg">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredMembers.map((member) => (
                                         <div
@@ -469,7 +469,7 @@ export default function ManagementPage() {
                             </div>
                         ) : (
                             /* Roles List */
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg">
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-lg">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredRoles.map((role) => (
                                         <div

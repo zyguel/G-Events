@@ -5,11 +5,7 @@ import { useParams } from 'next/navigation';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import EventsSidebar from '@/components/admin/EventsSidebar';
-<<<<<<< Updated upstream
-import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown } from 'lucide-react';
-=======
 import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown, Ticket } from 'lucide-react';
->>>>>>> Stashed changes
 
 // Mock waitlist data
 const mockWaitlistEntries = [

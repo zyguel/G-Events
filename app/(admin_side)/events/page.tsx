@@ -183,17 +183,19 @@ export default function EventsPage() {
                                                     </div>
 
                                                     <div className="flex items-center gap-6">
-                                                        <div className="text-center hidden md:block">
+                                                        <div className="text-center hidden md:block w-32">
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">Tickets</p>
                                                             <p className="font-semibold text-gray-900 dark:text-white">{event.ticketsSold}/{event.totalTickets}</p>
                                                         </div>
-                                                        <div className="text-center hidden md:block">
+                                                        <div className="text-center hidden md:block w-24">
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">Attendees</p>
                                                             <p className="font-semibold text-gray-900 dark:text-white">{event.attendees}</p>
                                                         </div>
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
-                                                            {event.status}
-                                                        </span>
+                                                        <div className="w-28 flex justify-center">
+                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
+                                                                {event.status}
+                                                            </span>
+                                                        </div>
                                                         <button onClick={(e) => e.preventDefault()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors">
                                                             <MoreVertical size={18} className="text-gray-400" />
                                                         </button>
