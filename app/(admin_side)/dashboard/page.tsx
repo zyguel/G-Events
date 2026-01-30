@@ -82,12 +82,12 @@ export default function DashboardPage() {
                                 </div>
                             </div>
 
-                            <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
+                            <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <p className="text-amber-100 text-sm font-medium">Pending Reviews</p>
+                                        <p className="text-rose-100 text-sm font-medium">Pending Reviews</p>
                                         <h3 className="text-xl font-bold mt-1">23 applications</h3>
-                                        <p className="text-amber-200 text-sm mt-2">Needs attention</p>
+                                        <p className="text-rose-200 text-sm mt-2">Needs attention</p>
                                     </div>
                                     <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                                         <Clock size={24} />
@@ -106,9 +106,9 @@ export default function DashboardPage() {
                                         <h2 className="font-semibold text-gray-900 dark:text-white">Upcoming Events</h2>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Your scheduled events</p>
                                     </div>
-                                    <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium flex items-center gap-1">
+                                    <Link href="/events" className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium flex items-center gap-1">
                                         View All <ChevronRight size={16} />
-                                    </button>
+                                    </Link>
                                 </div>
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {upcomingEvents.map((event) => (

@@ -8,7 +8,7 @@ interface TeamMember {
     id: number;
     name: string;
     email: string;
-    role: 'Core Member' | 'Volunteer' | 'Admin';
+    role: string;
     avatar: string;
 }
 
@@ -42,7 +42,7 @@ export default function ManagementPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [inviteName, setInviteName] = useState('');
     const [inviteEmail, setInviteEmail] = useState('');
-    const [selectedRole, setSelectedRole] = useState<'Core Member' | 'Volunteer' | ''>('');
+    const [selectedRole, setSelectedRole] = useState<string>('');
     const [isRoleDropdownOpen, setIsRoleDropdownOpen] = useState(false);
 
     const handleOpenModal = () => {
@@ -68,7 +68,7 @@ export default function ManagementPage() {
                 id: Math.max(...members.map(m => m.id)) + 1,
                 name: inviteName,
                 email: inviteEmail,
-                role: selectedRole as 'Core Member' | 'Volunteer',
+                role: selectedRole,
                 avatar: Math.random() > 0.5 ? '/icons/woman.png' : '/icons/man.png'
             };
 
@@ -78,7 +78,7 @@ export default function ManagementPage() {
         }
     };
 
-    const handleSelectRole = (role: 'Core Member' | 'Volunteer') => {
+    const handleSelectRole = (role: string) => {
         setSelectedRole(role);
         setIsRoleDropdownOpen(false);
     };
@@ -87,7 +87,7 @@ export default function ManagementPage() {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
     const [editEmail, setEditEmail] = useState('');
-    const [editRole, setEditRole] = useState<'Core Member' | 'Volunteer' | 'Admin'>('Core Member');
+    const [editRole, setEditRole] = useState<string>('Core Member');
     const [isEditRoleDropdownOpen, setIsEditRoleDropdownOpen] = useState(false);
 
     const handleOpenEditModal = (member: TeamMember) => {
@@ -137,7 +137,7 @@ export default function ManagementPage() {
         setIsRemoveModalOpen(false);
     };
 
-    const handleSelectEditRole = (role: 'Core Member' | 'Volunteer') => {
+    const handleSelectEditRole = (role: string) => {
         setEditRole(role);
         setIsEditRoleDropdownOpen(false);
     };
@@ -328,7 +328,7 @@ export default function ManagementPage() {
                 <Sidebar activePage="management" />
 
                 <main className="flex-1 ml-20 p-8 overflow-y-auto scrollbar-hide">
-                    <div className="space-y-6 max-w-6xl mx-auto">
+                    <div className="space-y-6 max-w-7xl mx-auto">
                         {/* Page Title */}
                         <div>
                             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Management</h1>
@@ -588,36 +588,28 @@ export default function ManagementPage() {
                                     {/* Dropdown Options */}
                                     {isRoleDropdownOpen && (
                                         <div className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl shadow-xl z-10 overflow-hidden">
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSelectRole('Core Member')}
-                                                className="w-full px-4 py-3.5 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-3"
-                                            >
-                                                <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                                                    <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                    </svg>
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium">Core Member</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Full access to team features</p>
-                                                </div>
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={() => handleSelectRole('Volunteer')}
-                                                className="w-full px-4 py-3.5 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-3"
-                                            >
-                                                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                                                    <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                                                    </svg>
-                                                </div>
-                                                <div>
-                                                    <p className="font-medium">Volunteer</p>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Limited access for volunteers</p>
-                                                </div>
-                                            </button>
+                                            <div className="max-h-60 overflow-y-auto">
+                                                {roles.map((role) => (
+                                                    <button
+                                                        key={role.id}
+                                                        type="button"
+                                                        onClick={() => handleSelectRole(role.name)}
+                                                        className="w-full px-4 py-3.5 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-indigo-50 dark:hover:bg-gray-600 transition-colors flex items-center gap-3"
+                                                    >
+                                                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs">
+                                                            {role.name.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium">{role.name}</p>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                                {role.name === 'Admin' ? 'Full system access' :
+                                                                    role.name === 'Volunteer' ? 'Limited access for volunteers' :
+                                                                        'Full access to team features'}
+                                                            </p>
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -685,20 +677,21 @@ export default function ManagementPage() {
                                 {/* Dropdown Options */}
                                 {isEditRoleDropdownOpen && (
                                     <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-10 overflow-hidden">
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSelectEditRole('Core Member')}
-                                            className="w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 border-b border-gray-200 dark:border-gray-600"
-                                        >
-                                            Core Member
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleSelectEditRole('Volunteer')}
-                                            className="w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600"
-                                        >
-                                            Volunteer
-                                        </button>
+                                        <div className="max-h-60 overflow-y-auto">
+                                            {roles.map((role) => (
+                                                <button
+                                                    key={role.id}
+                                                    type="button"
+                                                    onClick={() => handleSelectEditRole(role.name)}
+                                                    className="w-full px-4 py-3 text-sm text-left text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 border-b border-gray-200 dark:border-gray-600 last:border-0 flex items-center gap-3"
+                                                >
+                                                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-xs">
+                                                        {role.name.charAt(0)}
+                                                    </div>
+                                                    {role.name}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 )}
                             </div>
