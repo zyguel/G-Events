@@ -1,8 +1,8 @@
 "use client";
 import React from 'react';
 import Image from 'next/image';
-import { Bell } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
+import NotificationDropdown from './NotificationDropdown';
 
 const Header = () => {
     return (
@@ -33,11 +33,8 @@ const Header = () => {
                 {/* Theme Toggle */}
                 <ThemeToggle />
 
-                {/* Notification Bell */}
-                <button className="relative p-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-xl transition-all duration-200 group">
-                    <Bell size={20} className="text-gray-600 dark:text-gray-300 group-hover:text-[#3D518C] dark:group-hover:text-white transition-colors" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-gray-800 animate-pulse"></span>
-                </button>
+                {/* Notification Dropdown */}
+                <NotificationDropdown />
 
                 {/* User Profile */}
                 <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700">
