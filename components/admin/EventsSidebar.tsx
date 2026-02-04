@@ -125,13 +125,15 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Manage Attendees</h3>
                         <ul className="space-y-1">
                             <li>
-                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'orders'
-                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}>
+                                <Link
+                                    href={`/events/${event.id}/orders`}
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'orders'
+                                        ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}>
                                     <Users size={16} />
                                     Manage Orders
-                                </a>
+                                </Link>
                             </li>
                             <li>
                                 <Link
