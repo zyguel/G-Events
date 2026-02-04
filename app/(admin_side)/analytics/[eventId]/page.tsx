@@ -2,6 +2,7 @@ import React from 'react';
 import { notFound } from "next/navigation";
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
+import EventsSidebar from '@/components/admin/EventsSidebar';
 import StatCard from '@/components/admin/StatCard';
 import DashboardTabs from '@/components/admin/DashboardTabs';
 import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
@@ -23,6 +24,14 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
         return notFound();
     }
 
+    // Create sidebar event object
+    const sidebarEvent = {
+        id: eventId,
+        name: data.name,
+        date: data.date,
+        status: "Ongoing" as const
+    };
+
     // Format currency
     const formatCurrency = (value: number) => {
         return new Intl.NumberFormat('en-US', {
@@ -43,9 +52,15 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
             <Header />
 
             <div className="flex flex-1 overflow-hidden">
-                <Sidebar activePage="analytics" />
+                {/* Main Navigation Sidebar */}
+                <Sidebar activePage="events" disableExpand={true} />
 
-                <main className="flex-1 ml-20 overflow-y-auto p-8">
+                {/* Event Specific Sidebar */}
+                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
+                    <EventsSidebar event={sidebarEvent} activePage="analytics" />
+                </div>
+
+                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto p-8">
                     <div className="max-w-7xl mx-auto space-y-8">
 
                         {/* Header Section with Event Selector & Export */}
