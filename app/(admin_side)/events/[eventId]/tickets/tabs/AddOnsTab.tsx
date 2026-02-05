@@ -297,7 +297,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <label className="block text-sm font-medium mb-2">Apply To</label>
             <select
               value={typeof formData.appliedTo === 'string' ? formData.appliedTo : formData.appliedTo[0] || 'all'}
-              onChange={(e) => setFormData({ ...formData, appliedTo: e.target.value as 'all' | string })}
+              onChange={(e) => setFormData({ ...formData, appliedTo: e.target.value === 'all' ? 'all' : [e.target.value] })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
             >
               <option value="all">All Tickets</option>

@@ -288,7 +288,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
               </div>
 
               <CurrencySelect
-                value={formData.currency}
+                value={formData.currency || "PHP"}
                 onChange={(currency) => setFormData({ ...formData, currency })}
                 label="Currency"
               />
