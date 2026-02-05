@@ -55,20 +55,22 @@ export default function SettingsTab({ event }: SettingsTabProps) {
     }
   };
 
-  const handleUpdateMessage = async (message: string) => {
+  const handleUpdateMessage = (message: string) => {
     if (!settings) return;
+    setSettings({ ...settings, messageAfterSalesEnd: message });
+  };
 
-    const updatedSettings = { ...settings, messageAfterSalesEnd: message };
-    setSettings(updatedSettings);
+  const handleSaveMessage = async () => {
+    if (!settings) return;
 
     setSaving(true);
     try {
-      await updateEventSettings(event.id, { messageAfterSalesEnd: message });
+      await updateEventSettings(event.id, { messageAfterSalesEnd: settings.messageAfterSalesEnd });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (error) {
       console.error("Failed to update settings:", error);
-      setSettings(settings);
+      await loadSettings();
     } finally {
       setSaving(false);
     }
@@ -151,6 +153,7 @@ export default function SettingsTab({ event }: SettingsTabProps) {
               <textarea
                 value={settings.messageAfterSalesEnd}
                 onChange={(e) => handleUpdateMessage(e.target.value)}
+                onBlur={handleSaveMessage}
                 maxLength={2500}
                 disabled={saving}
                 rows={4}
