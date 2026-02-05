@@ -8,6 +8,8 @@ import EventsSidebar from '@/components/admin/EventsSidebar';
 import { Mail, Filter, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import Modal from '@/components/admin/Modal';
+import TimeInput from '@/components/admin/TimeInput';
+import DateInput from '@/components/admin/DateInput';
 
 // Toast notification component
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
@@ -747,19 +749,18 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                                         <div className="grid grid-cols-2 gap-3">
                                                             <div>
                                                                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Date</label>
-                                                                <input
-                                                                    type="date"
-                                                                    value={scheduledDate}
-                                                                    onChange={(e) => setScheduledDate(e.target.value)}
-                                                                    min={new Date().toISOString().split('T')[0]}
-                                                                    className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] [color-scheme:light] dark:[color-scheme:dark]"
+                                                                <DateInput
+                                                                    value={scheduledDate ? new Date(scheduledDate) : null}
+                                                                    onChange={(date) => setScheduledDate(date ? date.toISOString().split('T')[0] : '')}
+                                                                    placeholder="Select date"
                                                                 />
                                                             </div>
                                                             <div>
                                                                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Time</label>
-                                                                <TimeInputWithPicker
+                                                                <TimeInput
                                                                     value={scheduledTime}
                                                                     onChange={setScheduledTime}
+                                                                    openAbove={true}
                                                                 />
                                                             </div>
                                                         </div>

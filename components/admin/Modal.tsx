@@ -71,7 +71,7 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, size
                 </div>
 
                 {/* Content */}
-                <div className={`flex-1 overflow-y-auto bg-white dark:bg-gray-800 ${size === 'sm' ? 'p-6' : 'p-6 md:p-8'}`}>
+                <div className={`flex-1 overflow-y-scroll bg-white dark:bg-gray-800 ${size === 'sm' ? 'p-6' : 'p-6 md:p-8'}`}>
                     {children}
                 </div>
             </div>

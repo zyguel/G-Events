@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Send, FileText, Settings, Ticket, Globe, Calendar, MapPin, ImageIcon, CheckCircle, AlertCircle, Clock } from "lucide-react";
-import DateTimeInput from "./DateTimeInput";
+import DateInput from "./DateInput";
+import TimeInput from "./TimeInput";
 
 interface EventData {
     id: string;
@@ -33,15 +34,19 @@ export default function PublishEventContent({ event }: { event: EventData }) {
         allowGroupRegistration: boolean;
         allowWaitlist: boolean;
         enableBreakoutSession: boolean;
-        registrationOpenDate: Date | null;
-        registrationCloseDate: Date | null;
+        registrationOpenDate: string;
+        registrationOpenTime: string;
+        registrationCloseDate: string;
+        registrationCloseTime: string;
         isVisibleToPublic: boolean;
     }>({
         allowGroupRegistration: false,
         allowWaitlist: false,
         enableBreakoutSession: false,
-        registrationOpenDate: null,
-        registrationCloseDate: null,
+        registrationOpenDate: '',
+        registrationOpenTime: '',
+        registrationCloseDate: '',
+        registrationCloseTime: '',
         isVisibleToPublic: false
     });
 
@@ -269,7 +274,7 @@ export default function PublishEventContent({ event }: { event: EventData }) {
             </section>
 
             {/* 4. Publish Settings */}
-            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-md">
                 <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
@@ -286,28 +291,56 @@ export default function PublishEventContent({ event }: { event: EventData }) {
                     </div>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="p-6 space-y-6 overflow-visible">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Registration Open Date</label>
-                            <DateTimeInput
-                                value={settings.registrationOpenDate}
-                                onChange={(date) => setSettings({ ...settings, registrationOpenDate: date })}
-                                placeholder="Select open date & time"
-                            />
+                        {/* Registration Open Date */}
+                        <div className="space-y-3">
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">Registration Open Date</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Date</label>
+                                    <DateInput
+                                        value={settings.registrationOpenDate ? new Date(settings.registrationOpenDate) : null}
+                                        onChange={(date) => setSettings({ ...settings, registrationOpenDate: date ? date.toISOString().split('T')[0] : '' })}
+                                        placeholder="Select date"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Time</label>
+                                    <TimeInput
+                                        value={settings.registrationOpenTime}
+                                        onChange={(time) => setSettings({ ...settings, registrationOpenTime: time })}
+                                        placeholder="Select time"
+                                    />
+                                </div>
+                            </div>
                         </div>
 
-                        <div>
-                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Registration Close Date</label>
-                            <DateTimeInput
-                                value={settings.registrationCloseDate}
-                                onChange={(date) => setSettings({ ...settings, registrationCloseDate: date })}
-                                placeholder="Select close date & time"
-                            />
+                        {/* Registration Close Date */}
+                        <div className="space-y-3">
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300">Registration Close Date</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Date</label>
+                                    <DateInput
+                                        value={settings.registrationCloseDate ? new Date(settings.registrationCloseDate) : null}
+                                        onChange={(date) => setSettings({ ...settings, registrationCloseDate: date ? date.toISOString().split('T')[0] : '' })}
+                                        placeholder="Select date"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">Time</label>
+                                    <TimeInput
+                                        value={settings.registrationCloseTime}
+                                        onChange={(time) => setSettings({ ...settings, registrationCloseTime: time })}
+                                        placeholder="Select time"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <div className="pt-8 border-t border-gray-100 dark:border-gray-700">
                         <label className={`
                             flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer
                             ${settings.isVisibleToPublic
