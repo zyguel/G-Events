@@ -541,8 +541,8 @@ export default function ManageBreakoutsPage() {
                 </div>
 
                 {/* Main Content Area */}
-                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto p-8">
-                    <div className="max-w-6xl mx-auto space-y-6">
+                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto scrollbar-hide p-8">
+                    <div className="max-w-5xl mx-auto space-y-8">
 
                         {/* Page Header */}
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -552,7 +552,7 @@ export default function ManageBreakoutsPage() {
                                 </div>
                                 <div>
                                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        Manage <span className="bg-[#ABD2FA] dark:bg-[#3D518C] px-2 py-0.5 rounded">Breakout Sessions</span>
+                                        Manage Breakout Sessions
                                     </h1>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                                         Create and manage breakout sessions for your event

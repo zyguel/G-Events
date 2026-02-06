@@ -187,7 +187,7 @@ export default function ManageWaitlistPage() {
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                             <div className="flex items-center gap-4">
                                 <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
-                                    <Users className="w-7 h-7 text-white" />
+                                    <Clock className="w-7 h-7 text-white" />
                                 </div>
                                 <div>
                                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">

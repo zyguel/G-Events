@@ -4,7 +4,7 @@ import { useState } from "react";
 import Header from "@/components/admin/Header";
 import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
-import { Search, Filter, Plus, MoreVertical, ClipboardList } from "lucide-react";
+import { Search, Filter, Plus, MoreVertical, Users } from "lucide-react";
 
 // Mock data for registrants
 const mockOrders = [
@@ -119,13 +119,13 @@ export default function ManageOrdersClient({ eventId }: ManageOrdersClientProps)
                     <EventsSidebar event={event} activePage="orders" />
                 </div>
 
-                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto">
-                    <div className="max-w-7xl mx-auto p-8">
+                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto scrollbar-hide p-8">
+                    <div className="max-w-5xl mx-auto space-y-8">
                         {/* Page Header */}
                         <div className="mb-8">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                                    <ClipboardList className="w-6 h-6 text-white" />
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                                    <Users className="w-7 h-7 text-white" />
                                 </div>
                                 <div>
                                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
