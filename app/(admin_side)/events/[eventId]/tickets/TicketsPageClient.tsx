@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Ticket } from "lucide-react";
 import Header from "@/components/admin/Header";
 import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
@@ -56,34 +57,46 @@ export default function TicketsPageClient({ event }: TicketsPageClientProps) {
           <EventsSidebar event={event} activePage="tickets" />
         </div>
 
-        <main className="flex-1 overflow-y-auto">
-          {/* Sticky Tab Navigation */}
-          <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 z-10">
-            <div className="p-8">
-              <h1 className="text-4xl font-bold mb-8">Tickets</h1>
+        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth">
+          <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans">
+            {/* Page Header */}
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                <Ticket className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  Tickets
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                  Manage admission tickets, add-ons, and promotional codes
+                </p>
+              </div>
+            </div>
 
-              {/* Tab Buttons */}
-              <div className="flex gap-8 border-b border-gray-200 dark:border-gray-700">
+            {/* Tab Navigation */}
+            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+              <div className="flex border-b border-gray-200 dark:border-gray-700">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`pb-4 font-medium text-base transition-colors duration-200 border-b-2 ${
+                    className={`flex-1 px-6 py-4 font-medium text-sm transition-all duration-200 ${
                       activeTab === tab.id
-                        ? "border-[#3D518C] text-[#3D518C] dark:text-[#3D518C]"
-                        : "border-transparent text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100"
+                        ? "text-[#3D518C] dark:text-[#5C6BC0] border-b-2 border-[#3D518C] dark:border-[#5C6BC0] bg-[#3D518C]/5 dark:bg-[#3D518C]/10"
+                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50"
                     }`}
                   >
                     {tab.label}
                   </button>
                 ))}
               </div>
-            </div>
-          </div>
 
-          {/* Tab Content */}
-          <div className="p-6">
-            {renderTabContent()}
+              {/* Tab Content */}
+              <div className="p-8">
+                {renderTabContent()}
+              </div>
+            </div>
           </div>
         </main>
       </div>
