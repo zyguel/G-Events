@@ -5,9 +5,10 @@ import Header from "@/components/admin/Header";
 import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
 import { Search, Filter, Plus, MoreVertical, Users } from "lucide-react";
+import ForReviewTab from "./tabs/ForReviewTab";
 
 // Mock data for registrants
-const mockOrders = [
+const initialMockOrders = [
     {
         id: "20240502000002",
         name: "Karylle Bernate",
@@ -17,7 +18,8 @@ const mockOrders = [
         status: "Confirmed",
         date: "May 18, 2025",
         time: "8:01 PM",
-        addOnStatus: "Claimed"
+        addOnStatus: "Claimed",
+        proofOfPayment: "https://placehold.co/600x400/png"
     },
     {
         id: "20240502000001",
@@ -28,7 +30,8 @@ const mockOrders = [
         status: "Confirmed",
         date: "May 18, 2025",
         time: "8:01 PM",
-        addOnStatus: "Unclaimed"
+        addOnStatus: "Unclaimed",
+        proofOfPayment: "https://placehold.co/600x400/png"
     },
     {
         id: "20240502000003",
@@ -39,7 +42,8 @@ const mockOrders = [
         status: "Confirmed",
         date: "May 18, 2025",
         time: "8:01 PM",
-        addOnStatus: "Unclaimed"
+        addOnStatus: "Unclaimed",
+        proofOfPayment: "https://placehold.co/600x400/png"
     },
     {
         id: "20240502000004",
@@ -50,7 +54,8 @@ const mockOrders = [
         status: "Pending",
         date: "May 19, 2025",
         time: "10:30 AM",
-        addOnStatus: "Unclaimed"
+        addOnStatus: "Unclaimed",
+        proofOfPayment: "https://placehold.co/600x800/png?text=Proof+of+Payment+1"
     },
     {
         id: "20240502000005",
@@ -61,7 +66,8 @@ const mockOrders = [
         status: "Confirmed",
         date: "May 19, 2025",
         time: "2:15 PM",
-        addOnStatus: "Claimed"
+        addOnStatus: "Claimed",
+        proofOfPayment: "https://placehold.co/600x400/png"
     },
     {
         id: "20240502000006",
@@ -72,8 +78,33 @@ const mockOrders = [
         status: "Confirmed",
         date: "May 20, 2025",
         time: "11:45 AM",
-        addOnStatus: "Unclaimed"
+        addOnStatus: "Unclaimed",
+        proofOfPayment: "https://placehold.co/600x400/png"
     },
+    {
+        id: "20240502000007",
+        name: "Sarah Williams",
+        email: "sarahw@gmail.com",
+        ticketType: "VIP Access",
+        registrationType: "Individual",
+        status: "Pending",
+        date: "May 21, 2025",
+        time: "09:15 AM",
+        addOnStatus: "Unclaimed",
+        proofOfPayment: "https://placehold.co/600x800/png?text=Proof+of+Payment+2"
+    },
+    {
+        id: "20240502000008",
+        name: "Mike Brown",
+        email: "mikeb@gmail.com",
+        ticketType: "General Admission",
+        registrationType: "Individual",
+        status: "Pending",
+        date: "May 21, 2025",
+        time: "01:30 PM",
+        addOnStatus: "Unclaimed",
+        proofOfPayment: "https://placehold.co/600x800/png?text=Proof+of+Payment+3"
+    }
 ];
 
 interface ManageOrdersClientProps {
@@ -82,6 +113,7 @@ interface ManageOrdersClientProps {
 
 export default function ManageOrdersClient({ eventId }: ManageOrdersClientProps) {
     const [activeTab, setActiveTab] = useState<"all" | "review">("all");
+    const [orders, setOrders] = useState(initialMockOrders);
     const [searchQuery, setSearchQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
 
@@ -94,7 +126,7 @@ export default function ManageOrdersClient({ eventId }: ManageOrdersClientProps)
     };
 
     // Filter orders based on search query
-    const filteredOrders = mockOrders.filter(order => {
+    const filteredOrders = orders.filter(order => {
         const searchLower = searchQuery.toLowerCase();
         return (
             order.id.toLowerCase().includes(searchLower) ||
@@ -106,6 +138,18 @@ export default function ManageOrdersClient({ eventId }: ManageOrdersClientProps)
     const handleClearFilters = () => {
         setSearchQuery("");
         setShowFilters(false);
+    };
+
+    const handleConfirmOrder = (orderId: string) => {
+        setOrders(prev => prev.map(order =>
+            order.id === orderId ? { ...order, status: "Confirmed" } : order
+        ));
+    };
+
+    const handleRejectOrder = (orderId: string) => {
+        setOrders(prev => prev.map(order =>
+            order.id === orderId ? { ...order, status: "Rejected" } : order
+        ));
     };
 
     return (
@@ -310,14 +354,13 @@ export default function ManageOrdersClient({ eventId }: ManageOrdersClientProps)
                             </div>
                         )}
 
-                        {/* For Review Tab Content (Placeholder) */}
+                        {/* For Review Tab Content */}
                         {activeTab === "review" && (
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
-                                <p className="text-gray-500 dark:text-gray-400 text-lg">For Review tab coming soon</p>
-                                <p className="text-sm text-gray-400 dark:text-gray-500 mt-2">
-                                    This section will display orders that need review
-                                </p>
-                            </div>
+                            <ForReviewTab
+                                orders={orders}
+                                onConfirm={handleConfirmOrder}
+                                onReject={handleRejectOrder}
+                            />
                         )}
                     </div>
                 </main>
