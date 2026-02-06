@@ -166,10 +166,10 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     <div className="space-y-6">
       {/* Header with Add Button */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Add-ons</h2>
+
         <button
           onClick={handleAddAddOn}
-          className="px-4 py-2 bg-[#3D518C] text-white rounded-lg font-medium hover:bg-[#2a3a5e] transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-sm bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.05] transition-all duration-200 text-white font-medium rounded-lg flex items-center gap-2"
         >
           <Plus size={18} />
           Create Add-on
@@ -260,9 +260,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${
-                errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                }`}
             />
             {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
           </div>
@@ -273,9 +272,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               type="text"
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${
-                errors.type ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.type ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                }`}
             />
             {errors.type && <p className="text-red-600 text-sm mt-1">{errors.type}</p>}
           </div>
@@ -286,9 +284,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${
-                errors.description ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.description ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                }`}
             />
             {errors.description && <p className="text-red-600 text-sm mt-1">{errors.description}</p>}
           </div>

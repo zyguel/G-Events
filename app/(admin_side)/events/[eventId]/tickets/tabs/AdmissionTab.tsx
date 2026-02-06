@@ -153,10 +153,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     <div className="space-y-6">
       {/* Header with Add Button */}
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Admission Tickets</h2>
+
         <button
           onClick={handleAddTicket}
-          className="px-4 py-2 bg-[#3D518C] text-white rounded-lg font-medium hover:bg-[#2a3a5e] transition-colors flex items-center gap-2"
+          className="px-4 py-2 text-sm bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.05] transition-all duration-200 text-white font-medium rounded-lg flex items-center gap-2"
         >
           <Plus size={18} />
           Add Ticket
@@ -228,9 +228,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-                errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-              }`}
+              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                }`}
             />
             {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
           </div>
@@ -243,11 +242,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   <button
                     key={type}
                     onClick={() => setFormData({ ...formData, type: type as "paid" | "free" })}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
-                      formData.type === type
-                        ? "bg-[#3D518C] text-white"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
+                    className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${formData.type === type
+                      ? "bg-[#3D518C] text-white"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      }`}
                   >
                     {type === "paid" ? "Paid" : "Free"}
                   </button>
@@ -262,9 +260,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 min="1"
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${
-                  errors.quantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.quantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  }`}
               />
               {errors.quantity && <p className="text-red-600 text-sm mt-1">{errors.quantity}</p>}
             </div>
@@ -280,9 +277,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   step="0.01"
                   value={formData.price}
                   onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${
-                    errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                  }`}
+                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                    }`}
                 />
                 {errors.price && <p className="text-red-600 text-sm mt-1">{errors.price}</p>}
               </div>
@@ -302,9 +298,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 type="datetime-local"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${
-                  errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  }`}
               />
               {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate}</p>}
             </div>
@@ -315,9 +310,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 type="datetime-local"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${
-                  errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                }`}
+                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  }`}
               />
               {errors.endDate && <p className="text-red-600 text-sm mt-1">{errors.endDate}</p>}
             </div>
@@ -383,9 +377,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     min="1"
                     value={formData.maxQuantity}
                     onChange={(e) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
-                    className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${
-                      errors.maxQuantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                    }`}
+                    className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.maxQuantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                      }`}
                   />
                   {errors.maxQuantity && <p className="text-red-600 text-sm mt-1">{errors.maxQuantity}</p>}
                 </div>

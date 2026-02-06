@@ -101,7 +101,7 @@ export default function SettingsTab({ event }: SettingsTabProps) {
         </div>
       )}
 
-      <h2 className="text-xl font-semibold">Ticket Display Settings</h2>
+
 
       {/* Display Tickets Remaining */}
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
@@ -161,13 +161,12 @@ export default function SettingsTab({ event }: SettingsTabProps) {
               />
               <div className="flex justify-between items-center mt-2">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Max 2,500 characters</p>
-                <p className={`text-xs font-medium ${
-                  settings.messageAfterSalesEnd.length >= 2400
+                <p className={`text-xs font-medium ${settings.messageAfterSalesEnd.length >= 2400
                     ? "text-red-600"
                     : settings.messageAfterSalesEnd.length >= 2000
-                    ? "text-amber-600"
-                    : "text-gray-500"
-                }`}>
+                      ? "text-amber-600"
+                      : "text-gray-500"
+                  }`}>
                   {settings.messageAfterSalesEnd.length}/2,500
                 </p>
               </div>

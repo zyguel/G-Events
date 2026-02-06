@@ -35,7 +35,7 @@ export default async function OrderFormPage({ params }: { params: Promise<{ even
                 </div>
 
                 {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth">
+                <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable]">
                     <OrderForm eventId={eventId} />
                 </main>
             </div>

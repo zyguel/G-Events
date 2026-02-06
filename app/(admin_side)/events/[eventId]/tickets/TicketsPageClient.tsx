@@ -57,7 +57,7 @@ export default function TicketsPageClient({ event }: TicketsPageClientProps) {
           <EventsSidebar event={event} activePage="tickets" />
         </div>
 
-        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth">
+        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable]">
           <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans">
             {/* Page Header */}
             <div className="flex items-center gap-4">
@@ -81,11 +81,10 @@ export default function TicketsPageClient({ event }: TicketsPageClientProps) {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 px-6 py-4 font-medium text-sm transition-all duration-200 ${
-                      activeTab === tab.id
-                        ? "text-[#3D518C] dark:text-[#5C6BC0] border-b-2 border-[#3D518C] dark:border-[#5C6BC0] bg-[#3D518C]/5 dark:bg-[#3D518C]/10"
-                        : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                    }`}
+                    className={`flex-1 px-6 py-4 font-medium text-sm transition-all duration-200 ${activeTab === tab.id
+                      ? "text-[#3D518C] dark:text-[#5C6BC0] border-b-2 border-[#3D518C] dark:border-[#5C6BC0] bg-[#3D518C]/5 dark:bg-[#3D518C]/10"
+                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      }`}
                   >
                     {tab.label}
                   </button>
