@@ -237,7 +237,13 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     const formatDateDisplay = (dateStr: string) => {
         if (!dateStr) return "";
         try {
-            const date = new Date(dateStr);
+            // Parse YYYY-MM-DD format without time to avoid timezone interpretation
+            const [year, month, day] = dateStr.split('-');
+            if (!year || !month || !day) return dateStr;
+            
+            // Create date at midnight UTC and format consistently
+            const date = new Date(`${year}-${month}-${day}T00:00:00Z`);
+            
             // Verify date is valid
             if (isNaN(date.getTime())) return dateStr;
 
@@ -245,7 +251,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',
-                timeZone: 'UTC' // Assuming input date is YYYY-MM-DD without time, render as UTC to avoid timezone shifts
+                timeZone: 'UTC'
             }).format(date);
         } catch (e) {
             return dateStr;
