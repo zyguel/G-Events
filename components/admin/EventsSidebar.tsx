@@ -162,13 +162,16 @@ export default function EventsSidebar({ event, activePage }: EventsSidebarProps)
                                 </Link>
                             </li>
                             <li>
-                                <a href="#" className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'certificates'
-                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}>
+                                <Link
+                                    href={`/events/${event.id}/certificates`}
+                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${activePage === 'certificates'
+                                        ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}
+                                >
                                     <Award size={16} />
                                     Certificates
-                                </a>
+                                </Link>
                             </li>
                             <li>
                                 <Link
