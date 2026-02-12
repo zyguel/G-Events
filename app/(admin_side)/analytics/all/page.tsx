@@ -17,7 +17,7 @@ export default async function AggregatedAnalyticsPage() {
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar activePage="analytics" />
 
-                <main className="flex-1 ml-20 overflow-y-auto p-8">
+                <main className="flex-1 ml-20 overflow-y-auto p-4 md:p-8">
                     <div className="max-w-7xl mx-auto space-y-8">
 
                         {/* Header Section with Event Selector & Export */}

@@ -47,10 +47,10 @@ export default function DashboardTabs({ data }: { data: DashboardData }) {
     return (
         <div className="space-y-6">
             {/* --- Tab Navigation --- */}
-            <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex gap-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
                 <button
                     onClick={() => setActiveTab("registrations")}
-                    className={`pb-3 border-b-2 font-medium text-sm transition-colors ${activeTab === "registrations"
+                    className={`pb-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "registrations"
                         ? "border-indigo-500 text-gray-900 dark:border-indigo-400 dark:text-white"
                         : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                         }`}
@@ -59,7 +59,7 @@ export default function DashboardTabs({ data }: { data: DashboardData }) {
                 </button>
                 <button
                     onClick={() => setActiveTab("revenue")}
-                    className={`pb-3 border-b-2 font-medium text-sm transition-colors ${activeTab === "revenue"
+                    className={`pb-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "revenue"
                         ? "border-indigo-500 text-gray-900 dark:border-indigo-400 dark:text-white"
                         : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                         }`}
@@ -68,7 +68,7 @@ export default function DashboardTabs({ data }: { data: DashboardData }) {
                 </button>
                 <button
                     onClick={() => setActiveTab("feedback")}
-                    className={`pb-3 border-b-2 font-medium text-sm transition-colors ${activeTab === "feedback"
+                    className={`pb-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "feedback"
                         ? "border-indigo-500 text-gray-900 dark:border-indigo-400 dark:text-white"
                         : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                         }`}

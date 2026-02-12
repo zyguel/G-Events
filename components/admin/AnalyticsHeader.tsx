@@ -34,7 +34,7 @@ export default function AnalyticsHeader({ events, currentEventId, data, title = 
                 </p>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 {/* Event Search, Year Filter & Clear Filter - all in EventSelector */}
                 <EventSelector
                     events={events}
@@ -43,7 +43,9 @@ export default function AnalyticsHeader({ events, currentEventId, data, title = 
                     onYearChange={setSelectedYear}
                 />
 
-                <ExportButton data={data} />
+                <div className="w-full sm:w-auto">
+                    <ExportButton data={data} />
+                </div>
             </div>
         </div>
     );

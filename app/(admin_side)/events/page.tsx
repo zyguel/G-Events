@@ -74,7 +74,7 @@ export default function EventsPage() {
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar activePage="events" />
 
-                <main className="flex-1 ml-20 overflow-y-auto p-8">
+                <main className="flex-1 ml-20 overflow-y-auto p-4 md:p-8">
                     <div className="space-y-6 max-w-7xl mx-auto">
 
                         {/* Header Section */}
@@ -88,7 +88,7 @@ export default function EventsPage() {
                                 </p>
                             </div>
 
-                            <button className="flex items-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm">
+                            <button className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm w-full md:w-auto">
                                 <Plus size={18} />
                                 Create Event
                             </button>
@@ -96,49 +96,53 @@ export default function EventsPage() {
 
                         {/* Filters and Search Bar */}
                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-                            <div className="flex flex-col md:flex-row md:items-center gap-4">
-                                {/* Search */}
-                                <div className="relative flex-1 max-w-md">
-                                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                    <input
-                                        type="text"
-                                        placeholder="Search events..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                    />
-                                </div>
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4">
+                                    {/* Search */}
+                                    <div className="relative flex-1">
+                                        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search events..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                        />
+                                    </div>
 
-                                {/* Filter Tabs */}
-                                <div className="flex items-center gap-2">
-                                    {(['all', 'upcoming', 'drafts', 'past'] as FilterOption[]).map((filter) => (
-                                        <button
-                                            key={filter}
-                                            onClick={() => setSelectedFilter(filter)}
-                                            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${selectedFilter === filter
-                                                ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                }`}
-                                        >
-                                            {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                                        </button>
-                                    ))}
-                                </div>
+                                    {/* Filter Tabs & View Toggle */}
+                                    <div className="flex items-center justify-between gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+                                        <div className="flex items-center gap-2">
+                                            {(['all', 'upcoming', 'drafts', 'past'] as FilterOption[]).map((filter) => (
+                                                <button
+                                                    key={filter}
+                                                    onClick={() => setSelectedFilter(filter)}
+                                                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${selectedFilter === filter
+                                                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                                        : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                        }`}
+                                                >
+                                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                                </button>
+                                            ))}
+                                        </div>
 
-                                {/* View Toggle */}
-                                <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                                    <button
-                                        onClick={() => setViewMode('list')}
-                                        className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm' : ''}`}
-                                    >
-                                        <List size={18} className={viewMode === 'list' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'} />
-                                    </button>
-                                    <button
-                                        onClick={() => setViewMode('grid')}
-                                        className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-600 shadow-sm' : ''}`}
-                                    >
-                                        <Grid size={18} className={viewMode === 'grid' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'} />
-                                    </button>
+                                        {/* View Toggle - Hidden on mobile, forced to list or grid depending on preference, or kept small */}
+                                        <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 ml-auto shrink-0">
+                                            <button
+                                                onClick={() => setViewMode('list')}
+                                                className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm' : ''}`}
+                                            >
+                                                <List size={18} className={viewMode === 'list' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'} />
+                                            </button>
+                                            <button
+                                                onClick={() => setViewMode('grid')}
+                                                className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-600 shadow-sm' : ''}`}
+                                            >
+                                                <Grid size={18} className={viewMode === 'grid' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'} />
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -155,34 +159,35 @@ export default function EventsPage() {
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredEvents.map((event) => (
                                         <Link key={event.id} href={event.analyticsId ? `/events/${event.analyticsId}/overview` : '#'} className="block">
-                                            <div className="p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
-                                                <div className="flex items-center justify-between gap-4">
+                                            <div className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                     <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                        <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl flex-shrink-0">
+                                                        <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg md:text-xl flex-shrink-0">
                                                             {event.name.charAt(0)}
                                                         </div>
-                                                        <div className="min-w-0">
+                                                        <div className="min-w-0 flex-1">
                                                             <div className="flex items-center gap-2">
                                                                 <Image
                                                                     src={getStatusIcon(event.status)}
                                                                     alt={event.status}
-                                                                    width={18}
-                                                                    height={18}
+                                                                    width={16}
+                                                                    height={16}
+                                                                    className="w-4 h-4 md:w-[18px] md:h-[18px]"
                                                                 />
-                                                                <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
+                                                                <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm md:text-base">{event.name}</h3>
                                                             </div>
-                                                            <div className="flex items-center gap-4 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
                                                                 <span className="flex items-center gap-1">
-                                                                    <MapPin size={14} /> {event.location}
+                                                                    <MapPin size={12} className="md:w-[14px] md:h-[14px]" /> {event.location}
                                                                 </span>
                                                                 <span className="flex items-center gap-1">
-                                                                    <Calendar size={14} /> {event.date}
+                                                                    <Calendar size={12} className="md:w-[14px] md:h-[14px]" /> {event.date}
                                                                 </span>
                                                             </div>
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-6">
+                                                    <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 pl-16 md:pl-0">
                                                         <div className="text-center hidden md:block w-32">
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">Tickets</p>
                                                             <p className="font-semibold text-gray-900 dark:text-white">{event.ticketsSold}/{event.totalTickets}</p>
@@ -191,8 +196,8 @@ export default function EventsPage() {
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">Attendees</p>
                                                             <p className="font-semibold text-gray-900 dark:text-white">{event.attendees}</p>
                                                         </div>
-                                                        <div className="w-28 flex justify-center">
-                                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
+                                                        <div className="min-w-[80px] md:w-28 flex justify-center">
+                                                            <span className={`px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium ${getStatusColor(event.status)}`}>
                                                                 {event.status}
                                                             </span>
                                                         </div>
@@ -207,7 +212,9 @@ export default function EventsPage() {
                                 </div>
                             </div>
                         ) : (
+                            // ... existing grid view code ...
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
                                 {filteredEvents.map((event) => (
                                     <Link key={event.id} href={event.analyticsId ? `/events/${event.analyticsId}/overview` : '#'} className="block">
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">

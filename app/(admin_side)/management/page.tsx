@@ -327,7 +327,7 @@ export default function ManagementPage() {
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar activePage="management" />
 
-                <main className="flex-1 ml-20 p-8 overflow-y-auto scrollbar-hide">
+                <main className="flex-1 ml-20 p-4 md:p-8 overflow-y-auto scrollbar-hide">
                     <div className="space-y-6 max-w-7xl mx-auto">
                         {/* Page Title */}
                         <div>
@@ -337,76 +337,80 @@ export default function ManagementPage() {
 
                         {/* Filters and Search Bar */}
                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-4">
-                            <div className="flex flex-col md:flex-row md:items-center gap-4">
-                                {/* Search */}
-                                <div className="relative flex-1 max-w-md">
-                                    <Image
-                                        src="/icons/search-interface-symbol.png"
-                                        alt="Search"
-                                        width={18}
-                                        height={18}
-                                        className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50 dark:invert"
-                                    />
-                                    <input
-                                        type="text"
-                                        placeholder="Search members or roles..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                    />
-                                </div>
-
-                                {/* Filter Tabs */}
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        onClick={() => setActiveFilter('Team')}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeFilter === 'Team'
-                                            ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            }`}
-                                    >
+                            <div className="flex flex-col gap-4">
+                                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                                    {/* Search */}
+                                    <div className="relative flex-1 max-w-md">
                                         <Image
-                                            src="/icons/user.png"
-                                            alt="Team"
-                                            width={16}
-                                            height={16}
-                                            className={`brightness-0 dark:invert ${activeFilter === 'Team' ? '' : 'opacity-60'}`}
+                                            src="/icons/search-interface-symbol.png"
+                                            alt="Search"
+                                            width={18}
+                                            height={18}
+                                            className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50 dark:invert"
                                         />
-                                        Team
-                                    </button>
-                                    <button
-                                        onClick={() => setActiveFilter('Role')}
-                                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${activeFilter === 'Role'
-                                            ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                            : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            }`}
-                                    >
-                                        <Image
-                                            src="/icons/list.png"
-                                            alt="Role"
-                                            width={16}
-                                            height={16}
-                                            className={`dark:invert ${activeFilter === 'Role' ? '' : 'opacity-60'}`}
+                                        <input
+                                            type="text"
+                                            placeholder="Search members or roles..."
+                                            value={searchQuery}
+                                            onChange={(e) => setSearchQuery(e.target.value)}
+                                            className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                         />
-                                        Roles
-                                    </button>
-                                </div>
+                                    </div>
 
-                                {/* Action Button */}
-                                <button
-                                    onClick={activeFilter === 'Team' ? handleOpenModal : handleOpenCreateRole}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm ml-auto"
-                                >
-                                    <Image
-                                        src="/icons/add.png"
-                                        alt="Add"
-                                        width={16}
-                                        height={16}
-                                        className="brightness-0 invert"
-                                    />
-                                    {activeFilter === 'Team' ? 'Invite User' : 'Create Role'}
-                                </button>
+                                    {/* Filter Tabs */}
+                                    <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-hide">
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setActiveFilter('Team')}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeFilter === 'Team'
+                                                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                    }`}
+                                            >
+                                                <Image
+                                                    src="/icons/user.png"
+                                                    alt="Team"
+                                                    width={16}
+                                                    height={16}
+                                                    className={`brightness-0 dark:invert ${activeFilter === 'Team' ? '' : 'opacity-60'}`}
+                                                />
+                                                Team
+                                            </button>
+                                            <button
+                                                onClick={() => setActiveFilter('Role')}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 whitespace-nowrap ${activeFilter === 'Role'
+                                                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                    }`}
+                                            >
+                                                <Image
+                                                    src="/icons/list.png"
+                                                    alt="Role"
+                                                    width={16}
+                                                    height={16}
+                                                    className={`dark:invert ${activeFilter === 'Role' ? '' : 'opacity-60'}`}
+                                                />
+                                                Roles
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Action Button - Moved outside the flex row on mobile if needed, or kept inside but adjusted */}
+                            <button
+                                onClick={activeFilter === 'Team' ? handleOpenModal : handleOpenCreateRole}
+                                className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm md:ml-auto"
+                            >
+                                <Image
+                                    src="/icons/add.png"
+                                    alt="Add"
+                                    width={16}
+                                    height={16}
+                                    className="brightness-0 invert"
+                                />
+                                {activeFilter === 'Team' ? 'Invite User' : 'Create Role'}
+                            </button>
                         </div>
 
                         {/* Content based on active filter */}
@@ -417,11 +421,11 @@ export default function ManagementPage() {
                                     {filteredMembers.map((member) => (
                                         <div
                                             key={member.id}
-                                            className="flex items-center justify-between p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
+                                            className="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
                                         >
                                             {/* Avatar and Name */}
                                             <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0">
                                                     <Image
                                                         src={member.avatar}
                                                         alt={member.name}
@@ -437,31 +441,34 @@ export default function ManagementPage() {
                                             </div>
 
                                             {/* Email Address */}
-                                            <div className="w-1/3">
+                                            <div className="w-full md:w-1/3 pl-14 md:pl-0">
                                                 <p className="text-xs text-gray-500 dark:text-gray-400">Email Address</p>
-                                                <p className="text-sm text-[#3A3B49] dark:text-gray-200">{member.email}</p>
+                                                <p className="text-sm text-[#3A3B49] dark:text-gray-200 break-all">{member.email}</p>
                                             </div>
 
-                                            {/* Role */}
-                                            <div className="w-1/5">
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
-                                                <p className="text-sm font-medium text-[#3A3B49] dark:text-white">{member.role}</p>
-                                            </div>
+                                            {/* Role & Actions Container */}
+                                            <div className="flex items-center justify-between w-full md:w-auto md:gap-8 pl-14 md:pl-0">
+                                                {/* Role */}
+                                                <div className="md:w-32">
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
+                                                    <p className="text-sm font-medium text-[#3A3B49] dark:text-white">{member.role}</p>
+                                                </div>
 
-                                            {/* Action Menu */}
-                                            <div className="relative">
-                                                <button
-                                                    onClick={() => handleOpenEditModal(member)}
-                                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                                >
-                                                    <Image
-                                                        src="/icons/dots.png"
-                                                        alt="Menu"
-                                                        width={20}
-                                                        height={20}
-                                                        className="opacity-60 dark:invert"
-                                                    />
-                                                </button>
+                                                {/* Action Menu */}
+                                                <div className="relative">
+                                                    <button
+                                                        onClick={() => handleOpenEditModal(member)}
+                                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                                    >
+                                                        <Image
+                                                            src="/icons/dots.png"
+                                                            alt="Menu"
+                                                            width={20}
+                                                            height={20}
+                                                            className="opacity-60 dark:invert"
+                                                        />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -474,11 +481,11 @@ export default function ManagementPage() {
                                     {filteredRoles.map((role) => (
                                         <div
                                             key={role.id}
-                                            className="flex items-center justify-between p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
+                                            className="flex items-center justify-between p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
                                         >
                                             {/* Role Icon and Name */}
                                             <div className="flex items-center gap-4">
-                                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold">
+                                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm md:text-base">
                                                     {role.name.charAt(0)}
                                                 </div>
                                                 <p className="text-sm font-medium text-gray-900 dark:text-white">{role.name}</p>
@@ -531,8 +538,8 @@ export default function ManagementPage() {
             {/* Invite User Modal */}
             {
                 isModalOpen && (
-                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-[480px]">
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[480px]">
                             {/* Modern Header */}
                             <div className="bg-gradient-to-r from-[#3D518C] to-indigo-600 px-8 py-6 rounded-t-2xl">
                                 <h2 className="text-xl font-bold text-white">Invite Team Member</h2>
@@ -638,8 +645,8 @@ export default function ManagementPage() {
             {/* Edit User Modal */}
             {
                 isEditModalOpen && editingMember && (
-                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-[450px]">
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-[450px]">
                             {/* Modal Title */}
                             <h2 className="text-lg text-gray-600 dark:text-gray-300 mb-6">Edit User</h2>
 
@@ -727,8 +734,8 @@ export default function ManagementPage() {
             {/* Remove User Confirmation Modal */}
             {
                 isRemoveModalOpen && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60]">
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl px-12 py-8 text-center">
+                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl px-12 py-8 text-center w-full max-w-md">
                             {/* Confirmation Text */}
                             <p className="text-gray-500 dark:text-gray-300 text-lg mb-8">Remove User?</p>
 
@@ -753,347 +760,351 @@ export default function ManagementPage() {
             }
 
             {/* Create Role Panel */}
-            {isCreateRoleOpen && (
-                <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto py-8">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-[700px] max-h-[90vh] flex flex-col">
-                        {/* Modern Header */}
-                        <div className="bg-gradient-to-r from-[#3D518C] to-indigo-600 rounded-t-2xl px-8 py-6">
-                            <h2 className="text-xl font-bold text-white">{editingRole ? 'Edit Role' : 'Create New Role'}</h2>
-                            <p className="text-indigo-200 text-sm mt-1">Configure role permissions and access levels</p>
-                        </div>
-
-                        {/* Scrollable Content */}
-                        <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
-                            {/* Role Information Card */}
-                            <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 mb-6 border border-gray-100 dark:border-gray-600">
-                                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                                        <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                        </svg>
-                                    </div>
-                                    Role Information
-                                </h3>
-                                <input
-                                    type="text"
-                                    placeholder="Enter role name..."
-                                    value={newRoleName}
-                                    onChange={(e) => setNewRoleName(e.target.value)}
-                                    className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm text-gray-700 dark:text-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
-                                />
+            {
+                isCreateRoleOpen && (
+                    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto py-8 px-4">
+                        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[700px] max-h-[90vh] flex flex-col">
+                            {/* Modern Header */}
+                            <div className="bg-gradient-to-r from-[#3D518C] to-indigo-600 rounded-t-2xl px-8 py-6">
+                                <h2 className="text-xl font-bold text-white">{editingRole ? 'Edit Role' : 'Create New Role'}</h2>
+                                <p className="text-indigo-200 text-sm mt-1">Configure role permissions and access levels</p>
                             </div>
 
-                            {/* Permissions Section */}
-                            <div className="mb-4">
-                                <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-                                    <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                                        <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                        </svg>
-                                    </div>
-                                    Permissions
-                                </h3>
-                            </div>
+                            {/* Scrollable Content */}
+                            <div className="flex-1 overflow-y-auto p-8 scrollbar-hide">
+                                {/* Role Information Card */}
+                                <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 mb-6 border border-gray-100 dark:border-gray-600">
+                                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                                            <svg className="w-4 h-4 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                            </svg>
+                                        </div>
+                                        Role Information
+                                    </h3>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter role name..."
+                                        value={newRoleName}
+                                        onChange={(e) => setNewRoleName(e.target.value)}
+                                        className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm text-gray-700 dark:text-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                                    />
+                                </div>
 
-                            {/* Event Creation */}
-                            <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
-                                <button
-                                    onClick={() => toggleSection('eventCreation')}
-                                    className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                >
-                                    <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Event Creation</span>
-                                    <svg
-                                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('eventCreation') ? 'rotate-180' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
+                                {/* Permissions Section */}
+                                <div className="mb-4">
+                                    <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                                            <svg className="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                            </svg>
+                                        </div>
+                                        Permissions
+                                    </h3>
+                                </div>
+
+                                {/* Event Creation */}
+                                <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
+                                    <button
+                                        onClick={() => toggleSection('eventCreation')}
+                                        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                     >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                {expandedSections.includes('eventCreation') && (
-                                    <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eventCreation.selectAll} onChange={(e) => handleSelectAll('eventCreation', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eventCreation.createEvent} onChange={(e) => handlePermissionChange('eventCreation', 'createEvent', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Create event</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eventCreation.editEventDetails} onChange={(e) => handlePermissionChange('eventCreation', 'editEventDetails', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Edit event details</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eventCreation.manageEventStatus} onChange={(e) => handlePermissionChange('eventCreation', 'manageEventStatus', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Manage event status</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eventCreation.manageTickets} onChange={(e) => handlePermissionChange('eventCreation', 'manageTickets', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Manage tickets</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eventCreation.manageEventAgenda} onChange={(e) => handlePermissionChange('eventCreation', 'manageEventAgenda', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Manage event agenda</span>
-                                        </label>
-                                    </div>
-                                )}
-                            </div>
+                                        <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Event Creation</span>
+                                        <svg
+                                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('eventCreation') ? 'rotate-180' : ''}`}
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {expandedSections.includes('eventCreation') && (
+                                        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eventCreation.selectAll} onChange={(e) => handleSelectAll('eventCreation', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eventCreation.createEvent} onChange={(e) => handlePermissionChange('eventCreation', 'createEvent', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Create event</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eventCreation.editEventDetails} onChange={(e) => handlePermissionChange('eventCreation', 'editEventDetails', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Edit event details</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eventCreation.manageEventStatus} onChange={(e) => handlePermissionChange('eventCreation', 'manageEventStatus', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Manage event status</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eventCreation.manageTickets} onChange={(e) => handlePermissionChange('eventCreation', 'manageTickets', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Manage tickets</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eventCreation.manageEventAgenda} onChange={(e) => handlePermissionChange('eventCreation', 'manageEventAgenda', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Manage event agenda</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
 
-                            {/* Order & Registration Management */}
-                            <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
-                                <button
-                                    onClick={() => toggleSection('orderRegistration')}
-                                    className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                >
-                                    <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Order & Registration Management</span>
-                                    <svg
-                                        className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('orderRegistration') ? 'rotate-180' : ''}`}
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
+                                {/* Order & Registration Management */}
+                                <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
+                                    <button
+                                        onClick={() => toggleSection('orderRegistration')}
+                                        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                     >
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                {expandedSections.includes('orderRegistration') && (
-                                    <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.selectAll} onChange={(e) => handleSelectAll('orderRegistration', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.addAttendee} onChange={(e) => handlePermissionChange('orderRegistration', 'addAttendee', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Add attendee</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.editAttendeeDetails} onChange={(e) => handlePermissionChange('orderRegistration', 'editAttendeeDetails', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Edit attendee details</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.cancelAttendeeRegistration} onChange={(e) => handlePermissionChange('orderRegistration', 'cancelAttendeeRegistration', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Cancel attendee registration</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.viewListOfAttendees} onChange={(e) => handlePermissionChange('orderRegistration', 'viewListOfAttendees', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">View list of attendees</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.checkInAttendees} onChange={(e) => handlePermissionChange('orderRegistration', 'checkInAttendees', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Check-in attendees</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.applyDiscountsAndPromoCodes} onChange={(e) => handlePermissionChange('orderRegistration', 'applyDiscountsAndPromoCodes', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Apply Discounts and Promo Codes</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.manageTicketAddOns} onChange={(e) => handlePermissionChange('orderRegistration', 'manageTicketAddOns', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Manage Ticket Add-ons</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.orderRegistration.sendEmails} onChange={(e) => handlePermissionChange('orderRegistration', 'sendEmails', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Send e-mails</span>
-                                        </label>
-                                    </div>
-                                )}
+                                        <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Order & Registration Management</span>
+                                        <svg
+                                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('orderRegistration') ? 'rotate-180' : ''}`}
+                                            fill="none"
+                                            stroke="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {expandedSections.includes('orderRegistration') && (
+                                        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.selectAll} onChange={(e) => handleSelectAll('orderRegistration', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.addAttendee} onChange={(e) => handlePermissionChange('orderRegistration', 'addAttendee', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Add attendee</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.editAttendeeDetails} onChange={(e) => handlePermissionChange('orderRegistration', 'editAttendeeDetails', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Edit attendee details</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.cancelAttendeeRegistration} onChange={(e) => handlePermissionChange('orderRegistration', 'cancelAttendeeRegistration', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Cancel attendee registration</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.viewListOfAttendees} onChange={(e) => handlePermissionChange('orderRegistration', 'viewListOfAttendees', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">View list of attendees</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.checkInAttendees} onChange={(e) => handlePermissionChange('orderRegistration', 'checkInAttendees', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Check-in attendees</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.applyDiscountsAndPromoCodes} onChange={(e) => handlePermissionChange('orderRegistration', 'applyDiscountsAndPromoCodes', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Apply Discounts and Promo Codes</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.manageTicketAddOns} onChange={(e) => handlePermissionChange('orderRegistration', 'manageTicketAddOns', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Manage Ticket Add-ons</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.orderRegistration.sendEmails} onChange={(e) => handlePermissionChange('orderRegistration', 'sendEmails', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Send e-mails</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Breakout Session Management */}
+                                <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
+                                    <button
+                                        onClick={() => toggleSection('breakoutSession')}
+                                        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                        <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Breakout Session Management</span>
+                                        <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('breakoutSession') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {expandedSections.includes('breakoutSession') && (
+                                        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.breakoutSession.selectAll} onChange={(e) => handleSelectAll('breakoutSession', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.breakoutSession.createBreakoutSessions} onChange={(e) => handlePermissionChange('breakoutSession', 'createBreakoutSessions', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Create Breakout Sessions</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.breakoutSession.editBreakoutSessions} onChange={(e) => handlePermissionChange('breakoutSession', 'editBreakoutSessions', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Edit Breakout Sessions</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.breakoutSession.manageBreakoutSessionAttendance} onChange={(e) => handlePermissionChange('breakoutSession', 'manageBreakoutSessionAttendance', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Manage Breakout Session Attendance</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Waitlist Management */}
+                                <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
+                                    <button
+                                        onClick={() => toggleSection('waitlistManagement')}
+                                        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                        <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Waitlist Management</span>
+                                        <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('waitlistManagement') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {expandedSections.includes('waitlistManagement') && (
+                                        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.waitlistManagement.selectAll} onChange={(e) => handleSelectAll('waitlistManagement', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.waitlistManagement.manageWaitlist} onChange={(e) => handlePermissionChange('waitlistManagement', 'manageWaitlist', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Manage Waitlist</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.waitlistManagement.viewWaitlistQueue} onChange={(e) => handlePermissionChange('waitlistManagement', 'viewWaitlistQueue', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">View Waitlist Queue</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* E-Certificate Management */}
+                                <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
+                                    <button
+                                        onClick={() => toggleSection('eCertificate')}
+                                        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                        <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">E-Certificate Management</span>
+                                        <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('eCertificate') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {expandedSections.includes('eCertificate') && (
+                                        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eCertificate.selectAll} onChange={(e) => handleSelectAll('eCertificate', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eCertificate.manageCertificateIssuance} onChange={(e) => handlePermissionChange('eCertificate', 'manageCertificateIssuance', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Manage Certificate Issuance</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.eCertificate.viewECertificates} onChange={(e) => handlePermissionChange('eCertificate', 'viewECertificates', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">View E-Certificates</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Reporting */}
+                                <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
+                                    <button
+                                        onClick={() => toggleSection('reporting')}
+                                        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                        <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Reporting</span>
+                                        <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('reporting') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {expandedSections.includes('reporting') && (
+                                        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.reporting.selectAll} onChange={(e) => handleSelectAll('reporting', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.reporting.viewReports} onChange={(e) => handlePermissionChange('reporting', 'viewReports', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">View Reports</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.reporting.exportOrderReport} onChange={(e) => handlePermissionChange('reporting', 'exportOrderReport', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Export Order Report</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* E-mails User can Receive */}
+                                <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
+                                    <button
+                                        onClick={() => toggleSection('emailsUserCanReceive')}
+                                        className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    >
+                                        <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">E-mails User can Receive</span>
+                                        <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('emailsUserCanReceive') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {expandedSections.includes('emailsUserCanReceive') && (
+                                        <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.emailsUserCanReceive.selectAll} onChange={(e) => handleSelectAll('emailsUserCanReceive', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.emailsUserCanReceive.newRegistrantEmail} onChange={(e) => handlePermissionChange('emailsUserCanReceive', 'newRegistrantEmail', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">New Registrant E-mail</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.emailsUserCanReceive.waitlistEmail} onChange={(e) => handlePermissionChange('emailsUserCanReceive', 'waitlistEmail', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">Waitlist E-mail</span>
+                                            </label>
+                                            <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                <input type="checkbox" checked={permissions.emailsUserCanReceive.newMessageOrInquiryFromAttendee} onChange={(e) => handlePermissionChange('emailsUserCanReceive', 'newMessageOrInquiryFromAttendee', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                                                <span className="text-sm text-gray-600 dark:text-gray-300">New Message or Inquiry from Attendee</span>
+                                            </label>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* Breakout Session Management */}
-                            <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
+                            {/* Floating Action Buttons */}
+                            <div className="sticky bottom-0 right-0 flex justify-end gap-4 p-6 bg-gradient-to-t from-white via-white to-white/95 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800/95 border-t border-gray-100 dark:border-gray-700 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
                                 <button
-                                    onClick={() => toggleSection('breakoutSession')}
-                                    className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    onClick={handleCloseCreateRole}
+                                    className="px-8 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
                                 >
-                                    <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Breakout Session Management</span>
-                                    <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('breakoutSession') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
+                                    Cancel
                                 </button>
-                                {expandedSections.includes('breakoutSession') && (
-                                    <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.breakoutSession.selectAll} onChange={(e) => handleSelectAll('breakoutSession', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.breakoutSession.createBreakoutSessions} onChange={(e) => handlePermissionChange('breakoutSession', 'createBreakoutSessions', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Create Breakout Sessions</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.breakoutSession.editBreakoutSessions} onChange={(e) => handlePermissionChange('breakoutSession', 'editBreakoutSessions', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Edit Breakout Sessions</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.breakoutSession.manageBreakoutSessionAttendance} onChange={(e) => handlePermissionChange('breakoutSession', 'manageBreakoutSessionAttendance', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Manage Breakout Session Attendance</span>
-                                        </label>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Waitlist Management */}
-                            <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
                                 <button
-                                    onClick={() => toggleSection('waitlistManagement')}
-                                    className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                    onClick={handleSaveRole}
+                                    className="px-10 py-3 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:from-[#2d3d6b] hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30"
                                 >
-                                    <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Waitlist Management</span>
-                                    <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('waitlistManagement') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
+                                    {editingRole ? 'Update Role' : 'Create Role'}
                                 </button>
-                                {expandedSections.includes('waitlistManagement') && (
-                                    <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.waitlistManagement.selectAll} onChange={(e) => handleSelectAll('waitlistManagement', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.waitlistManagement.manageWaitlist} onChange={(e) => handlePermissionChange('waitlistManagement', 'manageWaitlist', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Manage Waitlist</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.waitlistManagement.viewWaitlistQueue} onChange={(e) => handlePermissionChange('waitlistManagement', 'viewWaitlistQueue', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">View Waitlist Queue</span>
-                                        </label>
-                                    </div>
-                                )}
                             </div>
-
-                            {/* E-Certificate Management */}
-                            <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
-                                <button
-                                    onClick={() => toggleSection('eCertificate')}
-                                    className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                >
-                                    <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">E-Certificate Management</span>
-                                    <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('eCertificate') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                {expandedSections.includes('eCertificate') && (
-                                    <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eCertificate.selectAll} onChange={(e) => handleSelectAll('eCertificate', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eCertificate.manageCertificateIssuance} onChange={(e) => handlePermissionChange('eCertificate', 'manageCertificateIssuance', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Manage Certificate Issuance</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.eCertificate.viewECertificates} onChange={(e) => handlePermissionChange('eCertificate', 'viewECertificates', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">View E-Certificates</span>
-                                        </label>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Reporting */}
-                            <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
-                                <button
-                                    onClick={() => toggleSection('reporting')}
-                                    className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                >
-                                    <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">Reporting</span>
-                                    <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('reporting') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                {expandedSections.includes('reporting') && (
-                                    <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.reporting.selectAll} onChange={(e) => handleSelectAll('reporting', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.reporting.viewReports} onChange={(e) => handlePermissionChange('reporting', 'viewReports', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">View Reports</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.reporting.exportOrderReport} onChange={(e) => handlePermissionChange('reporting', 'exportOrderReport', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Export Order Report</span>
-                                        </label>
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* E-mails User can Receive */}
-                            <div className="bg-white dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-600 mb-4 overflow-hidden">
-                                <button
-                                    onClick={() => toggleSection('emailsUserCanReceive')}
-                                    className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                >
-                                    <span className="text-[#3D518C] dark:text-indigo-400 font-semibold">E-mails User can Receive</span>
-                                    <svg className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expandedSections.includes('emailsUserCanReceive') ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </button>
-                                {expandedSections.includes('emailsUserCanReceive') && (
-                                    <div className="px-5 pb-5 space-y-3 border-t border-gray-100 dark:border-gray-600 pt-4">
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.emailsUserCanReceive.selectAll} onChange={(e) => handleSelectAll('emailsUserCanReceive', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Select All</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.emailsUserCanReceive.newRegistrantEmail} onChange={(e) => handlePermissionChange('emailsUserCanReceive', 'newRegistrantEmail', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">New Registrant E-mail</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.emailsUserCanReceive.waitlistEmail} onChange={(e) => handlePermissionChange('emailsUserCanReceive', 'waitlistEmail', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">Waitlist E-mail</span>
-                                        </label>
-                                        <label className="flex items-center gap-3 cursor-pointer p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                            <input type="checkbox" checked={permissions.emailsUserCanReceive.newMessageOrInquiryFromAttendee} onChange={(e) => handlePermissionChange('emailsUserCanReceive', 'newMessageOrInquiryFromAttendee', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
-                                            <span className="text-sm text-gray-600 dark:text-gray-300">New Message or Inquiry from Attendee</span>
-                                        </label>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Floating Action Buttons */}
-                        <div className="sticky bottom-0 right-0 flex justify-end gap-4 p-6 bg-gradient-to-t from-white via-white to-white/95 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800/95 border-t border-gray-100 dark:border-gray-700 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
-                            <button
-                                onClick={handleCloseCreateRole}
-                                className="px-8 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSaveRole}
-                                className="px-10 py-3 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:from-[#2d3d6b] hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30"
-                            >
-                                {editingRole ? 'Update Role' : 'Create Role'}
-                            </button>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Delete Role Confirmation Modal */}
-            {isDeleteRoleModalOpen && roleToDelete && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
-                    <div className="bg-white rounded-xl shadow-2xl px-12 py-8 text-center">
-                        <p className="text-gray-500 text-lg mb-8">Delete "{roleToDelete.name}" role?</p>
-                        <div className="flex justify-center gap-4">
-                            <button
-                                onClick={handleCancelDeleteRole}
-                                className="px-8 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors"
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleConfirmDeleteRole}
-                                className="px-10 py-2.5 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                Delete
-                            </button>
+            {
+                isDeleteRoleModalOpen && roleToDelete && (
+                    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
+                        <div className="bg-white rounded-xl shadow-2xl px-12 py-8 text-center">
+                            <p className="text-gray-500 text-lg mb-8">Delete "{roleToDelete.name}" role?</p>
+                            <div className="flex justify-center gap-4">
+                                <button
+                                    onClick={handleCancelDeleteRole}
+                                    className="px-8 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConfirmDeleteRole}
+                                    className="px-10 py-2.5 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
         </div >
     );
 }

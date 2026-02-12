@@ -6,7 +6,7 @@ import NotificationDropdown from './NotificationDropdown';
 
 const Header = () => {
     return (
-        <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-gray-800 dark:text-gray-100 h-16 flex items-center justify-between px-8 shadow-sm z-50 border-b border-gray-200/50 dark:border-gray-700/50 transition-all duration-300">
+        <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-gray-800 dark:text-gray-100 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-50 border-b border-gray-200/50 dark:border-gray-700/50 transition-all duration-300">
             {/* Logo Section */}
             <div className="flex items-center gap-3">
                 <div className="relative">
@@ -22,7 +22,7 @@ const Header = () => {
                     <span className="font-bold text-xl tracking-tight text-[#3D518C] dark:text-white leading-none">
                         G Events
                     </span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wider uppercase">
+                    <span className="hidden md:block text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wider uppercase">
                         Event Management
                     </span>
                 </div>
@@ -45,7 +45,7 @@ const Header = () => {
                             className="object-cover w-full h-full"
                         />
                     </div>
-                    <div className="flex flex-col">
+                    <div className="hidden md:flex flex-col">
                         <span className="font-semibold text-sm text-gray-800 dark:text-white leading-tight">Karylle Bernate</span>
                         <span className="text-xs text-gray-500 dark:text-gray-400">notestobunny@gmail.com</span>
                     </div>

@@ -29,7 +29,7 @@ export default function DashboardPage() {
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar activePage="dashboard" />
 
-                <main className="flex-1 ml-20 overflow-y-auto p-8">
+                <main className="flex-1 ml-20 overflow-y-auto p-4 md:p-8">
                     <div className="space-y-6 max-w-7xl mx-auto">
 
                         {/* Header Section */}

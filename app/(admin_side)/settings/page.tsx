@@ -5,7 +5,10 @@ import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import { User, Bell, Shield, Palette, Globe, CreditCard, ChevronRight } from 'lucide-react';
 
+import { useRouter } from 'next/navigation';
+
 export default function SettingsPage() {
+    const router = useRouter();
     const [notifications, setNotifications] = useState({
         email: true,
         push: true,
@@ -85,6 +88,11 @@ export default function SettingsPage() {
                                 return (
                                     <div
                                         key={section.id}
+                                        onClick={() => {
+                                            if (section.id === 'account') {
+                                                router.push('/profile');
+                                            }
+                                        }}
                                         className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-5 hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1"
                                     >
                                         <div className="flex items-start justify-between">
