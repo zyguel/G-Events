@@ -9,15 +9,11 @@ import CurrencySelect from "@/components/admin/CurrencySelect";
 import TimezoneSelect from "@/components/admin/TimezoneSelect";
 import { Plus, Edit2, Trash2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { getTickets, createTicket, updateTicket, deleteTicket, Ticket } from "@/lib/eventManagement";
+import { EventSummary } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TicketsClientProps {
-  event: {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-  };
+  event: EventSummary;
 }
 
 const initialTicketForm: Omit<Ticket, "id" | "createdAt"> = {
@@ -212,11 +208,10 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                             {ticket.name}
                           </h3>
                           <span
-                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${
-                              ticket.type === "paid"
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${ticket.type === "paid"
                                 ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
                                 : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                            }`}
+                              }`}
                           >
                             {ticket.type === "paid" ? `₱${ticket.price}` : "Free"}
                           </span>
@@ -279,9 +274,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g., Early Bird, VIP Pass"
-                className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${
-                  errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                } rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
+                className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  } rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
             </div>
@@ -297,11 +291,10 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                     key={type}
                     onClick={() => setFormData({ ...formData, type })}
                     type="button"
-                    className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${
-                      formData.type === type
+                    className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${formData.type === type
                         ? "bg-[#3D518C] text-white shadow-sm"
                         : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                    }`}
+                      }`}
                   >
                     {type === "paid" ? "Paid" : "Free"}
                   </button>
@@ -320,9 +313,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   min="0"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${
-                    errors.quantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                  } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
+                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.quantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                    } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                 />
                 {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
               </div>
@@ -338,9 +330,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                     step="0.01"
                     value={formData.price || ""}
                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                    className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${
-                      errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                    } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
+                    className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                      } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                   />
                   {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
                 </div>
@@ -374,9 +365,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${
-                    errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                  } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
+                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                    } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                 />
                 {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>}
               </div>
@@ -389,9 +379,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   type="date"
                   value={formData.endDate}
                   onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${
-                    errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                  } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
+                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                    } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                 />
                 {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>}
               </div>
@@ -431,11 +420,10 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   <button
                     type="button"
                     onClick={() => setFormData({ ...formData, visibility: formData.visibility === "visible" ? "hidden" : "visible" })}
-                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                      formData.visibility === "visible"
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${formData.visibility === "visible"
                         ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                         : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
-                    }`}
+                      }`}
                   >
                     {formData.visibility === "visible" ? "Visible" : "Hidden"}
                   </button>
@@ -465,9 +453,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                       min="1"
                       value={formData.maxQuantity}
                       onChange={(e) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
-                      className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${
-                        errors.maxQuantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                      } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
+                      className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.maxQuantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                        } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                     />
                     {errors.maxQuantity && <p className="text-red-500 text-xs mt-1">{errors.maxQuantity}</p>}
                   </div>

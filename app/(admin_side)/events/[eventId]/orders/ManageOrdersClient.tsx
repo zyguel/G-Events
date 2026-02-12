@@ -6,6 +6,7 @@ import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
 import { Search, Filter, Plus, MoreVertical, Users } from "lucide-react";
 import ForReviewTab from "./tabs/ForReviewTab";
+import { EventSummary } from "@/lib/api";
 
 // Mock data for registrants
 const initialMockOrders = [
@@ -108,22 +109,14 @@ const initialMockOrders = [
 ];
 
 interface ManageOrdersClientProps {
-    eventId: string;
+    event: EventSummary;
 }
 
-export default function ManageOrdersClient({ eventId }: ManageOrdersClientProps) {
+export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
     const [activeTab, setActiveTab] = useState<"all" | "review">("all");
     const [orders, setOrders] = useState(initialMockOrders);
     const [searchQuery, setSearchQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
-
-    // Mock event data
-    const event = {
-        id: eventId,
-        name: "DevFest Cebu 2025",
-        date: "July 21, 2025",
-        status: "Ongoing" as const,
-    };
 
     // Filter orders based on search query
     const filteredOrders = orders.filter(order => {

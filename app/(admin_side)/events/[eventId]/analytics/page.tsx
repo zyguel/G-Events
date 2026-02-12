@@ -29,7 +29,7 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
         id: eventId,
         name: data.name,
         date: data.date,
-        status: "Ongoing" as const
+        status: data.status
     };
 
     // Format currency

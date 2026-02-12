@@ -3,14 +3,10 @@
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { getEventSettings, updateEventSettings, EventSettings } from "@/lib/eventManagement";
+import { EventSummary } from "@/lib/api";
 
 interface SettingsTabProps {
-  event: {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-  };
+  event: EventSummary;
 }
 
 export default function SettingsTab({ event }: SettingsTabProps) {
@@ -162,10 +158,10 @@ export default function SettingsTab({ event }: SettingsTabProps) {
               <div className="flex justify-between items-center mt-2">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Max 2,500 characters</p>
                 <p className={`text-xs font-medium ${settings.messageAfterSalesEnd.length >= 2400
-                    ? "text-red-600"
-                    : settings.messageAfterSalesEnd.length >= 2000
-                      ? "text-amber-600"
-                      : "text-gray-500"
+                  ? "text-red-600"
+                  : settings.messageAfterSalesEnd.length >= 2000
+                    ? "text-amber-600"
+                    : "text-gray-500"
                   }`}>
                   {settings.messageAfterSalesEnd.length}/2,500
                 </p>

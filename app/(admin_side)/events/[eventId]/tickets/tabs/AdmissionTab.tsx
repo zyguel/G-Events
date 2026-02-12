@@ -7,14 +7,10 @@ import Modal from "@/components/admin/Modal";
 import CurrencySelect from "@/components/admin/CurrencySelect";
 import TimezoneSelect from "@/components/admin/TimezoneSelect";
 import { getTickets, createTicket, updateTicket, deleteTicket, Ticket } from "@/lib/eventManagement";
+import { EventSummary } from "@/lib/api";
 
 interface AdmissionTabProps {
-  event: {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-  };
+  event: EventSummary;
 }
 
 const initialTicketForm: Omit<Ticket, "id" | "createdAt"> = {

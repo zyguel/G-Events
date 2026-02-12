@@ -5,14 +5,10 @@ import { Plus, Edit2, Trash2, Filter, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/admin/Modal";
 import { getPromoCodes, createPromoCode, updatePromoCode, deletePromoCode, PromoCode, getTickets, Ticket } from "@/lib/eventManagement";
+import { EventSummary } from "@/lib/api";
 
 interface PromoCodesTabProps {
-  event: {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-  };
+  event: EventSummary;
 }
 
 const initialPromoForm: Omit<PromoCode, "id" | "createdAt"> = {

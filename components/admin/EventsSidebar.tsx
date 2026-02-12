@@ -2,19 +2,10 @@
 
 import { LayoutDashboard, FileText, BarChart3, Ticket, ClipboardList, CheckCircle, Send, Users, Mail, UserCheck, Award, Clock, Presentation } from "lucide-react";
 import Link from "next/link";
-
-interface SidebarEvent {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-}
-
-
-
+import { EventSummary } from "@/lib/api";
 
 interface EventsSidebarProps {
-    event: SidebarEvent;
+    event: EventSummary;
     activePage?: 'overview' | 'analytics' | 'orders' | 'attendees' | 'reports' | 'tickets' | 'orderform' | 'confirmation' | 'orderconfirmation' | 'email-attendees' | 'publish' | 'checkin' | 'certificates' | 'waitlist' | 'breakouts';
 }
 

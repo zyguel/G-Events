@@ -1,11 +1,12 @@
 import { EventData } from "./types";
+export type { EventData };
 
 // Event summary type for listing
-interface EventSummary {
+export interface EventSummary {
     id: string;
     name: string;
     date: string;
-    status: "Ongoing" | "Completed";
+    status: "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled";
 }
 
 // Mock data for all events

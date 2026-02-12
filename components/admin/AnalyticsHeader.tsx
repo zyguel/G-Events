@@ -4,17 +4,11 @@ import EventSelector from "@/components/admin/EventSelector";
 import ExportButton from "@/components/admin/ExportButton";
 import { useState } from "react";
 
-interface EventOption {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-}
+import { EventSummary } from "@/lib/api";
 
 interface AnalyticsHeaderProps {
-    events: EventOption[];
+    events: EventSummary[];
     currentEventId: string;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     data: any; // Full data object for ExportButton
     title?: string;
     description?: string;

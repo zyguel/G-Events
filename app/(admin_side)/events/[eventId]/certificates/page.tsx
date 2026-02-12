@@ -1,4 +1,6 @@
+import { notFound } from "next/navigation";
 import CertificatesClient from './CertificatesClient';
+import { getEventData } from "@/lib/api";
 
 interface PageProps {
     params: Promise<{
@@ -11,14 +13,23 @@ export default async function CertificatesPage({ params }: PageProps) {
 
     // Validate eventId
     if (!eventId || eventId === 'undefined') {
-        throw new Error('Invalid event ID');
+        console.error('Invalid eventId:', eventId);
+        return notFound();
+    }
+
+
+    const data = await getEventData(eventId);
+
+    if (!data) {
+        console.error('Event not found for eventId:', eventId);
+        return notFound();
     }
 
     const event = {
-        id: eventId,
-        name: 'DevFest Cebu 2025',
-        date: '2025-03-15',
-        status: 'Ongoing' as const,
+        id: data.id,
+        name: data.name,
+        date: data.date,
+        status: data.status,
     };
 
     return <CertificatesClient event={event} />;

@@ -10,6 +10,7 @@ import Modal from '@/components/admin/Modal';
 import TimeInput from '@/components/admin/TimeInput';
 import DateInput from '@/components/admin/DateInput';
 import jsPDF from 'jspdf';
+import { EventSummary } from '@/lib/api';
 
 // Toast notification component
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
@@ -113,17 +114,17 @@ const RadioButton = ({ label, checked, onChange, icon: Icon }: { label: string; 
 );
 
 // Draggable Text Box Component
-const DraggableTextBox = ({ 
-    textBox, 
-    isSelected, 
-    onSelect, 
-    onDragStart, 
+const DraggableTextBox = ({
+    textBox,
+    isSelected,
+    onSelect,
+    onDragStart,
     onDragEnd,
     onDelete,
     scale = 1
-}: { 
-    textBox: TextBox; 
-    isSelected: boolean; 
+}: {
+    textBox: TextBox;
+    isSelected: boolean;
     onSelect: () => void;
     onDragStart: (e: React.DragEvent) => void;
     onDragEnd: (e: React.DragEvent) => void;
@@ -174,12 +175,7 @@ const DraggableTextBox = ({
 };
 
 interface CertificatesClientProps {
-    event: {
-        id: string;
-        name: string;
-        date: string;
-        status: "Ongoing" | "Completed";
-    };
+    event: EventSummary;
 }
 
 export default function CertificatesClient({ event }: CertificatesClientProps) {
@@ -334,8 +330,8 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
         const x = Math.max(0, e.clientX - rect.left);
         const y = Math.max(0, e.clientY - rect.top);
 
-        setTextBoxes(textBoxes.map(tb => 
-            tb.id === textBoxId 
+        setTextBoxes(textBoxes.map(tb =>
+            tb.id === textBoxId
                 ? { ...tb, x: Math.round(x), y: Math.round(y) }
                 : tb
         ));
@@ -1166,7 +1162,6 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                                                                 <TimeInput
                                                                     value={scheduledTime}
                                                                     onChange={setScheduledTime}
-                                                                    openAbove={true}
                                                                 />
                                                             </div>
                                                         </div>

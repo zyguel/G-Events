@@ -9,14 +9,10 @@ import AdmissionTab from "./tabs/AdmissionTab";
 import AddOnsTab from "./tabs/AddOnsTab";
 import PromoCodesTab from "./tabs/PromoCodesTab";
 import SettingsTab from "./tabs/SettingsTab";
+import { EventSummary } from "@/lib/api";
 
 interface TicketsPageClientProps {
-  event: {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-  };
+  event: EventSummary;
 }
 
 type Tab = "admission" | "addons" | "promo" | "settings";

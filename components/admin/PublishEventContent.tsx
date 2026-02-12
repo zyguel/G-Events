@@ -6,16 +6,7 @@ import { Send, FileText, Settings, Ticket, Globe, Calendar, MapPin, ImageIcon, C
 import DateInput from "./DateInput";
 import TimeInput from "./TimeInput";
 
-interface EventData {
-    id: string;
-    name: string;
-    date: string;
-    location?: string;
-    description?: string;
-    bannerImage?: string;
-    startTime?: string;
-    endTime?: string;
-}
+import { EventData } from "@/lib/api";
 
 interface TicketData {
     name: string;

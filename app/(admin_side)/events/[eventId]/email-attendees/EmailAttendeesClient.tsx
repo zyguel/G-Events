@@ -10,6 +10,7 @@ import RichTextEditor from '@/components/admin/RichTextEditor';
 import Modal from '@/components/admin/Modal';
 import TimeInput from '@/components/admin/TimeInput';
 import DateInput from '@/components/admin/DateInput';
+import { EventSummary } from '@/lib/api';
 
 // Toast notification component
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
@@ -256,12 +257,7 @@ const TimeInputWithPicker = ({ value, onChange }: { value: string; onChange: (va
 };
 
 interface EmailAttendeesProps {
-    event: {
-        id: string;
-        name: string;
-        date: string;
-        status: "Ongoing" | "Completed";
-    };
+    event: EventSummary;
 }
 
 export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
@@ -760,7 +756,6 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                                                 <TimeInput
                                                                     value={scheduledTime}
                                                                     onChange={setScheduledTime}
-                                                                    openAbove={true}
                                                                 />
                                                             </div>
                                                         </div>

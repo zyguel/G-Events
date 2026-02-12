@@ -5,14 +5,10 @@ import { Plus, Edit2, Trash2, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/admin/Modal";
 import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
+import { EventSummary } from "@/lib/api";
 
 interface AddOnsTabProps {
-  event: {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-  };
+  event: EventSummary;
 }
 
 const initialAddOnForm: Omit<AddOn, "id" | "createdAt"> = {

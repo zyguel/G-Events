@@ -4,15 +4,10 @@ import { useRouter } from "next/navigation";
 import { Search, X, Calendar, ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 
-interface EventOption {
-    id: string;
-    name: string;
-    date: string;
-    status: "Ongoing" | "Completed";
-}
+import { EventSummary } from "@/lib/api";
 
 interface EventSelectorProps {
-    events: EventOption[];
+    events: EventSummary[];
     currentEventId: string;
     selectedYear: number | null;
     onYearChange: (year: number | null) => void;

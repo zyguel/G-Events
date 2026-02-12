@@ -7,6 +7,8 @@ import EventsSidebar from '@/components/admin/EventsSidebar';
 import { Search, Filter, MoreVertical, CheckCircle, Clock, ChevronDown, UserCheck, UserX, Eye } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
+import { EventSummary } from '@/lib/api';
+
 // --- Types ---
 interface Attendee {
     registrationId: string;
@@ -18,12 +20,7 @@ interface Attendee {
 }
 
 interface CheckInClientProps {
-    event: {
-        id: string;
-        name: string;
-        date: string;
-        status: "Ongoing" | "Completed";
-    };
+    event: EventSummary;
 }
 
 // --- Mock Data ---

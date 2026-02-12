@@ -1,9 +1,18 @@
 
+export type EventStatus = "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled";
+
+export interface EventSummary {
+    id: string;
+    name: string;
+    date: string;
+    status: EventStatus;
+}
+
 export interface EventData {
     id: string;
     name: string;
     date: string;
-    status: "Ongoing" | "Completed";
+    status: EventStatus;
     stats: {
         totalEvents: number;
         registrations: number;
