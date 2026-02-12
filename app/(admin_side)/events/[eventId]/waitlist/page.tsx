@@ -82,6 +82,22 @@ export default function ManageWaitlistPage() {
     const params = useParams();
     const eventId = params.eventId as string;
 
+    // Validate eventId
+    if (!eventId || eventId === 'undefined') {
+        console.error('Invalid eventId in waitlist page:', eventId);
+        return (
+            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+                <Header />
+                <div className="flex flex-1 items-center justify-center">
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Unable to load waitlist. Event ID is invalid.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Collapsed by default

@@ -21,6 +21,20 @@ interface EventsSidebarProps {
 
 
 export default function EventsSidebar({ event, activePage }: EventsSidebarProps) {
+    // Safety check: validate event ID
+    if (!event?.id || event.id === 'undefined') {
+        console.warn('EventsSidebar received invalid event ID:', event?.id);
+        return (
+            <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col transition-colors duration-300">
+                <div className="p-4 flex items-center justify-center h-full">
+                    <div className="text-center">
+                        <p className="text-sm text-gray-600 dark:text-gray-400">Invalid event data</p>
+                    </div>
+                </div>
+            </aside>
+        );
+    }
+
     return (
         <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col transition-colors duration-300">
 

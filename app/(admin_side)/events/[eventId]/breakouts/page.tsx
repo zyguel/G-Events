@@ -458,6 +458,22 @@ export default function ManageBreakoutsPage() {
     const params = useParams();
     const eventId = params.eventId as string;
 
+    // Add validation for eventId
+    if (!eventId || eventId === 'undefined') {
+        console.error('Invalid eventId in breakouts page:', eventId);
+        return (
+            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+                <Header />
+                <div className="flex flex-1 items-center justify-center">
+                    <div className="text-center">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
+                        <p className="text-gray-600 dark:text-gray-400">Unable to load breakout sessions. Event ID is invalid.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     const [sessions, setSessions] = useState<BreakoutSession[]>(mockSessions);
     const [activeView, setActiveView] = useState<'dashboard' | 'list'>('dashboard');
     const [searchQuery, setSearchQuery] = useState('');

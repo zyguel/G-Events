@@ -1,14 +1,21 @@
 import CertificatesClient from './CertificatesClient';
 
 interface PageProps {
-    params: {
+    params: Promise<{
         eventId: string;
-    };
+    }>;
 }
 
-export default function CertificatesPage({ params }: PageProps) {
+export default async function CertificatesPage({ params }: PageProps) {
+    const { eventId } = await params;
+
+    // Validate eventId
+    if (!eventId || eventId === 'undefined') {
+        throw new Error('Invalid event ID');
+    }
+
     const event = {
-        id: params.eventId,
+        id: eventId,
         name: 'DevFest Cebu 2025',
         date: '2025-03-15',
         status: 'Ongoing' as const,
