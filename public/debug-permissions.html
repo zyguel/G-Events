@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Permission Debug Test</title>
+    <style>
+        body {
+            font-family: system-ui;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #4f46e5;
+        }
+        button {
+            background: #4f46e5;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #4338ca; }
+        .result {
+            background: #1a1a1a;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        .success { border-left: 4px solid #10b981; }
+        .error { border-left: 4px solid #ef4444; }
+        pre { margin: 0; white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Permission Loading Debug Tool</h1>
+    <p>This tool will help debug why permissions aren't showing in checkboxes.</p>
+
+    <div class="test-section">
+        <h2>Test 1: Check Environment Variables</h2>
+        <button onclick="testEnv()">Run Test</button>
+        <div id="env-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Fetch All Permissions</h2>
+        <button onclick="testPermissions()">Run Test</button>
+        <div id="permissions-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Fetch All Roles</h2>
+        <button onclick="testRoles()">Run Test</button>
+        <div id="roles-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Fetch Role 1 Permissions (Admin)</h2>
+        <button onclick="testRolePermissions(1)">Test Admin Role</button>
+        <button onclick="testRolePermissions(2)">Test Core Member</button>
+        <button onclick="testRolePermissions(3)">Test Volunteer</button>
+        <div id="role-perms-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Full Permission Loading Simulation</h2>
+        <p>This simulates what happens when you click "Edit Permissions"</p>
+        <button onclick="simulateEditPermissions()">Simulate Edit Permissions</button>
+        <div id="simulate-result" class="result"></div>
+    </div>
+
+    <script>
+        function displayResult(elementId, data, isError = false) {
+            const el = document.getElementById(elementId);
+            el.className = 'result ' + (isError ? 'error' : 'success');
+            el.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+        }
+
+        function testEnv() {
+            // Check if env vars are accessible (they won't be from client-side, but good to test)
+            const result = {
+                message: "Environment variables are server-side only.",
+                note: "If API calls fail, check your .env.local file on the server"
+            };
+            displayResult('env-result', result);
+        }
+
+        async function testPermissions() {
+            try {
+                const response = await fetch('/backend/management/permissions');
+                const data = await response.json();
+                displayResult('permissions-result', {
+                    status: response.status,
+                    success: data.success,
+                    permissionCount: data.data?.length || 0,
+                    samplePermissions: data.data?.slice(0, 5) || [],
+                    fullData: data
+                }, !data.success);
+            } catch (error) {
+                displayResult('permissions-result', { error: error.message }, true);
+            }
+        }
+
+        async function testRoles() {
+            try {
+                const response = await fetch('/backend/management/roles');
+                const data = await response.json();
+                displayResult('roles-result', {
+                    status: response.status,
+                    success: data.success,
+                    roleCount: data.data?.length || 0,
+                    roles: data.data || [],
+                    fullData: data
+                }, !data.success);
+            } catch (error) {
+                displayResult('roles-result', { error: error.message }, true);
+            }
+        }
+
+        async function testRolePermissions(roleId) {
+            try {
+                const response = await fetch(`/backend/management/roles/${roleId}`);
+                const data = await response.json();
+                displayResult('role-perms-result', {
+                    roleId,
+                    status: response.status,
+                    success: data.success,
+                    permissionIds: data.data?.permissionIds || [],
+                    permissionCount: data.data?.permissionIds?.length || 0,
+                    fullData: data
+                }, !data.success);
+            } catch (error) {
+                displayResult('role-perms-result', { error: error.message }, true);
+            }
+        }
+
+        async function simulateEditPermissions() {
+            const resultDiv = document.getElementById('simulate-result');
+            resultDiv.innerHTML = '<p>Running simulation...</p>';
+            
+            try {
+                // Step 1: Fetch role permissions
+                console.log('Step 1: Fetching role 1 permissions...');
+                const roleResponse = await fetch('/api/management/roles/1');
+                const roleResult = await roleResponse.json();
+                
+                if (!roleResult.success) {
+                    throw new Error('Failed to fetch role: ' + roleResult.error);
+                }
+                
+                // Step 2: Fetch all permissions
+                console.log('Step 2: Fetching all permissions...');
+                const permResponse = await fetch('/api/management/permissions');
+                const permResult = await permResponse.json();
+                
+                if (!permResult.success) {
+                    throw new Error('Failed to fetch permissions: ' + permResult.error);
+                }
+                
+                // Step 3: Map IDs to names
+                console.log('Step 3: Mapping permission IDs to names...');
+                const allPermissions = permResult.data;
+                const rolePermissionNames = allPermissions
+                    .filter(perm => roleResult.data.permissionIds.includes(perm.id))
+                    .map(perm => perm.name);
+                
+                // Step 4: Create permissions object
+                console.log('Step 4: Creating permissions object...');
+                const hasPermission = (permName) => rolePermissionNames.includes(permName);
+                
+                const permissionsObject = {
+                    eventCreation: {
+                        createEvent: hasPermission('Create event'),
+                        editEventDetails: hasPermission('Edit event details'),
+                        manageEventStatus: hasPermission('Manage event status'),
+                        manageTickets: hasPermission('Manage tickets'),
+                        manageEventAgenda: hasPermission('Manage event agenda'),
+                    },
+                    orderRegistration: {
+                        addAttendee: hasPermission('Add attendee'),
+                        editAttendeeDetails: hasPermission('Edit attendee details'),
+                        cancelAttendeeRegistration: hasPermission('Cancel attendee registration'),
+                    }
+                };
+                
+                const finalResult = {
+                    success: true,
+                    steps: {
+                        '1_rolePermissionIds': roleResult.data.permissionIds,
+                        '2_allPermissionsCount': allPermissions.length,
+                        '3_rolePermissionNames': rolePermissionNames,
+                        '4_permissionsObject_sample': permissionsObject,
+                    },
+                    summary: {
+                        totalPermissionsInDB: allPermissions.length,
+                        permissionsAssignedToRole: rolePermissionNames.length,
+                        checkboxesThatShouldBeChecked: Object.values(permissionsObject)
+                            .flatMap(category => Object.entries(category))
+                            .filter(([_, value]) => value === true)
+                            .map(([key]) => key)
+                    }
+                };
+                
+                displayResult('simulate-result', finalResult);
+                
+            } catch (error) {
+                displayResult('simulate-result', {
+                    success: false,
+                    error: error.message,
+                    stack: error.stack
+                }, true);
+            }
+        }
+    </script>
+</body>
+</html>

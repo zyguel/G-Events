@@ -1,15 +1,17 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import Image from 'next/image';
+import { ToastContainer, useToast } from '@/components/admin/Toast';
 
 interface TeamMember {
     id: number;
     name: string;
     email: string;
     role: string;
-    avatar: string;
+    roleId: number;
+    avatar?: string;
 }
 
 interface Role {
@@ -17,23 +19,17 @@ interface Role {
     name: string;
 }
 
-const initialMembers: TeamMember[] = [
-    { id: 1, name: 'Karylle Bernate', email: 'karyllebernate8@gmail.com', role: 'Core Member', avatar: '/icons/woman.png' },
-    { id: 2, name: 'Eman Patalinghug', email: 'patalinghugr@gmail.com', role: 'Core Member', avatar: '/icons/man.png' },
-    { id: 3, name: 'April Rosales', email: 'aprilrosales@gmail.com', role: 'Volunteer', avatar: '/icons/woman.png' },
-    { id: 4, name: 'Angelica Lanutan', email: 'lanutanangelica@gmail.com', role: 'Core Member', avatar: '/icons/woman.png' },
-    { id: 5, name: 'Shawn Nacario', email: 'shawnnacario@gmail.com', role: 'Core Member', avatar: '/icons/man.png' },
-];
-
-const initialRoles: Role[] = [
-    { id: 1, name: 'Admin' },
-    { id: 2, name: 'Core Member' },
-    { id: 3, name: 'Volunteer' },
-];
-
 export default function ManagementPage() {
-    const [members, setMembers] = useState<TeamMember[]>(initialMembers);
-    const [roles, setRoles] = useState<Role[]>(initialRoles);
+    // Toast notifications
+    const { toasts, showToast, removeToast } = useToast();
+
+    // Loading states
+    const [isLoadingUsers, setIsLoadingUsers] = useState(true);
+    const [isLoadingRoles, setIsLoadingRoles] = useState(true);
+
+    // Data state
+    const [members, setMembers] = useState<TeamMember[]>([]);
+    const [roles, setRoles] = useState<Role[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'Team' | 'Role'>('Team');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -53,6 +49,54 @@ export default function ManagementPage() {
         setIsRoleDropdownOpen(false);
     };
 
+    const [editable, setEditable] = useState(false);
+    const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
+    const [openPermissionCategory, setOpenPermissionCategory] = useState<string | null>(null);
+
+    // Fetch users and roles on mount
+    useEffect(() => {
+        async function fetchUsers() {
+            try {
+                setIsLoadingUsers(true);
+                const response = await fetch('/backend/management/users');
+                const result = await response.json();
+
+                if (result.success) {
+                    setMembers(result.data);
+                } else {
+                    showToast(result.error || 'Failed to fetch users', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching users:', error);
+                showToast('Failed to load users. Please refresh the page.', 'error');
+            } finally {
+                setIsLoadingUsers(false);
+            }
+        }
+
+        async function fetchRoles() {
+            try {
+                setIsLoadingRoles(true);
+                const response = await fetch('/backend/management/roles');
+                const result = await response.json();
+
+                if (result.success) {
+                    setRoles(result.data);
+                } else {
+                    showToast(result.error || 'Failed to fetch roles', 'error');
+                }
+            } catch (error) {
+                console.error('Error fetching roles:', error);
+                showToast('Failed to load roles. Please refresh the page.', 'error');
+            } finally {
+                setIsLoadingRoles(false);
+            }
+        }
+
+        fetchUsers();
+        fetchRoles();
+    }, []);
+
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setInviteName('');
@@ -61,20 +105,38 @@ export default function ManagementPage() {
         setIsRoleDropdownOpen(false);
     };
 
-    const handleAddUser = () => {
+    const handleAddUser = async () => {
         if (inviteName && inviteEmail && selectedRole) {
-            // Create new member with provided name
-            const newMember: TeamMember = {
-                id: Math.max(...members.map(m => m.id)) + 1,
-                name: inviteName,
-                email: inviteEmail,
-                role: selectedRole,
-                avatar: Math.random() > 0.5 ? '/icons/woman.png' : '/icons/man.png'
-            };
+            try {
+                const selectedRoleObj = roles.find(r => r.name === selectedRole);
+                if (!selectedRoleObj) {
+                    showToast('Invalid role selected', 'error');
+                    return;
+                }
 
-            // Add to members list
-            setMembers([...members, newMember]);
-            handleCloseModal();
+                const response = await fetch('/backend/management/users', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: inviteName,
+                        email: inviteEmail,
+                        roleId: selectedRoleObj.id,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setMembers([...members, result.data]);
+                    showToast('User invited successfully!', 'success');
+                    handleCloseModal();
+                } else {
+                    showToast(result.error || 'Failed to invite user', 'error');
+                }
+            } catch (error) {
+                console.error('Error inviting user:', error);
+                showToast('Failed to invite user. Please try again.', 'error');
+            }
         }
     };
 
@@ -106,14 +168,41 @@ export default function ManagementPage() {
         setIsEditRoleDropdownOpen(false);
     };
 
-    const handleSaveEdit = () => {
+    const handleSaveEdit = async () => {
         if (editingMember && editEmail) {
-            setMembers(members.map(member =>
-                member.id === editingMember.id
-                    ? { ...member, email: editEmail, role: editRole }
-                    : member
-            ));
-            handleCloseEditModal();
+            try {
+                const selectedRoleObj = roles.find(r => r.name === editRole);
+                if (!selectedRoleObj) {
+                    showToast('Invalid role selected', 'error');
+                    return;
+                }
+
+                const response = await fetch(`/backend/management/users/${editingMember.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        email: editEmail,
+                        roleId: selectedRoleObj.id,
+                    }),
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setMembers(members.map(member =>
+                        member.id === editingMember.id
+                            ? { ...member, email: editEmail, role: editRole, roleId: selectedRoleObj.id }
+                            : member
+                    ));
+                    showToast('User updated successfully!', 'success');
+                    handleCloseEditModal();
+                } else {
+                    showToast(result.error || 'Failed to update user', 'error');
+                }
+            } catch (error) {
+                console.error('Error updating user:', error);
+                showToast('Failed to update user. Please try again.', 'error');
+            }
         }
     };
 
@@ -125,11 +214,27 @@ export default function ManagementPage() {
         setIsRemoveModalOpen(true);
     };
 
-    const handleConfirmRemove = () => {
+    const handleConfirmRemove = async () => {
         if (editingMember) {
-            setMembers(members.filter(member => member.id !== editingMember.id));
-            setIsRemoveModalOpen(false);
-            handleCloseEditModal();
+            try {
+                const response = await fetch(`/backend/management/users/${editingMember.id}`, {
+                    method: 'DELETE',
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setMembers(members.filter(member => member.id !== editingMember.id));
+                    showToast('User removed successfully!', 'success');
+                    setIsRemoveModalOpen(false);
+                    handleCloseEditModal();
+                } else {
+                    showToast(result.error || 'Failed to remove user', 'error');
+                }
+            } catch (error) {
+                console.error('Error removing user:', error);
+                showToast('Failed to remove user. Please try again.', 'error');
+            }
         }
     };
 
@@ -201,42 +306,85 @@ export default function ManagementPage() {
     const handleOpenCreateRole = () => {
         setIsCreateRoleOpen(true);
         setNewRoleName('');
+        setEditingRole(null);
         // Reset permissions
-        setPermissions({
-            eventCreation: { selectAll: false, createEvent: false, editEventDetails: false, manageEventStatus: false, manageTickets: false, manageEventAgenda: false },
-            orderRegistration: { selectAll: false, addAttendee: false, editAttendeeDetails: false, cancelAttendeeRegistration: false, viewListOfAttendees: false, checkInAttendees: false, applyDiscountsAndPromoCodes: false, manageTicketAddOns: false, sendEmails: false, manageTicketAddOns2: false },
-            breakoutSession: { selectAll: false, createBreakoutSessions: false, editBreakoutSessions: false, manageBreakoutSessionAttendance: false },
-            waitlistManagement: { selectAll: false, manageWaitlist: false, viewWaitlistQueue: false },
-            eCertificate: { selectAll: false, manageCertificateIssuance: false, viewECertificates: false },
-            reporting: { selectAll: false, viewReports: false, exportOrderReport: false },
-            emailsUserCanReceive: { selectAll: false, newRegistrantEmail: false, waitlistEmail: false, newMessageOrInquiryFromAttendee: false },
-        });
+        setSelectedPermissions([]);
     };
 
     const handleCloseCreateRole = () => {
         setIsCreateRoleOpen(false);
         setEditingRole(null);
+        setSelectedPermissions([]);
     };
 
-    const handleSaveRole = () => {
+    const handleSaveRole = async () => {
         if (newRoleName.trim()) {
-            if (editingRole) {
-                // Update existing role
-                setRoles(roles.map(r =>
-                    r.id === editingRole.id
-                        ? { ...r, name: newRoleName.trim() }
-                        : r
-                ));
-            } else {
-                // Create new role
-                const newRole: Role = {
-                    id: Math.max(...roles.map(r => r.id)) + 1,
-                    name: newRoleName.trim(),
-                };
-                setRoles([...roles, newRole]);
+            try {
+                // Fetch all permissions to convert names to IDs
+                const permResponse = await fetch('/backend/management/permissions');
+                const permResult = await permResponse.json();
+
+                let permissionIds: number[] = [];
+                if (permResult.success) {
+                    const allPermissions = permResult.data;
+                    // Convert selected permission names to IDs
+                    permissionIds = allPermissions
+                        .filter((perm: any) => selectedPermissions.includes(perm.name))
+                        .map((perm: any) => perm.id);
+                }
+
+                if (editingRole) {
+                    // Update existing role
+                    const response = await fetch(`/backend/management/roles/${editingRole.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: newRoleName.trim(),
+                            description: '',
+                            permissionIds,
+                        }),
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        setRoles(roles.map(r =>
+                            r.id === editingRole.id
+                                ? { ...r, name: newRoleName.trim() }
+                                : r
+                        ));
+                        showToast('Role updated successfully!', 'success');
+                    } else {
+                        showToast(result.error || 'Failed to update role', 'error');
+                    }
+                } else {
+                    // Create new role
+                    const response = await fetch('/backend/management/roles', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: newRoleName.trim(),
+                            description: '',
+                            permissionIds,
+                        }),
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success) {
+                        setRoles([...roles, result.data]);
+                        showToast('Role created successfully!', 'success');
+                    } else {
+                        showToast(result.error || 'Failed to create role', 'error');
+                    }
+                }
+                setIsCreateRoleOpen(false);
+                setEditingRole(null);
+                setSelectedPermissions([]);
+            } catch (error) {
+                console.error('Error saving role:', error);
+                showToast('Failed to save role. Please try again.', 'error');
             }
-            setIsCreateRoleOpen(false);
-            setEditingRole(null);
         }
     };
 
@@ -281,11 +429,94 @@ export default function ManagementPage() {
         setOpenRoleMenuId(openRoleMenuId === roleId ? null : roleId);
     };
 
-    const handleEditRolePermissions = (role: Role) => {
-        setEditingRole(role);
-        setNewRoleName(role.name);
-        setOpenRoleMenuId(null);
-        setIsCreateRoleOpen(true); // Reuse the create role panel for editing
+    const handleEditRolePermissions = async (role: Role) => {
+        try {
+            // Fetch the role's current permissions
+            const response = await fetch(`/backend/management/roles/${role.id}`);
+            const result = await response.json();
+
+            if (result.success) {
+                // Convert permission IDs to permission names for the checkboxes
+                // First, we need to get all available permissions to map IDs to names
+                const permResponse = await fetch('/backend/management/permissions');
+                const permResult = await permResponse.json();
+
+                if (permResult.success) {
+                    const allPermissions = permResult.data;
+                    // Map the permission IDs to permission names
+                    const rolePermissionNames = allPermissions
+                        .filter((perm: any) => result.data.permissionIds.includes(perm.id))
+                        .map((perm: any) => perm.name);
+
+                    setSelectedPermissions(rolePermissionNames);
+
+                    // ALSO update the permissions object for the UI checkboxes
+                    // Create a helper to check if a permission is included
+                    const hasPermission = (permName: string) => rolePermissionNames.includes(permName);
+
+                    // Map database permission names to the UI structure
+                    const updatedPermissions = {
+                        eventCreation: {
+                            selectAll: false,
+                            createEvent: hasPermission('Create Event'),
+                            editEventDetails: hasPermission('Edit Event Details'),
+                            manageEventStatus: hasPermission('Manage Event Status'),
+                            manageTickets: hasPermission('Manage Tickets'),
+                            manageEventAgenda: hasPermission('Manage Event Agenda'),
+                        },
+                        orderRegistration: {
+                            selectAll: false,
+                            addAttendee: hasPermission('Add Attendee'),
+                            editAttendeeDetails: hasPermission('Edit Attendee Details'),
+                            cancelAttendeeRegistration: hasPermission('Cancel Attendee Registration'),
+                            viewListOfAttendees: hasPermission('View List of Attendees'),
+                            checkInAttendees: hasPermission('Check In Attendees'),
+                            applyDiscountsAndPromoCodes: hasPermission('Apply Discounts and Promo Codes'),
+                            manageTicketAddOns: hasPermission('Manage Ticket Add-Ons'),
+                            sendEmails: hasPermission('Send Emails'),
+                            manageTicketAddOns2: false,
+                        },
+                        breakoutSession: {
+                            selectAll: false,
+                            createBreakoutSessions: hasPermission('Create Breakout Sessions'),
+                            editBreakoutSessions: hasPermission('Edit Breakout Sessions'),
+                            manageBreakoutSessionAttendance: hasPermission('Manage Breakout Session Attendance'),
+                        },
+                        waitlistManagement: {
+                            selectAll: false,
+                            manageWaitlist: hasPermission('Manage Waitlist'),
+                            viewWaitlistQueue: hasPermission('View Waitlist Queue'),
+                        },
+                        eCertificate: {
+                            selectAll: false,
+                            manageCertificateIssuance: hasPermission('Manage Certificate Issuance'),
+                            viewECertificates: hasPermission('View E-Certificates'),
+                        },
+                        reporting: {
+                            selectAll: false,
+                            viewReports: hasPermission('View Reports'),
+                            exportOrderReport: hasPermission('Export Order Report'),
+                        },
+                        emailsUserCanReceive: {
+                            selectAll: false,
+                            newRegistrantEmail: hasPermission('New Registrant Email'),
+                            waitlistEmail: hasPermission('Waitlist Email'),
+                            newMessageOrInquiryFromAttendee: hasPermission('New Message or Inquiry From Attendee'),
+                        },
+                    };
+
+                    setPermissions(updatedPermissions as any);
+                }
+            }
+
+            setEditingRole(role);
+            setNewRoleName(role.name);
+            setOpenRoleMenuId(null);
+            setIsCreateRoleOpen(true); // Reuse the create role panel for editing
+        } catch (error) {
+            console.error('Error loading role permissions:', error);
+            showToast('Failed to load role permissions', 'error');
+        }
     };
 
     const handleDeleteRoleClick = (role: Role) => {
@@ -294,11 +525,27 @@ export default function ManagementPage() {
         setIsDeleteRoleModalOpen(true);
     };
 
-    const handleConfirmDeleteRole = () => {
+    const handleConfirmDeleteRole = async () => {
         if (roleToDelete) {
-            setRoles(roles.filter(r => r.id !== roleToDelete.id));
-            setIsDeleteRoleModalOpen(false);
-            setRoleToDelete(null);
+            try {
+                const response = await fetch(`/backend/management/roles/${roleToDelete.id}`, {
+                    method: 'DELETE',
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    setRoles(roles.filter(r => r.id !== roleToDelete.id));
+                    showToast('Role deleted successfully!', 'success');
+                    setIsDeleteRoleModalOpen(false);
+                    setRoleToDelete(null);
+                } else {
+                    showToast(result.error || 'Failed to delete role', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting role:', error);
+                showToast('Failed to delete role. Please try again.', 'error');
+            }
         }
     };
 
@@ -322,6 +569,7 @@ export default function ManagementPage() {
 
     return (
         <div className="min-h-screen h-screen bg-gray-50 dark:bg-gray-900 flex flex-col font-sans overflow-hidden transition-colors">
+            <ToastContainer toasts={toasts} onRemove={removeToast} />
             <Header />
 
             <div className="flex flex-1 overflow-hidden">
