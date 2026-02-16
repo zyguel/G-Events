@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import Image from 'next/image';
@@ -9,7 +9,7 @@ import { Search, Filter, Plus, Calendar, List, Grid, MoreVertical, Users, Ticket
 type FilterOption = 'all' | 'drafts' | 'upcoming' | 'past';
 
 interface Event {
-    id: number;
+    id: number | string;
     name: string;
     location: string;
     date: string;
@@ -22,7 +22,7 @@ interface Event {
     analyticsId?: string; // Maps to the API event ID for analytics
 }
 
-const eventsData: Event[] = [
+const initialEventsData: Event[] = [
     { id: 1, name: 'Google I/O Extended 2025', location: 'USC MR Hall', date: 'July 20, 2025', ticketsSold: 0, totalTickets: 200, attendees: 0, status: 'Draft', type: 'draft', analyticsId: 'io-extended-2025' },
     { id: 2, name: 'DevFest Cebu 2025', location: 'USC MR Hall', date: 'November 20, 2025', ticketsSold: 150, totalTickets: 350, attendees: 0, status: 'Upcoming', type: 'upcoming', analyticsId: 'devfest-2025' },
     { id: 3, name: 'DevFest Cebu 2024', location: 'Ayala Center Cebu', date: 'November 25, 2024', ticketsSold: 302, totalTickets: 450, attendees: 290, status: 'Completed', type: 'past', analyticsId: 'devfest-2025' },
@@ -31,18 +31,43 @@ const eventsData: Event[] = [
 ];
 
 export default function EventsPage() {
+    const [events, setEvents] = useState<Event[]>(initialEventsData);
     const [selectedFilter, setSelectedFilter] = useState<FilterOption>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-    const filteredEvents = eventsData.filter(event => {
+    // Load created events from localStorage
+    useEffect(() => {
+        const storedEvents = localStorage.getItem('mock_created_events');
+        if (storedEvents) {
+            try {
+                const parsedEvents = JSON.parse(storedEvents);
+                setEvents(prev => {
+                    // Avoid duplicates if needed, but for now simple merge
+                    // Filter out any that might already be in state to be safe (though initial render shouldn't have them)
+                    const existingIds = new Set(prev.map(e => e.id));
+                    const newUniqueEvents = parsedEvents.filter((e: Event) => !existingIds.has(e.id));
+                    return [...newUniqueEvents, ...prev];
+                });
+            } catch (e) {
+                console.error('Failed to parse stored events', e);
+            }
+        }
+    }, []);
+
+    const filteredEvents = events.filter(event => {
         const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
             event.location.toLowerCase().includes(searchQuery.toLowerCase());
 
+        const status = event.status;
+        const isDraft = status === 'Draft';
+        const isUpcoming = ['Upcoming', 'Live', 'Published', 'Not Yet Published', 'Ongoing', 'Not Started'].includes(status);
+        const isPast = ['Completed', 'Past', 'Cancelled'].includes(status);
+
         if (selectedFilter === 'all') return matchesSearch;
-        if (selectedFilter === 'drafts') return matchesSearch && event.type === 'draft';
-        if (selectedFilter === 'upcoming') return matchesSearch && event.type === 'upcoming';
-        if (selectedFilter === 'past') return matchesSearch && event.type === 'past';
+        if (selectedFilter === 'drafts') return matchesSearch && isDraft;
+        if (selectedFilter === 'upcoming') return matchesSearch && isUpcoming;
+        if (selectedFilter === 'past') return matchesSearch && isPast;
 
         return matchesSearch;
     });
@@ -50,7 +75,10 @@ export default function EventsPage() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'Draft': return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
-            case 'Upcoming': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
+            case 'Upcoming':
+            case 'Published':
+            case 'Not Yet Published':
+                return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400';
             case 'Live': return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
             case 'Completed': return 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400';
             default: return 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
@@ -60,11 +88,36 @@ export default function EventsPage() {
     const getStatusIcon = (status: string) => {
         switch (status) {
             case 'Draft': return '/icons/gray-check.png';
-            case 'Upcoming': return '/icons/blue-check.png';
+            case 'Upcoming':
+            case 'Published':
+            case 'Not Yet Published':
+                return '/icons/blue-check.png';
             case 'Live': return '/icons/blue-check.png';
             case 'Completed': return '/icons/green-check.png';
             default: return '/icons/gray-check.png';
         }
+    };
+
+    const getDisplayStatus = (status: string) => {
+        if (status === 'Published' || status === 'Not Yet Published') return 'Upcoming';
+        return status;
+    };
+
+    const formatDate = (dateStr: string) => {
+        if (!dateStr) return "";
+
+        // Handle YYYY-MM-DD format
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+            const date = new Date(dateStr);
+            return new Intl.DateTimeFormat('en-US', {
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric',
+                timeZone: 'UTC'
+            }).format(date);
+        }
+
+        return dateStr;
     };
 
     return (
@@ -88,10 +141,10 @@ export default function EventsPage() {
                                 </p>
                             </div>
 
-                            <button className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm w-full md:w-auto">
+                            <Link href="/events/new/overview" className="flex items-center justify-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm w-full md:w-auto">
                                 <Plus size={18} />
                                 Create Event
-                            </button>
+                            </Link>
                         </div>
 
                         {/* Filters and Search Bar */}
@@ -181,7 +234,7 @@ export default function EventsPage() {
                                                                     <MapPin size={12} className="md:w-[14px] md:h-[14px]" /> {event.location}
                                                                 </span>
                                                                 <span className="flex items-center gap-1">
-                                                                    <Calendar size={12} className="md:w-[14px] md:h-[14px]" /> {event.date}
+                                                                    <Calendar size={12} className="md:w-[14px] md:h-[14px]" /> {formatDate(event.date)}
                                                                 </span>
                                                             </div>
                                                         </div>
@@ -198,7 +251,7 @@ export default function EventsPage() {
                                                         </div>
                                                         <div className="min-w-[80px] md:w-28 flex justify-center">
                                                             <span className={`px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium ${getStatusColor(event.status)}`}>
-                                                                {event.status}
+                                                                {getDisplayStatus(event.status)}
                                                             </span>
                                                         </div>
                                                         <button onClick={(e) => e.preventDefault()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors">
@@ -219,9 +272,19 @@ export default function EventsPage() {
                                     <Link key={event.id} href={event.analyticsId ? `/events/${event.analyticsId}/overview` : '#'} className="block">
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">
                                             <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
-                                                <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
-                                                <span className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-medium ${getStatusColor(event.status)}`}>
-                                                    {event.status}
+                                                {event.image ? (
+                                                    <Image
+                                                        src={event.image}
+                                                        alt={event.name}
+                                                        fill
+                                                        className="object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+                                                )}
+                                                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                                                <span className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-medium z-10 ${getStatusColor(event.status)}`}>
+                                                    {getDisplayStatus(event.status)}
                                                 </span>
                                             </div>
                                             <div className="p-5">
@@ -238,7 +301,7 @@ export default function EventsPage() {
                                                     <MapPin size={14} /> {event.location}
                                                 </p>
                                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                                                    <Calendar size={14} /> {event.date}
+                                                    <Calendar size={14} /> {formatDate(event.date)}
                                                 </p>
                                                 <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
                                                     <div className="flex items-center gap-1 text-sm">

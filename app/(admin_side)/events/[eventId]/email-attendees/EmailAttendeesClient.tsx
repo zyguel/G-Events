@@ -2,9 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import Header from '@/components/admin/Header';
-import Sidebar from '@/components/admin/Sidebar';
-import EventsSidebar from '@/components/admin/EventsSidebar';
 import { Mail, Filter, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import Modal from '@/components/admin/Modal';
@@ -304,29 +301,35 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     const [selectedEmail, setSelectedEmail] = useState<SentEmail | null>(null);
     const [emailToDelete, setEmailToDelete] = useState<SentEmail | null>(null);
 
-    // Sent emails list
-    const [sentEmails, setSentEmails] = useState<SentEmail[]>([
-        {
-            id: '1',
-            subject: 'Welcome to DevFest Cebu 2025!',
-            body: 'We are excited to have you join us...',
-            recipientCount: 350,
-            sentAt: new Date(Date.now() - 86400000 * 2),
-            status: 'sent'
-        },
-        {
-            id: '2',
-            subject: 'Event Reminder - DevFest Cebu 2025',
-            body: 'Just a friendly reminder that the event is coming up...',
-            recipientCount: 320,
-            sentAt: new Date(Date.now() - 86400000),
-            status: 'sent'
-        }
-    ]);
+    const [sentEmails, setSentEmails] = useState<SentEmail[]>(
+        event.id.startsWith('evt-')
+            ? []
+            : [
+                {
+                    id: '1',
+                    subject: 'Welcome to DevFest Cebu 2025!',
+                    body: 'We are excited to have you join us...',
+                    recipientCount: 350,
+                    sentAt: new Date(Date.now() - 86400000 * 2),
+                    status: 'sent'
+                },
+                {
+                    id: '2',
+                    subject: 'Event Reminder - DevFest Cebu 2025',
+                    body: 'Just a friendly reminder that the event is coming up...',
+                    recipientCount: 320,
+                    sentAt: new Date(Date.now() - 86400000),
+                    status: 'sent'
+                }
+            ]
+    );
 
 
     // Calculate attendees count based on filters
     const getAttendeesCount = () => {
+        // If it's a draft/local event, assume 0 attendees for now
+        if (event.id.startsWith('evt-')) return 0;
+
         let count = 0;
         if (ticketTypes.selectAll) return 200;
         if (ticketTypes.generalAdmission) count += 150;
@@ -486,9 +489,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            <Header />
-
+        <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Toast Notification */}
             {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
@@ -516,436 +517,427 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                 }
             `}</style>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Main Navigation Sidebar */}
-                <Sidebar activePage="events" disableExpand={true} />
+            {/* Main Content Area */}
+            <div className="p-8">
+                <div className="max-w-5xl mx-auto space-y-8">
 
-                {/* Event Specific Sidebar */}
-                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-                    <EventsSidebar event={event} activePage="email-attendees" />
-                </div>
-
-                {/* Main Content Area */}
-                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto scrollbar-hide p-8">
-                    <div className="max-w-5xl mx-auto space-y-8">
-
-                        {/* Page Header */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
-                                    <Mail className="w-7 h-7 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        Email to Attendees
-                                    </h1>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                        Send targeted emails to your event attendees
-                                    </p>
-                                </div>
+                    {/* Page Header */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                                <Mail className="w-7 h-7 text-white" />
                             </div>
-                            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                                <Users size={18} className="text-[#3D518C]" />
-                                <span className="text-sm text-gray-600 dark:text-gray-300">
-                                    <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> attendees selected
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    Email to Attendees
+                                </h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Send targeted emails to your event attendees
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <Users size={18} className="text-[#3D518C]" />
+                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                                <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> attendees selected
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-1.5 shadow-sm border border-gray-200 dark:border-gray-700 inline-flex">
+                        <button
+                            onClick={() => setActiveTab('create')}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'create'
+                                ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            Create Email
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('emails')}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'emails'
+                                ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            Sent Emails
+                            {sentEmails.filter(e => e.status !== 'draft').length > 0 && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'emails' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
+                                    {sentEmails.filter(e => e.status !== 'draft').length}
                                 </span>
-                            </div>
-                        </div>
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('drafts')}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'drafts'
+                                ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            Drafts
+                            {sentEmails.filter(e => e.status === 'draft').length > 0 && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'drafts' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
+                                    {sentEmails.filter(e => e.status === 'draft').length}
+                                </span>
+                            )}
+                        </button>
+                    </div>
 
-                        {/* Tabs */}
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl p-1.5 shadow-sm border border-gray-200 dark:border-gray-700 inline-flex">
-                            <button
-                                onClick={() => setActiveTab('create')}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'create'
-                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                Create Email
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('emails')}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'emails'
-                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                Sent Emails
-                                {sentEmails.filter(e => e.status !== 'draft').length > 0 && (
-                                    <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'emails' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
-                                        {sentEmails.filter(e => e.status !== 'draft').length}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('drafts')}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'drafts'
-                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                Drafts
-                                {sentEmails.filter(e => e.status === 'draft').length > 0 && (
-                                    <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'drafts' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
-                                        {sentEmails.filter(e => e.status === 'draft').length}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
-
-                        {activeTab === 'create' ? (
-                            <div className="space-y-6">
-                                {/* Email Filters Section */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                                    <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                                                    <Filter className="w-5 h-5 text-white" />
-                                                </div>
-                                                <div>
-                                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                        Email Filters
-                                                    </h2>
-                                                    <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Select who should receive this email</p>
-                                                </div>
-                                            </div>
-                                            <button
-                                                onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
-                                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
-                                            >
-                                                <ChevronDown
-                                                    className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${isFiltersExpanded ? 'rotate-180' : ''}`}
-                                                />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    {isFiltersExpanded && (
-                                        <div className="p-6 animate-slide-up">
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                                {/* Select Ticket Type */}
-                                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
-                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                                        <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
-                                                        Ticket Type
-                                                    </h3>
-                                                    <div className="space-y-1">
-                                                        <Checkbox label="Select All" checked={ticketTypes.selectAll} onChange={handleTicketSelectAll} />
-                                                        <Checkbox label="General Admission" checked={ticketTypes.generalAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, generalAdmission: !prev.generalAdmission, selectAll: false }))} />
-                                                        <Checkbox label="Premium Admission" checked={ticketTypes.premiumAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, premiumAdmission: !prev.premiumAdmission, selectAll: false }))} />
-                                                    </div>
-                                                </div>
-
-                                                {/* Select Status */}
-                                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
-                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                                        <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
-                                                        Status
-                                                    </h3>
-                                                    <div className="space-y-1">
-                                                        <Checkbox label="Select All" checked={statuses.selectAll} onChange={handleStatusSelectAll} />
-                                                        <Checkbox label="Pending" checked={statuses.pending} onChange={() => setStatuses(prev => ({ ...prev, pending: !prev.pending, selectAll: false }))} />
-                                                        <Checkbox label="Confirmed" checked={statuses.confirmed} onChange={() => setStatuses(prev => ({ ...prev, confirmed: !prev.confirmed, selectAll: false }))} />
-                                                        <Checkbox label="Attended" checked={statuses.attended} onChange={() => setStatuses(prev => ({ ...prev, attended: !prev.attended, selectAll: false }))} />
-                                                        <Checkbox label="Not Attended" checked={statuses.notAttended} onChange={() => setStatuses(prev => ({ ...prev, notAttended: !prev.notAttended, selectAll: false }))} />
-                                                        <Checkbox label="Waitlisted" checked={statuses.waitlisted} onChange={() => setStatuses(prev => ({ ...prev, waitlisted: !prev.waitlisted, selectAll: false }))} />
-                                                    </div>
-                                                </div>
-
-                                                {/* Select Attendance Type */}
-                                                <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
-                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                                                        <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
-                                                        Attendance Type
-                                                    </h3>
-                                                    <div className="space-y-1">
-                                                        <Checkbox label="Select All" checked={attendanceTypes.selectAll} onChange={handleAttendanceSelectAll} />
-                                                        <Checkbox label="Main Event" checked={attendanceTypes.mainEvent} onChange={() => setAttendanceTypes(prev => ({ ...prev, mainEvent: !prev.mainEvent, selectAll: false }))} />
-                                                        <Checkbox label="Breakout Session" checked={attendanceTypes.breakoutSession} onChange={() => setAttendanceTypes(prev => ({ ...prev, breakoutSession: !prev.breakoutSession, selectAll: false }))} />
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Email Composer Section */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                                    <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                    {activeTab === 'create' ? (
+                        <div className="space-y-6">
+                            {/* Email Filters Section */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                                    <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                                                <Mail className="w-5 h-5 text-white" />
+                                            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                                                <Filter className="w-5 h-5 text-white" />
                                             </div>
                                             <div>
                                                 <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                    Compose Email
+                                                    Email Filters
                                                 </h2>
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Write your message to attendees</p>
+                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Select who should receive this email</p>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="p-6 space-y-4">
-                                        {/* Email Subject */}
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Subject Line <span className="text-red-500">*</span></label>
-                                            <input
-                                                type="text"
-                                                placeholder="Enter a compelling subject line..."
-                                                value={emailSubject}
-                                                onChange={(e) => setEmailSubject(e.target.value)}
-                                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
+                                        <button
+                                            onClick={() => setIsFiltersExpanded(!isFiltersExpanded)}
+                                            className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
+                                        >
+                                            <ChevronDown
+                                                className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${isFiltersExpanded ? 'rotate-180' : ''}`}
                                             />
-                                        </div>
-
-                                        {/* Rich Text Editor */}
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Body <span className="text-red-500">*</span></label>
-                                            <RichTextEditor
-                                                content={emailBody}
-                                                onChange={setEmailBody}
-                                                placeholder="Start typing your email content here..."
-                                            />
-                                        </div>
+                                        </button>
                                     </div>
                                 </div>
 
-                                {/* Save Options Section */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-md">
-                                    <div className="p-6 rounded-t-2xl border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
-                                                <Send className="w-5 h-5 text-white" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                    Send Options
-                                                </h2>
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Choose when and how to send your email</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Schedule Send */}
-                                            <div className="space-y-3">
-                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                    Schedule
+                                {isFiltersExpanded && (
+                                    <div className="p-6 animate-slide-up">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            {/* Select Ticket Type */}
+                                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
+                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <span className="w-2 h-2 bg-indigo-500 rounded-full"></span>
+                                                    Ticket Type
                                                 </h3>
-                                                <div className="space-y-2">
-                                                    <RadioButton label="Send Immediately" checked={scheduleOption === 'immediately'} onChange={() => setScheduleOption('immediately')} icon={Send} />
-                                                    <RadioButton label="Schedule for Later" checked={scheduleOption === 'later'} onChange={() => setScheduleOption('later')} icon={Clock} />
+                                                <div className="space-y-1">
+                                                    <Checkbox label="Select All" checked={ticketTypes.selectAll} onChange={handleTicketSelectAll} />
+                                                    <Checkbox label="General Admission" checked={ticketTypes.generalAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, generalAdmission: !prev.generalAdmission, selectAll: false }))} />
+                                                    <Checkbox label="Premium Admission" checked={ticketTypes.premiumAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, premiumAdmission: !prev.premiumAdmission, selectAll: false }))} />
                                                 </div>
+                                            </div>
 
-                                                {/* Date/Time picker for scheduled send */}
-                                                {scheduleOption === 'later' && (
-                                                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3 animate-slide-up">
-                                                        <div className="grid grid-cols-2 gap-3">
-                                                            <div>
-                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Date</label>
-                                                                <DateInput
-                                                                    value={scheduledDate ? new Date(scheduledDate) : null}
-                                                                    onChange={(date) => setScheduledDate(date ? date.toISOString().split('T')[0] : '')}
-                                                                    placeholder="Select date"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Time</label>
-                                                                <TimeInput
-                                                                    value={scheduledTime}
-                                                                    onChange={setScheduledTime}
-                                                                />
-                                                            </div>
+                                            {/* Select Status */}
+                                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
+                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <span className="w-2 h-2 bg-emerald-500 rounded-full"></span>
+                                                    Status
+                                                </h3>
+                                                <div className="space-y-1">
+                                                    <Checkbox label="Select All" checked={statuses.selectAll} onChange={handleStatusSelectAll} />
+                                                    <Checkbox label="Pending" checked={statuses.pending} onChange={() => setStatuses(prev => ({ ...prev, pending: !prev.pending, selectAll: false }))} />
+                                                    <Checkbox label="Confirmed" checked={statuses.confirmed} onChange={() => setStatuses(prev => ({ ...prev, confirmed: !prev.confirmed, selectAll: false }))} />
+                                                    <Checkbox label="Attended" checked={statuses.attended} onChange={() => setStatuses(prev => ({ ...prev, attended: !prev.attended, selectAll: false }))} />
+                                                    <Checkbox label="Not Attended" checked={statuses.notAttended} onChange={() => setStatuses(prev => ({ ...prev, notAttended: !prev.notAttended, selectAll: false }))} />
+                                                    <Checkbox label="Waitlisted" checked={statuses.waitlisted} onChange={() => setStatuses(prev => ({ ...prev, waitlisted: !prev.waitlisted, selectAll: false }))} />
+                                                </div>
+                                            </div>
+
+                                            {/* Select Attendance Type */}
+                                            <div className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 space-y-3">
+                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                                                    <span className="w-2 h-2 bg-amber-500 rounded-full"></span>
+                                                    Attendance Type
+                                                </h3>
+                                                <div className="space-y-1">
+                                                    <Checkbox label="Select All" checked={attendanceTypes.selectAll} onChange={handleAttendanceSelectAll} />
+                                                    <Checkbox label="Main Event" checked={attendanceTypes.mainEvent} onChange={() => setAttendanceTypes(prev => ({ ...prev, mainEvent: !prev.mainEvent, selectAll: false }))} />
+                                                    <Checkbox label="Breakout Session" checked={attendanceTypes.breakoutSession} onChange={() => setAttendanceTypes(prev => ({ ...prev, breakoutSession: !prev.breakoutSession, selectAll: false }))} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Email Composer Section */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                                            <Mail className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                                Compose Email
+                                            </h2>
+                                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Write your message to attendees</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 space-y-4">
+                                    {/* Email Subject */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Subject Line <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            placeholder="Enter a compelling subject line..."
+                                            value={emailSubject}
+                                            onChange={(e) => setEmailSubject(e.target.value)}
+                                            className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
+                                        />
+                                    </div>
+
+                                    {/* Rich Text Editor */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Email Body <span className="text-red-500">*</span></label>
+                                        <RichTextEditor
+                                            content={emailBody}
+                                            onChange={setEmailBody}
+                                            placeholder="Start typing your email content here..."
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Save Options Section */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-md">
+                                <div className="p-6 rounded-t-2xl border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
+                                            <Send className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                                Send Options
+                                            </h2>
+                                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Choose when and how to send your email</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Schedule Send */}
+                                        <div className="space-y-3">
+                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                Schedule
+                                            </h3>
+                                            <div className="space-y-2">
+                                                <RadioButton label="Send Immediately" checked={scheduleOption === 'immediately'} onChange={() => setScheduleOption('immediately')} icon={Send} />
+                                                <RadioButton label="Schedule for Later" checked={scheduleOption === 'later'} onChange={() => setScheduleOption('later')} icon={Clock} />
+                                            </div>
+
+                                            {/* Date/Time picker for scheduled send */}
+                                            {scheduleOption === 'later' && (
+                                                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3 animate-slide-up">
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Date</label>
+                                                            <DateInput
+                                                                value={scheduledDate ? new Date(scheduledDate) : null}
+                                                                onChange={(date) => setScheduledDate(date ? date.toISOString().split('T')[0] : '')}
+                                                                placeholder="Select date"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Time</label>
+                                                            <TimeInput
+                                                                value={scheduledTime}
+                                                                onChange={setScheduledTime}
+                                                                openAbove
+                                                            />
                                                         </div>
                                                     </div>
-                                                )}
-                                            </div>
-
-                                            {/* Send Options */}
-                                            <div className="space-y-3">
-                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                    Delivery Mode
-                                                </h3>
-                                                <div className="space-y-2">
-                                                    <RadioButton label="Send Preview to My Email" checked={sendOption === 'preview'} onChange={() => setSendOption('preview')} icon={Eye} />
-                                                    <RadioButton label="Send to All Attendees" checked={sendOption === 'attendees'} onChange={() => setSendOption('attendees')} icon={Users} />
                                                 </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Footer Actions */}
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-                                    <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                                        <p>
-                                            Ready to send to <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> attendees based on your filters
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <button
-                                            onClick={handleSaveAsDraft}
-                                            className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
-                                        >
-                                            Save as Draft
-                                        </button>
-                                        <button
-                                            onClick={handleSendEmail}
-                                            disabled={isLoading}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                        >
-                                            {isLoading ? (
-                                                <>
-                                                    <RefreshCw size={16} className="animate-spin" />
-                                                    Sending...
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Send size={16} />
-                                                    {sendOption === 'preview' ? 'Send Preview' : 'Send Email'}
-                                                </>
                                             )}
-                                        </button>
+                                        </div>
+
+                                        {/* Send Options */}
+                                        <div className="space-y-3">
+                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                Delivery Mode
+                                            </h3>
+                                            <div className="space-y-2">
+                                                <RadioButton label="Send Preview to My Email" checked={sendOption === 'preview'} onChange={() => setSendOption('preview')} icon={Eye} />
+                                                <RadioButton label="Send to All Attendees" checked={sendOption === 'attendees'} onChange={() => setSendOption('attendees')} icon={Users} />
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        ) : activeTab === 'emails' ? (
-                            /* Emails Tab - List of sent emails */
-                            <div className="space-y-4">
-                                {sentEmails.filter(e => e.status !== 'draft').length === 0 ? (
-                                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
-                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                            <Mail className="w-8 h-8 text-gray-400" />
-                                        </div>
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No emails sent yet</h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Start by creating your first email campaign</p>
-                                        <button
-                                            onClick={() => setActiveTab('create')}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200"
-                                        >
-                                            Create Your First Email
-                                        </button>
-                                    </div>
-                                ) : (
-                                    sentEmails.filter(e => e.status !== 'draft').map((email) => (
-                                        <div key={email.id}
-                                            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
-                                            onClick={() => setSelectedEmail(email)}
-                                        >
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">{email.subject}</h3>
-                                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${email.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
-                                                            {email.status === 'sent' ? 'Sent' : 'Scheduled'}
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />
-                                                    <div className="flex items-center gap-4 text-xs text-gray-400">
-                                                        <span className="flex items-center gap-1">
-                                                            <Users size={12} />
-                                                            {email.recipientCount} recipients
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <Calendar size={12} />
-                                                            {email.status === 'scheduled' && email.scheduledFor
-                                                                ? `Scheduled for ${formatDate(email.scheduledFor)}`
-                                                                : formatDate(email.sentAt)
-                                                            }
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteEmail(email.id);
-                                                        }}
-                                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        ) : (
-                            /* Drafts Tab */
-                            <div className="space-y-4">
-                                {sentEmails.filter(e => e.status === 'draft').length === 0 ? (
-                                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
-                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                            <Mail className="w-8 h-8 text-gray-400" />
-                                        </div>
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No drafts found</h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Create a new email and save it as a draft</p>
-                                        <button
-                                            onClick={() => setActiveTab('create')}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200"
-                                        >
-                                            Create New Draft
-                                        </button>
-                                    </div>
-                                ) : (
-                                    sentEmails.filter(e => e.status === 'draft').map((email) => (
-                                        <div key={email.id}
-                                            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
-                                            onClick={() => handleLoadDraft(email)}
-                                        >
-                                            <div className="flex items-start justify-between gap-4">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-3 mb-2">
-                                                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">{email.subject}</h3>
-                                                        <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
-                                                            Draft
-                                                        </span>
-                                                    </div>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />
-                                                    <div className="flex items-center gap-4 text-xs text-gray-400">
-                                                        <span className="flex items-center gap-1">
-                                                            <Users size={12} />
-                                                            {email.recipientCount} (Planned)
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <Calendar size={12} />
-                                                            Last edited {formatDate(email.sentAt)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                    <button
-                                                        onClick={() => handleLoadDraft(email)}
-                                                        className="p-2 text-[#3D518C] hover:bg-[#3D518C]/10 rounded-lg transition-colors"
-                                                        title="Continue Editing"
-                                                    >
-                                                        <RefreshCw size={16} />
-                                                    </button>
-                                                    <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteEmail(email.id);
-                                                        }}
-                                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
 
-                    </div>
-                </main>
+                            {/* Footer Actions */}
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                                <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                    <p>
+                                        Ready to send to <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> attendees based on your filters
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <button
+                                        onClick={handleSaveAsDraft}
+                                        className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                                    >
+                                        Save as Draft
+                                    </button>
+                                    <button
+                                        onClick={handleSendEmail}
+                                        disabled={isLoading}
+                                        className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        {isLoading ? (
+                                            <>
+                                                <RefreshCw size={16} className="animate-spin" />
+                                                Sending...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Send size={16} />
+                                                {sendOption === 'preview' ? 'Send Preview' : 'Send Email'}
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) : activeTab === 'emails' ? (
+                        /* Emails Tab - List of sent emails */
+                        <div className="space-y-4">
+                            {sentEmails.filter(e => e.status !== 'draft').length === 0 ? (
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
+                                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <Mail className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No emails sent yet</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Start by creating your first email campaign</p>
+                                    <button
+                                        onClick={() => setActiveTab('create')}
+                                        className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200"
+                                    >
+                                        Create Your First Email
+                                    </button>
+                                </div>
+                            ) : (
+                                sentEmails.filter(e => e.status !== 'draft').map((email) => (
+                                    <div key={email.id}
+                                        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
+                                        onClick={() => setSelectedEmail(email)}
+                                    >
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{email.subject}</h3>
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${email.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
+                                                        {email.status === 'sent' ? 'Sent' : 'Scheduled'}
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />
+                                                <div className="flex items-center gap-4 text-xs text-gray-400">
+                                                    <span className="flex items-center gap-1">
+                                                        <Users size={12} />
+                                                        {email.recipientCount} recipients
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Calendar size={12} />
+                                                        {email.status === 'scheduled' && email.scheduledFor
+                                                            ? `Scheduled for ${formatDate(email.scheduledFor)}`
+                                                            : formatDate(email.sentAt)
+                                                        }
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteEmail(email.id);
+                                                    }}
+                                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    ) : (
+                        /* Drafts Tab */
+                        <div className="space-y-4">
+                            {sentEmails.filter(e => e.status === 'draft').length === 0 ? (
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
+                                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <Mail className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No drafts found</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Create a new email and save it as a draft</p>
+                                    <button
+                                        onClick={() => setActiveTab('create')}
+                                        className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200"
+                                    >
+                                        Create New Draft
+                                    </button>
+                                </div>
+                            ) : (
+                                sentEmails.filter(e => e.status === 'draft').map((email) => (
+                                    <div key={email.id}
+                                        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 cursor-pointer group"
+                                        onClick={() => handleLoadDraft(email)}
+                                    >
+                                        <div className="flex items-start justify-between gap-4">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{email.subject}</h3>
+                                                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400">
+                                                        Draft
+                                                    </span>
+                                                </div>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />
+                                                <div className="flex items-center gap-4 text-xs text-gray-400">
+                                                    <span className="flex items-center gap-1">
+                                                        <Users size={12} />
+                                                        {email.recipientCount} (Planned)
+                                                    </span>
+                                                    <span className="flex items-center gap-1">
+                                                        <Calendar size={12} />
+                                                        Last edited {formatDate(email.sentAt)}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                <button
+                                                    onClick={() => handleLoadDraft(email)}
+                                                    className="p-2 text-[#3D518C] hover:bg-[#3D518C]/10 rounded-lg transition-colors"
+                                                    title="Continue Editing"
+                                                >
+                                                    <RefreshCw size={16} />
+                                                </button>
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteEmail(email.id);
+                                                    }}
+                                                    className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    )}
+
+                </div>
             </div>
 
             {/* Email Preview Modal */}
@@ -1001,6 +993,6 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </div >
     );
 }

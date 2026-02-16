@@ -14,7 +14,7 @@ interface DateInputProps {
 
 // Custom input component to match DateTimeInput design
 const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeholder, className }, ref) => (
-    <div className="relative group cursor-pointer" onClick={onClick}>
+    <div className="relative group cursor-pointer w-full" onClick={onClick}>
         <Calendar
             className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3D518C] z-10 pointer-events-none transition-colors"
             size={16}
@@ -37,10 +37,11 @@ export default function DateInput({ value, onChange, placeholder, className }: D
             <style jsx global>{`
                 .react-datepicker-wrapper {
                     width: 100%;
+                    display: block;
                 }
-                .react-datepicker-popper {
-                    z-index: 9999 !important;
-                    padding-top: 1px !important;
+                .react-datepicker__input-container {
+                    display: block;
+                    width: 100%;
                 }
                 .react-datepicker {
                     font-family: inherit;
@@ -150,6 +151,18 @@ export default function DateInput({ value, onChange, placeholder, className }: D
                 placeholderText={placeholder || "Select date"}
                 customInput={<CustomInput className={className} />}
                 calendarClassName="shadow-xl"
+                popperProps={{
+                    strategy: "fixed",
+                    modifiers: [
+                        {
+                            name: "preventOverflow",
+                            options: {
+                                boundary: "viewport",
+                            },
+                        },
+                    ],
+                }}
+                popperClassName="!z-[9999]"
             />
         </div>
     );

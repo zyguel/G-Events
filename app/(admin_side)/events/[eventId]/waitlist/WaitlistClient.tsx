@@ -2,9 +2,6 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
-import Header from '@/components/admin/Header';
-import Sidebar from '@/components/admin/Sidebar';
-import EventsSidebar from '@/components/admin/EventsSidebar';
 import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown, Ticket } from 'lucide-react';
 import { EventSummary } from '@/lib/api';
 
@@ -90,13 +87,10 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     if (!eventId || eventId === 'undefined') {
         console.error('Invalid eventId in waitlist page:', eventId);
         return (
-            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-                <Header />
-                <div className="flex flex-1 items-center justify-center">
-                    <div className="text-center">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Unable to load waitlist. Event ID is invalid.</p>
-                    </div>
+            <div className="flex flex-col h-full items-center justify-center p-8">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Unable to load waitlist. Event ID is invalid.</p>
                 </div>
             </div>
         );
@@ -112,7 +106,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     const [showPosition, setShowPosition] = useState(false);
 
     // Waitlist entries state
-    const [entries] = useState(mockWaitlistEntries);
+    const [entries] = useState(eventId.startsWith('evt-') ? [] : mockWaitlistEntries);
 
     // Extract unique ticket types from entries
     const ticketTypes = Array.from(new Set(entries.map(e => e.ticketType)));
@@ -132,13 +126,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     // Filtered entries based on selected ticket type
     const filteredEntries = entries.filter(e => e.ticketType === selectedTicketType);
 
-    // Mock event data for sidebar
-    const sidebarEvent = {
-        id: event.id,
-        name: event.name,
-        date: event.date,
-        status: event.status
-    };
+
 
     const handleSaveSettings = async () => {
         setIsLoading(true);
@@ -171,8 +159,6 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
 
     return (
         <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            <Header />
-
             {/* Toast Notification */}
             {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
@@ -190,254 +176,244 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                 .animate-slide-down { animation: slide-down 0.3s ease-out; }
             `}</style>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Main Navigation Sidebar */}
-                <Sidebar activePage="events" disableExpand={true} />
+            {/* Main Content Area */}
+            <main className="flex-1 overflow-y-auto p-8">
+                <div className="max-w-5xl mx-auto space-y-8">
 
-                {/* Event Specific Sidebar */}
-                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-                    <EventsSidebar event={sidebarEvent} activePage="waitlist" />
-                </div>
-
-                {/* Main Content Area */}
-                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto p-8">
-                    <div className="max-w-5xl mx-auto space-y-8">
-
-                        {/* Page Header */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
-                                    <Clock className="w-7 h-7 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        Manage <span className="dark:bg-[#3D518C] px-2 py-0.5 rounded">Waitlist</span>
-                                    </h1>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                        Configure waitlist settings and manage queue
-                                    </p>
-                                </div>
+                    {/* Page Header */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                                <Clock className="w-7 h-7 text-white" />
                             </div>
-                            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                                <Users size={18} className="text-[#3D518C]" />
-                                <span className="text-sm text-gray-600 dark:text-gray-300">
-                                    <span className="font-semibold text-[#3D518C]">{entries.length}</span> people in waitlist
-                                </span>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    Manage <span className="dark:bg-[#3D518C] px-2 py-0.5 rounded">Waitlist</span>
+                                </h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Configure waitlist settings and manage queue
+                                </p>
                             </div>
                         </div>
+                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <Users size={18} className="text-[#3D518C]" />
+                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                                <span className="font-semibold text-[#3D518C]">{entries.length}</span> people in waitlist
+                            </span>
+                        </div>
+                    </div>
 
-                        {/* Waitlist Settings Section */}
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                            <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
+                    {/* Waitlist Settings Section */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                        <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                                    <Settings className="w-5 h-5 text-white" />
+                                </div>
+                                <div>
+                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                        Waitlist Settings
+                                    </h2>
+                                    <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Configure how your waitlist operates</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
+                            >
+                                <ChevronDown
+                                    className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}
+                                />
+                            </button>
+                        </div>
+
+                        {isSettingsOpen && (
+                            <div className="p-6 space-y-6 animate-slide-down">
+                                {/* Waitlist Expiry */}
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Waitlist Expiry (in Days)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={expiryDays}
+                                        onChange={(e) => setExpiryDays(e.target.value)}
+                                        min="1"
+                                        max="30"
+                                        className="w-32 px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
+                                    />
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        How many days the invite remains valid once a slot opens and invite is sent.
+                                    </p>
+                                </div>
+
+                                {/* Invite Type */}
+                                <div className="space-y-3">
+                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Invite Type
+                                    </label>
+                                    <div className="space-y-2">
+                                        <RadioButton
+                                            label="Auto-Invite Next User when Slot Available"
+                                            checked={inviteType === 'auto'}
+                                            onChange={() => setInviteType('auto')}
+                                        />
+                                        <RadioButton
+                                            label="Manual Invite Only"
+                                            checked={inviteType === 'manual'}
+                                            onChange={() => setInviteType('manual')}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Show Position */}
+                                <div className="pt-2">
+                                    <Checkbox
+                                        label="Show users current position in the queue."
+                                        checked={showPosition}
+                                        onChange={() => setShowPosition(!showPosition)}
+                                    />
+                                </div>
+
+                                {/* Save Button */}
+                                <div className="pt-4">
+                                    <button
+                                        onClick={handleSaveSettings}
+                                        disabled={isLoading}
+                                        className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                    >
+                                        {isLoading ? (
+                                            <>
+                                                <RefreshCw size={16} className="animate-spin" />
+                                                Saving...
+                                            </>
+                                        ) : (
+                                            'Save Settings'
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Waitlist Queue Management Section */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                        <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                            <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                                        <Settings className="w-5 h-5 text-white" />
+                                    <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                                        <Users className="w-5 h-5 text-white" />
                                     </div>
                                     <div>
                                         <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                            Waitlist Settings
+                                            Waitlist Queue Management
                                         </h2>
-                                        <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Configure how your waitlist operates</p>
+                                        <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">View and manage people in the waitlist</p>
                                     </div>
                                 </div>
-                                <button
-                                    onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                                    className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
-                                >
-                                    <ChevronDown
-                                        className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}
-                                    />
-                                </button>
-                            </div>
-
-                            {isSettingsOpen && (
-                                <div className="p-6 space-y-6 animate-slide-down">
-                                    {/* Waitlist Expiry */}
-                                    <div className="space-y-2">
-                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Waitlist Expiry (in Days)
-                                        </label>
-                                        <input
-                                            type="number"
-                                            value={expiryDays}
-                                            onChange={(e) => setExpiryDays(e.target.value)}
-                                            min="1"
-                                            max="30"
-                                            className="w-32 px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
-                                        />
-                                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            How many days the invite remains valid once a slot opens and invite is sent.
-                                        </p>
-                                    </div>
-
-                                    {/* Invite Type */}
-                                    <div className="space-y-3">
-                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                            Invite Type
-                                        </label>
-                                        <div className="space-y-2">
-                                            <RadioButton
-                                                label="Auto-Invite Next User when Slot Available"
-                                                checked={inviteType === 'auto'}
-                                                onChange={() => setInviteType('auto')}
-                                            />
-                                            <RadioButton
-                                                label="Manual Invite Only"
-                                                checked={inviteType === 'manual'}
-                                                onChange={() => setInviteType('manual')}
-                                            />
-                                        </div>
-                                    </div>
-
-                                    {/* Show Position */}
-                                    <div className="pt-2">
-                                        <Checkbox
-                                            label="Show users current position in the queue."
-                                            checked={showPosition}
-                                            onChange={() => setShowPosition(!showPosition)}
-                                        />
-                                    </div>
-
-                                    {/* Save Button */}
-                                    <div className="pt-4">
-                                        <button
-                                            onClick={handleSaveSettings}
-                                            disabled={isLoading}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                {/* Ticket Type Filter Dropdown */}
+                                <div className="flex items-center gap-2">
+                                    <Ticket size={16} className="text-gray-500 dark:text-gray-400" />
+                                    <div className="relative">
+                                        <select
+                                            value={selectedTicketType}
+                                            onChange={(e) => setSelectedTicketType(e.target.value)}
+                                            className="appearance-none pl-4 pr-10 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent cursor-pointer transition-all duration-200 hover:border-[#3D518C]"
                                         >
-                                            {isLoading ? (
-                                                <>
-                                                    <RefreshCw size={16} className="animate-spin" />
-                                                    Saving...
-                                                </>
-                                            ) : (
-                                                'Save Settings'
-                                            )}
-                                        </button>
+                                            {ticketTypes.map((type) => (
+                                                <option key={type} value={type}>
+                                                    {type}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                                     </div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Waitlist Queue Management Section */}
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                            <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                                            <Users className="w-5 h-5 text-white" />
-                                        </div>
-                                        <div>
-                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                Waitlist Queue Management
-                                            </h2>
-                                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">View and manage people in the waitlist</p>
-                                        </div>
-                                    </div>
-                                    {/* Ticket Type Filter Dropdown */}
-                                    <div className="flex items-center gap-2">
-                                        <Ticket size={16} className="text-gray-500 dark:text-gray-400" />
-                                        <div className="relative">
-                                            <select
-                                                value={selectedTicketType}
-                                                onChange={(e) => setSelectedTicketType(e.target.value)}
-                                                className="appearance-none pl-4 pr-10 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent cursor-pointer transition-all duration-200 hover:border-[#3D518C]"
-                                            >
-                                                {ticketTypes.map((type) => (
-                                                    <option key={type} value={type}>
-                                                        {type}
-                                                    </option>
-                                                ))}
-                                            </select>
-                                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                                        </div>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
-                                            ({filteredEntries.length} in queue)
-                                        </span>
-                                    </div>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">
+                                        ({filteredEntries.length} in queue)
+                                    </span>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="overflow-x-auto">
-                                <table className="w-full">
-                                    <thead className="bg-[#ABD2FA] text-gray-700 dark:bg-[#3D518C] dark:text-white uppercase font-semibold text-xs tracking-wider">
-                                        <tr>
-                                            <th className="px-6 py-4 text-left">
-                                                Full Name
-                                            </th>
-                                            <th className="px-6 py-4 text-left">
-                                                Email Address
-                                            </th>
-                                            <th className="px-6 py-4 text-left">
-                                                Ticket Type
-                                            </th>
-                                            <th className="px-6 py-4 text-center">
-                                                Queue
-                                            </th>
-                                            <th className="px-6 py-4 text-center">
-                                                Status
-                                            </th>
-                                            <th className="px-6 py-4 text-center">
-                                                Actions
-                                            </th>
+                        <div className="overflow-x-auto">
+                            <table className="w-full">
+                                <thead className="bg-[#ABD2FA] text-gray-700 dark:bg-[#3D518C] dark:text-white uppercase font-semibold text-xs tracking-wider">
+                                    <tr>
+                                        <th className="px-6 py-4 text-left">
+                                            Full Name
+                                        </th>
+                                        <th className="px-6 py-4 text-left">
+                                            Email Address
+                                        </th>
+                                        <th className="px-6 py-4 text-left">
+                                            Ticket Type
+                                        </th>
+                                        <th className="px-6 py-4 text-center">
+                                            Queue
+                                        </th>
+                                        <th className="px-6 py-4 text-center">
+                                            Status
+                                        </th>
+                                        <th className="px-6 py-4 text-center">
+                                            Actions
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    {filteredEntries.map((entry) => (
+                                        <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm font-medium text-gray-900 dark:text-white">
+                                                    {entry.fullName}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                                    {entry.email}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-sm text-gray-600 dark:text-gray-400">
+                                                    {entry.ticketType}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#3D518C]/10 dark:bg-[#3D518C]/30 text-sm font-semibold text-[#3D518C] dark:text-[#ABD2FA]">
+                                                    #{entry.queue}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {getStatusBadge(entry.status)}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {entry.status === 'Waiting' && (
+                                                    <button
+                                                        onClick={() => handleInvite(entry.id)}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-xs font-medium rounded-lg hover:shadow-md transition-all"
+                                                    >
+                                                        <Mail size={12} />
+                                                        Send Invite
+                                                    </button>
+                                                )}
+                                            </td>
                                         </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                        {filteredEntries.map((entry) => (
-                                            <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <span className="text-sm font-medium text-gray-900 dark:text-white">
-                                                        {entry.fullName}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                        {entry.email}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4">
-                                                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                                                        {entry.ticketType}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[#3D518C]/10 dark:bg-[#3D518C]/30 text-sm font-semibold text-[#3D518C] dark:text-[#ABD2FA]">
-                                                        #{entry.queue}
-                                                    </span>
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    {getStatusBadge(entry.status)}
-                                                </td>
-                                                <td className="px-6 py-4 text-center">
-                                                    {entry.status === 'Waiting' && (
-                                                        <button
-                                                            onClick={() => handleInvite(entry.id)}
-                                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-xs font-medium rounded-lg hover:shadow-md transition-all"
-                                                        >
-                                                            <Mail size={12} />
-                                                            Send Invite
-                                                        </button>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {filteredEntries.length === 0 && (
-                                <div className="p-12 text-center">
-                                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                        <Users className="w-8 h-8 text-gray-400" />
-                                    </div>
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No one in waitlist for {selectedTicketType}</h3>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400">When tickets sell out, people will be added to the waitlist here.</p>
-                                </div>
-                            )}
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
+
+                        {filteredEntries.length === 0 && (
+                            <div className="p-12 text-center">
+                                <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                    <Users className="w-8 h-8 text-gray-400" />
+                                </div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No one in waitlist for {selectedTicketType}</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">When tickets sell out, people will be added to the waitlist here.</p>
+                            </div>
+                        )}
                     </div>
-                </main>
-            </div>
+                </div>
+            </main>
         </div>
     );
 }

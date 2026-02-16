@@ -7,20 +7,76 @@ import Sidebar from '@/components/admin/Sidebar';
 import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
 
 export default function DashboardPage() {
-    // Mock data for upcoming events
-    const upcomingEvents = [
+    // 1. Static Initial Data
+    const initialUpcomingEvents = [
         { id: "devfest-2025", name: "DevFest Cebu 2025", date: "November 20, 2025", registrations: 350, status: "Upcoming" },
         { id: "io-extended-2025", name: "Google I/O Extended", date: "July 20, 2025", registrations: 200, status: "Draft" },
         { id: "wtm-2025", name: "Women Techmakers 2025", date: "March 8, 2025", registrations: 150, status: "Completed" },
     ];
 
-    // Mock recent activity
-    const recentActivity = [
+    const initialRecentActivity = [
         { id: 1, action: "New registration", user: "Juan Dela Cruz", event: "DevFest Cebu 2025", time: "2 mins ago" },
         { id: 2, action: "Ticket purchased", user: "Maria Santos", event: "DevFest Cebu 2025", time: "15 mins ago" },
         { id: 3, action: "Event updated", user: "Admin", event: "Google I/O Extended", time: "1 hour ago" },
         { id: 4, action: "New registration", user: "Jose Rizal", event: "DevFest Cebu 2025", time: "2 hours ago" },
     ];
+
+    // 2. State
+    const [dashboardEvents, setDashboardEvents] = React.useState(initialUpcomingEvents.filter(e => e.status === 'Upcoming'));
+    const [activities, setActivities] = React.useState(initialRecentActivity);
+    const [nextEvent, setNextEvent] = React.useState(initialUpcomingEvents[0]);
+
+    // 3. Load from LocalStorage
+    React.useEffect(() => {
+        const loadLocalData = () => {
+            try {
+                const stored = localStorage.getItem('mock_created_events');
+                const staticUpcoming = initialUpcomingEvents.filter(e => e.status === 'Upcoming');
+
+                let localUpcoming: any[] = [];
+
+                if (stored) {
+                    const parsed = JSON.parse(stored);
+
+                    // Map local events to Dashboard format and filter for Upcoming/Published
+                    localUpcoming = parsed.map((e: any) => ({
+                        id: e.id,
+                        name: e.name,
+                        date: e.date,
+                        registrations: 0,
+                        status: e.status === 'Published' ? 'Upcoming' : e.status
+                    })).filter((e: any) => e.status === 'Upcoming');
+
+                    // Access local "activities"
+                    const newActivities = parsed.map((e: any, index: number) => ({
+                        id: `new-${index}`,
+                        action: "Event Created",
+                        user: "You",
+                        event: e.name,
+                        time: "Recently"
+                    })).reverse().slice(0, 3);
+
+                    setActivities(prev => [...newActivities, ...initialRecentActivity]);
+                }
+
+                // Merge and Update State with ONLY Upcoming events
+                setDashboardEvents([...localUpcoming, ...staticUpcoming]);
+
+            } catch (err) {
+                console.error("Failed to load dashboard data", err);
+            }
+        };
+
+        loadLocalData();
+    }, []);
+
+    // 4. Calculate "Next Event" (Simple logic: Find first Upcoming)
+    React.useEffect(() => {
+        const upcoming = dashboardEvents.find(e => e.status === 'Upcoming' || e.status === 'Published');
+        if (upcoming) {
+            setNextEvent(upcoming);
+        }
+    }, [dashboardEvents]);
 
     return (
         <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
@@ -48,33 +104,35 @@ export default function DashboardPage() {
                                     <Calendar size={16} />
                                     This Month
                                 </button>
-                                <button className="flex items-center gap-2 px-4 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm">
+                                <Link href="/events/new/overview" className="flex items-center gap-2 px-4 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm">
                                     <span>+ Create Event</span>
-                                </button>
+                                </Link>
                             </div>
                         </div>
 
                         {/* Quick Stats Row */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-indigo-100 text-sm font-medium">Next Event</p>
-                                        <h3 className="text-xl font-bold mt-1">DevFest Cebu 2025</h3>
-                                        <p className="text-indigo-200 text-sm mt-2">November 20, 2025</p>
+                                <Link href={`/events/${nextEvent?.id}/overview`}>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-indigo-100 text-sm font-medium">Next Event</p>
+                                            <h3 className="text-xl font-bold mt-1 truncate max-w-[200px]">{nextEvent?.name || "No Upcoming Events"}</h3>
+                                            <p className="text-indigo-200 text-sm mt-2">{nextEvent?.date || "--"}</p>
+                                        </div>
+                                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                                            <Calendar size={24} />
+                                        </div>
                                     </div>
-                                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
-                                        <Calendar size={24} />
-                                    </div>
-                                </div>
+                                </Link>
                             </div>
 
                             <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-emerald-100 text-sm font-medium">Today's Registrations</p>
-                                        <h3 className="text-xl font-bold mt-1">47 new</h3>
-                                        <p className="text-emerald-200 text-sm mt-2">+12% from yesterday</p>
+                                        <h3 className="text-xl font-bold mt-1">0 new</h3>
+                                        <p className="text-emerald-200 text-sm mt-2">No data available</p>
                                     </div>
                                     <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                                         <Users size={24} />
@@ -86,8 +144,8 @@ export default function DashboardPage() {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-rose-100 text-sm font-medium">Pending Reviews</p>
-                                        <h3 className="text-xl font-bold mt-1">23 applications</h3>
-                                        <p className="text-rose-200 text-sm mt-2">Needs attention</p>
+                                        <h3 className="text-xl font-bold mt-1">0 applications</h3>
+                                        <p className="text-rose-200 text-sm mt-2">All caught up!</p>
                                     </div>
                                     <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                                         <Clock size={24} />
@@ -111,7 +169,7 @@ export default function DashboardPage() {
                                     </Link>
                                 </div>
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {upcomingEvents.map((event) => (
+                                    {dashboardEvents.slice(0, 5).map((event) => (
                                         <Link
                                             key={event.id}
                                             href={`/events/${event.id}/overview`}
@@ -131,11 +189,11 @@ export default function DashboardPage() {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-sm font-semibold text-gray-900 dark:text-white">{event.registrations} registered</p>
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${event.status === 'Upcoming' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
-                                                        event.status === 'Draft' ? 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400' :
-                                                            'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${(event.status === 'Upcoming' || event.status === 'Published') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                                                        event.status === 'Completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                                                            'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                                         }`}>
-                                                        {event.status}
+                                                        {event.status === 'Published' ? 'Upcoming' : event.status}
                                                     </span>
                                                 </div>
                                             </div>
@@ -151,7 +209,7 @@ export default function DashboardPage() {
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Latest updates</p>
                                 </div>
                                 <div className="p-4 space-y-4">
-                                    {recentActivity.map((activity) => (
+                                    {activities.map((activity: any) => (
                                         <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 hover:scale-[1.02] cursor-pointer">
                                             <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
                                                 <Bell size={14} className="text-indigo-600 dark:text-indigo-400" />

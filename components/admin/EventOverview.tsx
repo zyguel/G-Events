@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List, Check } from "lucide-react";
+import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List, Check, CheckCircle } from "lucide-react";
 import Modal from "./Modal";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import DateTimeInput from "./DateTimeInput";
 import TimeInput from "./TimeInput";
 import DateInput from "./DateInput";
@@ -80,20 +81,59 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     const [editingAgendaId, setEditingAgendaId] = useState<string | null>(null);
     const [newObjective, setNewObjective] = useState("");
     const [isAddingObjective, setIsAddingObjective] = useState(false);
+
     const objectiveInputRef = useRef<HTMLInputElement>(null);
 
+    // Banner Upload State
+    const [tempBanner, setTempBanner] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     // ... useEffect ...
+
+    // --- Actions ---
+
+    // --- Persistence Helper ---
+    const persistEvent = (updatedEvent: EventData) => {
+        try {
+            // 1. Save full detail
+            localStorage.setItem(`event_detail_${updatedEvent.id}`, JSON.stringify(updatedEvent));
+
+            // 2. Update summary list
+            const storedEvents: any[] = JSON.parse(localStorage.getItem('mock_created_events') || '[]');
+            const updatedList = storedEvents.map(e => {
+                if (String(e.id) === String(updatedEvent.id)) {
+                    return {
+                        ...e,
+                        name: updatedEvent.name,
+                        location: updatedEvent.location,
+                        date: updatedEvent.date,
+                        status: updatedEvent.status,
+                        image: updatedEvent.bannerUrl // Map banner to image for list view
+                    };
+                }
+                return e;
+            });
+            localStorage.setItem('mock_created_events', JSON.stringify(updatedList));
+        } catch (e: any) {
+            console.error("Error updating local storage", e);
+            if (e.name === 'QuotaExceededError') {
+                setToast({ message: 'Storage full! Image might be too large.', type: 'error' });
+            }
+        }
+    };
 
     // --- Actions ---
 
     const handleSaveTitle = (e: React.FormEvent) => {
         e.preventDefault();
         const formData = new FormData(e.target as HTMLFormElement);
-        setEvent(prev => ({
-            ...prev,
+        const updatedEvent = {
+            ...event,
             name: formData.get('name') as string,
             subtitle: formData.get('subtitle') as string
-        }));
+        };
+        setEvent(updatedEvent);
+        persistEvent(updatedEvent);
         setActiveModal(null);
         setToast({ message: 'Event details updated successfully!', type: 'success' });
     };
@@ -102,7 +142,13 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     useEffect(() => {
         if (activeModal === 'dateLocation') {
             // Parse the event date into a Date object
-            const eventDate = event.date ? new Date(event.date) : null;
+            let eventDate = null;
+            if (event.date) {
+                const parsed = new Date(event.date);
+                if (!isNaN(parsed.getTime())) {
+                    eventDate = parsed;
+                }
+            }
             setTempEventDate(eventDate);
             setTempStartTime(event.startTime || '');
             setTempEndTime(event.endTime || '');
@@ -117,13 +163,15 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         // Format date from Date object to YYYY-MM-DD
         const formattedDate = tempEventDate ? tempEventDate.toISOString().split('T')[0] : event.date;
 
-        setEvent(prev => ({
-            ...prev,
+        const updatedEvent = {
+            ...event,
             date: formattedDate,
             startTime: tempStartTime,
             endTime: tempEndTime,
             location: formData.get('location') as string
-        }));
+        };
+        setEvent(updatedEvent);
+        persistEvent(updatedEvent);
         setActiveModal(null);
         setToast({ message: 'Date and location updated successfully!', type: 'success' });
     };
@@ -131,64 +179,74 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     const handleSaveOverview = (e: React.FormEvent) => {
         e.preventDefault();
         const formData = new FormData(e.target as HTMLFormElement);
-        setEvent(prev => ({
-            ...prev,
+        const updatedEvent = {
+            ...event,
             description: formData.get('description') as string,
             theme: formData.get('theme') as string,
-        }));
+        };
+        setEvent(updatedEvent);
+        persistEvent(updatedEvent);
         setActiveModal(null);
         setToast({ message: 'Overview updated successfully!', type: 'success' });
     };
 
     const handleAddObjective = () => {
         if (newObjective.trim()) {
-            setEvent(prev => ({
-                ...prev,
-                objectives: [...prev.objectives, newObjective.trim()]
-            }));
+            const updatedEvent = {
+                ...event,
+                objectives: [...event.objectives, newObjective.trim()]
+            };
+            setEvent(updatedEvent);
+            persistEvent(updatedEvent);
             setNewObjective("");
             setIsAddingObjective(false);
         }
     };
 
     const handleRemoveObjective = (index: number) => {
-        setEvent(prev => ({
-            ...prev,
-            objectives: prev.objectives.filter((_, i) => i !== index)
-        }));
+        const updatedEvent = {
+            ...event,
+            objectives: event.objectives.filter((_, i) => i !== index)
+        };
+        setEvent(updatedEvent);
+        persistEvent(updatedEvent);
     };
 
     const handleAddAgendaSlot = () => {
         if (!newAgenda.title || !newAgenda.speaker || !newAgenda.startTime || !newAgenda.endTime) return;
 
+        let updatedEvent: EventData;
+
         if (editingAgendaId) {
             // Update existing item
-            setEvent(prev => ({
-                ...prev,
-                agenda: prev.agenda.map(item =>
+            updatedEvent = {
+                ...event,
+                agenda: event.agenda.map(item =>
                     item.id === editingAgendaId
                         ? { ...item, ...newAgenda } as AgendaItem
                         : item
                 )
-            }));
+            };
             setToast({ message: 'Agenda item updated successfully!', type: 'success' });
         } else {
             // Add new item
             const newItem: AgendaItem = {
                 id: Date.now().toString(), // Simple unique ID
-                title: newAgenda.title,
+                title: newAgenda.title || '',
                 speaker: newAgenda.speaker || '',
                 startTime: newAgenda.startTime || '',
                 endTime: newAgenda.endTime || '',
                 description: newAgenda.description || ''
             };
 
-            setEvent(prev => ({
-                ...prev,
-                agenda: [...(prev.agenda || []), newItem]
-            }));
+            updatedEvent = {
+                ...event,
+                agenda: [...(event.agenda || []), newItem]
+            };
             setToast({ message: 'Agenda item added successfully!', type: 'success' });
         }
+        setEvent(updatedEvent);
+        persistEvent(updatedEvent);
         setNewAgenda({});
         setEditingAgendaId(null);
         setActiveModal(null);
@@ -200,27 +258,87 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         setActiveModal('agenda');
     };
 
-    const handleDeleteBanner = (e: React.MouseEvent) => {
-        e.stopPropagation();
+    const handleDeleteBanner = () => {
         setActiveModal('deleteBanner');
     };
 
     const confirmDeleteBanner = () => {
-        setEvent(prev => ({
-            ...prev,
-            bannerUrl: undefined
-        }));
+        const updatedEvent = { ...event, bannerUrl: undefined };
+        setEvent(updatedEvent);
+        persistEvent(updatedEvent);
         setActiveModal(null);
+        setToast({ message: 'Banner removed successfully', type: 'info' });
+    };
+
+    // Helper to compress image
+    const compressImage = (file: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (event) => {
+                const img = document.createElement('img');
+                img.src = event.target?.result as string;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800;
+                    const scaleSize = MAX_WIDTH / img.width;
+                    const width = (scaleSize < 1) ? MAX_WIDTH : img.width;
+                    const height = (scaleSize < 1) ? img.height * scaleSize : img.height;
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx?.drawImage(img, 0, 0, width, height);
+
+                    // Compress to JPEG with 0.7 quality
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    resolve(dataUrl);
+                };
+                img.onerror = (error) => reject(error);
+            };
+            reader.onerror = (error) => reject(error);
+        });
+    };
+
+    // Banner Upload Handlers
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Simple validation
+        if (file.size > 20 * 1024 * 1024) { // 20MB limit
+            setToast({ message: 'File too large (max 20MB)', type: 'error' });
+            return;
+        }
+
+        if (!file.type.startsWith('image/')) {
+            setToast({ message: 'Please upload an image file', type: 'error' });
+            return;
+        }
+
+        try {
+            const compressedDataUrl = await compressImage(file);
+            setTempBanner(compressedDataUrl);
+        } catch (error) {
+            console.error("Error compressing image", error);
+            setToast({ message: 'Error processing image', type: 'error' });
+        }
     };
 
     const handleSaveBanner = () => {
-        // Mock saving a banner for demonstration
-        setEvent(prev => ({
-            ...prev,
-            bannerUrl: "/api/placeholder/800/400" // Mock URL to trigger the "filled" state
-        }));
+        if (tempBanner) {
+            const updatedEvent = { ...event, bannerUrl: tempBanner };
+            setEvent(updatedEvent);
+            persistEvent(updatedEvent);
+            setTempBanner(null); // Clear temp state
+            setActiveModal(null);
+            setToast({ message: 'Banner updated successfully', type: 'success' });
+        }
+    };
+
+    const handleCloseBannerModal = () => {
+        setTempBanner(null);
         setActiveModal(null);
-        setToast({ message: 'Banner uploaded successfully!', type: 'success' });
     };
 
     // Helper to format time for display
@@ -254,6 +372,68 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     // ... existing handlers ...
 
+    const router = useRouter();
+
+    const handleCreateEvent = async () => {
+        // Basic validation
+        if (!event.name) {
+            setToast({ message: 'Please enter an event title.', type: 'error' });
+            return;
+        }
+        if (!event.date) {
+            setToast({ message: 'Please select an event date.', type: 'error' });
+            return;
+        }
+
+        // Mock API call
+        setToast({ message: 'Creating event...', type: 'info' });
+
+        // Simulate delay
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Create new event object
+        const newEventId = `evt-${Date.now()}`;
+        const newEventSummary = {
+            id: newEventId,
+            name: event.name,
+            location: event.location || 'TBD',
+            date: event.date ? new Date(event.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD',
+            ticketsSold: 0,
+            totalTickets: 100, // Default
+            attendees: 0,
+            status: 'Draft',
+            type: 'draft',
+            analyticsId: newEventId,
+            image: event.bannerUrl
+        };
+
+        // Save to localStorage
+        try {
+            const existingEvents = JSON.parse(localStorage.getItem('mock_created_events') || '[]');
+            localStorage.setItem('mock_created_events', JSON.stringify([newEventSummary, ...existingEvents]));
+
+            // Also save the full event detail
+            localStorage.setItem(`event_detail_${newEventId}`, JSON.stringify({
+                ...event,
+                id: newEventId,
+                status: 'Draft',
+                // Ensure default empty arrays if undefined
+                objectives: event.objectives || [],
+                agenda: event.agenda || []
+            }));
+
+        } catch (e) {
+            console.error('Failed to save event', e);
+        }
+
+        setToast({ message: 'Event created successfully!', type: 'success' });
+
+        // Redirect to events list after short delay
+        setTimeout(() => {
+            router.push('/events');
+        }, 1000);
+    };
+
     return (
         <div className="max-w-5xl mx-auto p-8 space-y-8 pb-20 animate-in fade-in duration-500 font-sans text-gray-900 dark:text-gray-100">
             {/* Toast Notification */}
@@ -268,18 +448,59 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             `}</style>
 
             {/* Page Header */}
-            <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
-                    <Calendar className="w-7 h-7 text-white" />
+            <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    {(() => {
+                        const getStatusConfig = (status: string) => {
+                            const normalized = status?.toLowerCase() || '';
+                            if (normalized === 'draft') {
+                                return {
+                                    bg: 'from-gray-400 to-gray-500',
+                                    icon: CheckCircle
+                                };
+                            }
+                            if (normalized === 'completed') {
+                                return {
+                                    bg: 'from-emerald-500 to-green-600',
+                                    icon: CheckCircle
+                                };
+                            }
+                            // Default to Blue for "Upcoming" / "Published" / "Not Yet Published" / "Ongoing"
+                            return {
+                                bg: 'from-[#3D518C] to-[#5C6BC0]',
+                                icon: CheckCircle
+                            };
+                        };
+
+                        const config = getStatusConfig(event.status);
+                        const StatusIcon = config.icon;
+
+                        return (
+                            <div className={`w-14 h-14 bg-gradient-to-br ${config.bg} rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300`}>
+                                <StatusIcon className="w-7 h-7 text-white" />
+                            </div>
+                        );
+                    })()}
+
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {event.id === 'new' ? 'Create New Event' : 'Event Overview'}
+                        </h1>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                            Manage your event details, schedule, and content
+                        </p>
+                    </div>
                 </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                        Event Overview
-                    </h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                        Manage your event details, schedule, and content
-                    </p>
-                </div>
+
+                {event.id === 'new' && (
+                    <button
+                        onClick={handleCreateEvent}
+                        className="px-6 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-semibold hover:bg-[#2d3d6b] transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                    >
+                        <Check size={18} />
+                        Save Event
+                    </button>
+                )}
             </div>
 
             {/* 1. Banner */}
@@ -543,7 +764,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                             {[...event.agenda]
                                 .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
                                 .map((slot, i) => (
-                                    <div key={i} className="flex gap-4 py-4 px-6 rounded-xl border border-gray-100 dark:border-gray-700 hover:border-indigo-200 dark:hover:border-indigo-800 hover:bg-slate-50 dark:hover:bg-gray-750 transition-all bg-white dark:bg-gray-800/50 group/item shadow-sm">
+                                    <div key={i} className="flex gap-4 py-4 px-6 rounded-xl border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md bg-white dark:bg-gray-800/50 group/item shadow-sm">
                                         <div className="min-w-[120px] pt-1">
                                             <div className="text-sm font-bold text-[#3D518C] dark:text-indigo-400 whitespace-nowrap bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-lg inline-block">
                                                 {formatTimeDisplay(slot.startTime)}
@@ -623,18 +844,64 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             {/* --- MODALS --- */}
 
             {/* Banner Modal */}
-            <Modal isOpen={activeModal === 'banner'} onClose={() => setActiveModal(null)} title="Upload Banner" size="md">
+            <Modal isOpen={activeModal === 'banner'} onClose={handleCloseBannerModal} title="Upload Banner" size="md">
                 <div className="space-y-6">
-                    <div className="group relative border-2 border-dashed border-gray-300 dark:border-gray-600 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-all duration-300 cursor-pointer hover:border-indigo-400">
-                        <div className="w-14 h-14 bg-white dark:bg-gray-700 rounded-xl shadow-sm flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300 border border-gray-100 dark:border-gray-600">
-                            <Upload size={28} className="drop-shadow-sm" />
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        className="hidden"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                    />
+
+                    {tempBanner ? (
+                        <div className="relative w-full aspect-video rounded-xl overflow-hidden group border border-gray-200 dark:border-gray-700">
+                            <Image
+                                src={tempBanner}
+                                alt="Banner Preview"
+                                fill
+                                className="object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg backdrop-blur-sm transition-all"
+                                >
+                                    <Pencil size={20} />
+                                </button>
+                                <button
+                                    onClick={() => setTempBanner(null)}
+                                    className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-lg backdrop-blur-sm transition-all"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
-                        <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Click to upload</h4>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">SVG, PNG, JPG or GIF (max. 20MB)</p>
-                    </div>
+                    ) : (
+                        <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="group relative border-2 border-dashed border-gray-300 dark:border-gray-600 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-8 flex flex-col items-center justify-center text-center hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-all duration-300 cursor-pointer hover:border-indigo-400"
+                        >
+                            <div className="w-14 h-14 bg-white dark:bg-gray-700 rounded-xl shadow-sm flex items-center justify-center mb-4 text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform duration-300 border border-gray-100 dark:border-gray-600">
+                                <Upload size={28} className="drop-shadow-sm" />
+                            </div>
+                            <h4 className="text-base font-semibold text-gray-900 dark:text-white mb-1">Click to upload</h4>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">SVG, PNG, JPG or GIF (max. 20MB)</p>
+                        </div>
+                    )}
+
                     <div className="flex justify-end gap-3 pt-2">
-                        <button onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
-                        <button onClick={handleSaveBanner} className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save Changes</button>
+                        <button onClick={handleCloseBannerModal} className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white rounded-xl transition-colors font-sans">Cancel</button>
+                        <button
+                            onClick={handleSaveBanner}
+                            disabled={!tempBanner}
+                            className={`px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md transition-all font-sans ${tempBanner
+                                ? 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5'
+                                : 'bg-gray-300 dark:bg-gray-600 cursor-not-allowed'
+                                }`}
+                        >
+                            Save Changes
+                        </button>
                     </div>
                 </div>
             </Modal>
@@ -651,7 +918,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         <textarea name="subtitle" rows={3} defaultValue={event.subtitle} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none transition-all shadow-sm font-sans" placeholder="Input subtitle" />
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
+                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white rounded-xl transition-colors font-sans">Cancel</button>
                         <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save</button>
                     </div>
                 </form>
@@ -820,7 +1087,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         />
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
+                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white rounded-xl transition-colors font-sans">Cancel</button>
                         <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">{editingAgendaId ? "Save Changes" : "Add Item"}</button>
                     </div>
                 </form>

@@ -2,9 +2,6 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import Header from '@/components/admin/Header';
-import Sidebar from '@/components/admin/Sidebar';
-import EventsSidebar from '@/components/admin/EventsSidebar';
 import {
     FileText, Download, Search, ChevronDown, Filter, X, Info,
     FileSpreadsheet, FileType, Table2, Check
@@ -47,6 +44,35 @@ const speakers = ['Andrew Chen', 'Elena Santos', 'Michael Tan', 'Sarah Johnson',
 
 // Generate mock data based on eventId
 const generateEventData = (eventId: string) => {
+    // Return empty data for draft/local mock events
+    if (eventId.startsWith('evt-')) {
+        return {
+            registrants: [],
+            stats: {
+                registration: {
+                    total: 0,
+                    confirmed: 0,
+                    rejected: 0,
+                    generalAdmission: 0,
+                    premium: 0,
+                    group: 0,
+                    individual: 0,
+                },
+                attendance: {
+                    totalRegistered: 0,
+                    checkedIn: 0,
+                    noShow: 0,
+                    attendanceRate: 0,
+                    generalAttended: 0,
+                    generalTotal: 0,
+                    premiumAttended: 0,
+                    premiumTotal: 0,
+                }
+            },
+            breakoutSessions: []
+        };
+    }
+
     // Seed random based on eventId for consistency
     const seed = eventId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const random = (max: number, min = 0) => {
@@ -488,13 +514,10 @@ export default function EventReportsPage({ event }: ReportsClientProps) {
     if (!eventId || eventId === 'undefined') {
         console.error('Invalid eventId in reports page:', eventId);
         return (
-            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-                <Header />
-                <div className="flex flex-1 items-center justify-center">
-                    <div className="text-center">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Unable to load reports. Event ID is invalid.</p>
-                    </div>
+            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 items-center justify-center">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Unable to load reports. Event ID is invalid.</p>
                 </div>
             </div>
         );
@@ -509,13 +532,7 @@ export default function EventReportsPage({ event }: ReportsClientProps) {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [filters, setFilters] = useState<Record<string, string>>({});
 
-    // Get event info
-    const sidebarEvent = {
-        id: event.id,
-        name: event.name,
-        date: event.date,
-        status: event.status
-    };
+
 
     // Filtered data
     const filteredRegistrants = registrants.filter(r => {
@@ -678,8 +695,6 @@ export default function EventReportsPage({ event }: ReportsClientProps) {
 
     return (
         <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            <Header />
-
             {/* Filter Modal */}
             <FilterModal
                 isOpen={isFilterOpen}
@@ -689,323 +704,313 @@ export default function EventReportsPage({ event }: ReportsClientProps) {
                 setFilters={setFilters}
             />
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Main Navigation Sidebar */}
-                <Sidebar activePage="events" disableExpand={true} />
+            {/* Main Content Area */}
+            <main className="flex-1 overflow-y-auto p-8">
+                <div className="max-w-6xl mx-auto space-y-6">
 
-                {/* Event Specific Sidebar */}
-                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-                    <EventsSidebar event={sidebarEvent} activePage="reports" />
-                </div>
-
-                {/* Main Content Area */}
-                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto p-8">
-                    <div className="max-w-6xl mx-auto space-y-6">
-
-                        {/* Page Header */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
-                                    <FileText className="w-7 h-7 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        Event Reports
-                                    </h1>
-                                </div>
+                    {/* Page Header */}
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                                <FileText className="w-7 h-7 text-white" />
                             </div>
-                            <ExportDropdown onExport={handleExport} exportedFormat={exportedFormat} />
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    Event Reports
+                                </h1>
+                            </div>
                         </div>
-
-                        {/* Tabs */}
-                        <div className="flex items-center gap-6 border-b border-gray-200 dark:border-gray-700">
-                            <button
-                                onClick={() => { setActiveTab('registration'); setFilters({}); setSearchQuery(''); }}
-                                className={`pb-3 text-sm font-medium transition-all relative ${activeTab === 'registration'
-                                    ? 'text-[#3D518C] dark:text-[#ABD2FA]'
-                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                                    }`}
-                            >
-                                Registration
-                                {activeTab === 'registration' && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
-                                )}
-                            </button>
-                            <button
-                                onClick={() => { setActiveTab('attendance'); setFilters({}); setSearchQuery(''); }}
-                                className={`pb-3 text-sm font-medium transition-all relative ${activeTab === 'attendance'
-                                    ? 'text-[#3D518C] dark:text-[#ABD2FA]'
-                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                                    }`}
-                            >
-                                Attendance
-                                {activeTab === 'attendance' && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
-                                )}
-                            </button>
-                            <button
-                                onClick={() => { setActiveTab('breakout'); setFilters({}); setSearchQuery(''); }}
-                                className={`pb-3 text-sm font-medium transition-all relative ${activeTab === 'breakout'
-                                    ? 'text-[#3D518C] dark:text-[#ABD2FA]'
-                                    : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
-                                    }`}
-                            >
-                                Breakout
-                                {activeTab === 'breakout' && (
-                                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
-                                )}
-                            </button>
-                        </div>
-
-                        {/* Registration Tab */}
-                        {activeTab === 'registration' && (
-                            <div className="space-y-6 animate-in fade-in duration-300">
-                                {/* Summary Cards */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <div>
-                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Registration by Ticket Type</h3>
-                                        <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                            <p>General Admission: <span className="font-medium text-gray-900 dark:text-white">{stats.registration.generalAdmission}</span></p>
-                                            <p>Premium: <span className="font-medium text-gray-900 dark:text-white">{stats.registration.premium}</span></p>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Registration Type</h3>
-                                        <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                                            <p>Group: <span className="font-medium text-gray-900 dark:text-white">{stats.registration.group}</span></p>
-                                            <p>Individual: <span className="font-medium text-gray-900 dark:text-white">{stats.registration.individual}</span></p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Stats Cards */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <StatCard title="Total Registered" value={stats.registration.total} />
-                                    <StatCard title="Total Confirmed Registrations" value={`${stats.registration.confirmed} / ${stats.registration.total}`} />
-                                    <StatCard title="Total Rejected Registrations" value={`${stats.registration.rejected} / ${stats.registration.total}`} />
-                                </div>
-
-                                {/* Search and Filter */}
-                                <div className="flex items-center gap-3">
-                                    <div className="relative flex-1">
-                                        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search by Order ID, Name, or Email"
-                                            className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => setIsFilterOpen(true)}
-                                        className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        <Filter size={18} className="text-gray-600 dark:text-gray-400" />
-                                    </button>
-                                </div>
-
-                                {/* Row Count */}
-                                <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
-                                    Displaying up to 10 rows. Export to view full report
-                                </div>
-
-                                {/* Table */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-[#ABD2FA] dark:bg-[#3D518C]">
-                                                <tr className="text-xs text-gray-700 dark:text-white font-semibold uppercase tracking-wider">
-                                                    <th className="px-5 py-4 text-left">Name</th>
-                                                    <th className="px-5 py-4 text-left">Email</th>
-                                                    <th className="px-5 py-4 text-left">Gender</th>
-                                                    <th className="px-5 py-4 text-left">Age</th>
-                                                    <th className="px-5 py-4 text-left">Birthdate</th>
-                                                    <th className="px-5 py-4 text-left">Ticket Type</th>
-                                                    <th className="px-5 py-4 text-left">Reg. Type</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                                {filteredRegistrants.slice(0, 10).map((registrant) => (
-                                                    <tr key={registrant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                        <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{registrant.name}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.email}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.gender}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.age}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.birthdate}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.ticketType}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.registrationType}</td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Attendance Tab */}
-                        {activeTab === 'attendance' && (
-                            <div className="space-y-6 animate-in fade-in duration-300">
-                                {/* Attendance by Ticket Type */}
-                                <div>
-                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Attendance by Ticket Type</h3>
-                                    <div className="flex gap-4">
-                                        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white">General Admission</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Attended: {stats.attendance.generalAttended}/{stats.attendance.generalTotal} ({stats.attendance.generalAttended}%)
-                                            </p>
-                                        </div>
-                                        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                                            <p className="text-sm font-medium text-gray-900 dark:text-white">Premium Admission</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                Attended: {stats.attendance.premiumAttended}/{stats.attendance.premiumTotal} ({stats.attendance.premiumAttended}%)
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Stats Cards */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <StatCard title="Total Check-in Participants" value={`${stats.attendance.checkedIn} / ${stats.attendance.totalRegistered}`} />
-                                    <StatCard title="Total No-show Participants" value={`${stats.attendance.noShow} / ${stats.attendance.totalRegistered}`} />
-                                    <StatCard title="Attendance Rate" value={`${stats.attendance.attendanceRate} %`} />
-                                </div>
-
-                                {/* Search and Filter */}
-                                <div className="flex items-center gap-3">
-                                    <div className="relative flex-1">
-                                        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search by Order ID, Name, or Email"
-                                            className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                        />
-                                    </div>
-                                    <button
-                                        onClick={() => setIsFilterOpen(true)}
-                                        className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                                    >
-                                        <Filter size={18} className="text-gray-600 dark:text-gray-400" />
-                                    </button>
-                                </div>
-
-                                {/* Row Count */}
-                                <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
-                                    Displaying up to 10 rows. Export to view full report
-                                </div>
-
-                                {/* Table */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-[#ABD2FA] dark:bg-[#3D518C]">
-                                                <tr className="text-xs text-gray-700 dark:text-white font-semibold uppercase tracking-wider">
-                                                    <th className="px-5 py-4 text-left">Name</th>
-                                                    <th className="px-5 py-4 text-left">Email</th>
-                                                    <th className="px-5 py-4 text-left">Gender</th>
-                                                    <th className="px-5 py-4 text-left">Age</th>
-                                                    <th className="px-5 py-4 text-left">Birthdate</th>
-                                                    <th className="px-5 py-4 text-left">Ticket Type</th>
-                                                    <th className="px-5 py-4 text-left">Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                                {filteredForAttendance.slice(0, 10).map((registrant) => (
-                                                    <tr key={registrant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                        <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{registrant.name}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.email}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.gender}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.age}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.birthdate}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.ticketType}</td>
-                                                        <td className="px-5 py-4">
-                                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${registrant.checkedIn
-                                                                ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
-                                                                : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
-                                                                }`}>
-                                                                {registrant.checkedIn ? 'Checked-In' : 'No-show'}
-                                                            </span>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Breakout Tab */}
-                        {activeTab === 'breakout' && (
-                            <div className="space-y-6 animate-in fade-in duration-300">
-                                {/* Stats Cards */}
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                    <StatCard title="Total Breakout Sessions Created" value={breakoutSessions.length} />
-                                    <StatCard title="Total Breakout Session Registrations" value={breakoutSessions.reduce((sum, s) => sum + s.registered, 0)} />
-                                    <StatCard title="Total Attended Breakout Session" value={breakoutSessions.reduce((sum, s) => sum + s.checkedIn, 0)} />
-                                </div>
-
-                                {/* Search */}
-                                <div className="flex items-center gap-3">
-                                    <div className="relative flex-1">
-                                        <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search by Session Name or Speaker"
-                                            className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Row Count */}
-                                <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
-                                    Displaying up to {breakoutSessions.length} rows. Export to view full report
-                                </div>
-
-                                {/* Table */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-[#ABD2FA] dark:bg-[#3D518C]">
-                                                <tr className="text-xs text-gray-700 dark:text-white font-semibold uppercase tracking-wider">
-                                                    <th className="px-5 py-4 text-left">Session Name</th>
-                                                    <th className="px-5 py-4 text-left">Speaker</th>
-                                                    <th className="px-5 py-4 text-left">Room</th>
-                                                    <th className="px-5 py-4 text-left">Capacity</th>
-                                                    <th className="px-5 py-4 text-left">Registered</th>
-                                                    <th className="px-5 py-4 text-left">Checked-in</th>
-                                                    <th className="px-5 py-4 text-left">Attendance Rate</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                                {breakoutSessions
-                                                    .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.speaker.toLowerCase().includes(searchQuery.toLowerCase()))
-                                                    .map((session) => (
-                                                        <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                            <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{session.name}</td>
-                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.speaker}</td>
-                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.room}</td>
-                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.capacity}</td>
-                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.registered}</td>
-                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.checkedIn}</td>
-                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.attendanceRate}%</td>
-                                                        </tr>
-                                                    ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
+                        <ExportDropdown onExport={handleExport} exportedFormat={exportedFormat} />
                     </div>
-                </main>
-            </div>
+
+                    {/* Tabs */}
+                    <div className="flex items-center gap-6 border-b border-gray-200 dark:border-gray-700">
+                        <button
+                            onClick={() => { setActiveTab('registration'); setFilters({}); setSearchQuery(''); }}
+                            className={`pb-3 text-sm font-medium transition-all relative ${activeTab === 'registration'
+                                ? 'text-[#3D518C] dark:text-[#ABD2FA]'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                }`}
+                        >
+                            Registration
+                            {activeTab === 'registration' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('attendance'); setFilters({}); setSearchQuery(''); }}
+                            className={`pb-3 text-sm font-medium transition-all relative ${activeTab === 'attendance'
+                                ? 'text-[#3D518C] dark:text-[#ABD2FA]'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                }`}
+                        >
+                            Attendance
+                            {activeTab === 'attendance' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('breakout'); setFilters({}); setSearchQuery(''); }}
+                            className={`pb-3 text-sm font-medium transition-all relative ${activeTab === 'breakout'
+                                ? 'text-[#3D518C] dark:text-[#ABD2FA]'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                }`}
+                        >
+                            Breakout
+                            {activeTab === 'breakout' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
+                            )}
+                        </button>
+                    </div>
+
+                    {/* Registration Tab */}
+                    {activeTab === 'registration' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Registration by Ticket Type</h3>
+                                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                        <p>General Admission: <span className="font-medium text-gray-900 dark:text-white">{stats.registration.generalAdmission}</span></p>
+                                        <p>Premium: <span className="font-medium text-gray-900 dark:text-white">{stats.registration.premium}</span></p>
+                                    </div>
+                                </div>
+                                <div>
+                                    <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Registration Type</h3>
+                                    <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                                        <p>Group: <span className="font-medium text-gray-900 dark:text-white">{stats.registration.group}</span></p>
+                                        <p>Individual: <span className="font-medium text-gray-900 dark:text-white">{stats.registration.individual}</span></p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <StatCard title="Total Registered" value={stats.registration.total} />
+                                <StatCard title="Total Confirmed Registrations" value={`${stats.registration.confirmed} / ${stats.registration.total}`} />
+                                <StatCard title="Total Rejected Registrations" value={`${stats.registration.rejected} / ${stats.registration.total}`} />
+                            </div>
+
+                            {/* Search and Filter */}
+                            <div className="flex items-center gap-3">
+                                <div className="relative flex-1">
+                                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search by Order ID, Name, or Email"
+                                        className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => setIsFilterOpen(true)}
+                                    className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <Filter size={18} className="text-gray-600 dark:text-gray-400" />
+                                </button>
+                            </div>
+
+                            {/* Row Count */}
+                            <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
+                                Displaying up to 10 rows. Export to view full report
+                            </div>
+
+                            {/* Table */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-[#ABD2FA] dark:bg-[#3D518C]">
+                                            <tr className="text-xs text-gray-700 dark:text-white font-semibold uppercase tracking-wider">
+                                                <th className="px-5 py-4 text-left">Name</th>
+                                                <th className="px-5 py-4 text-left">Email</th>
+                                                <th className="px-5 py-4 text-left">Gender</th>
+                                                <th className="px-5 py-4 text-left">Age</th>
+                                                <th className="px-5 py-4 text-left">Birthdate</th>
+                                                <th className="px-5 py-4 text-left">Ticket Type</th>
+                                                <th className="px-5 py-4 text-left">Reg. Type</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                            {filteredRegistrants.slice(0, 10).map((registrant) => (
+                                                <tr key={registrant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                    <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{registrant.name}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.email}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.gender}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.age}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.birthdate}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.ticketType}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.registrationType}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Attendance Tab */}
+                    {activeTab === 'attendance' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Attendance by Ticket Type */}
+                            <div>
+                                <h3 className="font-semibold text-gray-900 dark:text-white mb-3">Attendance by Ticket Type</h3>
+                                <div className="flex gap-4">
+                                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">General Admission</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            Attended: {stats.attendance.generalAttended}/{stats.attendance.generalTotal} ({stats.attendance.generalAttended}%)
+                                        </p>
+                                    </div>
+                                    <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">Premium Admission</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                            Attended: {stats.attendance.premiumAttended}/{stats.attendance.premiumTotal} ({stats.attendance.premiumAttended}%)
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <StatCard title="Total Check-in Participants" value={`${stats.attendance.checkedIn} / ${stats.attendance.totalRegistered}`} />
+                                <StatCard title="Total No-show Participants" value={`${stats.attendance.noShow} / ${stats.attendance.totalRegistered}`} />
+                                <StatCard title="Attendance Rate" value={`${stats.attendance.attendanceRate} %`} />
+                            </div>
+
+                            {/* Search and Filter */}
+                            <div className="flex items-center gap-3">
+                                <div className="relative flex-1">
+                                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search by Order ID, Name, or Email"
+                                        className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                    />
+                                </div>
+                                <button
+                                    onClick={() => setIsFilterOpen(true)}
+                                    className="p-3 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <Filter size={18} className="text-gray-600 dark:text-gray-400" />
+                                </button>
+                            </div>
+
+                            {/* Row Count */}
+                            <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
+                                Displaying up to 10 rows. Export to view full report
+                            </div>
+
+                            {/* Table */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-[#ABD2FA] dark:bg-[#3D518C]">
+                                            <tr className="text-xs text-gray-700 dark:text-white font-semibold uppercase tracking-wider">
+                                                <th className="px-5 py-4 text-left">Name</th>
+                                                <th className="px-5 py-4 text-left">Email</th>
+                                                <th className="px-5 py-4 text-left">Gender</th>
+                                                <th className="px-5 py-4 text-left">Age</th>
+                                                <th className="px-5 py-4 text-left">Birthdate</th>
+                                                <th className="px-5 py-4 text-left">Ticket Type</th>
+                                                <th className="px-5 py-4 text-left">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                            {filteredForAttendance.slice(0, 10).map((registrant) => (
+                                                <tr key={registrant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                    <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{registrant.name}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.email}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.gender}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.age}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.birthdate}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.ticketType}</td>
+                                                    <td className="px-5 py-4">
+                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${registrant.checkedIn
+                                                            ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                                            : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                                            }`}>
+                                                            {registrant.checkedIn ? 'Checked-In' : 'No-show'}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Breakout Tab */}
+                    {activeTab === 'breakout' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <StatCard title="Total Breakout Sessions Created" value={breakoutSessions.length} />
+                                <StatCard title="Total Breakout Session Registrations" value={breakoutSessions.reduce((sum, s) => sum + s.registered, 0)} />
+                                <StatCard title="Total Attended Breakout Session" value={breakoutSessions.reduce((sum, s) => sum + s.checkedIn, 0)} />
+                            </div>
+
+                            {/* Search */}
+                            <div className="flex items-center gap-3">
+                                <div className="relative flex-1">
+                                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search by Session Name or Speaker"
+                                        className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Row Count */}
+                            <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
+                                Displaying up to {breakoutSessions.length} rows. Export to view full report
+                            </div>
+
+                            {/* Table */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-[#ABD2FA] dark:bg-[#3D518C]">
+                                            <tr className="text-xs text-gray-700 dark:text-white font-semibold uppercase tracking-wider">
+                                                <th className="px-5 py-4 text-left">Session Name</th>
+                                                <th className="px-5 py-4 text-left">Speaker</th>
+                                                <th className="px-5 py-4 text-left">Room</th>
+                                                <th className="px-5 py-4 text-left">Capacity</th>
+                                                <th className="px-5 py-4 text-left">Registered</th>
+                                                <th className="px-5 py-4 text-left">Checked-in</th>
+                                                <th className="px-5 py-4 text-left">Attendance Rate</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                            {breakoutSessions
+                                                .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.speaker.toLowerCase().includes(searchQuery.toLowerCase()))
+                                                .map((session) => (
+                                                    <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                        <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{session.name}</td>
+                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.speaker}</td>
+                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.room}</td>
+                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.capacity}</td>
+                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.registered}</td>
+                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.checkedIn}</td>
+                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.attendanceRate}%</td>
+                                                    </tr>
+                                                ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </main>
         </div>
     );
 }

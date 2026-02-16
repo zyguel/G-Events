@@ -5,20 +5,26 @@ import Image from "next/image";
 import { Send, FileText, Settings, Ticket, Globe, Calendar, MapPin, ImageIcon, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import DateInput from "./DateInput";
 import TimeInput from "./TimeInput";
+import { useRouter } from "next/navigation";
+import SuccessModal from "./SuccessModal";
 
 import { EventData } from "@/lib/api";
 
 interface TicketData {
+    id: string;
     name: string;
-    price: string;
+    type: "paid" | "free";
     quantity: number;
-    sellingStart: string;
-    sellingEnd: string;
+    price: number;
+    currency: string;
+    startDate: string;
+    endDate: string;
+    // ... any other fields from the Ticket interface
 }
 
-export default function PublishEventContent({ event }: { event: EventData }) {
-    // Mock Ticket Data
-    const tickets: TicketData[] = [];
+export default function PublishEventContent({ event, tickets }: { event: EventData; tickets: any[] }) {
+    const router = useRouter();
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     // Form State
     const [settings, setSettings] = useState<{
@@ -49,14 +55,39 @@ export default function PublishEventContent({ event }: { event: EventData }) {
     };
 
     const handlePublish = () => {
-        console.log("Publishing event:", settings);
-        // Implement publish logic here
-        alert("Event published successfully!");
+        try {
+            // 1. Update Detail
+            const localDetail = localStorage.getItem(`event_detail_${event.id}`);
+            if (localDetail) {
+                const parsed = JSON.parse(localDetail);
+                parsed.status = 'Upcoming';
+                localStorage.setItem(`event_detail_${event.id}`, JSON.stringify(parsed));
+            }
+
+            // 2. Update List
+            const storedEvents = JSON.parse(localStorage.getItem('mock_created_events') || '[]');
+            const updatedEvents = storedEvents.map((e: any) => {
+                if (e.id === event.id) {
+                    return { ...e, status: 'Upcoming', type: 'upcoming' };
+                }
+                return e;
+            });
+            localStorage.setItem('mock_created_events', JSON.stringify(updatedEvents));
+
+            localStorage.setItem('mock_created_events', JSON.stringify(updatedEvents));
+
+            setShowSuccessModal(true);
+            // router.push('/events'); // Removed allow user to choose in modal
+            // router.refresh();
+
+        } catch (e) {
+            console.error("Failed to publish event", e);
+            alert("Failed to publish event. Please try again.");
+        }
     };
 
     const handleSaveDraft = () => {
-        console.log("Saving draft:", settings);
-        // Implement save draft logic here
+        // Implementation for save draft (already saved effectively since it's local storage driven for now)
         alert("Draft saved!");
     };
 
@@ -66,6 +97,13 @@ export default function PublishEventContent({ event }: { event: EventData }) {
             return <span className="text-gray-400 italic font-light text-base">No {label.toLowerCase()} provided</span>;
         }
         return <span className="text-gray-900 dark:text-gray-200 font-medium">{value}</span>;
+    };
+
+    // Helper to format date range
+    const formatSellingPeriod = (start: string, end: string) => {
+        if (!start && !end) return <span className="text-gray-400 italic">Not set</span>;
+        const formatDate = (d: string) => d ? new Date(d).toLocaleDateString() : '...';
+        return `${formatDate(start)} → ${formatDate(end)}`;
     };
 
     return (
@@ -247,10 +285,12 @@ export default function PublishEventContent({ event }: { event: EventData }) {
                                 {tickets.map((ticket, i) => (
                                     <tr key={i} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/30 transition-colors">
                                         <td className="px-8 py-4 font-medium text-gray-900 dark:text-white">{ticket.name}</td>
-                                        <td className="px-8 py-4">{ticket.price}</td>
+                                        <td className="px-8 py-4">
+                                            {ticket.type === 'free' ? 'Free' : `${ticket.currency} ${ticket.price}`}
+                                        </td>
                                         <td className="px-8 py-4">{ticket.quantity}</td>
                                         <td className="px-8 py-4 text-sm text-gray-500">
-                                            {ticket.sellingStart} <span className="mx-1">→</span> {ticket.sellingEnd}
+                                            {formatSellingPeriod(ticket.startDate, ticket.endDate)}
                                         </td>
                                     </tr>
                                 ))}
@@ -373,6 +413,14 @@ export default function PublishEventContent({ event }: { event: EventData }) {
                     Publish Event
                 </button>
             </div>
+
+            <SuccessModal
+                isOpen={showSuccessModal}
+                onClose={() => setShowSuccessModal(false)}
+                eventName={event.name}
+                eventId={event.id}
+                onGoToDashboard={() => router.push('/events')}
+            />
         </div>
     );
 }

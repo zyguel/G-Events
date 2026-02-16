@@ -2,9 +2,6 @@
 
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
-import Header from '@/components/admin/Header';
-import Sidebar from '@/components/admin/Sidebar';
-import EventsSidebar from '@/components/admin/EventsSidebar';
 import {
     Presentation, Users, Calendar, Clock, MapPin, Video, Plus, Search,
     Edit2, Trash2, X, ChevronDown, List, BarChart3,
@@ -467,19 +464,16 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
     if (!eventId || eventId === 'undefined') {
         console.error('Invalid eventId in breakouts page:', eventId);
         return (
-            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
-                <Header />
-                <div className="flex flex-1 items-center justify-center">
-                    <div className="text-center">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
-                        <p className="text-gray-600 dark:text-gray-400">Unable to load breakout sessions. Event ID is invalid.</p>
-                    </div>
+            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 items-center justify-center">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Unable to load breakout sessions. Event ID is invalid.</p>
                 </div>
             </div>
         );
     }
 
-    const [sessions, setSessions] = useState<BreakoutSession[]>(mockSessions);
+    const [sessions, setSessions] = useState<BreakoutSession[]>(eventId.startsWith('evt-') ? [] : mockSessions);
     const [activeView, setActiveView] = useState<'dashboard' | 'list'>('dashboard');
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState<'All' | 'Online' | 'In-Person'>('All');
@@ -536,9 +530,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            <Header />
-
+        <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Session Modal */}
             <SessionModal
                 isOpen={isModalOpen}
@@ -547,302 +539,292 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                 onSave={handleSaveSession}
             />
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Main Navigation Sidebar */}
-                <Sidebar activePage="events" disableExpand={true} />
+            {/* Main Content Area */}
+            <div className="p-8">
+                <div className="max-w-5xl mx-auto space-y-8">
 
-                {/* Event Specific Sidebar */}
-                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-                    <EventsSidebar event={sidebarEvent} activePage="breakouts" />
-                </div>
-
-                {/* Main Content Area */}
-                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto scrollbar-hide p-8">
-                    <div className="max-w-5xl mx-auto space-y-8">
-
-                        {/* Page Header */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
-                                    <Presentation className="w-7 h-7 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        Manage Breakout Sessions
-                                    </h1>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                        Create and manage breakout sessions for your event
-                                    </p>
-                                </div>
+                    {/* Page Header */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                                <Presentation className="w-7 h-7 text-white" />
                             </div>
-                            <button
-                                onClick={openCreateModal}
-                                className="px-5 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all flex items-center gap-2"
-                            >
-                                <Plus size={18} />
-                                Add Session
-                            </button>
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    Manage Breakout Sessions
+                                </h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Create and manage breakout sessions for your event
+                                </p>
+                            </div>
                         </div>
-
-                        {/* View Tabs */}
-                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 w-fit">
-                            <button
-                                onClick={() => setActiveView('dashboard')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'dashboard'
-                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                <BarChart3 size={16} />
-                                Dashboard
-                            </button>
-                            <button
-                                onClick={() => setActiveView('list')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'list'
-                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
-                                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                <List size={16} />
-                                List
-                            </button>
-                        </div>
-
-                        {/* Dashboard View */}
-                        {activeView === 'dashboard' && (
-                            <div className="space-y-6 animate-in fade-in duration-300">
-                                {/* Stats Cards */}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-                                                <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Total Sessions</p>
-                                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                                                <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Total Attendees</p>
-                                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalAttendees} / {stats.totalCapacity}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
-                                                <PlayCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Ongoing Sessions</p>
-                                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.ongoing}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
-                                                <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-                                            </div>
-                                            <div>
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Upcoming Sessions</p>
-                                                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.upcoming}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Session Breakdown */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                    <div className="p-5 border-b border-gray-200 dark:border-gray-700">
-                                        <h3 className="font-semibold text-gray-900 dark:text-white">Session Breakdown</h3>
-                                    </div>
-                                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                        <div className="flex justify-between items-center px-5 py-3">
-                                            <span className="text-sm text-emerald-600 dark:text-emerald-400">Online Sessions</span>
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.online} ({Math.round(stats.online / stats.total * 100)}%)</span>
-                                        </div>
-                                        <div className="flex justify-between items-center px-5 py-3">
-                                            <span className="text-sm text-blue-600 dark:text-blue-400">In-Person Sessions</span>
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.inPerson} ({Math.round(stats.inPerson / stats.total * 100)}%)</span>
-                                        </div>
-                                        <div className="flex justify-between items-center px-5 py-3">
-                                            <span className="text-sm text-gray-600 dark:text-gray-400">Ongoing Sessions</span>
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.ongoing} ({Math.round(stats.ongoing / stats.total * 100)}%)</span>
-                                        </div>
-                                        <div className="flex justify-between items-center px-5 py-3">
-                                            <span className="text-sm text-gray-600 dark:text-gray-400">Not Started Sessions</span>
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.upcoming} ({Math.round(stats.upcoming / stats.total * 100)}%)</span>
-                                        </div>
-                                        <div className="flex justify-between items-center px-5 py-3">
-                                            <span className="text-sm text-gray-600 dark:text-gray-400">Completed Sessions</span>
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.completed} ({Math.round(stats.completed / stats.total * 100)}%)</span>
-                                        </div>
-                                        <div className="flex justify-between items-center px-5 py-3">
-                                            <span className="text-sm text-gray-600 dark:text-gray-400">Cancelled Sessions</span>
-                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.cancelled} ({Math.round(stats.cancelled / stats.total * 100)}%)</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Upcoming Sessions Table */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                    <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
-                                        <h3 className="font-semibold text-gray-900 dark:text-white">Upcoming Sessions</h3>
-                                        <button onClick={() => setActiveView('list')} className="text-sm text-[#3D518C] dark:text-[#ABD2FA] hover:underline">
-                                            View all →
-                                        </button>
-                                    </div>
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-gray-50 dark:bg-gray-700/50">
-                                                <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase">
-                                                    <th className="px-5 py-3 text-left font-medium">Title</th>
-                                                    <th className="px-5 py-3 text-left font-medium">Type</th>
-                                                    <th className="px-5 py-3 text-left font-medium">Date</th>
-                                                    <th className="px-5 py-3 text-left font-medium">Time</th>
-                                                    <th className="px-5 py-3 text-left font-medium">Capacity</th>
-                                                    <th className="px-5 py-3 text-right font-medium">Action</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                                {sessions.filter(s => s.status === 'Not Started').slice(0, 5).map((session) => (
-                                                    <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                        <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{session.title}</td>
-                                                        <td className="px-5 py-4"><TypeBadge type={session.type} /></td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.date}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.time}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.currentAttendees} / {session.maxCapacity}</td>
-                                                        <td className="px-5 py-4 text-right">
-                                                            <button onClick={() => openEditModal(session)} className="text-sm text-[#3D518C] dark:text-[#ABD2FA] hover:underline">Edit</button>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* List View */}
-                        {activeView === 'list' && (
-                            <div className="space-y-6 animate-in fade-in duration-300">
-                                {/* Filters */}
-                                <div className="flex flex-wrap gap-3">
-                                    <div className="relative flex-1 min-w-[200px]">
-                                        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                        <input
-                                            type="text"
-                                            value={searchQuery}
-                                            onChange={(e) => setSearchQuery(e.target.value)}
-                                            placeholder="Search sessions or speakers..."
-                                            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                        />
-                                    </div>
-                                    <select
-                                        value={typeFilter}
-                                        onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
-                                        className="px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                    >
-                                        <option value="All">Type: All</option>
-                                        <option value="Online">Online</option>
-                                        <option value="In-Person">In-Person</option>
-                                    </select>
-                                    <select
-                                        value={statusFilter}
-                                        onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                                        className="px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                    >
-                                        <option value="All">Status: All</option>
-                                        <option value="Not Started">Not Started</option>
-                                        <option value="Ongoing">Ongoing</option>
-                                        <option value="Completed">Completed</option>
-                                        <option value="Cancelled">Cancelled</option>
-                                    </select>
-                                </div>
-
-                                {/* Table */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                    <div className="overflow-x-auto">
-                                        <table className="w-full">
-                                            <thead className="bg-[#ABD2FA] dark:bg-[#3D518C] text-gray-700 dark:text-white">
-                                                <tr className="text-xs uppercase font-semibold tracking-wider">
-                                                    <th className="px-5 py-4 text-left">Title</th>
-                                                    <th className="px-5 py-4 text-left">Type</th>
-                                                    <th className="px-5 py-4 text-left">Status</th>
-                                                    <th className="px-5 py-4 text-left">Date</th>
-                                                    <th className="px-5 py-4 text-left">Capacity</th>
-                                                    <th className="px-5 py-4 text-center">Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                                {filteredSessions.map((session) => (
-                                                    <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                        <td className="px-5 py-4">
-                                                            <div className="flex items-center gap-2">
-                                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center ${session.status === 'Ongoing' ? 'bg-emerald-100 dark:bg-emerald-900/30' :
-                                                                    session.status === 'Completed' ? 'bg-gray-100 dark:bg-gray-700' :
-                                                                        session.status === 'Cancelled' ? 'bg-red-100 dark:bg-red-900/30' :
-                                                                            'bg-amber-100 dark:bg-amber-900/30'
-                                                                    }`}>
-                                                                    {session.status === 'Ongoing' && <PlayCircle size={12} className="text-emerald-600" />}
-                                                                    {session.status === 'Completed' && <CheckCircle size={12} className="text-gray-600" />}
-                                                                    {session.status === 'Cancelled' && <XCircle size={12} className="text-red-600" />}
-                                                                    {session.status === 'Not Started' && <AlertCircle size={12} className="text-amber-600" />}
-                                                                </div>
-                                                                <span className="text-sm font-medium text-gray-900 dark:text-white">{session.title}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-5 py-4"><TypeBadge type={session.type} /></td>
-                                                        <td className="px-5 py-4"><StatusBadge status={session.status} /></td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.date}</td>
-                                                        <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.currentAttendees} / {session.maxCapacity}</td>
-                                                        <td className="px-5 py-4">
-                                                            <div className="flex items-center justify-center gap-2">
-                                                                <button
-                                                                    onClick={() => openEditModal(session)}
-                                                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-[#3D518C] dark:text-[#ABD2FA]"
-                                                                    title="Edit"
-                                                                >
-                                                                    <Edit2 size={16} />
-                                                                </button>
-                                                                <button
-                                                                    onClick={() => handleDeleteSession(session.id)}
-                                                                    className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-red-500"
-                                                                    title="Delete"
-                                                                >
-                                                                    <Trash2 size={16} />
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {filteredSessions.length === 0 && (
-                                        <div className="p-12 text-center">
-                                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                                <Presentation className="w-8 h-8 text-gray-400" />
-                                            </div>
-                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No sessions found</h3>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">Try adjusting your search or filters.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                        <button
+                            onClick={openCreateModal}
+                            className="px-5 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all flex items-center gap-2"
+                        >
+                            <Plus size={18} />
+                            Add Session
+                        </button>
                     </div>
-                </main>
+
+                    {/* View Tabs */}
+                    <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 w-fit">
+                        <button
+                            onClick={() => setActiveView('dashboard')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'dashboard'
+                                ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            <BarChart3 size={16} />
+                            Dashboard
+                        </button>
+                        <button
+                            onClick={() => setActiveView('list')}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeView === 'list'
+                                ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            <List size={16} />
+                            List
+                        </button>
+                    </div>
+
+                    {/* Dashboard View */}
+                    {activeView === 'dashboard' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                                            <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Total Sessions</p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                                            <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Total Attendees</p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalAttendees} / {stats.totalCapacity}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center">
+                                            <PlayCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Ongoing Sessions</p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.ongoing}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center">
+                                            <AlertCircle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                                        </div>
+                                        <div>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">Upcoming Sessions</p>
+                                            <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.upcoming}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Session Breakdown */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                <div className="p-5 border-b border-gray-200 dark:border-gray-700">
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">Session Breakdown</h3>
+                                </div>
+                                <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                    <div className="flex justify-between items-center px-5 py-3">
+                                        <span className="text-sm text-emerald-600 dark:text-emerald-400">Online Sessions</span>
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.online} ({Math.round(stats.online / stats.total * 100)}%)</span>
+                                    </div>
+                                    <div className="flex justify-between items-center px-5 py-3">
+                                        <span className="text-sm text-blue-600 dark:text-blue-400">In-Person Sessions</span>
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.inPerson} ({Math.round(stats.inPerson / stats.total * 100)}%)</span>
+                                    </div>
+                                    <div className="flex justify-between items-center px-5 py-3">
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Ongoing Sessions</span>
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.ongoing} ({Math.round(stats.ongoing / stats.total * 100)}%)</span>
+                                    </div>
+                                    <div className="flex justify-between items-center px-5 py-3">
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Not Started Sessions</span>
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.upcoming} ({Math.round(stats.upcoming / stats.total * 100)}%)</span>
+                                    </div>
+                                    <div className="flex justify-between items-center px-5 py-3">
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Completed Sessions</span>
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.completed} ({Math.round(stats.completed / stats.total * 100)}%)</span>
+                                    </div>
+                                    <div className="flex justify-between items-center px-5 py-3">
+                                        <span className="text-sm text-gray-600 dark:text-gray-400">Cancelled Sessions</span>
+                                        <span className="text-sm font-medium text-gray-900 dark:text-white">{stats.cancelled} ({Math.round(stats.cancelled / stats.total * 100)}%)</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Upcoming Sessions Table */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                <div className="flex items-center justify-between p-5 border-b border-gray-200 dark:border-gray-700">
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">Upcoming Sessions</h3>
+                                    <button onClick={() => setActiveView('list')} className="text-sm text-[#3D518C] dark:text-[#ABD2FA] hover:underline">
+                                        View all →
+                                    </button>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-gray-50 dark:bg-gray-700/50">
+                                            <tr className="text-xs text-gray-500 dark:text-gray-400 uppercase">
+                                                <th className="px-5 py-3 text-left font-medium">Title</th>
+                                                <th className="px-5 py-3 text-left font-medium">Type</th>
+                                                <th className="px-5 py-3 text-left font-medium">Date</th>
+                                                <th className="px-5 py-3 text-left font-medium">Time</th>
+                                                <th className="px-5 py-3 text-left font-medium">Capacity</th>
+                                                <th className="px-5 py-3 text-right font-medium">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                            {sessions.filter(s => s.status === 'Not Started').slice(0, 5).map((session) => (
+                                                <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                    <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{session.title}</td>
+                                                    <td className="px-5 py-4"><TypeBadge type={session.type} /></td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.date}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.time}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.currentAttendees} / {session.maxCapacity}</td>
+                                                    <td className="px-5 py-4 text-right">
+                                                        <button onClick={() => openEditModal(session)} className="text-sm text-[#3D518C] dark:text-[#ABD2FA] hover:underline">Edit</button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* List View */}
+                    {activeView === 'list' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Filters */}
+                            <div className="flex flex-wrap gap-3">
+                                <div className="relative flex-1 min-w-[200px]">
+                                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                                    <input
+                                        type="text"
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="Search sessions or speakers..."
+                                        className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                    />
+                                </div>
+                                <select
+                                    value={typeFilter}
+                                    onChange={(e) => setTypeFilter(e.target.value as typeof typeFilter)}
+                                    className="px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                >
+                                    <option value="All">Type: All</option>
+                                    <option value="Online">Online</option>
+                                    <option value="In-Person">In-Person</option>
+                                </select>
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+                                    className="px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                >
+                                    <option value="All">Status: All</option>
+                                    <option value="Not Started">Not Started</option>
+                                    <option value="Ongoing">Ongoing</option>
+                                    <option value="Completed">Completed</option>
+                                    <option value="Cancelled">Cancelled</option>
+                                </select>
+                            </div>
+
+                            {/* Table */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead className="bg-[#ABD2FA] dark:bg-[#3D518C] text-gray-700 dark:text-white">
+                                            <tr className="text-xs uppercase font-semibold tracking-wider">
+                                                <th className="px-5 py-4 text-left">Title</th>
+                                                <th className="px-5 py-4 text-left">Type</th>
+                                                <th className="px-5 py-4 text-left">Status</th>
+                                                <th className="px-5 py-4 text-left">Date</th>
+                                                <th className="px-5 py-4 text-left">Capacity</th>
+                                                <th className="px-5 py-4 text-center">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                            {filteredSessions.map((session) => (
+                                                <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center ${session.status === 'Ongoing' ? 'bg-emerald-100 dark:bg-emerald-900/30' :
+                                                                session.status === 'Completed' ? 'bg-gray-100 dark:bg-gray-700' :
+                                                                    session.status === 'Cancelled' ? 'bg-red-100 dark:bg-red-900/30' :
+                                                                        'bg-amber-100 dark:bg-amber-900/30'
+                                                                }`}>
+                                                                {session.status === 'Ongoing' && <PlayCircle size={12} className="text-emerald-600" />}
+                                                                {session.status === 'Completed' && <CheckCircle size={12} className="text-gray-600" />}
+                                                                {session.status === 'Cancelled' && <XCircle size={12} className="text-red-600" />}
+                                                                {session.status === 'Not Started' && <AlertCircle size={12} className="text-amber-600" />}
+                                                            </div>
+                                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{session.title}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-4"><TypeBadge type={session.type} /></td>
+                                                    <td className="px-5 py-4"><StatusBadge status={session.status} /></td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.date}</td>
+                                                    <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.currentAttendees} / {session.maxCapacity}</td>
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex items-center justify-center gap-2">
+                                                            <button
+                                                                onClick={() => openEditModal(session)}
+                                                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-[#3D518C] dark:text-[#ABD2FA]"
+                                                                title="Edit"
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteSession(session.id)}
+                                                                className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-red-500"
+                                                                title="Delete"
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {filteredSessions.length === 0 && (
+                                    <div className="p-12 text-center">
+                                        <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                            <Presentation className="w-8 h-8 text-gray-400" />
+                                        </div>
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No sessions found</h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Try adjusting your search or filters.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

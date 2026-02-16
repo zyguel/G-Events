@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/admin/Modal";
 import CurrencySelect from "@/components/admin/CurrencySelect";
 import TimezoneSelect from "@/components/admin/TimezoneSelect";
+import DateInput from "@/components/admin/DateInput";
+import TimeInput from "@/components/admin/TimeInput";
 import { getTickets, createTicket, updateTicket, deleteTicket, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/api";
 
@@ -287,28 +289,77 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             </div>
           )}
 
+          {/* Date & Time */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Start Date *</label>
-              <input
-                type="datetime-local"
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                  }`}
-              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <DateInput
+                    value={formData.startDate ? new Date(formData.startDate) : null}
+                    onChange={(date) => {
+                      if (!date) {
+                        setFormData({ ...formData, startDate: "" });
+                        return;
+                      }
+                      const dateStr = date.toISOString().split('T')[0];
+                      const timeStr = formData.startDate && formData.startDate.includes('T')
+                        ? formData.startDate.split('T')[1]
+                        : "09:00";
+                      setFormData({ ...formData, startDate: `${dateStr}T${timeStr}` });
+                    }}
+                    placeholder="Select date"
+                    className={errors.startDate ? "border-red-500" : ""}
+                  />
+                </div>
+                <div className="w-[120px]">
+                  <TimeInput
+                    value={formData.startDate && formData.startDate.includes('T') ? formData.startDate.split('T')[1] : ""}
+                    onChange={(time) => {
+                      const datePart = formData.startDate ? formData.startDate.split('T')[0] : new Date().toISOString().split('T')[0];
+                      setFormData({ ...formData, startDate: `${datePart}T${time}` });
+                    }}
+                    placeholder="Time"
+                    className={errors.startDate ? "border-red-500" : ""}
+                  />
+                </div>
+              </div>
               {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate}</p>}
             </div>
 
             <div>
               <label className="block text-sm font-medium mb-2">End Date *</label>
-              <input
-                type="datetime-local"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                  }`}
-              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <DateInput
+                    value={formData.endDate ? new Date(formData.endDate) : null}
+                    onChange={(date) => {
+                      if (!date) {
+                        setFormData({ ...formData, endDate: "" });
+                        return;
+                      }
+                      const dateStr = date.toISOString().split('T')[0];
+                      const timeStr = formData.endDate && formData.endDate.includes('T')
+                        ? formData.endDate.split('T')[1]
+                        : "17:00";
+                      setFormData({ ...formData, endDate: `${dateStr}T${timeStr}` });
+                    }}
+                    placeholder="Select date"
+                    className={errors.endDate ? "border-red-500" : ""}
+                  />
+                </div>
+                <div className="w-[120px]">
+                  <TimeInput
+                    value={formData.endDate && formData.endDate.includes('T') ? formData.endDate.split('T')[1] : ""}
+                    onChange={(time) => {
+                      const datePart = formData.endDate ? formData.endDate.split('T')[0] : new Date().toISOString().split('T')[0];
+                      setFormData({ ...formData, endDate: `${datePart}T${time}` });
+                    }}
+                    placeholder="Time"
+                    className={errors.endDate ? "border-red-500" : ""}
+                  />
+                </div>
+              </div>
               {errors.endDate && <p className="text-red-600 text-sm mt-1">{errors.endDate}</p>}
             </div>
           </div>

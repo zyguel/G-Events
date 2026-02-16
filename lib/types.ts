@@ -1,5 +1,5 @@
 
-export type EventStatus = "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled";
+export type EventStatus = "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled" | "Draft";
 
 export interface EventSummary {
     id: string;

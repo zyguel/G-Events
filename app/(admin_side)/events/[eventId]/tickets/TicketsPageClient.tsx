@@ -2,9 +2,6 @@
 
 import { useState } from "react";
 import { Ticket } from "lucide-react";
-import Header from "@/components/admin/Header";
-import Sidebar from "@/components/admin/Sidebar";
-import EventsSidebar from "@/components/admin/EventsSidebar";
 import AdmissionTab from "./tabs/AdmissionTab";
 import AddOnsTab from "./tabs/AddOnsTab";
 import PromoCodesTab from "./tabs/PromoCodesTab";
@@ -43,57 +40,43 @@ export default function TicketsPageClient({ event }: TicketsPageClientProps) {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-      <Header />
+    <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans">
+      {/* Page Header */}
+      <div className="flex items-center gap-4">
+        <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+          <Ticket className="w-7 h-7 text-white" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            Tickets
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Manage admission tickets, add-ons, and promotional codes
+          </p>
+        </div>
+      </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar activePage="events" disableExpand={true} />
-
-        <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-          <EventsSidebar event={event} activePage="tickets" />
+      {/* Tab Navigation */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+        <div className="flex border-b border-gray-200 dark:border-gray-700">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 px-6 py-4 font-medium text-sm transition-all duration-200 ${activeTab === tab.id
+                ? "text-[#3D518C] dark:text-[#5C6BC0] border-b-2 border-[#3D518C] dark:border-[#5C6BC0] bg-[#3D518C]/5 dark:bg-[#3D518C]/10"
+                : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                }`}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
-        <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable]">
-          <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans">
-            {/* Page Header */}
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
-                <Ticket className="w-7 h-7 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Tickets
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                  Manage admission tickets, add-ons, and promotional codes
-                </p>
-              </div>
-            </div>
-
-            {/* Tab Navigation */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-              <div className="flex border-b border-gray-200 dark:border-gray-700">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 px-6 py-4 font-medium text-sm transition-all duration-200 ${activeTab === tab.id
-                      ? "text-[#3D518C] dark:text-[#5C6BC0] border-b-2 border-[#3D518C] dark:border-[#5C6BC0] bg-[#3D518C]/5 dark:bg-[#3D518C]/10"
-                      : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                      }`}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Tab Content */}
-              <div className="p-8">
-                {renderTabContent()}
-              </div>
-            </div>
-          </div>
-        </main>
+        {/* Tab Content */}
+        <div className="p-8">
+          {renderTabContent()}
+        </div>
       </div>
     </div>
   );

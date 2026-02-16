@@ -2,9 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import Header from '@/components/admin/Header';
-import Sidebar from '@/components/admin/Sidebar';
-import EventsSidebar from '@/components/admin/EventsSidebar';
 import { Award, Upload, Download, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw, Type, Palette, Edit2, Plus, FileText, GripHorizontal, AlertCircle } from 'lucide-react';
 import Modal from '@/components/admin/Modal';
 import TimeInput from '@/components/admin/TimeInput';
@@ -216,45 +213,53 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     });
 
     // Mock certificates storage
-    const [certificates, setCertificates] = useState<Certificate[]>([
-        {
-            id: 'cert-001',
-            name: 'Participation Certificate',
-            templateType: 'generate',
-            fontFamily: 'Arial',
-            fontSize: 24,
-            textBoxes: [],
-            createdAt: new Date(Date.now() - 86400000),
-            updatedAt: new Date(Date.now() - 86400000),
-            status: 'active'
-        },
-        {
-            id: 'cert-002',
-            name: 'Speaker Certificate',
-            templateType: 'upload',
-            fontFamily: 'Georgia',
-            fontSize: 28,
-            textBoxes: [
-                { id: 'tb-1', x: 100, y: 150, width: 300, height: 40, placeholder: 'Attendee Name', fontSize: 28, fontFamily: 'Georgia' },
-                { id: 'tb-2', x: 100, y: 250, width: 400, height: 30, placeholder: 'Event Name', fontSize: 20, fontFamily: 'Georgia' }
-            ],
-            createdAt: new Date(Date.now() - 86400000 * 2),
-            updatedAt: new Date(Date.now() - 86400000 * 2),
-            status: 'active'
-        }
-    ]);
+    const [certificates, setCertificates] = useState<Certificate[]>(
+        event.id.startsWith('evt-')
+            ? []
+            : [
+                {
+                    id: 'cert-001',
+                    name: 'Participation Certificate',
+                    templateType: 'generate',
+                    fontFamily: 'Arial',
+                    fontSize: 24,
+                    textBoxes: [],
+                    createdAt: new Date(Date.now() - 86400000),
+                    updatedAt: new Date(Date.now() - 86400000),
+                    status: 'active'
+                },
+                {
+                    id: 'cert-002',
+                    name: 'Speaker Certificate',
+                    templateType: 'upload',
+                    fontFamily: 'Georgia',
+                    fontSize: 28,
+                    textBoxes: [
+                        { id: 'tb-1', x: 100, y: 150, width: 300, height: 40, placeholder: 'Attendee Name', fontSize: 28, fontFamily: 'Georgia' },
+                        { id: 'tb-2', x: 100, y: 250, width: 400, height: 30, placeholder: 'Event Name', fontSize: 20, fontFamily: 'Georgia' }
+                    ],
+                    createdAt: new Date(Date.now() - 86400000 * 2),
+                    updatedAt: new Date(Date.now() - 86400000 * 2),
+                    status: 'active'
+                }
+            ]
+    );
 
     // Sent certificates list
-    const [sentCertificates, setSentCertificates] = useState<CertificateSend[]>([
-        {
-            id: 'send-001',
-            certificateId: 'cert-001',
-            certificateName: 'Participation Certificate',
-            recipientCount: 150,
-            sentAt: new Date(Date.now() - 86400000),
-            status: 'sent'
-        }
-    ]);
+    const [sentCertificates, setSentCertificates] = useState<CertificateSend[]>(
+        event.id.startsWith('evt-')
+            ? []
+            : [
+                {
+                    id: 'send-001',
+                    certificateId: 'cert-001',
+                    certificateName: 'Participation Certificate',
+                    recipientCount: 150,
+                    sentAt: new Date(Date.now() - 86400000),
+                    status: 'sent'
+                }
+            ]
+    );
 
     const getAttendeesCount = () => {
         let count = 0;
@@ -535,9 +540,7 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     };
 
     return (
-        <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            <Header />
-
+        <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Toast Notification */}
             {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
@@ -564,706 +567,473 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                 }
             `}</style>
 
-            <div className="flex flex-1 overflow-hidden">
-                {/* Main Navigation Sidebar */}
-                <Sidebar activePage="events" disableExpand={true} />
+            {/* Main Content Area */}
+            <div className="p-8">
+                <div className="max-w-7xl mx-auto space-y-8">
 
-                {/* Event Specific Sidebar */}
-                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-                    <EventsSidebar event={event} activePage="certificates" />
-                </div>
-
-                {/* Main Content Area */}
-                <main className="flex-1 ml-20 lg:ml-0 overflow-y-auto scrollbar-hide p-8">
-                    <div className="max-w-7xl mx-auto space-y-8">
-
-                        {/* Page Header */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
-                                    <Award className="w-7 h-7 text-white" />
-                                </div>
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                        Certificates
-                                    </h1>
-                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                        Create and send certificates to your attendees
-                                    </p>
-                                </div>
+                    {/* Page Header */}
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                                <Award className="w-7 h-7 text-white" />
                             </div>
-                            <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                                <Users size={18} className="text-[#3D518C]" />
-                                <span className="text-sm text-gray-600 dark:text-gray-300">
-                                    <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> attendees
+                            <div>
+                                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                                    Certificates
+                                </h1>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                                    Create and send certificates to your attendees
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            <Users size={18} className="text-[#3D518C]" />
+                            <span className="text-sm text-gray-600 dark:text-gray-300">
+                                <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> attendees
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Tabs */}
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-1.5 shadow-sm border border-gray-200 dark:border-gray-700 inline-flex">
+                        <button
+                            onClick={() => setActiveTab('templates')}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'templates'
+                                ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            Templates
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('send')}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'send'
+                                ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            Send Certificates
+                        </button>
+                        <button
+                            onClick={() => setActiveTab('history')}
+                            className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'history'
+                                ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
+                                : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
+                                }`}
+                        >
+                            History
+                            {sentCertificates.length > 0 && (
+                                <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'history' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
+                                    {sentCertificates.length}
                                 </span>
-                            </div>
-                        </div>
+                            )}
+                        </button>
+                    </div>
 
-                        {/* Tabs */}
-                        <div className="bg-white dark:bg-gray-800 rounded-2xl p-1.5 shadow-sm border border-gray-200 dark:border-gray-700 inline-flex">
-                            <button
-                                onClick={() => setActiveTab('templates')}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'templates'
-                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                Templates
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('send')}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ${activeTab === 'send'
-                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                Send Certificates
-                            </button>
-                            <button
-                                onClick={() => setActiveTab('history')}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2 ${activeTab === 'history'
-                                    ? 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white shadow-md'
-                                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                            >
-                                History
-                                {sentCertificates.length > 0 && (
-                                    <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'history' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
-                                        {sentCertificates.length}
-                                    </span>
-                                )}
-                            </button>
-                        </div>
+                    {activeTab === 'templates' ? (
+                        <div className="space-y-6">
+                            {/* Create/Edit Template Section */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                                            <Palette className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                                {editingTemplate ? 'Edit Certificate Template' : 'Create Certificate Template'}
+                                            </h2>
+                                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
+                                                {editingTemplate ? 'Update your certificate template' : 'Design a new certificate template'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
 
-                        {activeTab === 'templates' ? (
-                            <div className="space-y-6">
-                                {/* Create/Edit Template Section */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                                    <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                                                <Palette className="w-5 h-5 text-white" />
+                                <div className="p-6 space-y-6">
+                                    {/* Template Name */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Template Name <span className="text-red-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            placeholder="e.g., Participation Certificate"
+                                            value={templateName}
+                                            onChange={(e) => setTemplateName(e.target.value)}
+                                            className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
+                                        />
+                                    </div>
+
+                                    {/* Template Type */}
+                                    <div className="space-y-3">
+                                        <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Template Type</label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <RadioButton
+                                                label="Generate Template"
+                                                checked={templateType === 'generate'}
+                                                onChange={() => { setTemplateType('generate'); setPdfPreview(''); setTextBoxes([]); }}
+                                                icon={Type}
+                                            />
+                                            <RadioButton
+                                                label="Upload PDF Template"
+                                                checked={templateType === 'upload'}
+                                                onChange={() => setTemplateType('upload')}
+                                                icon={Upload}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* PDF Upload */}
+                                    {templateType === 'upload' && (
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload PDF <span className="text-red-500">*</span></label>
+                                            <div className="relative">
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf"
+                                                    onChange={handlePdfUpload}
+                                                    className="hidden"
+                                                    id="pdf-upload"
+                                                />
+                                                <label
+                                                    htmlFor="pdf-upload"
+                                                    className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-[#3D518C] hover:bg-[#3D518C]/5 transition-all duration-200"
+                                                >
+                                                    <div className="text-center">
+                                                        <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                                                            {pdfFile ? pdfFile.name : 'Click to upload PDF'}
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PDF files only</p>
+                                                    </div>
+                                                </label>
                                             </div>
-                                            <div>
-                                                <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                    {editingTemplate ? 'Edit Certificate Template' : 'Create Certificate Template'}
-                                                </h2>
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
-                                                    {editingTemplate ? 'Update your certificate template' : 'Design a new certificate template'}
+                                        </div>
+                                    )}
+
+                                    {/* Font Settings */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Font Family</label>
+                                            <select
+                                                value={fontFamily}
+                                                onChange={(e) => setFontFamily(e.target.value)}
+                                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
+                                            >
+                                                <option value="Arial">Arial</option>
+                                                <option value="Georgia">Georgia</option>
+                                                <option value="Times New Roman">Times New Roman</option>
+                                                <option value="Courier New">Courier New</option>
+                                                <option value="Verdana">Verdana</option>
+                                                <option value="Comic Sans MS">Comic Sans MS</option>
+                                            </select>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size: <span className="text-[#3D518C] font-semibold">{fontSize}px</span></label>
+                                            <input
+                                                type="range"
+                                                min="12"
+                                                max="48"
+                                                value={fontSize}
+                                                onChange={(e) => setFontSize(Number(e.target.value))}
+                                                className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#3D518C]"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* PDF Editor with Drag and Drop */}
+                                    {templateType === 'upload' && pdfPreview && (
+                                        <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-6">
+                                            <div className="flex items-center justify-between">
+                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Add Text Boxes to PDF</h3>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">Drag text boxes onto the PDF to position them</p>
+                                            </div>
+
+                                            {/* Add Text Box Form */}
+                                            <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
+                                                <div className="flex gap-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="e.g., Attendee Name"
+                                                        value={newTextBoxPlaceholder}
+                                                        onChange={(e) => setNewTextBoxPlaceholder(e.target.value)}
+                                                        className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                                    />
+                                                    <button
+                                                        onClick={handleAddTextBoxToCanvas}
+                                                        className="px-4 py-2 bg-[#3D518C] text-white text-sm font-medium rounded-lg hover:bg-[#3D518C]/90 transition-colors flex items-center gap-2"
+                                                    >
+                                                        <Plus size={16} />
+                                                        Add
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* PDF Canvas with Draggable Text Boxes */}
+                                            <div
+                                                ref={pdfCanvasRef}
+                                                className="relative w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-xl border-2 border-gray-300 dark:border-gray-600 overflow-auto flex items-center justify-center p-4"
+                                                style={{
+                                                    minHeight: '600px'
+                                                }}
+                                            >
+                                                {pdfPreview ? (
+                                                    <div className="relative bg-white rounded-lg shadow-2xl overflow-hidden" style={{ width: '600px', height: '750px', maxWidth: '100%' }}>
+                                                        {/* PDF Display using iframe */}
+                                                        <iframe
+                                                            src={pdfPreview}
+                                                            className="w-full h-full border-0"
+                                                            title="PDF Preview"
+                                                            style={{ pointerEvents: 'none' }}
+                                                        />
+
+                                                        {/* Text Boxes Overlay */}
+                                                        {textBoxes.map((tb) => (
+                                                            <DraggableTextBox
+                                                                key={tb.id}
+                                                                textBox={tb}
+                                                                isSelected={selectedTextBox === tb.id}
+                                                                onSelect={() => setSelectedTextBox(tb.id)}
+                                                                onDragStart={(e) => handleDragStart(e, tb.id)}
+                                                                onDragEnd={(e) => handleDragEnd(e, tb.id)}
+                                                                onDelete={() => handleDeleteTextBox(tb.id)}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <div className="text-center">
+                                                        <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                                                        <p className="text-sm text-gray-600 dark:text-gray-400">No PDF uploaded yet</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Upload a PDF file above to get started</p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Text Box Properties Editor */}
+                                            {selectedTextBox && (
+                                                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 space-y-3 animate-slide-up">
+                                                    <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300">Edit Text Box Properties</h4>
+                                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                                        <div>
+                                                            <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">X</label>
+                                                            <input
+                                                                type="number"
+                                                                value={textBoxes.find(tb => tb.id === selectedTextBox)?.x || 0}
+                                                                onChange={(e) => handleUpdateTextBox(selectedTextBox, { x: Number(e.target.value) })}
+                                                                className="w-full px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs text-gray-900 dark:text-white"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Y</label>
+                                                            <input
+                                                                type="number"
+                                                                value={textBoxes.find(tb => tb.id === selectedTextBox)?.y || 0}
+                                                                onChange={(e) => handleUpdateTextBox(selectedTextBox, { y: Number(e.target.value) })}
+                                                                className="w-full px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs text-gray-900 dark:text-white"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Width</label>
+                                                            <input
+                                                                type="number"
+                                                                value={textBoxes.find(tb => tb.id === selectedTextBox)?.width || 0}
+                                                                onChange={(e) => handleUpdateTextBox(selectedTextBox, { width: Number(e.target.value) })}
+                                                                className="w-full px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs text-gray-900 dark:text-white"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Height</label>
+                                                            <input
+                                                                type="number"
+                                                                value={textBoxes.find(tb => tb.id === selectedTextBox)?.height || 0}
+                                                                onChange={(e) => handleUpdateTextBox(selectedTextBox, { height: Number(e.target.value) })}
+                                                                className="w-full px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs text-gray-900 dark:text-white"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Text Boxes List */}
+                                            {textBoxes.length > 0 && (
+                                                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-2">
+                                                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Text Boxes ({textBoxes.length})</p>
+                                                    <div className="space-y-2">
+                                                        {textBoxes.map((tb) => (
+                                                            <div
+                                                                key={tb.id}
+                                                                onClick={() => setSelectedTextBox(tb.id)}
+                                                                className={`p-2 rounded-lg border cursor-pointer transition-all ${selectedTextBox === tb.id
+                                                                    ? 'border-[#3D518C] bg-[#3D518C]/10'
+                                                                    : 'border-gray-200 dark:border-gray-600 hover:border-[#3D518C]/50'
+                                                                    }`}
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                                        <GripHorizontal size={14} className="text-gray-400 flex-shrink-0" />
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{tb.placeholder}</p>
+                                                                            <p className="text-[10px] text-gray-500 dark:text-gray-400">({tb.x}, {tb.y}) • {tb.width}x{tb.height}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleDeleteTextBox(tb.id);
+                                                                        }}
+                                                                        className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Preview for Generated Templates */}
+                                    {templateType === 'generate' && (
+                                        <div className="mt-6 p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-gray-700/50 dark:to-gray-700/30 rounded-xl border border-amber-200 dark:border-gray-600">
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Preview</p>
+                                            <div className="text-center py-12 border-2 border-dashed border-amber-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                                                <p style={{ fontFamily, fontSize: `${fontSize}px` }} className="text-gray-700 dark:text-gray-300 font-bold">
+                                                    Certificate of Achievement
+                                                </p>
+                                                <p style={{ fontFamily, fontSize: `${fontSize - 8}px` }} className="text-gray-500 dark:text-gray-400 mt-4">
+                                                    {templateName || 'Your Certificate Name'}
                                                 </p>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div className="p-6 space-y-6">
-                                        {/* Template Name */}
-                                        <div className="space-y-2">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Template Name <span className="text-red-500">*</span></label>
-                                            <input
-                                                type="text"
-                                                placeholder="e.g., Participation Certificate"
-                                                value={templateName}
-                                                onChange={(e) => setTemplateName(e.target.value)}
-                                                className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
-                                            />
-                                        </div>
-
-                                        {/* Template Type */}
-                                        <div className="space-y-3">
-                                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Template Type</label>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                <RadioButton
-                                                    label="Generate Template"
-                                                    checked={templateType === 'generate'}
-                                                    onChange={() => { setTemplateType('generate'); setPdfPreview(''); setTextBoxes([]); }}
-                                                    icon={Type}
-                                                />
-                                                <RadioButton
-                                                    label="Upload PDF Template"
-                                                    checked={templateType === 'upload'}
-                                                    onChange={() => setTemplateType('upload')}
-                                                    icon={Upload}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* PDF Upload */}
-                                        {templateType === 'upload' && (
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Upload PDF <span className="text-red-500">*</span></label>
-                                                <div className="relative">
-                                                    <input
-                                                        type="file"
-                                                        accept=".pdf"
-                                                        onChange={handlePdfUpload}
-                                                        className="hidden"
-                                                        id="pdf-upload"
-                                                    />
-                                                    <label
-                                                        htmlFor="pdf-upload"
-                                                        className="flex items-center justify-center w-full px-4 py-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-[#3D518C] hover:bg-[#3D518C]/5 transition-all duration-200"
-                                                    >
-                                                        <div className="text-center">
-                                                            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                                                {pdfFile ? pdfFile.name : 'Click to upload PDF'}
-                                                            </p>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">PDF files only</p>
-                                                        </div>
-                                                    </label>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Font Settings */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Font Family</label>
-                                                <select
-                                                    value={fontFamily}
-                                                    onChange={(e) => setFontFamily(e.target.value)}
-                                                    className="w-full px-4 py-3.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
-                                                >
-                                                    <option value="Arial">Arial</option>
-                                                    <option value="Georgia">Georgia</option>
-                                                    <option value="Times New Roman">Times New Roman</option>
-                                                    <option value="Courier New">Courier New</option>
-                                                    <option value="Verdana">Verdana</option>
-                                                    <option value="Comic Sans MS">Comic Sans MS</option>
-                                                </select>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Font Size: <span className="text-[#3D518C] font-semibold">{fontSize}px</span></label>
-                                                <input
-                                                    type="range"
-                                                    min="12"
-                                                    max="48"
-                                                    value={fontSize}
-                                                    onChange={(e) => setFontSize(Number(e.target.value))}
-                                                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-[#3D518C]"
-                                                />
-                                            </div>
-                                        </div>
-
-                                        {/* PDF Editor with Drag and Drop */}
-                                        {templateType === 'upload' && pdfPreview && (
-                                            <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-6">
-                                                <div className="flex items-center justify-between">
-                                                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Add Text Boxes to PDF</h3>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Drag text boxes onto the PDF to position them</p>
-                                                </div>
-
-                                                {/* Add Text Box Form */}
-                                                <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3">
-                                                    <div className="flex gap-2">
-                                                        <input
-                                                            type="text"
-                                                            placeholder="e.g., Attendee Name"
-                                                            value={newTextBoxPlaceholder}
-                                                            onChange={(e) => setNewTextBoxPlaceholder(e.target.value)}
-                                                            className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                        />
-                                                        <button
-                                                            onClick={handleAddTextBoxToCanvas}
-                                                            className="px-4 py-2 bg-[#3D518C] text-white text-sm font-medium rounded-lg hover:bg-[#3D518C]/90 transition-colors flex items-center gap-2"
-                                                        >
-                                                            <Plus size={16} />
-                                                            Add
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                {/* PDF Canvas with Draggable Text Boxes */}
-                                                <div
-                                                    ref={pdfCanvasRef}
-                                                    className="relative w-full bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 rounded-xl border-2 border-gray-300 dark:border-gray-600 overflow-auto flex items-center justify-center p-4"
-                                                    style={{
-                                                        minHeight: '600px'
-                                                    }}
-                                                >
-                                                    {pdfPreview ? (
-                                                        <div className="relative bg-white rounded-lg shadow-2xl overflow-hidden" style={{ width: '600px', height: '750px', maxWidth: '100%' }}>
-                                                            {/* PDF Display using iframe */}
-                                                            <iframe
-                                                                src={pdfPreview}
-                                                                className="w-full h-full border-0"
-                                                                title="PDF Preview"
-                                                                style={{ pointerEvents: 'none' }}
-                                                            />
-
-                                                            {/* Text Boxes Overlay */}
-                                                            {textBoxes.map((tb) => (
-                                                                <DraggableTextBox
-                                                                    key={tb.id}
-                                                                    textBox={tb}
-                                                                    isSelected={selectedTextBox === tb.id}
-                                                                    onSelect={() => setSelectedTextBox(tb.id)}
-                                                                    onDragStart={(e) => handleDragStart(e, tb.id)}
-                                                                    onDragEnd={(e) => handleDragEnd(e, tb.id)}
-                                                                    onDelete={() => handleDeleteTextBox(tb.id)}
-                                                                />
-                                                            ))}
-                                                        </div>
-                                                    ) : (
-                                                        <div className="text-center">
-                                                            <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                                                            <p className="text-sm text-gray-600 dark:text-gray-400">No PDF uploaded yet</p>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Upload a PDF file above to get started</p>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                {/* Text Box Properties Editor */}
-                                                {selectedTextBox && (
-                                                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 space-y-3 animate-slide-up">
-                                                        <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-300">Edit Text Box Properties</h4>
-                                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                                            <div>
-                                                                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">X</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={textBoxes.find(tb => tb.id === selectedTextBox)?.x || 0}
-                                                                    onChange={(e) => handleUpdateTextBox(selectedTextBox, { x: Number(e.target.value) })}
-                                                                    className="w-full px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs text-gray-900 dark:text-white"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Y</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={textBoxes.find(tb => tb.id === selectedTextBox)?.y || 0}
-                                                                    onChange={(e) => handleUpdateTextBox(selectedTextBox, { y: Number(e.target.value) })}
-                                                                    className="w-full px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs text-gray-900 dark:text-white"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Width</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={textBoxes.find(tb => tb.id === selectedTextBox)?.width || 0}
-                                                                    onChange={(e) => handleUpdateTextBox(selectedTextBox, { width: Number(e.target.value) })}
-                                                                    className="w-full px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs text-gray-900 dark:text-white"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs text-gray-600 dark:text-gray-400 block mb-1">Height</label>
-                                                                <input
-                                                                    type="number"
-                                                                    value={textBoxes.find(tb => tb.id === selectedTextBox)?.height || 0}
-                                                                    onChange={(e) => handleUpdateTextBox(selectedTextBox, { height: Number(e.target.value) })}
-                                                                    className="w-full px-2 py-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded text-xs text-gray-900 dark:text-white"
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Text Boxes List */}
-                                                {textBoxes.length > 0 && (
-                                                    <div className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-2">
-                                                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">Text Boxes ({textBoxes.length})</p>
-                                                        <div className="space-y-2">
-                                                            {textBoxes.map((tb) => (
-                                                                <div
-                                                                    key={tb.id}
-                                                                    onClick={() => setSelectedTextBox(tb.id)}
-                                                                    className={`p-2 rounded-lg border cursor-pointer transition-all ${selectedTextBox === tb.id
-                                                                        ? 'border-[#3D518C] bg-[#3D518C]/10'
-                                                                        : 'border-gray-200 dark:border-gray-600 hover:border-[#3D518C]/50'
-                                                                        }`}
-                                                                >
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                                            <GripHorizontal size={14} className="text-gray-400 flex-shrink-0" />
-                                                                            <div className="min-w-0">
-                                                                                <p className="text-xs font-medium text-gray-900 dark:text-white truncate">{tb.placeholder}</p>
-                                                                                <p className="text-[10px] text-gray-500 dark:text-gray-400">({tb.x}, {tb.y}) • {tb.width}x{tb.height}</p>
-                                                                            </div>
-                                                                        </div>
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                handleDeleteTextBox(tb.id);
-                                                                            }}
-                                                                            className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors flex-shrink-0"
-                                                                        >
-                                                                            <Trash2 size={14} />
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Preview for Generated Templates */}
-                                        {templateType === 'generate' && (
-                                            <div className="mt-6 p-6 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-gray-700/50 dark:to-gray-700/30 rounded-xl border border-amber-200 dark:border-gray-600">
-                                                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Preview</p>
-                                                <div className="text-center py-12 border-2 border-dashed border-amber-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
-                                                    <p style={{ fontFamily, fontSize: `${fontSize}px` }} className="text-gray-700 dark:text-gray-300 font-bold">
-                                                        Certificate of Achievement
-                                                    </p>
-                                                    <p style={{ fontFamily, fontSize: `${fontSize - 8}px` }} className="text-gray-500 dark:text-gray-400 mt-4">
-                                                        {templateName || 'Your Certificate Name'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Footer Actions */}
-                                    <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                                        <button
-                                            onClick={() => {
-                                                setTemplateName('');
-                                                setTemplateType('generate');
-                                                setFontFamily('Arial');
-                                                setFontSize(24);
-                                                setPdfFile(null);
-                                                setPdfPreview('');
-                                                setTextBoxes([]);
-                                                setNewTextBoxPlaceholder('');
-                                                setEditingTemplate(null);
-                                            }}
-                                            className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
-                                        >
-                                            Reset
-                                        </button>
-                                        <button
-                                            onClick={handleSaveTemplate}
-                                            disabled={isLoading}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                        >
-                                            {isLoading ? (
-                                                <>
-                                                    <RefreshCw size={16} className="animate-spin" />
-                                                    {editingTemplate ? 'Updating...' : 'Creating...'}
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <Award size={16} />
-                                                    {editingTemplate ? 'Update Template' : 'Create Template'}
-                                                </>
-                                            )}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Templates List */}
-                                <div className="space-y-4">
-                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Your Templates ({certificates.length})</h3>
-                                    {certificates.length === 0 ? (
-                                        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
-                                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                                                <Award className="w-8 h-8 text-gray-400" />
-                                            </div>
-                                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No templates yet</h3>
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">Create your first certificate template above</p>
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {certificates.map((cert) => (
-                                                <div key={cert.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 group">
-                                                    <div className="space-y-3">
-                                                        <div className="flex items-start justify-between gap-3">
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-2 mb-1">
-                                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{cert.name}</h3>
-                                                                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 flex-shrink-0">
-                                                                        {cert.status}
-                                                                    </span>
-                                                                </div>
-                                                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                                    {cert.templateType === 'upload' ? 'PDF Template' : 'Generated Template'} • {cert.fontFamily} {cert.fontSize}px
-                                                                </p>
-                                                                {cert.textBoxes.length > 0 && (
-                                                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                                                        {cert.textBoxes.length} text box{cert.textBoxes.length !== 1 ? 'es' : ''}
-                                                                    </p>
-                                                                )}
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Action Buttons */}
-                                                        <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                                            <button
-                                                                onClick={() => setSelectedTemplate(cert)}
-                                                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-[#3D518C] hover:bg-[#3D518C]/10 rounded-lg transition-colors text-sm font-medium"
-                                                                title="Preview"
-                                                            >
-                                                                <Eye size={14} />
-                                                                Preview
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleEditTemplate(cert)}
-                                                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors text-sm font-medium"
-                                                                title="Edit"
-                                                            >
-                                                                <Edit2 size={14} />
-                                                                Edit
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteTemplate(cert.id)}
-                                                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-medium"
-                                                                title="Delete"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                                Delete
-                                                            </button>
-                                                        </div>
-
-                                                        {/* Download Options */}
-                                                        <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                                                            <button
-                                                                onClick={() => {
-                                                                    setDownloadFormat('pdf');
-                                                                    handleDownloadCertificate(cert);
-                                                                }}
-                                                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors text-sm font-medium"
-                                                                title="Download as PDF"
-                                                            >
-                                                                <Download size={14} />
-                                                                PDF
-                                                            </button>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setDownloadFormat('docx');
-                                                                    handleDownloadCertificate(cert);
-                                                                }}
-                                                                className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors text-sm font-medium"
-                                                                title="Download as DOCX"
-                                                            >
-                                                                <FileText size={14} />
-                                                                DOCX
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
                                     )}
-                                </div>
-                            </div>
-                        ) : activeTab === 'send' ? (
-                            <div className="space-y-6">
-                                {/* Select Certificate */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                                    <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                                                <Award className="w-5 h-5 text-white" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                    Select Certificate
-                                                </h2>
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Choose which certificate to send</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-6 space-y-3">
-                                        {certificates.length === 0 ? (
-                                            <p className="text-sm text-gray-500 dark:text-gray-400">No templates available. Create one first.</p>
-                                        ) : (
-                                            certificates.map((cert) => (
-                                                <div
-                                                    key={cert.id}
-                                                    onClick={() => setSelectedCertificateForSend(cert)}
-                                                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${selectedCertificateForSend?.id === cert.id
-                                                        ? 'border-[#3D518C] bg-[#3D518C]/5'
-                                                        : 'border-gray-200 dark:border-gray-700 hover:border-[#3D518C]/50'
-                                                        }`}
-                                                >
-                                                    <div className="flex items-center justify-between">
-                                                        <div>
-                                                            <p className="font-medium text-gray-900 dark:text-white">{cert.name}</p>
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">{cert.fontFamily} • {cert.fontSize}px</p>
-                                                        </div>
-                                                        <div className={`w-5 h-5 border-2 rounded-full flex items-center justify-center ${selectedCertificateForSend?.id === cert.id ? 'border-[#3D518C] bg-[#3D518C]' : 'border-gray-300 dark:border-gray-600'}`}>
-                                                            {selectedCertificateForSend?.id === cert.id && <Check size={12} className="text-white" />}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Attendee Filters */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                                    <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
-                                                <Users className="w-5 h-5 text-white" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                    Select Recipients
-                                                </h2>
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Choose who should receive certificates</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-6 space-y-3">
-                                        <Checkbox label="Select All Attendees" checked={attendeeFilters.selectAll} onChange={handleAttendeeSelectAll} />
-                                        <Checkbox label="Confirmed Attendees" checked={attendeeFilters.confirmed} onChange={() => setAttendeeFilters(prev => ({ ...prev, confirmed: !prev.confirmed, selectAll: false }))} />
-                                        <Checkbox label="Attended Event" checked={attendeeFilters.attended} onChange={() => setAttendeeFilters(prev => ({ ...prev, attended: !prev.attended, selectAll: false }))} />
-                                    </div>
-                                </div>
-
-                                {/* Send Options */}
-                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-md">
-                                    <div className="p-6 rounded-t-2xl border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
-                                                <Send className="w-5 h-5 text-white" />
-                                            </div>
-                                            <div>
-                                                <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                    Send Options
-                                                </h2>
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Choose when and how to send</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="p-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {/* Send Mode */}
-                                            <div className="space-y-3">
-                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                    Sending Mode
-                                                </h3>
-                                                <div className="space-y-2">
-                                                    <RadioButton label="Send Immediately" checked={sendMode === 'immediate'} onChange={() => setSendMode('immediate')} icon={Send} />
-                                                    <RadioButton label="Schedule Send" checked={sendMode === 'scheduled'} onChange={() => setSendMode('scheduled')} icon={Clock} />
-                                                </div>
-
-                                                {sendMode === 'scheduled' && (
-                                                    <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3 animate-slide-up">
-                                                        <div className="grid grid-cols-2 gap-3">
-                                                            <div>
-                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Date</label>
-                                                                <DateInput
-                                                                    value={scheduledDate ? new Date(scheduledDate) : null}
-                                                                    onChange={(date) => setScheduledDate(date ? date.toISOString().split('T')[0] : '')}
-                                                                    placeholder="Select date"
-                                                                />
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Time</label>
-                                                                <TimeInput
-                                                                    value={scheduledTime}
-                                                                    onChange={setScheduledTime}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-
-                                            {/* Delivery Mode */}
-                                            <div className="space-y-3">
-                                                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
-                                                    Delivery Mode
-                                                </h3>
-                                                <div className="space-y-2">
-                                                    <RadioButton label="Send Preview to My Email" checked={sendOption === 'preview'} onChange={() => setSendOption('preview')} icon={Eye} />
-                                                    <RadioButton label="Send to All Recipients" checked={sendOption === 'attendees'} onChange={() => setSendOption('attendees')} icon={Users} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 {/* Footer Actions */}
-                                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-                                    <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                                        <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                                        <p>
-                                            Ready to send to <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> recipients
-                                        </p>
-                                    </div>
+                                <div className="p-6 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
                                     <button
-                                        onClick={handleSendCertificates}
-                                        disabled={isLoading || !selectedCertificateForSend}
+                                        onClick={() => {
+                                            setTemplateName('');
+                                            setTemplateType('generate');
+                                            setFontFamily('Arial');
+                                            setFontSize(24);
+                                            setPdfFile(null);
+                                            setPdfPreview('');
+                                            setTextBoxes([]);
+                                            setNewTextBoxPlaceholder('');
+                                            setEditingTemplate(null);
+                                        }}
+                                        className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                                    >
+                                        Reset
+                                    </button>
+                                    <button
+                                        onClick={handleSaveTemplate}
+                                        disabled={isLoading}
                                         className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
                                         {isLoading ? (
                                             <>
                                                 <RefreshCw size={16} className="animate-spin" />
-                                                Sending...
+                                                {editingTemplate ? 'Updating...' : 'Creating...'}
                                             </>
                                         ) : (
                                             <>
-                                                <Send size={16} />
-                                                {sendOption === 'preview' ? 'Send Preview' : 'Send Certificates'}
+                                                <Award size={16} />
+                                                {editingTemplate ? 'Update Template' : 'Create Template'}
                                             </>
                                         )}
                                     </button>
                                 </div>
                             </div>
-                        ) : (
-                            /* History Tab */
+
+                            {/* Templates List */}
                             <div className="space-y-4">
-                                {sentCertificates.length === 0 ? (
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Your Templates ({certificates.length})</h3>
+                                {certificates.length === 0 ? (
                                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
                                         <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                             <Award className="w-8 h-8 text-gray-400" />
                                         </div>
-                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No certificates sent yet</h3>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Start by sending your first certificate batch</p>
-                                        <button
-                                            onClick={() => setActiveTab('send')}
-                                            className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200"
-                                        >
-                                            Send Certificates
-                                        </button>
+                                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No templates yet</h3>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Create your first certificate template above</p>
                                     </div>
                                 ) : (
-                                    <div className="space-y-4">
-                                        {sentCertificates.map((send) => (
-                                            <div key={send.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 group">
-                                                <div className="flex items-start justify-between gap-4">
-                                                    <div className="flex-1">
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <h3 className="font-semibold text-gray-900 dark:text-white">{send.certificateName}</h3>
-                                                            <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${send.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
-                                                                {send.status === 'sent' ? 'Sent' : 'Scheduled'}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
-                                                            <span className="flex items-center gap-1">
-                                                                <Users size={12} />
-                                                                {send.recipientCount} recipients
-                                                            </span>
-                                                            <span className="flex items-center gap-1">
-                                                                <Calendar size={12} />
-                                                                {send.status === 'scheduled' && send.scheduledFor
-                                                                    ? `Scheduled for ${formatDate(send.scheduledFor)}`
-                                                                    : formatDate(send.sentAt)
-                                                                }
-                                                            </span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        {certificates.map((cert) => (
+                                            <div key={cert.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 group">
+                                                <div className="space-y-3">
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <h3 className="font-semibold text-gray-900 dark:text-white truncate">{cert.name}</h3>
+                                                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 flex-shrink-0">
+                                                                    {cert.status}
+                                                                </span>
+                                                            </div>
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                                {cert.templateType === 'upload' ? 'PDF Template' : 'Generated Template'} • {cert.fontFamily} {cert.fontSize}px
+                                                            </p>
+                                                            {cert.textBoxes.length > 0 && (
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                                    {cert.textBoxes.length} text box{cert.textBoxes.length !== 1 ? 'es' : ''}
+                                                                </p>
+                                                            )}
                                                         </div>
                                                     </div>
-                                                    <div className="flex items-center gap-2">
+
+                                                    {/* Action Buttons */}
+                                                    <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                                                        <button
+                                                            onClick={() => setSelectedTemplate(cert)}
+                                                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-[#3D518C] hover:bg-[#3D518C]/10 rounded-lg transition-colors text-sm font-medium"
+                                                            title="Preview"
+                                                        >
+                                                            <Eye size={14} />
+                                                            Preview
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleEditTemplate(cert)}
+                                                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors text-sm font-medium"
+                                                            title="Edit"
+                                                        >
+                                                            <Edit2 size={14} />
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteTemplate(cert.id)}
+                                                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors text-sm font-medium"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={14} />
+                                                            Delete
+                                                        </button>
+                                                    </div>
+
+                                                    {/* Download Options */}
+                                                    <div className="flex items-center gap-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                                                         <button
                                                             onClick={() => {
                                                                 setDownloadFormat('pdf');
-                                                                const cert = certificates.find(c => c.id === send.certificateId);
-                                                                if (cert) handleDownloadCertificate(cert);
+                                                                handleDownloadCertificate(cert);
                                                             }}
-                                                            className="p-2 text-[#3D518C] hover:bg-[#3D518C]/10 rounded-lg transition-colors"
-                                                            title="Download"
+                                                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors text-sm font-medium"
+                                                            title="Download as PDF"
                                                         >
-                                                            <Download size={16} />
+                                                            <Download size={14} />
+                                                            PDF
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setDownloadFormat('docx');
+                                                                handleDownloadCertificate(cert);
+                                                            }}
+                                                            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-lg transition-colors text-sm font-medium"
+                                                            title="Download as DOCX"
+                                                        >
+                                                            <FileText size={14} />
+                                                            DOCX
                                                         </button>
                                                     </div>
                                                 </div>
@@ -1272,10 +1042,233 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                                     </div>
                                 )}
                             </div>
-                        )}
+                        </div>
+                    ) : activeTab === 'send' ? (
+                        <div className="space-y-6">
+                            {/* Select Certificate */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                                            <Award className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                                Select Certificate
+                                            </h2>
+                                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Choose which certificate to send</p>
+                                        </div>
+                                    </div>
+                                </div>
 
-                    </div>
-                </main>
+                                <div className="p-6 space-y-3">
+                                    {certificates.length === 0 ? (
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">No templates available. Create one first.</p>
+                                    ) : (
+                                        certificates.map((cert) => (
+                                            <div
+                                                key={cert.id}
+                                                onClick={() => setSelectedCertificateForSend(cert)}
+                                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${selectedCertificateForSend?.id === cert.id
+                                                    ? 'border-[#3D518C] bg-[#3D518C]/5'
+                                                    : 'border-gray-200 dark:border-gray-700 hover:border-[#3D518C]/50'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-medium text-gray-900 dark:text-white">{cert.name}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{cert.fontFamily} • {cert.fontSize}px</p>
+                                                    </div>
+                                                    <div className={`w-5 h-5 border-2 rounded-full flex items-center justify-center ${selectedCertificateForSend?.id === cert.id ? 'border-[#3D518C] bg-[#3D518C]' : 'border-gray-300 dark:border-gray-600'}`}>
+                                                        {selectedCertificateForSend?.id === cert.id && <Check size={12} className="text-white" />}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Attendee Filters */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl flex items-center justify-center">
+                                            <Users className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                                Select Recipients
+                                            </h2>
+                                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Choose who should receive certificates</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 space-y-3">
+                                    <Checkbox label="Select All Attendees" checked={attendeeFilters.selectAll} onChange={handleAttendeeSelectAll} />
+                                    <Checkbox label="Confirmed Attendees" checked={attendeeFilters.confirmed} onChange={() => setAttendeeFilters(prev => ({ ...prev, confirmed: !prev.confirmed, selectAll: false }))} />
+                                    <Checkbox label="Attended Event" checked={attendeeFilters.attended} onChange={() => setAttendeeFilters(prev => ({ ...prev, attended: !prev.attended, selectAll: false }))} />
+                                </div>
+                            </div>
+
+                            {/* Send Options */}
+                            <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-md">
+                                <div className="p-6 rounded-t-2xl border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center">
+                                            <Send className="w-5 h-5 text-white" />
+                                        </div>
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                                Send Options
+                                            </h2>
+                                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Choose when and how to send</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="p-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                        {/* Send Mode */}
+                                        <div className="space-y-3">
+                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                Sending Mode
+                                            </h3>
+                                            <div className="space-y-2">
+                                                <RadioButton label="Send Immediately" checked={sendMode === 'immediate'} onChange={() => setSendMode('immediate')} icon={Send} />
+                                                <RadioButton label="Schedule Send" checked={sendMode === 'scheduled'} onChange={() => setSendMode('scheduled')} icon={Clock} />
+                                            </div>
+
+                                            {sendMode === 'scheduled' && (
+                                                <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-xl space-y-3 animate-slide-up">
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <div>
+                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Date</label>
+                                                            <DateInput
+                                                                value={scheduledDate ? new Date(scheduledDate) : null}
+                                                                onChange={(date) => setScheduledDate(date ? date.toISOString().split('T')[0] : '')}
+                                                                placeholder="Select date"
+                                                            />
+                                                        </div>
+                                                        <div>
+                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">Time</label>
+                                                            <TimeInput
+                                                                value={scheduledTime}
+                                                                onChange={setScheduledTime}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Delivery Mode */}
+                                        <div className="space-y-3">
+                                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                                                Delivery Mode
+                                            </h3>
+                                            <div className="space-y-2">
+                                                <RadioButton label="Send Preview to My Email" checked={sendOption === 'preview'} onChange={() => setSendOption('preview')} icon={Eye} />
+                                                <RadioButton label="Send to All Recipients" checked={sendOption === 'attendees'} onChange={() => setSendOption('attendees')} icon={Users} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Footer Actions */}
+                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                                <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                    <p>
+                                        Ready to send to <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> recipients
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={handleSendCertificates}
+                                    disabled={isLoading || !selectedCertificateForSend}
+                                    className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <RefreshCw size={16} className="animate-spin" />
+                                            Sending...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Send size={16} />
+                                            {sendOption === 'preview' ? 'Send Preview' : 'Send Certificates'}
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        /* History Tab */
+                        <div className="space-y-4">
+                            {sentCertificates.length === 0 ? (
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
+                                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                                        <Award className="w-8 h-8 text-gray-400" />
+                                    </div>
+                                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No certificates sent yet</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">Start by sending your first certificate batch</p>
+                                    <button
+                                        onClick={() => setActiveTab('send')}
+                                        className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all duration-200"
+                                    >
+                                        Send Certificates
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {sentCertificates.map((send) => (
+                                        <div key={send.id} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm hover:shadow-md transition-all duration-300 group">
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-3 mb-2">
+                                                        <h3 className="font-semibold text-gray-900 dark:text-white">{send.certificateName}</h3>
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${send.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
+                                                            {send.status === 'sent' ? 'Sent' : 'Scheduled'}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
+                                                        <span className="flex items-center gap-1">
+                                                            <Users size={12} />
+                                                            {send.recipientCount} recipients
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <Calendar size={12} />
+                                                            {send.status === 'scheduled' && send.scheduledFor
+                                                                ? `Scheduled for ${formatDate(send.scheduledFor)}`
+                                                                : formatDate(send.sentAt)
+                                                            }
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => {
+                                                            setDownloadFormat('pdf');
+                                                            const cert = certificates.find(c => c.id === send.certificateId);
+                                                            if (cert) handleDownloadCertificate(cert);
+                                                        }}
+                                                        className="p-2 text-[#3D518C] hover:bg-[#3D518C]/10 rounded-lg transition-colors"
+                                                        title="Download"
+                                                    >
+                                                        <Download size={16} />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                </div>
             </div>
 
             {/* Certificate Preview Modal */}
@@ -1359,6 +1352,6 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                     </div>
                 </div>
             </Modal>
-        </div>
+        </div >
     );
 }

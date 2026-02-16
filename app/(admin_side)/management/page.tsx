@@ -394,23 +394,23 @@ export default function ManagementPage() {
                                             </button>
                                         </div>
                                     </div>
+
+                                    {/* Action Button */}
+                                    <button
+                                        onClick={activeFilter === 'Team' ? handleOpenModal : handleOpenCreateRole}
+                                        className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm md:ml-auto"
+                                    >
+                                        <Image
+                                            src="/icons/add.png"
+                                            alt="Add"
+                                            width={16}
+                                            height={16}
+                                            className="brightness-0 invert"
+                                        />
+                                        {activeFilter === 'Team' ? 'Invite User' : 'Create Role'}
+                                    </button>
                                 </div>
                             </div>
-
-                            {/* Action Button - Moved outside the flex row on mobile if needed, or kept inside but adjusted */}
-                            <button
-                                onClick={activeFilter === 'Team' ? handleOpenModal : handleOpenCreateRole}
-                                className="w-full md:w-auto flex items-center justify-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm md:ml-auto"
-                            >
-                                <Image
-                                    src="/icons/add.png"
-                                    alt="Add"
-                                    width={16}
-                                    height={16}
-                                    className="brightness-0 invert"
-                                />
-                                {activeFilter === 'Team' ? 'Invite User' : 'Create Role'}
-                            </button>
                         </div>
 
                         {/* Content based on active filter */}
@@ -625,7 +625,7 @@ export default function ManagementPage() {
                                 <div className="flex justify-end gap-3 mt-8">
                                     <button
                                         onClick={handleCloseModal}
-                                        className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                                        className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
                                     >
                                         Cancel
                                     </button>
@@ -715,13 +715,13 @@ export default function ManagementPage() {
                             <div className="flex justify-center gap-4 mt-8">
                                 <button
                                     onClick={handleCloseEditModal}
-                                    className="px-8 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors"
+                                    className="px-8 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleSaveEdit}
-                                    className="px-10 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    className="px-10 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-[#2d3d6b] hover:to-indigo-700 transition-colors shadow-md"
                                 >
                                     Save
                                 </button>
@@ -743,13 +743,13 @@ export default function ManagementPage() {
                             <div className="flex justify-center gap-4">
                                 <button
                                     onClick={handleCancelRemove}
-                                    className="px-8 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors"
+                                    className="px-8 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleConfirmRemove}
-                                    className="px-10 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                                    className="px-10 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors shadow-md"
                                 >
                                     Remove
                                 </button>
@@ -1065,7 +1065,7 @@ export default function ManagementPage() {
                             <div className="sticky bottom-0 right-0 flex justify-end gap-4 p-6 bg-gradient-to-t from-white via-white to-white/95 dark:from-gray-800 dark:via-gray-800 dark:to-gray-800/95 border-t border-gray-100 dark:border-gray-700 shadow-[0_-8px_20px_rgba(0,0,0,0.08)]">
                                 <button
                                     onClick={handleCloseCreateRole}
-                                    className="px-8 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                                    className="px-8 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
                                 >
                                     Cancel
                                 </button>
@@ -1090,13 +1090,13 @@ export default function ManagementPage() {
                             <div className="flex justify-center gap-4">
                                 <button
                                     onClick={handleCancelDeleteRole}
-                                    className="px-8 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors"
+                                    className="px-8 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleConfirmDeleteRole}
-                                    className="px-10 py-2.5 bg-white border border-gray-300 text-gray-600 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                                    className="px-10 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors shadow-md"
                                 >
                                     Delete
                                 </button>

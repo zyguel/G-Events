@@ -6,7 +6,7 @@ export interface EventSummary {
     id: string;
     name: string;
     date: string;
-    status: "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled";
+    status: "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled" | "Draft";
 }
 
 // Mock data for all events
@@ -152,6 +152,36 @@ const eventsData: Record<string, EventData> = {
 export async function getEventData(eventId: string): Promise<EventData | null> {
     // Simulate API delay
     await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Handle local events (mock)
+    if (eventId.startsWith('evt-')) {
+        return {
+            id: eventId,
+            name: "New Event", // Will be overridden by client side if needed
+            date: "Date TBD",
+            status: "Draft",
+            stats: {
+                totalEvents: 0,
+                registrations: 0,
+                revenue: 0,
+                satisfaction: 0,
+                expenses: 0,
+                netProfit: 0,
+            },
+            comments: [],
+            trends: {
+                registrations: {
+                    weekly: [],
+                    weekLabels: [],
+                    registrationOpenDate: "",
+                    eventDate: ""
+                },
+                attendance: { checkedIn: 0, noShow: 0, waitlisted: 0 },
+            },
+            revenueBreakdown: [],
+            recentTransactions: [],
+        };
+    }
 
     return eventsData[eventId] || null;
 }

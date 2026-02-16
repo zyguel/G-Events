@@ -1,6 +1,7 @@
 /**
  * Event Management API - Mock CRUD operations for tickets, add-ons, promo codes, and settings
  * This module provides centralized data management for event configuration features
+ * using localStorage for persistence.
  */
 
 // ============================================================================
@@ -59,72 +60,27 @@ export interface EventSettings {
 }
 
 // ============================================================================
-// MOCK DATA STORAGE
+// HELPERS
 // ============================================================================
 
-const mockEventData: Record<string, {
-  tickets: Ticket[];
-  addOns: AddOn[];
-  promoCodes: PromoCode[];
-  settings: EventSettings;
-}> = {
-  'devfest-2025': {
-    tickets: [
-      {
-        id: 'tk-001',
-        name: 'Early Bird',
-        type: 'paid',
-        quantity: 100,
-        price: 1500,
-        currency: 'PHP',
-        startDate: '2025-05-01',
-        endDate: '2025-06-15',
-        timezone: 'Asia/Manila',
-        description: 'Limited early bird tickets with 30% discount',
-        visibility: 'visible',
-        minQuantity: 1,
-        maxQuantity: 5,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: 'tk-002',
-        name: 'General Admission',
-        type: 'paid',
-        quantity: 200,
-        price: 2000,
-        currency: 'PHP',
-        startDate: '2025-06-01',
-        endDate: '2025-11-15',
-        timezone: 'Asia/Manila',
-        description: 'Standard ticket for general attendees',
-        visibility: 'visible',
-        minQuantity: 1,
-        maxQuantity: 10,
-        createdAt: new Date().toISOString(),
-      },
-    ],
-    addOns: [],
-    promoCodes: [],
-    settings: {
-      eventId: 'devfest-2025',
-      displayTicketsRemaining: true,
-      displayMessageAfterSalesEnd: true,
-      messageAfterSalesEnd: 'Ticket sales have ended. Thank you for your interest!',
-      updatedAt: new Date().toISOString(),
-    },
-  },
-  'io-extended-2025': {
-    tickets: [],
-    addOns: [],
-    promoCodes: [],
-    settings: {
-      eventId: 'io-extended-2025',
-      displayTicketsRemaining: false,
-      displayMessageAfterSalesEnd: false,
-      messageAfterSalesEnd: '',
-      updatedAt: new Date().toISOString(),
-    },
-  },
+const getFromStorage = <T>(key: string, defaultValue: T): T => {
+  if (typeof window === 'undefined') return defaultValue;
+  try {
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : defaultValue;
+  } catch (e) {
+    console.error(`Error reading ${key} from localStorage`, e);
+    return defaultValue;
+  }
+};
+
+const saveToStorage = <T>(key: string, value: T): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch (e) {
+    console.error(`Error saving ${key} to localStorage`, e);
+  }
 };
 
 // ============================================================================
@@ -133,26 +89,13 @@ const mockEventData: Record<string, {
 
 export async function getTickets(eventId: string): Promise<Ticket[]> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  return mockEventData[eventId]?.tickets || [];
+  return getFromStorage<Ticket[]>(`event_tickets_${eventId}`, []);
 }
 
 export async function createTicket(eventId: string, ticket: Omit<Ticket, 'id' | 'createdAt'>): Promise<Ticket> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  if (!mockEventData[eventId]) {
-    mockEventData[eventId] = { 
-      tickets: [], 
-      addOns: [], 
-      promoCodes: [], 
-      settings: { 
-        eventId, 
-        displayTicketsRemaining: false, 
-        displayMessageAfterSalesEnd: false, 
-        messageAfterSalesEnd: '', 
-        updatedAt: new Date().toISOString() 
-      } 
-    };
-  }
+
+  const tickets = getFromStorage<Ticket[]>(`event_tickets_${eventId}`, []);
 
   const newTicket: Ticket = {
     ...ticket,
@@ -160,33 +103,37 @@ export async function createTicket(eventId: string, ticket: Omit<Ticket, 'id' | 
     createdAt: new Date().toISOString(),
   };
 
-  mockEventData[eventId].tickets.push(newTicket);
+  tickets.push(newTicket);
+  saveToStorage(`event_tickets_${eventId}`, tickets);
+
   return newTicket;
 }
 
 export async function updateTicket(eventId: string, ticketId: string, updates: Partial<Ticket>): Promise<Ticket | null> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  const tickets = mockEventData[eventId]?.tickets || [];
+
+  const tickets = getFromStorage<Ticket[]>(`event_tickets_${eventId}`, []);
   const index = tickets.findIndex(t => t.id === ticketId);
 
   if (index === -1) return null;
 
   const updatedTicket = { ...tickets[index], ...updates };
-  mockEventData[eventId].tickets[index] = updatedTicket;
+  tickets[index] = updatedTicket;
+
+  saveToStorage(`event_tickets_${eventId}`, tickets);
 
   return updatedTicket;
 }
 
 export async function deleteTicket(eventId: string, ticketId: string): Promise<boolean> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  const tickets = mockEventData[eventId]?.tickets || [];
-  const index = tickets.findIndex(t => t.id === ticketId);
 
-  if (index === -1) return false;
+  const tickets = getFromStorage<Ticket[]>(`event_tickets_${eventId}`, []);
+  const filteredTickets = tickets.filter(t => t.id !== ticketId);
 
-  mockEventData[eventId].tickets.splice(index, 1);
+  if (tickets.length === filteredTickets.length) return false;
+
+  saveToStorage(`event_tickets_${eventId}`, filteredTickets);
   return true;
 }
 
@@ -196,26 +143,13 @@ export async function deleteTicket(eventId: string, ticketId: string): Promise<b
 
 export async function getAddOns(eventId: string): Promise<AddOn[]> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  return mockEventData[eventId]?.addOns || [];
+  return getFromStorage<AddOn[]>(`event_addons_${eventId}`, []);
 }
 
 export async function createAddOn(eventId: string, addOn: Omit<AddOn, 'id' | 'createdAt'>): Promise<AddOn> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  if (!mockEventData[eventId]) {
-    mockEventData[eventId] = { 
-      tickets: [], 
-      addOns: [], 
-      promoCodes: [], 
-      settings: { 
-        eventId, 
-        displayTicketsRemaining: false, 
-        displayMessageAfterSalesEnd: false, 
-        messageAfterSalesEnd: '', 
-        updatedAt: new Date().toISOString() 
-      } 
-    };
-  }
+
+  const addOns = getFromStorage<AddOn[]>(`event_addons_${eventId}`, []);
 
   const newAddOn: AddOn = {
     ...addOn,
@@ -223,33 +157,37 @@ export async function createAddOn(eventId: string, addOn: Omit<AddOn, 'id' | 'cr
     createdAt: new Date().toISOString(),
   };
 
-  mockEventData[eventId].addOns.push(newAddOn);
+  addOns.push(newAddOn);
+  saveToStorage(`event_addons_${eventId}`, addOns);
+
   return newAddOn;
 }
 
 export async function updateAddOn(eventId: string, addOnId: string, updates: Partial<AddOn>): Promise<AddOn | null> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  const addOns = mockEventData[eventId]?.addOns || [];
+
+  const addOns = getFromStorage<AddOn[]>(`event_addons_${eventId}`, []);
   const index = addOns.findIndex(a => a.id === addOnId);
 
   if (index === -1) return null;
 
   const updatedAddOn = { ...addOns[index], ...updates };
-  mockEventData[eventId].addOns[index] = updatedAddOn;
+  addOns[index] = updatedAddOn;
+
+  saveToStorage(`event_addons_${eventId}`, addOns);
 
   return updatedAddOn;
 }
 
 export async function deleteAddOn(eventId: string, addOnId: string): Promise<boolean> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  const addOns = mockEventData[eventId]?.addOns || [];
-  const index = addOns.findIndex(a => a.id === addOnId);
 
-  if (index === -1) return false;
+  const addOns = getFromStorage<AddOn[]>(`event_addons_${eventId}`, []);
+  const filteredAddOns = addOns.filter(a => a.id !== addOnId);
 
-  mockEventData[eventId].addOns.splice(index, 1);
+  if (addOns.length === filteredAddOns.length) return false;
+
+  saveToStorage(`event_addons_${eventId}`, filteredAddOns);
   return true;
 }
 
@@ -259,26 +197,13 @@ export async function deleteAddOn(eventId: string, addOnId: string): Promise<boo
 
 export async function getPromoCodes(eventId: string): Promise<PromoCode[]> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  return mockEventData[eventId]?.promoCodes || [];
+  return getFromStorage<PromoCode[]>(`event_promocodes_${eventId}`, []);
 }
 
 export async function createPromoCode(eventId: string, promoCode: Omit<PromoCode, 'id' | 'createdAt'>): Promise<PromoCode> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  if (!mockEventData[eventId]) {
-    mockEventData[eventId] = { 
-      tickets: [], 
-      addOns: [], 
-      promoCodes: [], 
-      settings: { 
-        eventId, 
-        displayTicketsRemaining: false, 
-        displayMessageAfterSalesEnd: false, 
-        messageAfterSalesEnd: '', 
-        updatedAt: new Date().toISOString() 
-      } 
-    };
-  }
+
+  const promoCodes = getFromStorage<PromoCode[]>(`event_promocodes_${eventId}`, []);
 
   const newPromoCode: PromoCode = {
     ...promoCode,
@@ -286,33 +211,37 @@ export async function createPromoCode(eventId: string, promoCode: Omit<PromoCode
     createdAt: new Date().toISOString(),
   };
 
-  mockEventData[eventId].promoCodes.push(newPromoCode);
+  promoCodes.push(newPromoCode);
+  saveToStorage(`event_promocodes_${eventId}`, promoCodes);
+
   return newPromoCode;
 }
 
 export async function updatePromoCode(eventId: string, promoCodeId: string, updates: Partial<PromoCode>): Promise<PromoCode | null> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  const promoCodes = mockEventData[eventId]?.promoCodes || [];
+
+  const promoCodes = getFromStorage<PromoCode[]>(`event_promocodes_${eventId}`, []);
   const index = promoCodes.findIndex(p => p.id === promoCodeId);
 
   if (index === -1) return null;
 
   const updatedPromoCode = { ...promoCodes[index], ...updates };
-  mockEventData[eventId].promoCodes[index] = updatedPromoCode;
+  promoCodes[index] = updatedPromoCode;
+
+  saveToStorage(`event_promocodes_${eventId}`, promoCodes);
 
   return updatedPromoCode;
 }
 
 export async function deletePromoCode(eventId: string, promoCodeId: string): Promise<boolean> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  const promoCodes = mockEventData[eventId]?.promoCodes || [];
-  const index = promoCodes.findIndex(p => p.id === promoCodeId);
 
-  if (index === -1) return false;
+  const promoCodes = getFromStorage<PromoCode[]>(`event_promocodes_${eventId}`, []);
+  const filteredPromoCodes = promoCodes.filter(p => p.id !== promoCodeId);
 
-  mockEventData[eventId].promoCodes.splice(index, 1);
+  if (promoCodes.length === filteredPromoCodes.length) return false;
+
+  saveToStorage(`event_promocodes_${eventId}`, filteredPromoCodes);
   return true;
 }
 
@@ -322,39 +251,26 @@ export async function deletePromoCode(eventId: string, promoCodeId: string): Pro
 
 export async function getEventSettings(eventId: string): Promise<EventSettings> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  return mockEventData[eventId]?.settings || {
+  return getFromStorage<EventSettings>(`event_settings_${eventId}`, {
     eventId,
     displayTicketsRemaining: false,
     displayMessageAfterSalesEnd: false,
     messageAfterSalesEnd: '',
     updatedAt: new Date().toISOString(),
-  };
+  });
 }
 
 export async function updateEventSettings(eventId: string, updates: Partial<EventSettings>): Promise<EventSettings> {
   await new Promise(resolve => setTimeout(resolve, 100));
-  
-  if (!mockEventData[eventId]) {
-    mockEventData[eventId] = { 
-      tickets: [], 
-      addOns: [], 
-      promoCodes: [], 
-      settings: { 
-        eventId, 
-        displayTicketsRemaining: false, 
-        displayMessageAfterSalesEnd: false, 
-        messageAfterSalesEnd: '', 
-        updatedAt: new Date().toISOString() 
-      } 
-    };
-  }
+
+  const settings = await getEventSettings(eventId);
 
   const updatedSettings = {
-    ...mockEventData[eventId].settings,
+    ...settings,
     ...updates,
     updatedAt: new Date().toISOString(),
   };
 
-  mockEventData[eventId].settings = updatedSettings;
+  saveToStorage(`event_settings_${eventId}`, updatedSettings);
   return updatedSettings;
 }
