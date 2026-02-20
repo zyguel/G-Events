@@ -23,15 +23,29 @@ export default function TimeInput({ value, onChange, placeholder, className, req
 
     useEffect(() => { setMounted(true); }, []);
 
-    // Calculate picker position when opening
-    useEffect(() => {
-        if (isOpen && inputRef.current) {
+    // Calculate picker position relative to viewport (fixed positioning)
+    const updatePickerPos = () => {
+        if (inputRef.current) {
             const rect = inputRef.current.getBoundingClientRect();
             if (openAbove) {
-                setPickerPos({ top: rect.top + window.scrollY - 4, left: rect.left + window.scrollX });
+                setPickerPos({ top: rect.top - 4, left: rect.left });
             } else {
-                setPickerPos({ top: rect.bottom + window.scrollY + 4, left: rect.left + window.scrollX });
+                setPickerPos({ top: rect.bottom + 4, left: rect.left });
             }
+        }
+    };
+
+    // Recalculate position on open, scroll, and resize
+    useEffect(() => {
+        if (isOpen) {
+            updatePickerPos();
+            const handleScrollOrResize = () => updatePickerPos();
+            window.addEventListener('scroll', handleScrollOrResize, true);
+            window.addEventListener('resize', handleScrollOrResize);
+            return () => {
+                window.removeEventListener('scroll', handleScrollOrResize, true);
+                window.removeEventListener('resize', handleScrollOrResize);
+            };
         }
     }, [isOpen, openAbove]);
 
@@ -154,10 +168,7 @@ export default function TimeInput({ value, onChange, placeholder, className, req
                 <div
                     ref={pickerRef}
                     className="fixed z-[9999] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden w-56"
-                    style={openAbove
-                        ? { bottom: `${window.innerHeight - pickerPos.top}px`, left: `${pickerPos.left}px` }
-                        : { top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }
-                    }
+                    style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
                 >
                     {/* Header */}
                     <div className="bg-[#2196F3] px-4 py-3 flex items-center gap-3">

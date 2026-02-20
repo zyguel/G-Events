@@ -6,6 +6,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Search, Filter, Plus, Calendar, List, Grid, MoreVertical, Users, Ticket, MapPin } from 'lucide-react';
 
+import { getEvents } from '@/app/(admin_side)/backend/events';
+
 type FilterOption = 'all' | 'drafts' | 'upcoming' | 'past';
 
 interface Event {
@@ -22,37 +24,50 @@ interface Event {
     analyticsId?: string; // Maps to the API event ID for analytics
 }
 
-const initialEventsData: Event[] = [
-    { id: 1, name: 'Google I/O Extended 2025', location: 'USC MR Hall', date: 'July 20, 2025', ticketsSold: 0, totalTickets: 200, attendees: 0, status: 'Draft', type: 'draft', analyticsId: 'io-extended-2025' },
-    { id: 2, name: 'DevFest Cebu 2025', location: 'USC MR Hall', date: 'November 20, 2025', ticketsSold: 150, totalTickets: 350, attendees: 0, status: 'Upcoming', type: 'upcoming', analyticsId: 'devfest-2025' },
-    { id: 3, name: 'DevFest Cebu 2024', location: 'Ayala Center Cebu', date: 'November 25, 2024', ticketsSold: 302, totalTickets: 450, attendees: 290, status: 'Completed', type: 'past', analyticsId: 'devfest-2025' },
-    { id: 4, name: 'Google I/O Cebu 2024', location: 'Ayala Center Cebu', date: 'July 15, 2024', ticketsSold: 210, totalTickets: 350, attendees: 198, status: 'Completed', type: 'past', analyticsId: 'io-extended-2025' },
-    { id: 5, name: 'Women Techmakers 2025', location: 'SMX Convention', date: 'March 8, 2025', ticketsSold: 89, totalTickets: 200, attendees: 0, status: 'Upcoming', type: 'upcoming', analyticsId: 'wtm-2025' },
-];
-
 export default function EventsPage() {
-    const [events, setEvents] = useState<Event[]>(initialEventsData);
+    const [events, setEvents] = useState<Event[]>([]);
     const [selectedFilter, setSelectedFilter] = useState<FilterOption>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
 
-    // Load created events from localStorage
+    // Load events from Supabase
     useEffect(() => {
-        const storedEvents = localStorage.getItem('mock_created_events');
-        if (storedEvents) {
-            try {
-                const parsedEvents = JSON.parse(storedEvents);
-                setEvents(prev => {
-                    // Avoid duplicates if needed, but for now simple merge
-                    // Filter out any that might already be in state to be safe (though initial render shouldn't have them)
-                    const existingIds = new Set(prev.map(e => e.id));
-                    const newUniqueEvents = parsedEvents.filter((e: Event) => !existingIds.has(e.id));
-                    return [...newUniqueEvents, ...prev];
-                });
-            } catch (e) {
-                console.error('Failed to parse stored events', e);
-            }
-        }
+        const fetchEvents = async () => {
+            const data = await getEvents();
+            const mappedEvents: Event[] = data.map((e: any) => {
+                const now = new Date();
+                const startDate = e.event_start_at ? new Date(e.event_start_at) : null;
+                const endDate = e.event_end_at ? new Date(e.event_end_at) : null;
+
+                let status: 'Draft' | 'Upcoming' | 'Live' | 'Completed' = 'Draft';
+
+                if (e.is_published) {
+                    if (endDate && endDate < now) {
+                        status = 'Completed';
+                    } else if (startDate && startDate <= now && endDate && endDate >= now) {
+                        status = 'Live';
+                    } else {
+                        status = 'Upcoming';
+                    }
+                }
+
+                return {
+                    id: e.id,
+                    name: e.title,
+                    location: e.location || 'TBD',
+                    date: e.event_start_at ? e.event_start_at.split('T')[0] : '', // Simple date extraction
+                    ticketsSold: 0, // Mock for now
+                    totalTickets: e.capacity || 100,
+                    attendees: 0, // Mock for now
+                    status: status,
+                    type: (status === 'Completed') ? 'past' : 'upcoming',
+                    image: e.banner_image,
+                    analyticsId: e.id.toString()
+                };
+            });
+            setEvents(mappedEvents);
+        };
+        fetchEvents();
     }, []);
 
     const filteredEvents = events.filter(event => {
@@ -61,6 +76,7 @@ export default function EventsPage() {
 
         const status = event.status;
         const isDraft = status === 'Draft';
+        // Expanded status list based on likely DB values
         const isUpcoming = ['Upcoming', 'Live', 'Published', 'Not Yet Published', 'Ongoing', 'Not Started'].includes(status);
         const isPast = ['Completed', 'Past', 'Cancelled'].includes(status);
 
@@ -106,8 +122,7 @@ export default function EventsPage() {
     const formatDate = (dateStr: string) => {
         if (!dateStr) return "";
 
-        // Handle YYYY-MM-DD format
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        try {
             const date = new Date(dateStr);
             return new Intl.DateTimeFormat('en-US', {
                 month: 'long',
@@ -115,9 +130,9 @@ export default function EventsPage() {
                 year: 'numeric',
                 timeZone: 'UTC'
             }).format(date);
+        } catch (e) {
+            return dateStr;
         }
-
-        return dateStr;
     };
 
     return (

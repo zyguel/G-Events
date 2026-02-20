@@ -1,11 +1,14 @@
 import { notFound } from "next/navigation";
-import { getEventData } from "@/lib/api";
+import { getEventById } from "@/app/(admin_side)/backend/events";
 import OrderConfirmation from "@/components/admin/OrderConfirmation";
 
 export default async function OrderConfirmationPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 
-    const data = await getEventData(eventId);
+    const id = parseInt(eventId);
+    if (isNaN(id)) return notFound();
+
+    const data = await getEventById(id);
 
     if (!data) {
         return notFound();

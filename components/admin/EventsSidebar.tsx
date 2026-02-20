@@ -53,14 +53,13 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
 
     const formatDate = (dateStr: string) => {
         if (!dateStr) return "";
-        // Handle YYYY-MM-DD format
-        if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-            const date = new Date(dateStr);
+        const date = new Date(dateStr);
+        if (!isNaN(date.getTime())) {
             return new Intl.DateTimeFormat('en-US', {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',
-                timeZone: 'UTC'
+                // timeZone: 'UTC' // Optional: keep if you want UTC, or remove for local time
             }).format(date);
         }
         return dateStr;
@@ -88,7 +87,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                             ? "bg-green-500/30 text-green-100"
                             : "bg-gray-500/30 text-gray-100"
                             }`}>
-                            ● {eventStatus === "Ongoing" ? "Not Yet Published" : eventStatus}
+                            ● {eventStatus}
                         </div>
                     </div>
                     {/* Decorative circle */}

@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, notFound } from "next/navigation";
-import { getEventData, EventData } from "@/lib/api";
+import { useParams } from "next/navigation";
+import { EventData } from "@/lib/api";
 import PublishEventContent from "@/components/admin/PublishEventContent";
+import { getEventById } from "@/app/(admin_side)/backend/events";
 
 export default function PublishEventPage() {
     const params = useParams();
@@ -18,17 +19,67 @@ export default function PublishEventPage() {
         const loadEvent = async () => {
             if (!eventId) return;
 
-            // 1. Try fetching from "API" (mock logic)
+            // 1. Try fetching from Supabase
             try {
-                const apiData = await getEventData(eventId);
-                // Check if apiData is valid and not empty for local events
-                if (apiData && (apiData.id !== eventId || apiData.name !== "New Event")) {
-                    setEventData(apiData);
-                    setLoading(false);
-                    return;
+                const id = parseInt(eventId);
+                if (!isNaN(id)) {
+                    const apiData = await getEventById(id);
+
+                    if (apiData) {
+                        // Derive status
+                        const now = new Date();
+                        const startDate = apiData.event_start_at ? new Date(apiData.event_start_at) : null;
+                        const endDate = apiData.event_end_at ? new Date(apiData.event_end_at) : null;
+
+                        let status = 'Draft';
+                        if (apiData.is_published) {
+                            if (endDate && endDate < now) {
+                                status = 'Completed';
+                            } else if (startDate && startDate <= now && endDate && endDate >= now) {
+                                status = 'Ongoing';
+                            } else {
+                                status = 'Published';
+                            }
+                        }
+
+                        const reconstructedEvent: any = {
+                            id: apiData.id.toString(),
+                            name: apiData.title,
+                            date: apiData.event_start_at || '',
+                            status: status,
+                            location: apiData.location || '',
+                            description: apiData.description || '',
+                            startTime: startDate ? startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '',
+                            endTime: endDate ? endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '',
+                            bannerImage: apiData.banner_image,
+
+                            // Registration Settings
+                            allowGroupRegistration: apiData.allow_group_registration,
+                            allowWaitlist: apiData.allow_waitlist,
+                            enableBreakoutSession: apiData.allow_breakout_sessions,
+                            isVisibleToPublic: apiData.is_visible,
+
+                            // Registration Dates/Times
+                            registrationOpenDate: apiData.registration_open_at ? new Date(apiData.registration_open_at).toISOString().split('T')[0] : '',
+                            registrationOpenTime: apiData.registration_open_at ? new Date(apiData.registration_open_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '',
+                            registrationCloseDate: apiData.registration_close_at ? new Date(apiData.registration_close_at).toISOString().split('T')[0] : '',
+                            registrationCloseTime: apiData.registration_close_at ? new Date(apiData.registration_close_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false }) : '',
+
+                            // Mock stats
+                            stats: { totalEvents: 0, registrations: 0, revenue: 0, satisfaction: 0, expenses: 0, netProfit: 0 },
+                            comments: [],
+                            trends: { registrations: { weekly: [], weekLabels: [], registrationOpenDate: "", eventDate: "" }, attendance: { checkedIn: 0, noShow: 0, waitlisted: 0 } },
+                            revenueBreakdown: [],
+                            recentTransactions: []
+                        };
+
+                        setEventData(reconstructedEvent);
+                        setLoading(false);
+                        return;
+                    }
                 }
             } catch (e) {
-                console.log("Error fetching from API, checking local storage...", e);
+                console.log("Error fetching from API", e);
             }
 
             // 2. Fallback to localStorage
@@ -112,7 +163,14 @@ export default function PublishEventPage() {
     }
 
     if (!eventData) {
-        return notFound();
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Event Not Found</h1>
+                    <p className="text-gray-600 dark:text-gray-400">The event you are looking for does not exist or has been removed.</p>
+                </div>
+            </div>
+        );
     }
 
     return (

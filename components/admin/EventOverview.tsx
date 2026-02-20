@@ -7,6 +7,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import DateTimeInput from "./DateTimeInput";
 import TimeInput from "./TimeInput";
+import { createEvent, saveAgendaSlot, deleteAgendaSlot } from '@/app/(admin_side)/backend/events';
 import DateInput from "./DateInput";
 
 // Toast Component
@@ -92,50 +93,34 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     // --- Actions ---
 
-    // --- Persistence Helper ---
-    const persistEvent = (updatedEvent: EventData) => {
-        try {
-            // 1. Save full detail
-            localStorage.setItem(`event_detail_${updatedEvent.id}`, JSON.stringify(updatedEvent));
-
-            // 2. Update summary list
-            const storedEvents: any[] = JSON.parse(localStorage.getItem('mock_created_events') || '[]');
-            const updatedList = storedEvents.map(e => {
-                if (String(e.id) === String(updatedEvent.id)) {
-                    return {
-                        ...e,
-                        name: updatedEvent.name,
-                        location: updatedEvent.location,
-                        date: updatedEvent.date,
-                        status: updatedEvent.status,
-                        image: updatedEvent.bannerUrl // Map banner to image for list view
-                    };
-                }
-                return e;
-            });
-            localStorage.setItem('mock_created_events', JSON.stringify(updatedList));
-        } catch (e: any) {
-            console.error("Error updating local storage", e);
-            if (e.name === 'QuotaExceededError') {
-                setToast({ message: 'Storage full! Image might be too large.', type: 'error' });
-            }
-        }
-    };
-
-    // --- Actions ---
-
     const handleSaveTitle = (e: React.FormEvent) => {
         e.preventDefault();
         const formData = new FormData(e.target as HTMLFormElement);
+        const name = formData.get('name') as string;
+        const subtitle = formData.get('subtitle') as string;
+
         const updatedEvent = {
             ...event,
-            name: formData.get('name') as string,
-            subtitle: formData.get('subtitle') as string
+            name,
+            subtitle
         };
         setEvent(updatedEvent);
-        persistEvent(updatedEvent);
         setActiveModal(null);
-        setToast({ message: 'Event details updated successfully!', type: 'success' });
+
+        if (event.id !== 'new') {
+            setToast({ message: 'Saving title...', type: 'info' });
+            import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+                updateEvent(parseInt(event.id), {
+                    title: name,
+                    // Subtitle is not in DB schema yet, so we don't save it to backend
+                }).then(res => {
+                    if (res.success) setToast({ message: 'Event title updated!', type: 'success' });
+                    else setToast({ message: 'Failed to save title.', type: 'error' });
+                });
+            });
+        } else {
+            setToast({ message: 'Title updated locally!', type: 'success' });
+        }
     };
 
     // Initialize date/time modal values when it opens
@@ -162,18 +147,38 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
         // Format date from Date object to YYYY-MM-DD
         const formattedDate = tempEventDate ? tempEventDate.toISOString().split('T')[0] : event.date;
+        const location = formData.get('location') as string;
 
         const updatedEvent = {
             ...event,
             date: formattedDate,
             startTime: tempStartTime,
             endTime: tempEndTime,
-            location: formData.get('location') as string
+            location: location
         };
         setEvent(updatedEvent);
-        persistEvent(updatedEvent);
         setActiveModal(null);
-        setToast({ message: 'Date and location updated successfully!', type: 'success' });
+
+        if (event.id !== 'new') {
+            setToast({ message: 'Saving date & location...', type: 'info' });
+
+            // Construct timestamps
+            const startAt = tempStartTime ? new Date(`${formattedDate}T${tempStartTime}:00`).toISOString() : null;
+            const endAt = tempEndTime ? new Date(`${formattedDate}T${tempEndTime}:00`).toISOString() : null;
+
+            import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+                updateEvent(parseInt(event.id), {
+                    location: location,
+                    event_start_at: startAt,
+                    event_end_at: endAt
+                }).then(res => {
+                    if (res.success) setToast({ message: 'Date & location updated!', type: 'success' });
+                    else setToast({ message: 'Failed to update date/location.', type: 'error' });
+                });
+            });
+        } else {
+            setToast({ message: 'Date & location updated locally!', type: 'success' });
+        }
     };
 
     const handleSaveOverview = (e: React.FormEvent) => {
@@ -184,10 +189,25 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             description: formData.get('description') as string,
             theme: formData.get('theme') as string,
         };
+        console.log('Saving overview locally:', updatedEvent);
         setEvent(updatedEvent);
-        persistEvent(updatedEvent);
         setActiveModal(null);
-        setToast({ message: 'Overview updated successfully!', type: 'success' });
+        if (event.id !== 'new') {
+            setToast({ message: 'Saving overview...', type: 'info' });
+            import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+                console.log('Calling backend updateEvent for overview...');
+                updateEvent(parseInt(event.id), {
+                    description: updatedEvent.description,
+                    theme: updatedEvent.theme
+                }).then(res => {
+                    console.log('Overview save result:', res);
+                    if (res.success) setToast({ message: 'Overview saved!', type: 'success' });
+                    else setToast({ message: 'Failed to save overview: ' + res.error, type: 'error' });
+                });
+            });
+        } else {
+            setToast({ message: 'Overview updated locally!', type: 'success' });
+        }
     };
 
     const handleAddObjective = () => {
@@ -197,9 +217,19 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 objectives: [...event.objectives, newObjective.trim()]
             };
             setEvent(updatedEvent);
-            persistEvent(updatedEvent);
             setNewObjective("");
             setIsAddingObjective(false);
+            if (event.id !== 'new') {
+                setToast({ message: 'Saving objective...', type: 'info' });
+                import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+                    updateEvent(parseInt(event.id), {
+                        objectives: updatedEvent.objectives
+                    }).then(res => {
+                        if (res.success) setToast({ message: 'Objective added!', type: 'success' });
+                        else setToast({ message: 'Failed to save objective.', type: 'error' });
+                    });
+                });
+            }
         }
     };
 
@@ -209,13 +239,24 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             objectives: event.objectives.filter((_, i) => i !== index)
         };
         setEvent(updatedEvent);
-        persistEvent(updatedEvent);
+        if (event.id !== 'new') {
+            setToast({ message: 'Removing objective...', type: 'info' });
+            import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+                updateEvent(parseInt(event.id), {
+                    objectives: updatedEvent.objectives
+                }).then(res => {
+                    if (res.success) setToast({ message: 'Objective removed!', type: 'success' });
+                    else setToast({ message: 'Failed to update objectives.', type: 'error' });
+                });
+            });
+        }
     };
 
-    const handleAddAgendaSlot = () => {
+    const handleAddAgendaSlot = async () => {
         if (!newAgenda.title || !newAgenda.speaker || !newAgenda.startTime || !newAgenda.endTime) return;
 
         let updatedEvent: EventData;
+        let itemToSave: AgendaItem;
 
         if (editingAgendaId) {
             // Update existing item
@@ -227,11 +268,11 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         : item
                 )
             };
-            setToast({ message: 'Agenda item updated successfully!', type: 'success' });
+            itemToSave = updatedEvent.agenda.find(i => i.id === editingAgendaId)!;
         } else {
             // Add new item
             const newItem: AgendaItem = {
-                id: Date.now().toString(), // Simple unique ID
+                id: `new-${Date.now()}`, // Helper ID for optimistic update
                 title: newAgenda.title || '',
                 speaker: newAgenda.speaker || '',
                 startTime: newAgenda.startTime || '',
@@ -243,13 +284,52 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 ...event,
                 agenda: [...(event.agenda || []), newItem]
             };
-            setToast({ message: 'Agenda item added successfully!', type: 'success' });
+            itemToSave = newItem;
         }
         setEvent(updatedEvent);
-        persistEvent(updatedEvent);
         setNewAgenda({});
         setEditingAgendaId(null);
         setActiveModal(null);
+
+        if (event.id !== 'new') {
+            setToast({ message: 'Saving agenda item...', type: 'info' });
+            const res = await saveAgendaSlot(parseInt(event.id), {
+                id: itemToSave.id,
+                title: itemToSave.title,
+                description: itemToSave.description,
+                speaker: itemToSave.speaker,
+                startTime: itemToSave.startTime,
+                endTime: itemToSave.endTime
+            });
+
+            if (res.success) {
+                setToast({ message: 'Agenda item saved!', type: 'success' });
+            } else {
+                setToast({ message: 'Failed to save agenda item: ' + res.error, type: 'error' });
+                console.error("Failed to save agenda item", res.error);
+            }
+        } else {
+            setToast({ message: 'Agenda item added locally!', type: 'success' });
+        }
+    };
+
+    const handleDeleteAgendaSlot = async (id: string) => {
+        const updatedEvent = {
+            ...event,
+            agenda: event.agenda.filter(item => item.id !== id)
+        };
+        setEvent(updatedEvent);
+
+        if (event.id !== 'new') {
+            setToast({ message: 'Deleting agenda item...', type: 'info' });
+            const res = await deleteAgendaSlot(id);
+            if (res.success) {
+                setToast({ message: 'Agenda item removed!', type: 'success' });
+            } else {
+                setToast({ message: 'Failed to remove agenda item: ' + res.error, type: 'error' });
+                console.error("Failed to delete agenda item", res.error);
+            }
+        }
     };
 
     const handleEditAgendaItem = (item: AgendaItem) => {
@@ -262,12 +342,28 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         setActiveModal('deleteBanner');
     };
 
-    const confirmDeleteBanner = () => {
+    const confirmDeleteBanner = async () => {
         const updatedEvent = { ...event, bannerUrl: undefined };
         setEvent(updatedEvent);
-        persistEvent(updatedEvent);
         setActiveModal(null);
-        setToast({ message: 'Banner removed successfully', type: 'info' });
+
+        if (event.id !== 'new') {
+            setToast({ message: 'Removing banner...', type: 'info' });
+            try {
+                const { updateEvent } = await import('@/app/(admin_side)/backend/events');
+                const res = await updateEvent(parseInt(event.id), { banner_image: null });
+                if (res.success) {
+                    setToast({ message: 'Banner removed successfully!', type: 'success' });
+                } else {
+                    setToast({ message: 'Failed to remove banner from server.', type: 'error' });
+                }
+            } catch (e) {
+                console.error('Error removing banner from server', e);
+                setToast({ message: 'Error removing banner.', type: 'error' });
+            }
+        } else {
+            setToast({ message: 'Banner removed successfully', type: 'info' });
+        }
     };
 
     // Helper to compress image
@@ -325,14 +421,65 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         }
     };
 
-    const handleSaveBanner = () => {
+    // Helper to convert data URL to Blob
+    const dataURLtoBlob = (dataurl: string) => {
+        const arr = dataurl.split(',');
+        const mime = arr[0].match(/:(.*?);/)?.[1];
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) {
+            u8arr[n] = bstr.charCodeAt(n);
+        }
+        return new Blob([u8arr], { type: mime });
+    };
+
+    const handleSaveBanner = async () => {
         if (tempBanner) {
+
+            // Optimistic update
             const updatedEvent = { ...event, bannerUrl: tempBanner };
             setEvent(updatedEvent);
-            persistEvent(updatedEvent);
-            setTempBanner(null); // Clear temp state
             setActiveModal(null);
-            setToast({ message: 'Banner updated successfully', type: 'success' });
+            setTempBanner(null);
+
+            // If it's a new event (id='new'), we can't upload to server yet effectively without an ID,
+            // or we upload but only save URL to state.
+            // Assuming this is for existing events primarily based on user request.
+            if (event.id !== 'new') {
+                setToast({ message: 'Uploading banner...', type: 'info' });
+                try {
+                    const blob = dataURLtoBlob(tempBanner);
+                    const file = new File([blob], "banner.jpg", { type: "image/jpeg" });
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    // Dynamic import to avoid server-only module in client component issues if not handled by Next.js automatically
+                    // But here we rely on the import at top. 
+                    // To be safe, we might need to check how next.js handles this. 
+                    // Usually safe if "use server" is at top of the file being imported.
+                    const { uploadEventBanner, updateEvent } = await import('@/app/(admin_side)/backend/events');
+
+                    const uploadRes = await uploadEventBanner(formData);
+                    if (uploadRes.success && uploadRes.url) {
+                        const updateRes = await updateEvent(parseInt(event.id), { banner_image: uploadRes.url });
+                        if (updateRes.success) {
+                            setToast({ message: 'Banner saved to server!', type: 'success' });
+                        } else {
+                            console.error('Failed to update event record:', updateRes.error);
+                            setToast({ message: 'Banner uploaded but failed to link to event.', type: 'error' });
+                        }
+                    } else {
+                        console.error('Failed to upload banner:', uploadRes.error);
+                        setToast({ message: `Failed to upload: ${uploadRes.error}`, type: 'error' });
+                    }
+                } catch (e: any) {
+                    console.error("Error saving banner to server", e);
+                    setToast({ message: `Error: ${e.message || 'Unknown error'}`, type: 'error' });
+                }
+            } else {
+                setToast({ message: 'Banner update saved locally.', type: 'success' });
+            }
         }
     };
 
@@ -363,7 +510,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 month: 'long',
                 day: 'numeric',
                 year: 'numeric',
-                timeZone: 'UTC' // Assuming input date is YYYY-MM-DD without time, render as UTC to avoid timezone shifts
+                // timeZone: 'UTC'
             }).format(date);
         } catch (e) {
             return dateStr;
@@ -385,53 +532,55 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             return;
         }
 
-        // Mock API call
         setToast({ message: 'Creating event...', type: 'info' });
 
-        // Simulate delay
-        await new Promise(resolve => setTimeout(resolve, 800));
-
-        // Create new event object
-        const newEventId = `evt-${Date.now()}`;
-        const newEventSummary = {
-            id: newEventId,
-            name: event.name,
-            location: event.location || 'TBD',
-            date: event.date ? new Date(event.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD',
-            ticketsSold: 0,
-            totalTickets: 100, // Default
-            attendees: 0,
-            status: 'Draft',
-            type: 'draft',
-            analyticsId: newEventId,
-            image: event.bannerUrl
-        };
-
-        // Save to localStorage
         try {
-            const existingEvents = JSON.parse(localStorage.getItem('mock_created_events') || '[]');
-            localStorage.setItem('mock_created_events', JSON.stringify([newEventSummary, ...existingEvents]));
+            const formData = new FormData();
+            formData.append('name', event.name);
+            formData.append('date', event.date);
+            if (event.description) formData.append('description', event.description);
+            if (event.startTime) formData.append('startTime', event.startTime);
+            if (event.endTime) formData.append('endTime', event.endTime);
+            if (event.location) formData.append('location', event.location);
+            if (event.theme) formData.append('theme', event.theme);
 
-            // Also save the full event detail
-            localStorage.setItem(`event_detail_${newEventId}`, JSON.stringify({
-                ...event,
-                id: newEventId,
-                status: 'Draft',
-                // Ensure default empty arrays if undefined
-                objectives: event.objectives || [],
-                agenda: event.agenda || []
-            }));
+            // Handle Banner Upload for Creation
+            if (event.bannerUrl && event.bannerUrl.startsWith('data:')) {
+                const blob = dataURLtoBlob(event.bannerUrl);
+                const file = new File([blob], "banner.jpg", { type: "image/jpeg" });
+                formData.append('bannerFile', file);
+            }
 
-        } catch (e) {
-            console.error('Failed to save event', e);
+            // Serialize agenda and objectives
+            if (event.agenda.length > 0) {
+                formData.append('agenda', JSON.stringify(event.agenda));
+            }
+            if (event.objectives.length > 0) {
+                // Determine if we are creating or updating. Here it's create.
+                formData.append('objectives', JSON.stringify(event.objectives));
+            }
+
+            // Call Server Action
+            const result = await createEvent({}, formData);
+
+            if (result.success) {
+                setToast({ message: 'Event created successfully!', type: 'success' });
+
+                // Clear local storage for new event draft
+                localStorage.removeItem(`event_detail_new`);
+
+                // Redirect
+                setTimeout(() => {
+                    router.push('/events');
+                }, 1000);
+            } else {
+                setToast({ message: result.error || 'Failed to create event', type: 'error' });
+            }
+
+        } catch (error) {
+            console.error('Creation error:', error);
+            setToast({ message: 'An unexpected error occurred.', type: 'error' });
         }
-
-        setToast({ message: 'Event created successfully!', type: 'success' });
-
-        // Redirect to events list after short delay
-        setTimeout(() => {
-            router.push('/events');
-        }, 1000);
     };
 
     return (
@@ -799,10 +948,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setEvent(prev => ({
-                                                                    ...prev,
-                                                                    agenda: prev.agenda.filter(item => item.id !== slot.id)
-                                                                }));
+                                                                handleDeleteAgendaSlot(slot.id);
                                                             }}
                                                             className="text-gray-400 hover:text-red-500 transition-colors p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg"
                                                             title="Remove Item"

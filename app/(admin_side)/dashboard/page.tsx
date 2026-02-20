@@ -6,77 +6,91 @@ import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
 
+import { getEvents } from '@/app/(admin_side)/backend/events';
+
 export default function DashboardPage() {
     // 1. Static Initial Data
-    const initialUpcomingEvents = [
-        { id: "devfest-2025", name: "DevFest Cebu 2025", date: "November 20, 2025", registrations: 350, status: "Upcoming" },
-        { id: "io-extended-2025", name: "Google I/O Extended", date: "July 20, 2025", registrations: 200, status: "Draft" },
-        { id: "wtm-2025", name: "Women Techmakers 2025", date: "March 8, 2025", registrations: 150, status: "Completed" },
-    ];
-
     const initialRecentActivity = [
-        { id: 1, action: "New registration", user: "Juan Dela Cruz", event: "DevFest Cebu 2025", time: "2 mins ago" },
-        { id: 2, action: "Ticket purchased", user: "Maria Santos", event: "DevFest Cebu 2025", time: "15 mins ago" },
-        { id: 3, action: "Event updated", user: "Admin", event: "Google I/O Extended", time: "1 hour ago" },
-        { id: 4, action: "New registration", user: "Jose Rizal", event: "DevFest Cebu 2025", time: "2 hours ago" },
+        { id: "1", action: "New registration", user: "Juan Dela Cruz", event: "DevFest Cebu 2025", time: "2 mins ago" },
+        { id: "2", action: "Ticket purchased", user: "Maria Santos", event: "DevFest Cebu 2025", time: "15 mins ago" },
+        { id: "3", action: "Event updated", user: "Admin", event: "Google I/O Extended", time: "1 hour ago" },
+        { id: "4", action: "New registration", user: "Juan", event: "DevFest Cebu 2025", time: "2 hours ago" },
     ];
 
     // 2. State
-    const [dashboardEvents, setDashboardEvents] = React.useState(initialUpcomingEvents.filter(e => e.status === 'Upcoming'));
+    const [dashboardEvents, setDashboardEvents] = React.useState<any[]>([]);
     const [activities, setActivities] = React.useState(initialRecentActivity);
-    const [nextEvent, setNextEvent] = React.useState(initialUpcomingEvents[0]);
+    const [nextEvent, setNextEvent] = React.useState<any>(null);
 
-    // 3. Load from LocalStorage
+    // 3. Load from Supabase
     React.useEffect(() => {
-        const loadLocalData = () => {
+        const loadData = async () => {
             try {
-                const stored = localStorage.getItem('mock_created_events');
-                const staticUpcoming = initialUpcomingEvents.filter(e => e.status === 'Upcoming');
+                const data = await getEvents();
 
-                let localUpcoming: any[] = [];
+                // Map to Dashboard format
+                const mappedEvents = data.map((e: any) => {
+                    const now = new Date();
+                    const startDate = e.event_start_at ? new Date(e.event_start_at) : null;
+                    const endDate = e.event_end_at ? new Date(e.event_end_at) : null;
 
-                if (stored) {
-                    const parsed = JSON.parse(stored);
+                    let status = 'Draft';
 
-                    // Map local events to Dashboard format and filter for Upcoming/Published
-                    localUpcoming = parsed.map((e: any) => ({
+                    if (e.is_published) {
+                        if (endDate && endDate < now) {
+                            status = 'Completed';
+                        } else if (startDate && startDate <= now && endDate && endDate >= now) {
+                            status = 'Live';
+                        } else {
+                            status = 'Upcoming';
+                        }
+                    }
+
+                    return {
                         id: e.id,
-                        name: e.name,
-                        date: e.date,
-                        registrations: 0,
-                        status: e.status === 'Published' ? 'Upcoming' : e.status
-                    })).filter((e: any) => e.status === 'Upcoming');
+                        name: e.title,
+                        date: e.event_start_at ? new Date(e.event_start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD',
+                        registrations: 0, // Mock
+                        status: status,
+                        // Helper for sorting/filtering
+                        rawDate: e.event_start_at
+                    };
+                });
 
-                    // Access local "activities"
-                    const newActivities = parsed.map((e: any, index: number) => ({
-                        id: `new-${index}`,
-                        action: "Event Created",
-                        user: "You",
-                        event: e.name,
-                        time: "Recently"
-                    })).reverse().slice(0, 3);
+                // Filter for Upcoming/Published
+                const upcoming = mappedEvents.filter((e: any) =>
+                    ['Upcoming', 'Live'].includes(e.status) ||
+                    (e.status === 'Draft' && new Date(e.rawDate) > new Date()) // include future drafts if desired, or just strict status
+                );
 
-                    setActivities(prev => [...newActivities, ...initialRecentActivity]);
+                // Sort by date ascending for "Next Event"
+                upcoming.sort((a: any, b: any) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime());
+
+                setDashboardEvents(upcoming);
+
+                if (upcoming.length > 0) {
+                    setNextEvent(upcoming[0]);
                 }
 
-                // Merge and Update State with ONLY Upcoming events
-                setDashboardEvents([...localUpcoming, ...staticUpcoming]);
+                // For activities, we could mock based on new events if we wanted, but leaving static for now as per plan
+                // unless we want to show "Event Created" activities
+                const recentEvents = [...mappedEvents].sort((a: any, b: any) => new Date(b.rawDate).getTime() - new Date(a.rawDate).getTime()).slice(0, 3);
+                const newActivities = recentEvents.map((e: any, index: number) => ({
+                    id: `new-${index}`,
+                    action: "Event Created",
+                    user: "System",
+                    event: e.name,
+                    time: "Recently"
+                }));
+                setActivities([...newActivities, ...initialRecentActivity]);
 
             } catch (err) {
                 console.error("Failed to load dashboard data", err);
             }
         };
 
-        loadLocalData();
+        loadData();
     }, []);
-
-    // 4. Calculate "Next Event" (Simple logic: Find first Upcoming)
-    React.useEffect(() => {
-        const upcoming = dashboardEvents.find(e => e.status === 'Upcoming' || e.status === 'Published');
-        if (upcoming) {
-            setNextEvent(upcoming);
-        }
-    }, [dashboardEvents]);
 
     return (
         <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
@@ -189,8 +203,8 @@ export default function DashboardPage() {
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="text-sm font-semibold text-gray-900 dark:text-white">{event.registrations} registered</p>
-                                                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${(event.status === 'Upcoming' || event.status === 'Published') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
-                                                        event.status === 'Completed' ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                                                    <span className={`inline-flex items-center justify-center min-w-[80px] px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${(event.status === 'Upcoming' || event.status === 'Published') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                                                        (event.status === 'Completed' || event.status === 'Live') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
                                                             'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                                         }`}>
                                                         {event.status === 'Published' ? 'Upcoming' : event.status}

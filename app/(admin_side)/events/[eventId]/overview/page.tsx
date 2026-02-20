@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, notFound } from "next/navigation";
-import { getEventData } from "@/lib/api";
+import { useParams } from "next/navigation";
+
 import EventOverview from "@/components/admin/EventOverview";
+import { getEventById } from "@/app/(admin_side)/backend/events";
 
 export default function EventOverviewPage() {
     const params = useParams();
@@ -25,7 +26,71 @@ export default function EventOverviewPage() {
         const loadEvent = async () => {
             if (!eventId) return;
 
-            // 1. Priority: Check localStorage for full detail (User edits/Status updates)
+            // 1. Fetch from Supabase
+            try {
+                // Ensure eventId is a number if your DB uses number IDs
+                console.log('Overview Page: eventId param:', eventId);
+                const id = parseInt(eventId);
+                console.log('Overview Page: parsed id:', id);
+
+                if (!isNaN(id)) {
+                    console.log('Overview Page: Calling getEventById with', id);
+                    const apiData = await getEventById(id);
+                    console.log('Overview Page: API Data:', apiData);
+
+                    if (apiData) {
+                        const now = new Date();
+                        const startDate = apiData.event_start_at ? new Date(apiData.event_start_at) : null;
+                        const endDate = apiData.event_end_at ? new Date(apiData.event_end_at) : null;
+
+                        let status: "Draft" | "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled" = 'Draft';
+
+                        if (apiData.is_published) {
+                            if (endDate && endDate < now) {
+                                status = 'Completed';
+                            } else if (startDate && startDate <= now && endDate && endDate >= now) {
+                                status = 'Ongoing'; // or Live
+                            } else {
+                                status = 'Published'; // or Upcoming
+                            }
+                        }
+
+                        const formatTime = (date: Date) => {
+                            return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+                        };
+
+                        setEventData({
+                            id: apiData.id.toString(),
+                            name: apiData.title,
+                            date: apiData.event_start_at ? new Date(apiData.event_start_at).toISOString().split('T')[0] : '',
+                            status: status,
+                            location: apiData.location,
+                            description: apiData.description,
+                            agenda: apiData.AgendaSlot?.map((slot: any) => ({
+                                id: slot.id,
+                                title: slot.title,
+                                description: slot.description,
+                                startTime: slot.start_time ? formatTime(new Date(slot.start_time)) : '',
+                                endTime: slot.end_time ? formatTime(new Date(slot.end_time)) : '',
+                                speaker: slot.speaker_name
+                            })) || [],
+                            // Map other fields as necessary
+                            objectives: apiData.objectives || [],
+                            theme: apiData.theme || '',
+                            subtitle: '', // Not in DB
+                            startTime: startDate ? formatTime(startDate) : '',
+                            endTime: endDate ? formatTime(endDate) : '',
+                            bannerUrl: apiData.banner_image
+                        });
+                        setLoading(false);
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error("Error loading from API", e);
+            }
+
+            // 2. Fallback to Local Storage (keep for backward compatibility or drafts)
             try {
                 const localDetail = localStorage.getItem(`event_detail_${eventId}`);
                 if (localDetail) {
@@ -34,59 +99,10 @@ export default function EventOverviewPage() {
                     return;
                 }
             } catch (e) {
-                console.error("Error loading from local storage", e);
+                // console.error("Error loading from local storage", e);
             }
 
-            // 2. Secondary: Fetch from "API" (Mock data or valid server data)
-            try {
-                const apiData = await getEventData(eventId);
-                if (apiData) {
-                    setEventData(apiData);
-                    setLoading(false);
-                    return;
-                }
-            } catch {
-                console.log("Not found in API, checking other sources...");
-            }
-
-            // 3. Fallback: Check summary list in localStorage (mock_created_events)
-            try {
-                type StoredEvent = {
-                    id: string;
-                    name: string;
-                    date: string;
-                    rawDate?: string;
-                    status?: "Draft" | "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled";
-                    location?: string;
-                };
-
-                const storedEvents: StoredEvent[] = JSON.parse(localStorage.getItem('mock_created_events') || '[]');
-                const summaryEvent = storedEvents.find((e) => e.id === eventId);
-
-                if (summaryEvent) {
-                    // Reconstruct a basic event object compatible with EventOverview
-                    setEventData({
-                        id: summaryEvent.id,
-                        name: summaryEvent.name,
-                        date: summaryEvent.rawDate || summaryEvent.date,
-                        status: summaryEvent.status || 'Draft',
-                        location: summaryEvent.location,
-                        objectives: [],
-                        agenda: [],
-                        description: '',
-                        subtitle: '',
-                        startTime: '',
-                        endTime: ''
-                    });
-                    setLoading(false);
-                    return;
-                }
-            } catch (e) {
-                console.error("Error loading summary from local storage", e);
-            }
-
-            // 4. Truly not found
-            setEventData(null);
+            // 3. Not found
             setLoading(false);
         };
 
@@ -102,7 +118,14 @@ export default function EventOverviewPage() {
     }
 
     if (!eventData) {
-        return notFound();
+        return (
+            <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+                <div className="text-center">
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Event Not Found</h1>
+                    <p className="text-gray-600 dark:text-gray-400">The event you are looking for does not exist or has been removed.</p>
+                </div>
+            </div>
+        );
     }
 
     return (

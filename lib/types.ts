@@ -47,6 +47,14 @@ export interface EventData {
     bannerImage?: string;
     startTime?: string;
     endTime?: string;
+    allowGroupRegistration?: boolean;
+    allowWaitlist?: boolean;
+    enableBreakoutSession?: boolean;
+    isVisibleToPublic?: boolean;
+    registrationOpenDate?: string;
+    registrationOpenTime?: string;
+    registrationCloseDate?: string;
+    registrationCloseTime?: string;
 }
 
 export interface Comment {

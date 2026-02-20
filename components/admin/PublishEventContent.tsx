@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Send, FileText, Settings, Ticket, Globe, Calendar, MapPin, ImageIcon, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import DateInput from "./DateInput";
@@ -25,6 +25,7 @@ interface TicketData {
 export default function PublishEventContent({ event, tickets }: { event: EventData; tickets: any[] }) {
     const router = useRouter();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [isPublishing, setIsPublishing] = useState(false);
 
     // Form State
     const [settings, setSettings] = useState<{
@@ -37,14 +38,14 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
         registrationCloseTime: string;
         isVisibleToPublic: boolean;
     }>({
-        allowGroupRegistration: false,
-        allowWaitlist: false,
-        enableBreakoutSession: false,
-        registrationOpenDate: '',
-        registrationOpenTime: '',
-        registrationCloseDate: '',
-        registrationCloseTime: '',
-        isVisibleToPublic: false
+        allowGroupRegistration: event.allowGroupRegistration || false,
+        allowWaitlist: event.allowWaitlist || false,
+        enableBreakoutSession: event.enableBreakoutSession || false,
+        registrationOpenDate: event.registrationOpenDate || '',
+        registrationOpenTime: event.registrationOpenTime || '',
+        registrationCloseDate: event.registrationCloseDate || '',
+        registrationCloseTime: event.registrationCloseTime || '',
+        isVisibleToPublic: event.isVisibleToPublic || false
     });
 
     const handleCheckboxChange = (key: keyof typeof settings) => {
@@ -54,41 +55,134 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
         }));
     };
 
-    const handlePublish = () => {
+    // Toast State
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+    // Toast Component
+    const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
+        useEffect(() => {
+            const timer = setTimeout(onClose, 4000);
+            return () => clearTimeout(timer);
+        }, [onClose]);
+
+        const bgColor = type === 'success' ? 'from-emerald-500 to-green-600' : type === 'error' ? 'from-red-500 to-rose-600' : 'from-blue-500 to-indigo-600';
+
+        return (
+            <div className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r ${bgColor} text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-up`}>
+                <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                    <CheckCircle size={18} />
+                </div>
+                <span className="font-medium">{message}</span>
+            </div>
+        );
+    };
+
+    const handlePublish = async () => {
+        if (isPublishing) return;
+        setIsPublishing(true);
         try {
-            // 1. Update Detail
-            const localDetail = localStorage.getItem(`event_detail_${event.id}`);
-            if (localDetail) {
-                const parsed = JSON.parse(localDetail);
-                parsed.status = 'Upcoming';
-                localStorage.setItem(`event_detail_${event.id}`, JSON.stringify(parsed));
+            // 1. Update in Supabase
+            const id = parseInt(event.id);
+            if (!isNaN(id)) {
+                const { updateEvent } = await import('@/app/(admin_side)/backend/events');
+
+                // Construct timestamps
+                const regStart = settings.registrationOpenDate
+                    ? new Date(`${settings.registrationOpenDate}T${settings.registrationOpenTime || '00:00'}:00`).toISOString()
+                    : null;
+                const regEnd = settings.registrationCloseDate
+                    ? new Date(`${settings.registrationCloseDate}T${settings.registrationCloseTime || '23:59'}:00`).toISOString()
+                    : null;
+
+                const res = await updateEvent(id, {
+                    is_published: true,
+                    allow_group_registration: settings.allowGroupRegistration,
+                    allow_waitlist: settings.allowWaitlist,
+                    allow_breakout_sessions: settings.enableBreakoutSession,
+                    is_visible: settings.isVisibleToPublic,
+                    registration_open_at: regStart,
+                    registration_close_at: regEnd
+                });
+
+                if (!res.success) {
+                    console.error('Failed to publish event on server:', res.error);
+                    setToast({ message: `Failed to publish event: ${res.error}`, type: 'error' });
+                    setIsPublishing(false);
+                    return;
+                }
             }
 
-            // 2. Update List
-            const storedEvents = JSON.parse(localStorage.getItem('mock_created_events') || '[]');
-            const updatedEvents = storedEvents.map((e: any) => {
-                if (e.id === event.id) {
-                    return { ...e, status: 'Upcoming', type: 'upcoming' };
+            // 2. Update localStorage for backward compatibility
+            try {
+                const localDetail = localStorage.getItem(`event_detail_${event.id}`);
+                if (localDetail) {
+                    const parsed = JSON.parse(localDetail);
+                    parsed.status = 'Upcoming';
+                    localStorage.setItem(`event_detail_${event.id}`, JSON.stringify(parsed));
                 }
-                return e;
-            });
-            localStorage.setItem('mock_created_events', JSON.stringify(updatedEvents));
 
-            localStorage.setItem('mock_created_events', JSON.stringify(updatedEvents));
+                const storedEvents = JSON.parse(localStorage.getItem('mock_created_events') || '[]');
+                const updatedEvents = storedEvents.map((e: any) => {
+                    if (String(e.id) === String(event.id)) {
+                        return { ...e, status: 'Upcoming', type: 'upcoming' };
+                    }
+                    return e;
+                });
+                localStorage.setItem('mock_created_events', JSON.stringify(updatedEvents));
+            } catch (storageErr) {
+                console.warn('localStorage update failed (non-critical):', storageErr);
+            }
 
             setShowSuccessModal(true);
-            // router.push('/events'); // Removed allow user to choose in modal
-            // router.refresh();
 
         } catch (e) {
             console.error("Failed to publish event", e);
-            alert("Failed to publish event. Please try again.");
+            setToast({ message: "Failed to publish event. Please try again.", type: 'error' });
+        } finally {
+            setIsPublishing(false);
         }
     };
 
-    const handleSaveDraft = () => {
-        // Implementation for save draft (already saved effectively since it's local storage driven for now)
-        alert("Draft saved!");
+    const handleSaveDraft = async () => {
+        try {
+            const id = parseInt(event.id);
+            if (!isNaN(id)) {
+                setToast({ message: 'Saving draft...', type: 'info' });
+                const { updateEvent } = await import('@/app/(admin_side)/backend/events');
+
+                // Construct timestamps
+                const regStart = settings.registrationOpenDate
+                    ? new Date(`${settings.registrationOpenDate}T${settings.registrationOpenTime || '00:00'}:00`).toISOString()
+                    : null;
+                const regEnd = settings.registrationCloseDate
+                    ? new Date(`${settings.registrationCloseDate}T${settings.registrationCloseTime || '23:59'}:00`).toISOString()
+                    : null;
+
+                const res = await updateEvent(id, {
+                    // is_published: false, // Don't force unpublish if just saving draft settings, or maybe we should? 
+                    // Usually "Save Draft" implies keeping it as draft.
+                    // But if it's already published, this might be "Save Changes".
+                    // For now, let's assume this page is for publishing, so "Save Draft" means saving progress without publishing.
+                    allow_group_registration: settings.allowGroupRegistration,
+                    allow_waitlist: settings.allowWaitlist,
+                    allow_breakout_sessions: settings.enableBreakoutSession,
+                    is_visible: settings.isVisibleToPublic,
+                    registration_open_at: regStart,
+                    registration_close_at: regEnd
+                });
+
+                if (res.success) {
+                    setToast({ message: 'Draft settings saved!', type: 'success' });
+                } else {
+                    setToast({ message: `Failed to save draft: ${res.error}`, type: 'error' });
+                }
+            } else {
+                setToast({ message: "Draft saved locally!", type: 'success' });
+            }
+        } catch (e) {
+            console.error("Failed to save draft", e);
+            setToast({ message: "Failed to save draft.", type: 'error' });
+        }
     };
 
     // Helper for empty states
@@ -97,6 +191,25 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
             return <span className="text-gray-400 italic font-light text-base">No {label.toLowerCase()} provided</span>;
         }
         return <span className="text-gray-900 dark:text-gray-200 font-medium">{value}</span>;
+    };
+
+    // Helper to format event date from ISO string to readable format
+    const formatEventDate = (dateStr: string | undefined) => {
+        if (!dateStr) {
+            return <span className="text-gray-400 italic font-light text-base">No date provided</span>;
+        }
+        try {
+            const date = new Date(dateStr);
+            const formatted = date.toLocaleDateString('en-US', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+            });
+            return <span className="text-gray-900 dark:text-gray-200 font-medium">{formatted}</span>;
+        } catch {
+            return <span className="text-gray-900 dark:text-gray-200 font-medium">{dateStr}</span>;
+        }
     };
 
     // Helper to format date range
@@ -108,6 +221,17 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
 
     return (
         <div className="max-w-5xl mx-auto p-8 space-y-8 pb-24 font-sans text-gray-900 dark:text-gray-100 animate-in fade-in duration-500">
+            {/* Toast Notification */}
+            {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+
+            <style jsx global>{`
+                @keyframes slide-up {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-slide-up { animation: slide-up 0.3s ease-out; }
+            `}</style>
+
             {/* Page Header */}
             <div className="flex items-center gap-4">
                 <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
@@ -153,7 +277,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
                                     <Calendar size={12} /> Date & Time
                                 </label>
-                                <div className="text-lg">{renderEmptyState(event.date, "Date")}</div>
+                                <div className="text-lg">{formatEventDate(event.date)}</div>
                                 {(event.startTime && event.endTime) ? (
                                     <div className="text-sm text-gray-500 mt-1">{event.startTime} - {event.endTime} PST</div>
                                 ) : (
@@ -407,10 +531,23 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
 
                 <button
                     onClick={handlePublish}
-                    className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5 rounded-xl shadow-md transition-all flex items-center gap-2"
+                    disabled={isPublishing}
+                    className={`px-6 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md transition-all flex items-center gap-2 ${isPublishing
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5'
+                        }`}
                 >
-                    <Send size={16} />
-                    Publish Event
+                    {isPublishing ? (
+                        <>
+                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            Publishing...
+                        </>
+                    ) : (
+                        <>
+                            <Send size={16} />
+                            Publish Event
+                        </>
+                    )}
                 </button>
             </div>
 
