@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import StatCard from '@/components/admin/StatCard';
 import DashboardTabs from '@/components/admin/DashboardTabs';
 import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
-import { getEventById, getEvents } from "@/app/(admin_side)/backend/events"; // Use backend functions
+import { getEventById, getEvents, getEventAnalytics } from "@/app/(admin_side)/backend/events";
 
 export default async function EventAnalyticsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -18,14 +18,18 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
     const id = parseInt(eventId);
     if (isNaN(id)) return notFound();
 
-    const apiData = await getEventById(id);
-    const allEventsRaw = await getEvents();
+    // Fetch event details + real analytics in parallel
+    const [apiData, allEventsRaw, analytics] = await Promise.all([
+        getEventById(id),
+        getEvents(),
+        getEventAnalytics(id),
+    ]);
 
     if (!apiData) {
         return notFound();
     }
 
-    // Derive status
+    // Derive status from DB fields
     const now = new Date();
     const startDate = apiData.event_start_at ? new Date(apiData.event_start_at) : null;
     const endDate = apiData.event_end_at ? new Date(apiData.event_end_at) : null;
@@ -35,34 +39,26 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
         if (endDate && endDate < now) {
             status = 'Completed';
         } else if (startDate && startDate <= now && endDate && endDate >= now) {
-            status = 'Ongoing'; // or Live
+            status = 'Ongoing';
         } else {
-            status = 'Published'; // or Upcoming
+            status = 'Published';
         }
     }
 
-    // Map apiData to the structure expected by components (mocking stats)
+    // Build the data object from real DB values
     const data = {
         id: apiData.id.toString(),
         name: apiData.title,
         date: apiData.event_start_at || '',
-        status: status,
-        stats: {
-            registrations: 0,
-            revenue: 0,
-            expenses: 0,
-            netProfit: 0,
-            satisfaction: 0
-        },
-        // Mock trends if needed by DashboardTabs
-        trends: { registrations: { weekly: [], weekLabels: [], registrationOpenDate: "", eventDate: "" }, attendance: { checkedIn: 0, noShow: 0, waitlisted: 0 } },
-        revenueBreakdown: [],
-        registrationType: [],
-        recentTransactions: [],
+        status,
+        stats: analytics.stats,
+        trends: analytics.trends,
+        revenueBreakdown: analytics.revenueBreakdown,
+        recentTransactions: analytics.recentTransactions,
         comments: []
     };
 
-    // Map allEvents to simple list for selector
+    // Map all events to simple list for the selector dropdown
     const events = allEventsRaw.map((e: any) => {
         const eNow = new Date();
         const eStart = e.event_start_at ? new Date(e.event_start_at) : null;
@@ -86,14 +82,6 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
             status: eStatus
         };
     });
-
-    // Create sidebar event object
-    const sidebarEvent = {
-        id: eventId,
-        name: data.name,
-        date: data.date,
-        status: data.status
-    };
 
     // Format currency
     const formatCurrency = (value: number) => {
@@ -120,7 +108,7 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
                     currentEventId={eventId}
                     data={data}
                     title={data.name}
-                    description={`Performance analytics for ${data.name} • ${data.date}`}
+                    description={`Performance analytics for ${data.name} • ${data.date ? new Date(data.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
                 />
 
                 {/* KPI Cards */}
@@ -145,7 +133,7 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
                     />
                     <StatCard
                         title="Satisfaction"
-                        value={`${data.stats.satisfaction}/5.0`}
+                        value={data.stats.satisfaction > 0 ? `${data.stats.satisfaction}/5.0` : 'N/A'}
                         growth=""
                         trend="up"
                     />

@@ -43,3 +43,30 @@ export interface UserWithRole {
     roleId: number;
     avatar?: string;
 }
+
+// Event interface matching the public.Event table
+export interface Event {
+    id: number;
+    organization_id: number;
+    title: string;
+    description?: string;
+    banner_image?: string;
+    event_start_at?: string;
+    event_end_at?: string;
+    location?: string;
+    capacity?: number;
+    allow_group_registration?: boolean;
+    allow_waitlist?: boolean;
+    allow_breakout_sessions?: boolean;
+    registration_open_at?: string;
+    registration_close_at?: string;
+    is_published?: boolean;
+    is_visible?: boolean;
+    confirmation_page_message?: string;
+    confirmation_email_subject?: string;
+    confirmation_email_body?: string;
+    objectives?: any[];
+    theme?: string;
+    created_at: string;
+}
+

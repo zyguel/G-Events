@@ -248,3 +248,103 @@ export async function getRolePermissions(roleId: number): Promise<number[]> {
 
     return (data || []).map((item: any) => item.organization_permission_id);
 }
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+export async function getEvents(organizationId: number = DEFAULT_ORG_ID) {
+    const { data, error } = await supabase
+        .from('Event')
+        .select('*')
+        .eq('organization_id', organizationId)
+        .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function getEvent(eventId: number) {
+    const { data, error } = await supabase
+        .from('Event')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function createEvent(
+    organizationId: number = DEFAULT_ORG_ID,
+    fields: {
+        title: string;
+        description?: string;
+        banner_image?: string;
+        event_start_at?: string;
+        event_end_at?: string;
+        location?: string;
+        capacity?: number;
+        allow_group_registration?: boolean;
+        allow_waitlist?: boolean;
+        allow_breakout_sessions?: boolean;
+        registration_open_at?: string;
+        registration_close_at?: string;
+        is_published?: boolean;
+        is_visible?: boolean;
+        confirmation_page_message?: string;
+        confirmation_email_subject?: string;
+        confirmation_email_body?: string;
+        objectives?: any[];
+        theme?: string;
+    }
+) {
+    const { data, error } = await supabase
+        .from('Event')
+        .insert([{ organization_id: organizationId, ...fields }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function updateEvent(
+    eventId: number,
+    fields: Partial<{
+        title: string;
+        description: string;
+        banner_image: string;
+        event_start_at: string;
+        event_end_at: string;
+        location: string;
+        capacity: number;
+        allow_group_registration: boolean;
+        allow_waitlist: boolean;
+        allow_breakout_sessions: boolean;
+        registration_open_at: string;
+        registration_close_at: string;
+        is_published: boolean;
+        is_visible: boolean;
+        confirmation_page_message: string;
+        confirmation_email_subject: string;
+        confirmation_email_body: string;
+        objectives: any[];
+        theme: string;
+    }>
+) {
+    const { error } = await supabase
+        .from('Event')
+        .update(fields)
+        .eq('id', eventId);
+
+    if (error) throw error;
+}
+
+export async function deleteEvent(eventId: number) {
+    const { error } = await supabase
+        .from('Event')
+        .delete()
+        .eq('id', eventId);
+
+    if (error) throw error;
+}
+

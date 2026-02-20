@@ -22,10 +22,10 @@ export default function TopPerformingEvents({ events }: TopPerformingEventsProps
     const [filter, setFilter] = useState<FilterType>("registrations");
 
     const filterConfig = {
-        registrations: { label: "Registrations", icon: Users, format: (v: number) => v.toLocaleString() },
-        revenue: { label: "Revenue", icon: DollarSign, format: (v: number) => `$${v.toLocaleString()}` },
-        satisfaction: { label: "Avg Rating", icon: Star, format: (v: number) => `${v}/5` },
-        attendance: { label: "Attendance", icon: TrendingUp, format: (v: number) => `${v}%` },
+        registrations: { label: "Registrations", icon: Users, format: (v: number) => (v ?? 0).toLocaleString() },
+        revenue: { label: "Revenue", icon: DollarSign, format: (v: number) => `$${(v ?? 0).toLocaleString()}` },
+        satisfaction: { label: "Avg Rating", icon: Star, format: (v: number) => v ? `${v}/5` : "N/A" },
+        attendance: { label: "Attendance", icon: TrendingUp, format: (v: number) => v ? `${v}%` : "N/A" },
     };
 
     // Sort events by the selected filter
@@ -53,8 +53,8 @@ export default function TopPerformingEvents({ events }: TopPerformingEventsProps
             <div className="space-y-3">
                 {sortedEvents.map((event, index) => {
                     const Icon = filterConfig[filter].icon;
-                    const value = event[filter];
-                    const maxValue = sortedEvents[0][filter];
+                    const value = event[filter] ?? 0;
+                    const maxValue = sortedEvents[0][filter] ?? 0;
                     const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
 
                     return (
