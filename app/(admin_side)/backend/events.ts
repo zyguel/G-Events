@@ -678,10 +678,6 @@ function buildMonthlyTrend(registrations: { created_at: string }[]) {
         counts[month] += 1;
     });
 
-    // Cumulative
-    const cumulative: number[] = [];
-    let sum = 0;
-    counts.forEach(c => { sum += c; cumulative.push(sum); });
-
-    return { monthly: cumulative, monthLabels: months };
+    // Return raw counts per month (not cumulative)
+    return { monthly: counts, monthLabels: months };
 }

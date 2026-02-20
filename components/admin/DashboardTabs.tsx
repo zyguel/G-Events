@@ -192,7 +192,7 @@ export default function DashboardTabs({ data }: { data: DashboardData }) {
                                 <div className="space-y-6">
                                     {data.revenueBreakdown.map((item, i) => (
                                         <div key={i}>
-                                            <div className="flex justify-between text-sm mb-1">
+                                            <div className="flex justify-between items-center text-sm mb-1">
                                                 <span className="text-gray-600 dark:text-gray-300 font-medium">{item.name}</span>
                                                 <span className="text-gray-900 dark:text-white font-bold">${item.value.toLocaleString()}</span>
                                             </div>
