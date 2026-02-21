@@ -7,7 +7,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import DateTimeInput from "./DateTimeInput";
 import TimeInput from "./TimeInput";
-import { createEvent, saveAgendaSlot, deleteAgendaSlot } from '@/app/(admin_side)/backend/events';
+import { createEvent, saveAgendaSlot, deleteAgendaSlot } from '@/lib/actions/events';
 import DateInput from "./DateInput";
 
 // Toast Component
@@ -109,7 +109,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
         if (event.id !== 'new') {
             setToast({ message: 'Saving title...', type: 'info' });
-            import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+            import('@/lib/actions/events').then(({ updateEvent }) => {
                 updateEvent(parseInt(event.id), {
                     title: name,
                     // Subtitle is not in DB schema yet, so we don't save it to backend
@@ -166,7 +166,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             const startAt = tempStartTime ? new Date(`${formattedDate}T${tempStartTime}:00`).toISOString() : null;
             const endAt = tempEndTime ? new Date(`${formattedDate}T${tempEndTime}:00`).toISOString() : null;
 
-            import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+            import('@/lib/actions/events').then(({ updateEvent }) => {
                 updateEvent(parseInt(event.id), {
                     location: location,
                     event_start_at: startAt,
@@ -194,7 +194,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         setActiveModal(null);
         if (event.id !== 'new') {
             setToast({ message: 'Saving overview...', type: 'info' });
-            import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+            import('@/lib/actions/events').then(({ updateEvent }) => {
                 console.log('Calling backend updateEvent for overview...');
                 updateEvent(parseInt(event.id), {
                     description: updatedEvent.description,
@@ -221,7 +221,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             setIsAddingObjective(false);
             if (event.id !== 'new') {
                 setToast({ message: 'Saving objective...', type: 'info' });
-                import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+                import('@/lib/actions/events').then(({ updateEvent }) => {
                     updateEvent(parseInt(event.id), {
                         objectives: updatedEvent.objectives
                     }).then(res => {
@@ -241,7 +241,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         setEvent(updatedEvent);
         if (event.id !== 'new') {
             setToast({ message: 'Removing objective...', type: 'info' });
-            import('@/app/(admin_side)/backend/events').then(({ updateEvent }) => {
+            import('@/lib/actions/events').then(({ updateEvent }) => {
                 updateEvent(parseInt(event.id), {
                     objectives: updatedEvent.objectives
                 }).then(res => {
@@ -350,7 +350,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         if (event.id !== 'new') {
             setToast({ message: 'Removing banner...', type: 'info' });
             try {
-                const { updateEvent } = await import('@/app/(admin_side)/backend/events');
+                const { updateEvent } = await import('@/lib/actions/events');
                 const res = await updateEvent(parseInt(event.id), { banner_image: null });
                 if (res.success) {
                     setToast({ message: 'Banner removed successfully!', type: 'success' });
@@ -458,7 +458,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     // But here we rely on the import at top. 
                     // To be safe, we might need to check how next.js handles this. 
                     // Usually safe if "use server" is at top of the file being imported.
-                    const { uploadEventBanner, updateEvent } = await import('@/app/(admin_side)/backend/events');
+                    const { uploadEventBanner, updateEvent } = await import('@/lib/actions/events');
 
                     const uploadRes = await uploadEventBanner(formData);
                     if (uploadRes.success && uploadRes.url) {

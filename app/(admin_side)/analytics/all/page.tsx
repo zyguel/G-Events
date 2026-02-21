@@ -4,7 +4,7 @@ import Sidebar from '@/components/admin/Sidebar';
 import StatCard from '@/components/admin/StatCard';
 import DashboardTabs from '@/components/admin/DashboardTabs';
 import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
-import { getEvents, getGeneralAnalytics } from '@/app/(admin_side)/backend/events';
+import { getEvents, getGeneralAnalytics } from '@/lib/actions/events';
 
 export default async function AggregatedAnalyticsPage() {
     // Fetch real data in parallel

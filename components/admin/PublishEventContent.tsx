@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import SuccessModal from "./SuccessModal";
 
 import { EventData } from "@/lib/api";
+import { updateEvent } from "@/lib/actions/events";
 
 interface TicketData {
     id: string;
@@ -84,7 +85,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
             // 1. Update in Supabase
             const id = parseInt(event.id);
             if (!isNaN(id)) {
-                const { updateEvent } = await import('@/app/(admin_side)/backend/events');
+                const { updateEvent } = await import('@/lib/actions/events');
 
                 // Construct timestamps
                 const regStart = settings.registrationOpenDate
@@ -148,7 +149,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
             const id = parseInt(event.id);
             if (!isNaN(id)) {
                 setToast({ message: 'Saving draft...', type: 'info' });
-                const { updateEvent } = await import('@/app/(admin_side)/backend/events');
+                const { updateEvent } = await import('@/lib/actions/events');
 
                 // Construct timestamps
                 const regStart = settings.registrationOpenDate

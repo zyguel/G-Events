@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateRole, deleteRole, getRolePermissions } from '@/lib/db';
 
-// GET /backend/management/roles/[id] - Get role details (permissions)
+// GET /api/management/roles/[id] - Get role details (permissions)
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> } // params is a Promise in Next.js 15+
@@ -35,7 +35,7 @@ export async function GET(
     }
 }
 
-// PATCH /backend/management/roles/[id] - Update role
+// PATCH /api/management/roles/[id] - Update role
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -77,7 +77,7 @@ export async function PATCH(
     }
 }
 
-// DELETE /backend/management/roles/[id] - Delete role
+// DELETE /api/management/roles/[id] - Delete role
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

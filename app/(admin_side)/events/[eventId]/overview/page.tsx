@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import EventOverview from "@/components/admin/EventOverview";
-import { getEventById } from "@/app/(admin_side)/backend/events";
+import { getEventById } from "@/lib/actions/events";
 
 export default function EventOverviewPage() {
     const params = useParams();

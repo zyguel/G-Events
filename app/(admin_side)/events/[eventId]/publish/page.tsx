@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { EventData } from "@/lib/api";
 import PublishEventContent from "@/components/admin/PublishEventContent";
-import { getEventById } from "@/app/(admin_side)/backend/events";
+import { getEventById } from "@/lib/actions/events";
 
 export default function PublishEventPage() {
     const params = useParams();

@@ -6,7 +6,7 @@ import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
 
-import { getEvents } from '@/app/(admin_side)/backend/events';
+import { getEvents } from '@/lib/actions/events';
 
 export default function DashboardPage() {
     // 1. Static Initial Data

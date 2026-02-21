@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEventData } from '@/lib/api';
 
-// GET /backend/analytics/event/[eventId] - Analytics for a specific event
+// GET /api/analytics/event/[eventId] - Analytics for a specific event
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ eventId: string }> }

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Search, Filter, Plus, Calendar, List, Grid, MoreVertical, Users, Ticket, MapPin } from 'lucide-react';
 
-import { getEvents } from '@/app/(admin_side)/backend/events';
+import { getEvents } from '@/lib/actions/events';
 
 type FilterOption = 'all' | 'drafts' | 'upcoming' | 'past';
 

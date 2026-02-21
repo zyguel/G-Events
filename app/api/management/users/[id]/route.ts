@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateUser, removeUserFromOrganization } from '@/lib/db';
 
-// PATCH /backend/management/users/[id] - Update user
+// PATCH /api/management/users/[id] - Update user
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -43,7 +43,7 @@ export async function PATCH(
     }
 }
 
-// DELETE /backend/management/users/[id] - Remove user
+// DELETE /api/management/users/[id] - Remove user
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

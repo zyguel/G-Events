@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getEventById } from "@/app/(admin_side)/backend/events";
+import { getEventById } from "@/lib/actions/events";
 import CheckInClient from "./CheckInClient";
 
 export default async function CheckInPage({ params }: { params: Promise<{ eventId: string }> }) {

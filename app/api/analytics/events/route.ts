@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAllEvents } from '@/lib/api';
 
-// GET /backend/analytics/events - List of all events (for dropdowns and selectors)
+// GET /api/analytics/events - List of all events (for dropdowns and selectors)
 export async function GET() {
     try {
         const events = await getAllEvents();

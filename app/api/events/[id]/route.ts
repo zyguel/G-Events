@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEvent, updateEvent, deleteEvent } from '@/lib/db';
 
-// GET /backend/events/[id] - Get a single event by ID
+// GET /api/events/[id] - Get a single event by ID
 export async function GET(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -35,7 +35,7 @@ export async function GET(
     }
 }
 
-// PATCH /backend/events/[id] - Update an event
+// PATCH /api/events/[id] - Update an event
 export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
@@ -70,7 +70,7 @@ export async function PATCH(
     }
 }
 
-// DELETE /backend/events/[id] - Delete an event
+// DELETE /api/events/[id] - Delete an event
 export async function DELETE(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }

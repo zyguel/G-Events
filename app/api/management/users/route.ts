@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrganizationUsers, inviteUser } from '@/lib/db';
 
-// GET /backend/management/users - List all users in organization
+// GET /api/management/users - List all users in organization
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST /backend/management/users - Invite new user
+// POST /api/management/users - Invite new user
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();

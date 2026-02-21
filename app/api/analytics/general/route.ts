@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAggregatedData } from '@/lib/api';
 
-// GET /backend/analytics/general - Aggregated analytics across all events
+// GET /api/analytics/general - Aggregated analytics across all events
 export async function GET() {
     try {
         const data = await getAggregatedData();

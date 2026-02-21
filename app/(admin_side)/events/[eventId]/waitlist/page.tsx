@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getEventById } from "@/app/(admin_side)/backend/events";
+import { getEventById } from "@/lib/actions/events";
 import WaitlistClient from "./WaitlistClient";
 
 export default async function WaitlistPage({ params }: { params: Promise<{ eventId: string }> }) {

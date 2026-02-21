@@ -3,7 +3,7 @@ import { getEvents, createEvent } from '@/lib/db';
 
 const DEFAULT_ORG_ID = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '1');
 
-// GET /backend/events - List all events for the organization
+// GET /api/events - List all events for the organization
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST /backend/events - Create a new event
+// POST /api/events - Create a new event
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrganizationRoles, createRole } from '@/lib/db';
 
-// GET /backend/management/roles - List all roles in organization
+// GET /api/management/roles - List all roles in organization
 export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// POST /backend/management/roles - Create new role
+// POST /api/management/roles - Create new role
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();

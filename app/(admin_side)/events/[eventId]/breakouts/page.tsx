@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getEventById } from "@/app/(admin_side)/backend/events";
+import { getEventById } from "@/lib/actions/events";
 import BreakoutsClient from "./BreakoutsClient";
 
 export default async function BreakoutsPage({ params }: { params: Promise<{ eventId: string }> }) {

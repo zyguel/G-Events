@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getAllPermissions } from '@/lib/db';
 
-// GET /backend/management/permissions - List all available permissions
+// GET /api/management/permissions - List all available permissions
 export async function GET() {
     try {
         const permissions = await getAllPermissions();

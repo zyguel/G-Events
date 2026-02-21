@@ -3,7 +3,7 @@ import Header from "@/components/admin/Header";
 import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
 import { notFound } from "next/navigation";
-import { getEventById } from "@/app/(admin_side)/backend/events";
+import { getEventById } from "@/lib/actions/events";
 
 export default async function EventLayout({
     children,

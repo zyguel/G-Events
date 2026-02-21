@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import StatCard from '@/components/admin/StatCard';
 import DashboardTabs from '@/components/admin/DashboardTabs';
 import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
-import { getEventById, getEvents, getEventAnalytics } from "@/app/(admin_side)/backend/events";
+import { getEventById, getEvents, getEventAnalytics } from "@/lib/actions/events";
 
 export default async function EventAnalyticsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;

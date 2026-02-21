@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getEventById } from "@/app/(admin_side)/backend/events";
+import { getEventById } from "@/lib/actions/events";
 import EmailAttendeesClient from "./EmailAttendeesClient";
 
 export default async function EmailAttendeesPage({ params }: { params: Promise<{ eventId: string }> }) {

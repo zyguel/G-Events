@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import CertificatesClient from './CertificatesClient';
-import { getEventById } from "@/app/(admin_side)/backend/events";
+import { getEventById } from "@/lib/actions/events";
 
 interface PageProps {
     params: Promise<{
