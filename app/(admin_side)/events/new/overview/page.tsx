@@ -38,7 +38,7 @@ export default function NewEventOverviewPage() {
 
                 {/* Event Specific Sidebar */}
                 <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-                    <EventsSidebar event={sidebarEvent} activePage="overview" />
+                    <EventsSidebar event={sidebarEvent} />
                 </div>
 
                 {/* Main Content Area */}

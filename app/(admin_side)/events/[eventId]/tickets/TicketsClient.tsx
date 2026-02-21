@@ -149,7 +149,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
         <Sidebar activePage="events" disableExpand={true} />
 
         <div className="ml-20 hidden lg:block h-full flex-shrink-0">
-          <EventsSidebar event={event} activePage="tickets" />
+          <EventsSidebar event={event} />
         </div>
 
         <main className="flex-1 overflow-y-auto p-8">
