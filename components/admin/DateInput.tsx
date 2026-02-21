@@ -151,17 +151,6 @@ export default function DateInput({ value, onChange, placeholder, className }: D
                 placeholderText={placeholder || "Select date"}
                 customInput={<CustomInput className={className} />}
                 calendarClassName="shadow-xl"
-                popperProps={{
-                    strategy: "fixed",
-                    modifiers: [
-                        {
-                            name: "preventOverflow",
-                            options: {
-                                boundary: "viewport",
-                            },
-                        },
-                    ],
-                }}
                 popperClassName="!z-[9999]"
             />
         </div>

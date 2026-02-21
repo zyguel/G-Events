@@ -58,7 +58,7 @@ export default function ManagementPage() {
         async function fetchUsers() {
             try {
                 setIsLoadingUsers(true);
-                const response = await fetch('/backend/management/users');
+                const response = await fetch('/api/management/users');
                 const result = await response.json();
 
                 if (result.success) {
@@ -77,7 +77,7 @@ export default function ManagementPage() {
         async function fetchRoles() {
             try {
                 setIsLoadingRoles(true);
-                const response = await fetch('/backend/management/roles');
+                const response = await fetch('/api/management/roles');
                 const result = await response.json();
 
                 if (result.success) {
@@ -114,7 +114,7 @@ export default function ManagementPage() {
                     return;
                 }
 
-                const response = await fetch('/backend/management/users', {
+                const response = await fetch('/api/management/users', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -335,7 +335,7 @@ export default function ManagementPage() {
 
                 if (editingRole) {
                     // Update existing role
-                    const response = await fetch(`/backend/management/roles/${editingRole.id}`, {
+                    const response = await fetch(`/api/management/roles/${editingRole.id}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -359,7 +359,7 @@ export default function ManagementPage() {
                     }
                 } else {
                     // Create new role
-                    const response = await fetch('/backend/management/roles', {
+                    const response = await fetch('/api/management/roles', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -432,13 +432,12 @@ export default function ManagementPage() {
     const handleEditRolePermissions = async (role: Role) => {
         try {
             // Fetch the role's current permissions
-            const response = await fetch(`/backend/management/roles/${role.id}`);
+            const response = await fetch(`/api/management/roles/${role.id}`);
             const result = await response.json();
 
             if (result.success) {
                 // Convert permission IDs to permission names for the checkboxes
-                // First, we need to get all available permissions to map IDs to names
-                const permResponse = await fetch('/backend/management/permissions');
+                const permResponse = await fetch('/api/management/permissions');
                 const permResult = await permResponse.json();
 
                 if (permResult.success) {
@@ -528,7 +527,7 @@ export default function ManagementPage() {
     const handleConfirmDeleteRole = async () => {
         if (roleToDelete) {
             try {
-                const response = await fetch(`/backend/management/roles/${roleToDelete.id}`, {
+                const response = await fetch(`/api/management/roles/${roleToDelete.id}`, {
                     method: 'DELETE',
                 });
 
@@ -674,13 +673,17 @@ export default function ManagementPage() {
                                             {/* Avatar and Name */}
                                             <div className="flex items-center gap-4 flex-1 min-w-0">
                                                 <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0">
-                                                    <Image
-                                                        src={member.avatar}
-                                                        alt={member.name}
-                                                        width={40}
-                                                        height={40}
-                                                        className="object-cover"
-                                                    />
+                                                    {member.avatar ? (
+                                                        <Image
+                                                            src={member.avatar}
+                                                            alt={member.name}
+                                                            width={40}
+                                                            height={40}
+                                                            className="object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-white font-bold text-sm">{member.name.charAt(0).toUpperCase()}</span>
+                                                    )}
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500 dark:text-gray-400">Name</p>
