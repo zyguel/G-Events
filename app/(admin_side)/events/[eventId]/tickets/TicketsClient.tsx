@@ -209,8 +209,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                           </h3>
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium ${ticket.type === "paid"
-                                ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
-                                : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                              ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                              : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
                               }`}
                           >
                             {ticket.type === "paid" ? `₱${ticket.price}` : "Free"}
@@ -292,8 +292,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                     onClick={() => setFormData({ ...formData, type })}
                     type="button"
                     className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${formData.type === type
-                        ? "bg-[#3D518C] text-white shadow-sm"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                      ? "bg-[#3D518C] text-white shadow-sm"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                       }`}
                   >
                     {type === "paid" ? "Paid" : "Free"}
@@ -421,8 +421,8 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                     type="button"
                     onClick={() => setFormData({ ...formData, visibility: formData.visibility === "visible" ? "hidden" : "visible" })}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${formData.visibility === "visible"
-                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                        : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+                      ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                      : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300"
                       }`}
                   >
                     {formData.visibility === "visible" ? "Visible" : "Hidden"}

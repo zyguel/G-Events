@@ -556,7 +556,7 @@ export async function getGeneralAnalytics() {
             .eq('status', 'confirmed');
 
         const totalRevenue = (revenueData || []).reduce(
-            (sum, r) => sum + (parseFloat(r.final_price_paid) || 0), 0
+            (sum: number, r: any) => sum + (parseFloat(r.final_price_paid) || 0), 0
         );
 
         // 4. Avg satisfaction across all events (rating questions)
@@ -567,9 +567,9 @@ export async function getGeneralAnalytics() {
 
         const ratings = (feedbackData || [])
             .map((f: any) => parseFloat(f.answer))
-            .filter(v => !isNaN(v) && v >= 1 && v <= 5);
+            .filter((v: number) => !isNaN(v) && v >= 1 && v <= 5);
         const avgSatisfaction = ratings.length > 0
-            ? parseFloat((ratings.reduce((s, v) => s + v, 0) / ratings.length).toFixed(1))
+            ? parseFloat((ratings.reduce((s: number, v: number) => s + v, 0) / ratings.length).toFixed(1))
             : 0;
 
         // 5. Monthly registration trend for current year
@@ -588,9 +588,9 @@ export async function getGeneralAnalytics() {
             .from('Registration')
             .select('has_checked_in, is_waitlisted, status');
 
-        const checkedIn = (attendanceData || []).filter(r => r.has_checked_in).length;
-        const waitlisted = (attendanceData || []).filter(r => r.is_waitlisted).length;
-        const totalReg = (attendanceData || []).filter(r => r.status !== 'cancelled').length;
+        const checkedIn = (attendanceData || []).filter((r: any) => r.has_checked_in).length;
+        const waitlisted = (attendanceData || []).filter((r: any) => r.is_waitlisted).length;
+        const totalReg = (attendanceData || []).filter((r: any) => r.status !== 'cancelled').length;
         const noShow = Math.max(0, totalReg - checkedIn - waitlisted);
 
         // 7. Revenue breakdown by ticket type

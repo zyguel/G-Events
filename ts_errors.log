@@ -1,0 +1,16 @@
+app/(admin_side)/backend/events.ts(559,14): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+app/(admin_side)/backend/events.ts(559,19): error TS7006: Parameter 'r' implicitly has an 'any' type.
+app/(admin_side)/backend/events.ts(570,21): error TS7006: Parameter 'v' implicitly has an 'any' type.
+app/(admin_side)/backend/events.ts(572,43): error TS7006: Parameter 's' implicitly has an 'any' type.
+app/(admin_side)/backend/events.ts(572,46): error TS7006: Parameter 'v' implicitly has an 'any' type.
+app/(admin_side)/backend/events.ts(591,57): error TS7006: Parameter 'r' implicitly has an 'any' type.
+app/(admin_side)/backend/events.ts(592,58): error TS7006: Parameter 'r' implicitly has an 'any' type.
+app/(admin_side)/backend/events.ts(593,56): error TS7006: Parameter 'r' implicitly has an 'any' type.
+app/(admin_side)/events/[eventId]/tickets/TicketsClient.tsx(152,40): error TS2322: Type '{ event: EventSummary; activePage: string; }' is not assignable to type 'IntrinsicAttributes & EventsSidebarProps'.
+  Property 'activePage' does not exist on type 'IntrinsicAttributes & EventsSidebarProps'.
+app/(admin_side)/events/new/overview/page.tsx(41,57): error TS2322: Type '{ event: { id: string; name: string; date: string; status: "Draft"; }; activePage: string; }' is not assignable to type 'IntrinsicAttributes & EventsSidebarProps'.
+  Property 'activePage' does not exist on type 'IntrinsicAttributes & EventsSidebarProps'.
+app/(admin_side)/management/page.tsx(678,57): error TS2322: Type 'string | undefined' is not assignable to type 'string | StaticImport'.
+  Type 'undefined' is not assignable to type 'string | StaticImport'.
+components/admin/DateInput.tsx(156,21): error TS2353: Object literal may only specify known properties, and 'modifiers' does not exist in type 'Omit<UseFloatingOptions<ReferenceType>, "middleware">'.
+lib/supabase.ts(1,30): error TS2307: Cannot find module '@supabase/supabase-js' or its corresponding type declarations.
