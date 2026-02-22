@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList } from "lucide-react";
+import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3 } from "lucide-react";
+
+type InputType = "short_answer" | "paragraph" | "multiple_choice" | "checkboxes" | "dropdown" | "file_upload" | "multiple_choice_grid" | "checkbox_grid" | "date" | "time";
 
 interface FormInput {
     id: string;
     question: string;
-    type: "text" | "email" | "number" | "textarea" | "select" | "checkbox" | "radio" | "date";
+    type: InputType;
     fieldIdentifier: string;
     required: boolean;
     options?: string[];
@@ -24,14 +26,39 @@ interface OrderFormData {
 }
 
 const INPUT_TYPES = [
-    { value: "text", label: "Short Text" },
+    { value: "short_answer", label: "Short Answer" },
+    { value: "paragraph", label: "Paragraph" },
+    { value: "multiple_choice", label: "Multiple Choice" },
+    { value: "checkboxes", label: "Checkboxes" },
+    { value: "dropdown", label: "Dropdown" },
+    { value: "file_upload", label: "File Upload" },
+    { value: "multiple_choice_grid", label: "Multiple Choice Grid" },
+    { value: "checkbox_grid", label: "Checkbox Grid" },
+    { value: "date", label: "Date" },
+    { value: "time", label: "Time" }
+];
+
+const FIELD_IDENTIFIERS = [
+    { value: "first_name", label: "First Name" },
+    { value: "last_name", label: "Last Name" },
     { value: "email", label: "Email" },
-    { value: "number", label: "Number" },
-    { value: "textarea", label: "Long Text" },
-    { value: "select", label: "Dropdown" },
-    { value: "checkbox", label: "Checkboxes" },
-    { value: "radio", label: "Multiple Choice" },
-    { value: "date", label: "Date" }
+    { value: "phone", label: "Phone Number" },
+    { value: "gender", label: "Gender" },
+    { value: "age", label: "Age" },
+    { value: "date_of_birth", label: "Date of Birth" },
+    { value: "address", label: "Address" },
+    { value: "city", label: "City" },
+    { value: "state", label: "State/Province" },
+    { value: "country", label: "Country" },
+    { value: "zip_code", label: "ZIP/Postal Code" },
+    { value: "company", label: "Company" },
+    { value: "job_title", label: "Job Title" },
+    { value: "department", label: "Department" },
+    { value: "dietary_restrictions", label: "Dietary Restrictions" },
+    { value: "special_needs", label: "Special Needs" },
+    { value: "agree_to_terms", label: "Agree to Terms" },
+    { value: "newsletter_signup", label: "Newsletter Signup" },
+    { value: "custom", label: "Custom Field" }
 ];
 
 export default function OrderForm({ eventId }: { eventId: string }) {
@@ -45,8 +72,8 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                     {
                         id: "input-1",
                         question: "Full Name",
-                        type: "text",
-                        fieldIdentifier: "full_name",
+                        type: "short_answer",
+                        fieldIdentifier: "first_name",
                         required: true
                     }
                 ]
@@ -94,8 +121,8 @@ export default function OrderForm({ eventId }: { eventId: string }) {
         const newInput: FormInput = {
             id: `input-${Date.now()}`,
             question: "New Question",
-            type: "text",
-            fieldIdentifier: `field_${Date.now()}`,
+            type: "short_answer",
+            fieldIdentifier: "custom",
             required: false
         };
         setData({
@@ -163,9 +190,11 @@ export default function OrderForm({ eventId }: { eventId: string }) {
         const baseClasses = "w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent";
 
         switch (input.type) {
-            case "textarea":
-                return <textarea className={baseClasses} placeholder="Your answer" rows={3} disabled />;
-            case "select":
+            case "short_answer":
+                return <input type="text" className={baseClasses} placeholder="Your answer" disabled />;
+            case "paragraph":
+                return <textarea className={baseClasses} placeholder="Your answer" rows={4} disabled />;
+            case "dropdown":
                 return (
                     <select className={baseClasses} disabled>
                         <option>Select an option</option>
@@ -174,7 +203,7 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                         ))}
                     </select>
                 );
-            case "checkbox":
+            case "checkboxes":
                 return (
                     <div className="space-y-2">
                         {input.options?.map((opt, idx) => (
@@ -185,23 +214,89 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                         ))}
                     </div>
                 );
-            case "radio":
+            case "multiple_choice":
                 return (
                     <div className="space-y-2">
                         {input.options?.map((opt, idx) => (
                             <label key={idx} className="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" className="w-4 h-4" disabled />
+                                <input type="radio" className="w-4 h-4" name={input.id} disabled />
                                 <span className="text-sm text-gray-700 dark:text-gray-300">{opt}</span>
                             </label>
                         ))}
                     </div>
                 );
+            case "file_upload":
+                return (
+                    <label className="flex items-center justify-center w-full px-4 py-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-[#3D518C] transition-colors bg-gray-50 dark:bg-gray-700/30">
+                        <div className="flex flex-col items-center gap-2">
+                            <Upload className="w-5 h-5 text-gray-400" />
+                            <span className="text-sm text-gray-600 dark:text-gray-400">Click to upload file</span>
+                        </div>
+                        <input type="file" className="hidden" disabled />
+                    </label>
+                );
+            case "multiple_choice_grid":
+                return (
+                    <div className="space-y-3">
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                                <thead>
+                                    <tr>
+                                        <th className="text-left p-2 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600"></th>
+                                        {input.options?.slice(0, 3).map((opt, idx) => (
+                                            <th key={idx} className="p-2 text-xs font-medium text-gray-600 dark:text-gray-400 text-center border border-gray-200 dark:border-gray-600">{opt}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {["Row 1", "Row 2"].map((row, rowIdx) => (
+                                        <tr key={rowIdx}>
+                                            <td className="p-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">{row}</td>
+                                            {input.options?.slice(0, 3).map((_, colIdx) => (
+                                                <td key={colIdx} className="p-2 text-center border border-gray-200 dark:border-gray-600">
+                                                    <input type="radio" className="w-4 h-4" disabled />
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
+            case "checkbox_grid":
+                return (
+                    <div className="space-y-3">
+                        <div className="overflow-x-auto">
+                            <table className="w-full border-collapse">
+                                <thead>
+                                    <tr>
+                                        <th className="text-left p-2 text-xs font-medium text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-600"></th>
+                                        {input.options?.slice(0, 3).map((opt, idx) => (
+                                            <th key={idx} className="p-2 text-xs font-medium text-gray-600 dark:text-gray-400 text-center border border-gray-200 dark:border-gray-600">{opt}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {["Row 1", "Row 2"].map((row, rowIdx) => (
+                                        <tr key={rowIdx}>
+                                            <td className="p-2 text-sm text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600">{row}</td>
+                                            {input.options?.slice(0, 3).map((_, colIdx) => (
+                                                <td key={colIdx} className="p-2 text-center border border-gray-200 dark:border-gray-600">
+                                                    <input type="checkbox" className="w-4 h-4 rounded" disabled />
+                                                </td>
+                                            ))}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
             case "date":
                 return <input type="date" className={baseClasses} disabled />;
-            case "email":
-                return <input type="email" className={baseClasses} placeholder="your@email.com" disabled />;
-            case "number":
-                return <input type="number" className={baseClasses} placeholder="0" disabled />;
+            case "time":
+                return <input type="time" className={baseClasses} disabled />;
             default:
                 return <input type="text" className={baseClasses} placeholder="Your answer" disabled />;
         }
@@ -252,7 +347,7 @@ export default function OrderForm({ eventId }: { eventId: string }) {
             {/* Page Header */}
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                    <div className="w-14 h-14 bg-linear-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
                         <ClipboardList className="w-7 h-7 text-white" />
                     </div>
                     <div>
@@ -266,7 +361,7 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                 </div>
                 <button
                     onClick={() => setPreviewMode(true)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
+                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
                 >
                     <Eye className="w-4 h-4" />
                     Preview
@@ -281,7 +376,7 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                         className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md"
                     >
                         {/* Section Header */}
-                        <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                        <div className="p-6 border-b border-[#3D518C]/10 bg-linear-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
                             <div className="flex items-start justify-between gap-4">
                                 <div className="flex-1">
                                     {editingSection === section.id ? (
@@ -303,7 +398,7 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                                             <div className="flex gap-2">
                                                 <button
                                                     onClick={() => setEditingSection(null)}
-                                                    className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
+                                                    className="px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
                                                 >
                                                     Done
                                                 </button>
@@ -345,7 +440,7 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                                     </p>
                                     <button
                                         onClick={() => addInput(section.id)}
-                                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
+                                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
                                     >
                                         <Plus className="w-4 h-4" />
                                         Add Field
@@ -385,26 +480,60 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                                                         </div>
                                                         <div>
                                                             <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Field Identifier</label>
-                                                            <input
-                                                                type="text"
+                                                            <select
                                                                 value={input.fieldIdentifier}
                                                                 onChange={(e) => updateInput(section.id, input.id, { fieldIdentifier: e.target.value })}
                                                                 className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                                placeholder="e.g., full_name"
-                                                            />
+                                                            >
+                                                                {FIELD_IDENTIFIERS.map(field => (
+                                                                    <option key={field.value} value={field.value}>{field.label}</option>
+                                                                ))}
+                                                            </select>
                                                         </div>
                                                     </div>
 
-                                                    {(input.type === "select" || input.type === "checkbox" || input.type === "radio") && (
+                                                    {(input.type === "dropdown" || input.type === "checkboxes" || input.type === "multiple_choice" || input.type === "multiple_choice_grid" || input.type === "checkbox_grid") && (
                                                         <div>
-                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Options (one per line)</label>
-                                                            <textarea
-                                                                value={input.options?.join("\n") || ""}
-                                                                onChange={(e) => updateInput(section.id, input.id, { options: e.target.value.split("\n").filter(o => o.trim()) })}
-                                                                className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                                placeholder="Option 1&#10;Option 2&#10;Option 3"
-                                                                rows={3}
-                                                            />
+                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase mb-3 block">Options</label>
+                                                            <div className="space-y-2">
+                                                                {(input.options || []).map((option, idx) => (
+                                                                    <div key={idx} className="flex gap-2 items-center">
+                                                                        <input
+                                                                            type="text"
+                                                                            value={option}
+                                                                            onChange={(e) => {
+                                                                                const newOptions = [...(input.options || [])];
+                                                                                newOptions[idx] = e.target.value;
+                                                                                updateInput(section.id, input.id, { options: newOptions });
+                                                                            }}
+                                                                            className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                                                            placeholder={`Option ${idx + 1}`}
+                                                                        />
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const newOptions = input.options?.filter((_, i) => i !== idx) || [];
+                                                                                updateInput(section.id, input.id, { options: newOptions });
+                                                                            }}
+                                                                            className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                                            title="Delete option"
+                                                                        >
+                                                                            <Trash2 className="w-4 h-4" />
+                                                                        </button>
+                                                                    </div>
+                                                                ))}
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        const newOptions = [...(input.options || []), ""];
+                                                                        updateInput(section.id, input.id, { options: newOptions });
+                                                                    }}
+                                                                    className="w-full py-2 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2"
+                                                                >
+                                                                    <Plus className="w-4 h-4" />
+                                                                    Add Option
+                                                                </button>
+                                                            </div>
                                                         </div>
                                                     )}
 
@@ -423,7 +552,7 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                                                     <div className="flex gap-2">
                                                         <button
                                                             onClick={() => setEditingInput(null)}
-                                                            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
+                                                            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
                                                         >
                                                             Done
                                                         </button>
@@ -492,7 +621,7 @@ export default function OrderForm({ eventId }: { eventId: string }) {
             {/* Add Section Button */}
             <button
                 onClick={addSection}
-                className="w-full py-3 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full py-3 text-sm font-semibold text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
             >
                 <Plus className="w-5 h-5" />
                 Add New Section

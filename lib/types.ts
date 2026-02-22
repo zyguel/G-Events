@@ -64,3 +64,67 @@ export interface Comment {
     time: string;
     eventName?: string;
 }
+// Order Form Types
+export type FormInputType = "short_answer" | "paragraph" | "multiple_choice" | "checkboxes" | "dropdown" | "file_upload" | "multiple_choice_grid" | "checkbox_grid" | "date" | "time";
+
+export type FieldIdentifierType = 
+    | "first_name" 
+    | "last_name" 
+    | "email" 
+    | "phone" 
+    | "gender" 
+    | "age" 
+    | "date_of_birth" 
+    | "address" 
+    | "city" 
+    | "state" 
+    | "country" 
+    | "zip_code" 
+    | "company" 
+    | "job_title" 
+    | "department" 
+    | "dietary_restrictions" 
+    | "special_needs" 
+    | "agree_to_terms" 
+    | "newsletter_signup" 
+    | "custom";
+
+export interface FormInputField {
+    id: string;
+    question: string;
+    type: FormInputType;
+    fieldIdentifier: FieldIdentifierType;
+    required: boolean;
+    options?: string[];
+}
+
+export interface FormSection {
+    id: string;
+    title: string;
+    description: string;
+    inputs: FormInputField[];
+}
+
+export interface OrderFormData {
+    sections: FormSection[];
+}
+
+export interface OrderFormEntry {
+    id: number;
+    event_id: number;
+    registration_id?: number;
+    order_form_id: number;
+    user_email?: string;
+    form_data: OrderFormData;
+    submitted_at: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface FormDataAnswer {
+    id: string;
+    question: string;
+    type: FormInputType;
+    fieldIdentifier: FieldIdentifierType;
+    answer?: string | string[] | null;
+}

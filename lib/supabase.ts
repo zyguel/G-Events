@@ -70,3 +70,16 @@ export interface Event {
     created_at: string;
 }
 
+// OrderFormEntries interface for storing form submissions
+export interface OrderFormEntry {
+    id: number;
+    event_id: number;
+    registration_id?: number;
+    order_form_id: number;
+    user_email?: string;
+    form_data: any; // JSONB containing the form responses
+    submitted_at: string;
+    created_at: string;
+    updated_at: string;
+}
+
