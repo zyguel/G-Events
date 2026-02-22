@@ -29,12 +29,15 @@ export default function EventsPage() {
     const [selectedFilter, setSelectedFilter] = useState<FilterOption>('all');
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
+    const [isLoading, setIsLoading] = useState(true);
 
     // Load events from Supabase
     useEffect(() => {
         const fetchEvents = async () => {
-            const data = await getEvents();
-            const mappedEvents: Event[] = data.map((e: any) => {
+            try {
+                setIsLoading(true);
+                const data = await getEvents();
+                const mappedEvents: Event[] = data.map((e: any) => {
                 const now = new Date();
                 const startDate = e.event_start_at ? new Date(e.event_start_at) : null;
                 const endDate = e.event_end_at ? new Date(e.event_end_at) : null;
@@ -66,6 +69,9 @@ export default function EventsPage() {
                 };
             });
             setEvents(mappedEvents);
+            } finally {
+                setIsLoading(false);
+            }
         };
         fetchEvents();
     }, []);
@@ -216,7 +222,60 @@ export default function EventsPage() {
                         </div>
 
                         {/* Events List/Grid */}
-                        {filteredEvents.length === 0 ? (
+                        {isLoading ? (
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
+                                {viewMode === 'list' ? (
+                                    <div className="divide-y divide-gray-100 dark:divide-gray-700">
+                                        {[...Array(5)].map((_, i) => (
+                                            <div key={i} className="p-4 md:p-5">
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-4 flex-1">
+                                                        <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse flex-shrink-0"></div>
+                                                        <div className="flex-1 space-y-2">
+                                                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-lg w-40 animate-pulse"></div>
+                                                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-60 animate-pulse"></div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 pl-16 md:pl-0">
+                                                        <div className="text-center hidden md:block w-32">
+                                                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-12 mx-auto animate-pulse"></div>
+                                                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-lg w-16 mx-auto mt-1 animate-pulse"></div>
+                                                        </div>
+                                                        <div className="text-center hidden md:block w-24">
+                                                            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-12 mx-auto animate-pulse"></div>
+                                                            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-lg w-12 mx-auto mt-1 animate-pulse"></div>
+                                                        </div>
+                                                        <div className="min-w-[80px]">
+                                                            <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded-full w-16 animate-pulse mx-auto"></div>
+                                                        </div>
+                                                        <div className="p-2">
+                                                            <div className="h-6 w-6 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
+                                        {[...Array(6)].map((_, i) => (
+                                            <div key={i} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 overflow-hidden">
+                                                <div className="h-32 bg-gray-200 dark:bg-gray-700 animate-pulse"></div>
+                                                <div className="p-5 space-y-3">
+                                                    <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-lg w-40 animate-pulse"></div>
+                                                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-32 animate-pulse"></div>
+                                                    <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-36 animate-pulse"></div>
+                                                    <div className="flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700">
+                                                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-20 animate-pulse"></div>
+                                                        <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-24 animate-pulse"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ) : filteredEvents.length === 0 ? (
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-12 text-center">
                                 <Calendar size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
                                 <p className="text-gray-500 dark:text-gray-400 text-lg">No events found</p>
