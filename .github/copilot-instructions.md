@@ -1,64 +1,127 @@
 # G-Events Copilot Instructions
 
 ## Project Overview
-G-Events is a comprehensive event management dashboard built with Next.js 16, React 19, and TypeScript. It provides admin functionality for managing events, analytics, check-ins, and attendee communications with a polished dark/light mode UI.
+G-Events is a comprehensive event management dashboard built with Next.js 16, React 19, and TypeScript. It enables event organizers to manage event creation, attendee registration, check-ins, communications, analytics, and certificate distribution through an admin dashboard with full dark/light mode support.
 
 ## Architecture & Key Patterns
 
-### Route Structure (App Router)
-- **`app/(admin_side)/`**: Admin dashboard routes with protected sidebar navigation
-  - `dashboard/` - Main overview with quick stats and recent activity
-  - `events/[eventId]/` - Event-specific features: checkin, email-attendees, reports, publish, etc.
-  - `analytics/[eventId]/` - Event analytics and all-events overview
-  - `management/`, `profile/`, `settings/` - Admin tools
-- **`app/page.tsx`**: Redirects to `/dashboard`
-- **Root layout** (`app/layout.tsx`): Uses Figtree font (not Geist), applies to all pages
+### Route Structure (App Router + Server/Client Components)
+**Admin dashboard** uses protected sidebar layout at `app/(admin_side)/`:
+- **`dashboard/`** - Main overview with stats and recent events (client component, `"use client"`)
+- **`events/`** - Event list page and event-specific subroutes
+  - **`[eventId]/layout.tsx`** - Async server layout fetching event via `getEventById()` server action
+  - **`[eventId]/overview/`**, **`analytics/`**, **`checkin/`**, **`email-attendees/`**, **`reports/`**, **`publish/`**, **`tickets/`**, **`breakouts/`**, **`certificates/`**, **`orders/`**, **`waitlist/`** - Feature-specific pages (most marked `"use client"`)
+- **`analytics/all/`** - All-events overview analytics
+- **`management/`**, **`profile/`**, **`settings/`** - Admin configuration pages
+- **`login/`** - Authentication entry point
+
+**Key pattern**: Layouts are server components (can use async, `getEventById()`, `revalidatePath()`), while feature pages are typically client components for interactive UX.
+
+### Data Layer & Server Actions
+- **Database**: Supabase with PostgreSQL schema (`User`, `Event`, `OrganizationRole`, `OrganizationUserRole`, etc.)
+- **Supabase client**: [lib/supabase.ts](lib/supabase.ts) - Exports `supabase` instance and TypeScript interfaces
+- **Server actions** ([lib/actions/events.ts](lib/actions/events.ts)): Use `'use server'` directive
+  - `getEvents()` - Fetch all events for org
+  - `getEventById(id)` - Fetch single event (used in layouts)
+  - `createEvent(prevState, formData)` - Server-side form processing with banner upload
+  - `updateEvent()`, `deleteEvent()` - Modify events
+  - `uploadFileToStorage()` - Upload to Supabase storage bucket
+- **API routes** ([app/api/](app/api/)): REST endpoints for external integrations (e.g., `/api/events`, `/api/management/users`)
+- **Database utilities** ([lib/db.ts](lib/db.ts)): Low-level Supabase queries (user management, roles, permissions)
 
 ### Component Architecture
-- **Admin components** (`components/admin/`): Reusable dashboard widgets
-  - `Header.tsx` - Navigation header with logo and theme toggle
-  - `Sidebar.tsx` - Collapsible sidebar with active page styling
-  - `DashboardTabs.tsx`, `RegistrationChart.tsx` - Chart/data visualization
-  - `Modal.tsx`, `RichTextEditor.tsx` - Common UI elements
-  - Client components use `"use client"` directive; state managed locally with `useState`
-- **Client-side pages**: Most admin pages marked `"use client"` for interactivity (e.g., dashboard page with event filtering)
+**Reusable admin components** ([components/admin/](components/admin/)):
+- **Layout**: `Header.tsx` (logo, notifications, theme toggle), `Sidebar.tsx` (active page indicator, collapsible)
+- **Forms & Editors**: `RichTextEditor.tsx` (TipTap-based with formatting toolbar), `DateTimeInput.tsx`, `TimeInput.tsx`, `DateInput.tsx`
+- **Data Display**: `DashboardTabs.tsx`, `RegistrationChart.tsx`, `TopPerformingEvents.tsx`, `StatCard.tsx`
+- **Modals**: `Modal.tsx`, `SuccessModal.tsx`, `EditorModals.tsx` (Link/Image insertion for rich text)
+- **Utilities**: `ExportButton.tsx` (CSV/PDF/Excel export), `NotificationDropdown.tsx`, `EventSelector.tsx`
 
-### Data Model
-- **EventData interface** ([lib/types.ts](lib/types.ts)): Core event object with stats, trends, transactions, attendance
-- **Mock API** ([lib/api.ts](lib/api.ts)): `eventsData` Record contains event details; no real backend yet
-- Features include: multi-week registration trends, revenue breakdown, attendance tracking, comments with ratings
+**Event-specific client components** ([app/(admin_side)/events/[eventId]/*/](app/%28admin_side%29/events/%5BeventId%5D/)):
+- Pages like `TicketsClient.tsx`, `CheckInClient.tsx`, `EmailAttendeesClient.tsx` handle user interactions
+- Typically fetch data via server actions, manage local state with `useState`, validate forms
+
+### Data Models & Types
+- **[lib/types.ts](lib/types.ts)**: Core types
+  - `EventStatus` enum: "Draft", "Published", "Ongoing", "Completed", "Not Started", "Cancelled"
+  - `EventData` interface: Event with stats (registrations, revenue, satisfaction), trends (weekly registrations, attendance), revenueBreakdown, recentTransactions
+  - `Comment` interface: User feedback with rating and timestamp
+- **[lib/supabase.ts](lib/supabase.ts)**: Database schema types
+  - `Event` - event record with title, description, dates, capacity, publish status
+  - `User`, `OrganizationRole`, `OrganizationUserRole` - authentication/authorization
+  - `UserWithRole` - joined user data for display
 
 ### Styling System
 - **CSS Framework**: Tailwind CSS v4 with `@tailwindcss/postcss`
-- **Dark mode**: Built-in dark: prefix (e.g., `bg-white dark:bg-gray-800`)
-- **Color palette**: Primary brand color `#3D518C` (navy blue), grays, gradients for CTAs
-- **Typography**: Figtree font via CSS variable `--font-figtree` (apply via `font-sans`)
-- **Design patterns**: Cards use `rounded-xl`, shadows `shadow-sm`, transitions `duration-300`, hover scales
+- **Typography**: Figtree font via CSS variable `--font-figtree` (always include in `<body className>` with `font-sans`)
+- **Dark mode**: Uses Tailwind dark: prefix (e.g., `bg-white dark:bg-gray-800`, `text-gray-900 dark:text-gray-100`)
+- **Color palette**: 
+  - Primary navy: `#3D518C`
+  - Grays: gray-50, gray-100, gray-700, gray-800, gray-900
+  - Status colors (info, success, warning, alert)
+- **Spacing & Styles**:
+  - Cards: `rounded-xl shadow-sm p-6 bg-white dark:bg-gray-800`
+  - Buttons: Tailwind classes with `transition-all duration-300` for smooth interactions
+  - Active states: Blue background (sidebar items) or border indicators
+  - Responsive: Mobile-first with `lg:` breakpoints for layouts
 
-### Dependencies & Export Features
-- **Rich text editor**: TipTap (v3.17+) with extensions (color, font-family, image, link, text-align)
-- **Export utilities**: ExcelJS, JSPDF with autotable for PDF/Excel exports ([lib/exportUtils.ts](lib/exportUtils.ts))
-- **Date handling**: date-fns v4, react-datepicker for date/time inputs
-- **Icons**: Lucide-react (Bell, Calendar, ChevronRight, etc.)
+### Key Dependencies & Patterns
+- **Rich text editor**: TipTap v3.17+ (StarterKit, Underline, Link, Image, TextAlign, Color, FontFamily extensions)
+  - Usage: Import `useEditor`, `EditorContent`, configure extensions, render toolbar with formatting buttons
+- **Export utilities** ([lib/exportUtils.ts](lib/exportUtils.ts)): 
+  - `exportToCSV()`, `exportToXLSX()`, `exportToPDF()` - Client-side export functions
+  - Format data with stats sections, tables, timestamps
+- **Date/time handling**: date-fns v4, react-datepicker, react-time-picker
+- **Icons**: Lucide-react (Bell, Calendar, ChevronRight, Edit, Trash, etc.)
 - **Animations**: Framer Motion v12 for transitions
+- **PDF generation**: jsPDF + jspdf-autotable
+- **Excel generation**: ExcelJS v4.4.0
+- **Global state**: `NotificationContext.tsx` - Provides `addNotification()`, `dismissNotification()` for toast-like alerts
+
+### Event Status Logic (Important)
+Event status is derived from:
+- `data.is_published` (boolean) - Whether event is published
+- `data.event_start_at`, `data.event_end_at` (ISO dates)
+- Current date/time comparison
+
+Pattern (from [app/(admin_side)/events/[eventId]/layout.tsx](app/%28admin_side%29/events/%5BeventId%5D/layout.tsx)):
+```typescript
+let status = 'Draft';
+if (data.is_published) {
+  if (endDate && endDate < now) status = 'Completed';
+  else if (startDate && startDate <= now && endDate && endDate >= now) status = 'Ongoing';
+  else status = 'Published';
+}
+```
 
 ## Development Workflow
-- **Start**: `npm run dev` → http://localhost:3000
+- **Start dev**: `npm run dev` → http://localhost:3000
 - **Build**: `npm run build`
 - **Production**: `npm run start`
-- **Lint**: `npm run lint`
+- **Linting**: `npm run lint` (ESLint + Next.js config)
+- **Environment**: Supabase URL and anon key in `.env.local` as `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- **Default org**: `NEXT_PUBLIC_DEFAULT_ORG_ID` (defaults to 1 if not set)
 
 ## Code Conventions
-- **Imports**: Use `@/` path alias (e.g., `@/components/admin/Header`)
-- **Client components**: Add `"use client"` at top of files needing React hooks (useState, useEffect)
-- **TypeScript**: Strict mode enabled; define interfaces for props (e.g., `interface DashboardData { ... }`)
-- **Export styling**: Format data in export handlers using event stats and trends
-- **Committed commits**: Follow Conventional Commits (`feat(scope): message`, not generic titles)
+- **Path alias**: Always use `@/` for imports (e.g., `@/lib/api`, `@/components/admin/Header`)
+- **Client vs Server**:
+  - Use `"use client"` at top of interactive pages/components needing hooks (useState, useEffect, context usage)
+  - Use `'use server'` for server actions in lib/actions/
+  - Layouts can be async server components (don't need `"use client"`) to fetch data
+- **TypeScript**: Strict mode enabled; always define prop interfaces and return types
+- **Form handling**: Use `FormData` in server actions, `formData.get()` for field values
+- **File uploads**: Use `uploadFileToStorage()` helper for Supabase storage (bucket defaults to 'events')
+- **Revalidation**: Call `revalidatePath()` after mutations to update cached data
+- **Commits**: Follow Conventional Commits (`feat(events): add checkin feature`, `fix(auth): resolve layout crash`, not generic titles)
 
 ## Key Files to Reference
-- [app/layout.tsx](app/layout.tsx) - Font setup, metadata
-- [app/(admin_side)/dashboard/page.tsx](app/%28admin_side%29/dashboard/page.tsx) - Dashboard layout pattern
-- [components/admin/Sidebar.tsx](components/admin/Sidebar.tsx) - Navigation with state management
-- [lib/types.ts](lib/types.ts) - EventData and Comment interfaces
-- [lib/api.ts](lib/api.ts) - Mock event data structure (reference for backend integration)</content>
+- [app/layout.tsx](app/layout.tsx) - Root layout, font setup via `figtree.variable`, NotificationProvider wrapper
+- [app/(admin_side)/events/[eventId]/layout.tsx](app/%28admin_side%29/events/%5BeventId%5D/layout.tsx) - Server-side event data fetching, status derivation
+- [lib/actions/events.ts](lib/actions/events.ts) - Server actions for CRUD, file uploads, data transformations
+- [lib/supabase.ts](lib/supabase.ts) - Supabase client init, database schema types
+- [lib/types.ts](lib/types.ts) - EventData, EventStatus, Comment types
+- [components/admin/RichTextEditor.tsx](components/admin/RichTextEditor.tsx) - TipTap editor pattern for content editing
+- [components/admin/Sidebar.tsx](components/admin/Sidebar.tsx) - Navigation sidebar with active state indicator
+- [lib/exportUtils.ts](lib/exportUtils.ts) - Export to CSV/XLSX/PDF patterns
+- [contexts/NotificationContext.tsx](contexts/NotificationContext.tsx) - Global notification context usage</content>
 <parameter name="filePath">x:/projects/g-events/G-Events/.github/copilot-instructions.md
