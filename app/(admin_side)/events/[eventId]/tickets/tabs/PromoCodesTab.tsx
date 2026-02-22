@@ -310,9 +310,10 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
             <label className="block text-sm font-medium mb-2">Promo Code *</label>
             <input
               type="text"
+              placeholder="e.g. EARLYBIRD2024"
               value={formData.code}
               onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 uppercase ${errors.code ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+              className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm uppercase ${errors.code ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
             {errors.code && <p className="text-red-600 text-sm mt-1">{errors.code}</p>}
@@ -326,9 +327,9 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                   <button
                     key={type}
                     onClick={() => setFormData({ ...formData, valueType: type as "percentage" | "fixed" })}
-                    className={`flex-1 py-2 px-3 rounded-lg font-medium text-sm transition-colors ${formData.valueType === type
-                      ? "bg-[#3D518C] text-white"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600"
+                    className={`flex-1 py-2.5 px-3 min-h-[42px] rounded-xl font-medium transition-all shadow-sm text-sm ${formData.valueType === type
+                      ? "bg-[#3D518C] text-white ring-2 ring-[#3D518C] ring-offset-2 dark:ring-offset-gray-800"
+                      : "bg-slate-50 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
                       }`}
                   >
                     {type === "percentage" ? "%" : "₱"}
@@ -339,15 +340,28 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
 
             <div>
               <label className="block text-sm font-medium mb-2">Value *</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.value}
-                onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.value ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                  }`}
-              />
+              <div className="relative">
+                {formData.valueType === "fixed" && (
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
+                    ₱
+                  </span>
+                )}
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
+                  value={formData.value || ""}
+                  onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                  className={`w-full ${formData.valueType === "fixed" ? "pl-8 pr-3" : formData.valueType === "percentage" ? "pl-3 pr-8" : "px-3"} py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.value ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                    }`}
+                />
+                {formData.valueType === "percentage" && (
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
+                    %
+                  </span>
+                )}
+              </div>
               {errors.value && <p className="text-red-600 text-sm mt-1">{errors.value}</p>}
             </div>
           </div>
@@ -359,7 +373,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                 type="datetime-local"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.startDate ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                   }`}
               />
               {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate}</p>}
@@ -371,7 +385,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                 type="datetime-local"
                 value={formData.endDate}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.endDate ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                   }`}
               />
               {errors.endDate && <p className="text-red-600 text-sm mt-1">{errors.endDate}</p>}
@@ -383,7 +397,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
             <select
               value={typeof formData.appliedTo === 'string' ? formData.appliedTo : formData.appliedTo[0] || 'all'}
               onChange={(e) => setFormData({ ...formData, appliedTo: e.target.value === 'all' ? 'all' : [e.target.value] })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              className="w-full pl-3 pr-10 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 border-gray-200 dark:border-gray-700 text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[position:right_12px_center] bg-no-repeat"
             >
               <option value="all">All Tickets</option>
               {tickets.map((ticket) => (
@@ -399,9 +413,10 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
             <input
               type="number"
               min="0"
-              value={formData.usageLimit}
+              placeholder="0"
+              value={formData.usageLimit || ""}
               onChange={(e) => setFormData({ ...formData, usageLimit: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              className="w-full px-3 py-2.5 min-h-[42px] border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm"
             />
           </div>
 
@@ -421,13 +436,13 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
           <div className="flex gap-3 justify-end border-t border-gray-300 dark:border-gray-600 pt-4">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleSavePromo}
-              className="px-4 py-2 bg-[#3D518C] text-white rounded-lg hover:bg-[#2a3a5e] transition-colors font-medium"
+              className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
             >
               {editingPromoId ? "Update" : "Create"} Promo
             </button>

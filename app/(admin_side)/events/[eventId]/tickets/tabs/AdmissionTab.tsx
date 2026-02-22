@@ -224,7 +224,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 ${errors.name ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+              className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.name ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
             {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
@@ -238,9 +238,9 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   <button
                     key={type}
                     onClick={() => setFormData({ ...formData, type: type as "paid" | "free" })}
-                    className={`flex-1 py-2 px-3 rounded-xl font-medium transition-all shadow-sm ${formData.type === type
+                    className={`flex-1 py-2.5 px-3 min-h-[42px] rounded-xl font-medium transition-all shadow-sm text-sm ${formData.type === type
                       ? "bg-[#3D518C] text-white ring-2 ring-[#3D518C] ring-offset-2 dark:ring-offset-gray-800"
-                      : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+                      : "bg-slate-50 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
                       }`}
                   >
                     {type === "paid" ? "Paid" : "Free"}
@@ -254,9 +254,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
               <input
                 type="number"
                 min="1"
-                value={formData.quantity}
+                placeholder="0"
+                value={formData.quantity || ""}
                 onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                className={`w-full px-3 py-2 border rounded-xl bg-white dark:bg-gray-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 ${errors.quantity ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.quantity ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                   }`}
               />
               {errors.quantity && <p className="text-red-600 text-sm mt-1">{errors.quantity}</p>}
@@ -266,15 +267,21 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
           {formData.type === "paid" && (
             <div>
               <label className="block text-sm font-medium mb-2">Price *</label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                className={`w-full px-3 py-2 border rounded-xl bg-white dark:bg-gray-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 ${errors.price ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                  }`}
-              />
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
+                  ₱
+                </span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={formData.price || ""}
+                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                  className={`w-full pl-8 pr-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.price ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                    }`}
+                />
+              </div>
               {errors.price && <p className="text-red-600 text-sm mt-1">{errors.price}</p>}
             </div>
           )}
@@ -297,7 +304,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                       setFormData({ ...formData, startDate: timeStr ? `${dateStr}T${timeStr}` : dateStr });
                     }}
                     placeholder="Select date"
-                    className={errors.startDate ? "border-red-500" : ""}
+                    className={errors.startDate ? "border-red-500 text-sm" : "text-sm"}
                   />
                 </div>
                 <div className="w-[45%]">
@@ -310,7 +317,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                       setFormData({ ...formData, startDate: time ? `${datePart}T${time}` : datePart });
                     }}
                     placeholder="Time"
-                    className={errors.startDate ? "border-red-500" : ""}
+                    className={errors.startDate ? "border-red-500 text-sm" : "text-sm"}
                   />
                 </div>
               </div>
@@ -335,7 +342,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                       setFormData({ ...formData, endDate: timeStr ? `${dateStr}T${timeStr}` : dateStr });
                     }}
                     placeholder="Select date"
-                    className={errors.endDate ? "border-red-500" : ""}
+                    className={errors.endDate ? "border-red-500 text-sm" : "text-sm"}
                   />
                 </div>
                 <div className="w-[45%]">
@@ -348,7 +355,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                       setFormData({ ...formData, endDate: time ? `${datePart}T${time}` : datePart });
                     }}
                     placeholder="Time"
-                    className={errors.endDate ? "border-red-500" : ""}
+                    className={errors.endDate ? "border-red-500 text-sm" : "text-sm"}
                   />
                 </div>
               </div>
@@ -380,7 +387,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   value={formData.description}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600"
+                  className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none resize-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm"
                 />
               </div>
 
@@ -406,7 +413,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     min="1"
                     value={formData.minQuantity}
                     onChange={(e) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600"
+                    className="w-full px-3 py-2.5 min-h-[42px] border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm"
                   />
                 </div>
 
@@ -417,7 +424,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     min="1"
                     value={formData.maxQuantity}
                     onChange={(e) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
-                    className={`w-full px-3 py-2 border rounded-xl bg-white dark:bg-gray-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 ${errors.maxQuantity ? "border-red-500" : "border-gray-200 dark:border-gray-700"
+                    className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.maxQuantity ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                       }`}
                   />
                   {errors.maxQuantity && <p className="text-red-600 text-sm mt-1">{errors.maxQuantity}</p>}
@@ -430,13 +437,13 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
           <div className="flex gap-3 justify-end border-t border-gray-300 dark:border-gray-600 pt-4">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-2xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveTicket}
-              className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-2xl font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all"
+              className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
             >
               {editingTicketId ? "Update" : "Create"} Ticket
             </button>
@@ -456,13 +463,13 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
           <div className="flex gap-3 justify-end">
             <button
               onClick={() => setIsConfirmDeleteOpen(false)}
-              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-2xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirmDelete}
-              className="px-6 py-2.5 bg-red-600 text-white rounded-2xl font-semibold hover:bg-red-700 transition-all shadow-md hover:scale-[1.02] active:scale-98"
+              className="px-6 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all shadow-md hover:scale-[1.02] active:scale-98 text-sm"
             >
               Delete
             </button>

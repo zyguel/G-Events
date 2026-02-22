@@ -241,11 +241,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               type="file"
               accept="image/*"
               onChange={handleImageUpload}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-l-xl file:border-0 file:text-sm file:font-semibold file:bg-[#3D518C] file:text-white hover:file:bg-indigo-700 border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]/20 transition-all cursor-pointer"
             />
             {formData.image && (
               <div className="mt-3">
-                <img src={formData.image} alt="Preview" className="w-full h-40 object-cover rounded-lg" />
+                <img src={formData.image} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
               </div>
             )}
           </div>
@@ -256,7 +256,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               type="text"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+              className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.name ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
             {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
@@ -268,7 +268,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               type="text"
               value={formData.type}
               onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.type ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+              className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.type ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
             {errors.type && <p className="text-red-600 text-sm mt-1">{errors.type}</p>}
@@ -280,7 +280,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 ${errors.description ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+              className={`w-full px-3 py-2.5 border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none resize-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.description ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
             {errors.description && <p className="text-red-600 text-sm mt-1">{errors.description}</p>}
@@ -291,7 +291,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <select
               value={typeof formData.appliedTo === 'string' ? formData.appliedTo : formData.appliedTo[0] || 'all'}
               onChange={(e) => setFormData({ ...formData, appliedTo: e.target.value === 'all' ? 'all' : [e.target.value] })}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+              className="w-full pl-3 pr-10 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 border-gray-200 dark:border-gray-700 text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[position:right_12px_center] bg-no-repeat"
             >
               <option value="all">All Tickets</option>
               {tickets.map((ticket) => (
@@ -312,11 +312,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                     value={inclusion}
                     onChange={(e) => handleUpdateInclusion(index, e.target.value)}
                     placeholder="e.g., Lunch, T-shirt, etc."
-                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700"
+                    className="flex-1 px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 border-gray-200 dark:border-gray-700 text-sm"
                   />
                   <button
                     onClick={() => handleRemoveInclusion(index)}
-                    className="px-3 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                    className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors font-medium text-sm"
                   >
                     Remove
                   </button>
@@ -326,7 +326,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             {errors.inclusions && <p className="text-red-600 text-sm mt-1">{errors.inclusions}</p>}
             <button
               onClick={handleAddInclusion}
-              className="mt-3 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-sm"
+              className="mt-3 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm"
             >
               + Add Inclusion
             </button>
@@ -336,13 +336,13 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
           <div className="flex gap-3 justify-end border-t border-gray-300 dark:border-gray-600 pt-4">
             <button
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleSaveAddOn}
-              className="px-4 py-2 bg-[#3D518C] text-white rounded-lg hover:bg-[#2a3a5e] transition-colors font-medium"
+              className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
             >
               {editingAddOnId ? "Update" : "Create"} Add-on
             </button>
@@ -382,7 +382,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             </div>
             <button
               onClick={() => setIsDetailsModalOpen(false)}
-              className="w-full px-4 py-2 bg-[#3D518C] text-white rounded-lg hover:bg-[#2a3a5e] transition-colors font-medium"
+              className="w-full px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-lg font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
             >
               Close
             </button>
@@ -401,13 +401,13 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
           <div className="flex gap-3 justify-end">
             <button
               onClick={() => setIsConfirmDeleteOpen(false)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirmDelete}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
+              className="px-6 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all shadow-md hover:scale-[1.02] active:scale-98 text-sm"
             >
               Delete
             </button>
