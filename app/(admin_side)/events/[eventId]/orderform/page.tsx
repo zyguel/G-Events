@@ -2,8 +2,15 @@ import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import OrderForm from "@/components/admin/OrderForm";
 
-export default async function OrderFormPage({ params }: { params: Promise<{ eventId: string }> }) {
+export default async function OrderFormPage({ 
+    params,
+    searchParams
+}: { 
+    params: Promise<{ eventId: string }>
+    searchParams: Promise<{ formId?: string }>
+}) {
     const { eventId } = await params;
+    const { formId } = await searchParams;
 
     // Validate eventId
     if (!eventId || eventId === 'undefined') {
@@ -48,7 +55,7 @@ export default async function OrderFormPage({ params }: { params: Promise<{ even
         <div className="flex flex-col h-screen text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable]">
-                <OrderForm eventId={eventId} />
+                <OrderForm eventId={eventId} formId={formId} />
             </main>
         </div>
     );

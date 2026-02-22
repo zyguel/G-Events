@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3, Save, Loader } from "lucide-react";
 
 type InputType = "short_answer" | "paragraph" | "multiple_choice" | "checkboxes" | "dropdown" | "file_upload" | "multiple_choice_grid" | "checkbox_grid" | "date" | "time";
 
@@ -61,7 +62,18 @@ const FIELD_IDENTIFIERS = [
     { value: "custom", label: "Custom Field" }
 ];
 
-export default function OrderForm({ eventId }: { eventId: string }) {
+export default function OrderForm({ 
+    eventId, 
+    formId,
+    initialTitle = "New Order Form",
+    initialDescription = ""
+}: { 
+    eventId: string
+    formId?: string
+    initialTitle?: string
+    initialDescription?: string
+}) {
+    const router = useRouter();
     const [data, setData] = useState<OrderFormData>({
         sections: [
             {
@@ -81,9 +93,110 @@ export default function OrderForm({ eventId }: { eventId: string }) {
         ]
     });
 
+    const [formTitle, setFormTitle] = useState(initialTitle);
+    const [formDescription, setFormDescription] = useState(initialDescription);
     const [editingSection, setEditingSection] = useState<string | null>(null);
     const [editingInput, setEditingInput] = useState<string | null>(null);
     const [previewMode, setPreviewMode] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [isLoading, setIsLoading] = useState(!!formId);
+    const [hasLoaded, setHasLoaded] = useState(false);
+
+    // Load existing form on mount
+    useEffect(() => {
+        console.log('useEffect triggered - formId:', formId);
+        if (formId) {
+            console.log('Loading form with ID:', formId);
+            loadForm(parseInt(formId));
+        } else {
+            setIsLoading(false);
+            setHasLoaded(true);
+        }
+    }, [formId]);
+
+    const loadForm = async (id: number) => {
+        setIsLoading(true);
+        try {
+            console.log('Fetching form from API:', id);
+            const response = await fetch(`/api/orderform/${id}`);
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+            const result = await response.json();
+            console.log('Form data received:', result.data);
+            
+            if (result.data && result.success) {
+                console.log('Loading form title:', result.data.title);
+                setFormTitle(result.data.title || initialTitle);
+                setFormDescription(result.data.description || initialDescription);
+                if (result.data.form_data) {
+                    console.log('Loading form structure:', result.data.form_data);
+                    setData(result.data.form_data);
+                }
+                setSaveMessage(null);
+                setHasLoaded(true);
+            } else {
+                throw new Error('Invalid response format');
+            }
+        } catch (e) {
+            console.error('Failed to load form:', e);
+            setSaveMessage({ type: 'error', text: `Failed to load form: ${e instanceof Error ? e.message : 'Unknown error'}` });
+            setHasLoaded(true);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSaveForm = async () => {
+        setIsSaving(true);
+        setSaveMessage(null);
+
+        try {
+            const endpoint = formId 
+                ? `/api/orderform/${formId}`
+                : '/api/orderform';
+            
+            const method = formId ? 'PUT' : 'POST';
+            
+            const response = await fetch(endpoint, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    eventId: parseInt(eventId),
+                    title: formTitle,
+                    description: formDescription,
+                    form_data: data
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to save form');
+            }
+
+            const result = await response.json();
+
+            if (result.success) {
+                setSaveMessage({ type: 'success', text: result.message || 'Form saved successfully!' });
+                
+                // If this was a new form (no formId), navigate with the returned formId as query param
+                if (!formId && result.formId) {
+                    setTimeout(() => {
+                        router.push(`/events/${eventId}/orderform?formId=${result.formId}`);
+                    }, 1500); // Wait a bit so user sees success message
+                }
+                
+                // Auto-dismiss message after 3 seconds
+                setTimeout(() => setSaveMessage(null), 3000);
+            } else {
+                setSaveMessage({ type: 'error', text: result.error || 'Failed to save form' });
+            }
+        } catch (e) {
+            setSaveMessage({ type: 'error', text: e instanceof Error ? e.message : 'An error occurred' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     // Section operations
     const addSection = () => {
@@ -344,8 +457,22 @@ export default function OrderForm({ eventId }: { eventId: string }) {
 
     return (
         <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans">
+            {/* Save Status Message */}
+            {saveMessage && (
+                <div className={`p-4 rounded-lg flex items-center gap-3 ${
+                    saveMessage.type === 'success' 
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200' 
+                        : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200'
+                }`}>
+                    <div className={`w-4 h-4 rounded-full ${
+                        saveMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                    {saveMessage.text}
+                </div>
+            )}
+
             {/* Page Header */}
-            <div className="flex items-center justify-between gap-4">
+            <div className="space-y-4">
                 <div className="flex items-center gap-4">
                     <div className="w-14 h-14 bg-linear-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
                         <ClipboardList className="w-7 h-7 text-white" />
@@ -359,17 +486,70 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                         </p>
                     </div>
                 </div>
-                <button
-                    onClick={() => setPreviewMode(true)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
-                >
-                    <Eye className="w-4 h-4" />
-                    Preview
-                </button>
+
+                {/* Form Title and Description Inputs */}
+                {!isLoading && (
+                    <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4">
+                        <div>
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Form Title</label>
+                            <input
+                                type="text"
+                                value={formTitle}
+                                onChange={(e) => setFormTitle(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-lg font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                placeholder="Enter form title"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Form Description (optional)</label>
+                            <textarea
+                                value={formDescription}
+                                onChange={(e) => setFormDescription(e.target.value)}
+                                className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                placeholder="Enter form description"
+                                rows={2}
+                            />
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                            <button
+                                onClick={handleSaveForm}
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-linear-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {isSaving ? (
+                                    <>
+                                        <Loader className="w-4 h-4 animate-spin" />
+                                        Saving...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save className="w-4 h-4" />
+                                        Save Form
+                                    </>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setPreviewMode(true)}
+                                disabled={isSaving}
+                                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                <Eye className="w-4 h-4" />
+                                Preview
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Sections */}
-            <div className="space-y-6">
+            {isLoading ? (
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
+                    <Loader className="w-8 h-8 animate-spin mx-auto mb-3 text-[#3D518C]" />
+                    <p className="text-gray-600 dark:text-gray-400">Loading form...</p>
+                </div>
+            ) : (
+                <div className="space-y-6">
                 {data.sections.map((section, sectionIndex) => (
                     <div
                         key={section.id}
@@ -616,7 +796,8 @@ export default function OrderForm({ eventId }: { eventId: string }) {
                         </div>
                     </div>
                 ))}
-            </div>
+                </div>
+            )}
 
             {/* Add Section Button */}
             <button

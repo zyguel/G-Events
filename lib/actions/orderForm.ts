@@ -11,6 +11,174 @@ export interface SaveOrderFormEntryState {
     entryId?: number
 }
 
+export interface SaveOrderFormState {
+    success?: boolean
+    error?: string
+    message?: string
+    formId?: number
+}
+
+/**
+ * Save/Update order form configuration (structure with sections and fields)
+ * @param eventId - The event ID
+ * @param title - Form title
+ * @param description - Form description
+ * @param formData - The complete form structure (sections, inputs, options)
+ * @param formId - Optional: if updating existing form
+ */
+export async function saveOrderForm(
+    eventId: number,
+    title: string,
+    description: string,
+    formData: OrderFormData,
+    formId?: number
+): Promise<SaveOrderFormState> {
+    try {
+        if (formId) {
+            // Update existing form
+            const { data, error } = await supabase
+                .from('OrderForm')
+                .update({
+                    title,
+                    description,
+                    form_data: formData,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', formId)
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Supabase Error:', error)
+                return { error: error.message, success: false }
+            }
+
+            revalidatePath(`/events/${eventId}/orderform`)
+
+            return {
+                success: true,
+                message: 'Form updated successfully',
+                formId: data.id
+            }
+        } else {
+            // Create new form
+            const { data, error } = await supabase
+                .from('OrderForm')
+                .insert([
+                    {
+                        event_id: eventId,
+                        title,
+                        description,
+                        form_data: formData
+                    }
+                ])
+                .select()
+                .single()
+
+            if (error) {
+                console.error('Supabase Error:', error)
+                return { error: error.message, success: false }
+            }
+
+            revalidatePath(`/events/${eventId}/orderform`)
+
+            return {
+                success: true,
+                message: 'Form created successfully',
+                formId: data.id
+            }
+        }
+    } catch (e) {
+        console.error('Error saving form:', e)
+        return {
+            error: e instanceof Error ? e.message : 'An unexpected error occurred',
+            success: false
+        }
+    }
+}
+
+/**
+ * Get order form by ID
+ */
+export async function getOrderFormById(formId: number) {
+    try {
+        const { data, error } = await supabase
+            .from('OrderForm')
+            .select('*')
+            .eq('id', formId)
+            .single()
+
+        if (error) {
+            console.error('Supabase Error:', error)
+            return { error: error.message, data: null }
+        }
+
+        return { success: true, data }
+    } catch (e) {
+        console.error('Error fetching form:', e)
+        return {
+            error: e instanceof Error ? e.message : 'An unexpected error occurred',
+            data: null
+        }
+    }
+}
+
+/**
+ * Get all order forms for an event
+ */
+export async function getOrderFormsByEvent(eventId: number) {
+    try {
+        const { data, error } = await supabase
+            .from('OrderForm')
+            .select('*')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: false })
+
+        if (error) {
+            console.error('Supabase Error:', error)
+            return { error: error.message, data: null }
+        }
+
+        return { success: true, data }
+    } catch (e) {
+        console.error('Error fetching forms:', e)
+        return {
+            error: e instanceof Error ? e.message : 'An unexpected error occurred',
+            data: null
+        }
+    }
+}
+
+/**
+ * Delete order form
+ */
+export async function deleteOrderForm(formId: number, eventId: number) {
+    try {
+        const { error } = await supabase
+            .from('OrderForm')
+            .delete()
+            .eq('id', formId)
+
+        if (error) {
+            console.error('Supabase Error:', error)
+            return { error: error.message, success: false }
+        }
+
+        revalidatePath(`/events/${eventId}/orderform`)
+
+        return {
+            success: true,
+            message: 'Form deleted successfully'
+        }
+    } catch (e) {
+        console.error('Error deleting form:', e)
+        return {
+            error: e instanceof Error ? e.message : 'An unexpected error occurred',
+            success: false
+        }
+    }
+}
+
 /**
  * Save order form entry to database
  * @param eventId - The event ID
