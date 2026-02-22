@@ -227,7 +227,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
               className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.name ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
-            {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.name}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -260,7 +260,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.quantity ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                   }`}
               />
-              {errors.quantity && <p className="text-red-600 text-sm mt-1">{errors.quantity}</p>}
+              {errors.quantity && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.quantity}</p>}
             </div>
           </div>
 
@@ -282,7 +282,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     }`}
                 />
               </div>
-              {errors.price && <p className="text-red-600 text-sm mt-1">{errors.price}</p>}
+              {errors.price && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.price}</p>}
             </div>
           )}
 
@@ -321,7 +321,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   />
                 </div>
               </div>
-              {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate}</p>}
+              {errors.startDate && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.startDate}</p>}
             </div>
 
             <div>
@@ -359,7 +359,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   />
                 </div>
               </div>
-              {errors.endDate && <p className="text-red-600 text-sm mt-1">{errors.endDate}</p>}
+              {errors.endDate && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.endDate}</p>}
             </div>
           </div>
 
@@ -427,7 +427,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.maxQuantity ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                       }`}
                   />
-                  {errors.maxQuantity && <p className="text-red-600 text-sm mt-1">{errors.maxQuantity}</p>}
+                  {errors.maxQuantity && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.maxQuantity}</p>}
                 </div>
               </div>
             </div>

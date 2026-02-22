@@ -316,7 +316,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
               className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm uppercase ${errors.code ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
-            {errors.code && <p className="text-red-600 text-sm mt-1">{errors.code}</p>}
+            {errors.code && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.code}</p>}
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -362,7 +362,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                   </span>
                 )}
               </div>
-              {errors.value && <p className="text-red-600 text-sm mt-1">{errors.value}</p>}
+              {errors.value && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.value}</p>}
             </div>
           </div>
 
@@ -376,7 +376,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                 className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.startDate ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                   }`}
               />
-              {errors.startDate && <p className="text-red-600 text-sm mt-1">{errors.startDate}</p>}
+              {errors.startDate && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.startDate}</p>}
             </div>
 
             <div>
@@ -388,7 +388,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                 className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.endDate ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                   }`}
               />
-              {errors.endDate && <p className="text-red-600 text-sm mt-1">{errors.endDate}</p>}
+              {errors.endDate && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.endDate}</p>}
             </div>
           </div>
 

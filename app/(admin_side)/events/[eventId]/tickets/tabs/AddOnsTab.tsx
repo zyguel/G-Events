@@ -259,7 +259,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.name ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
-            {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}
+            {errors.name && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.name}</p>}
           </div>
 
           <div>
@@ -271,7 +271,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.type ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
-            {errors.type && <p className="text-red-600 text-sm mt-1">{errors.type}</p>}
+            {errors.type && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.type}</p>}
           </div>
 
           <div>
@@ -283,7 +283,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               className={`w-full px-3 py-2.5 border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none resize-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.description ? "border-red-500" : "border-gray-200 dark:border-gray-700"
                 }`}
             />
-            {errors.description && <p className="text-red-600 text-sm mt-1">{errors.description}</p>}
+            {errors.description && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.description}</p>}
           </div>
 
           <div>
@@ -323,7 +323,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                 </div>
               ))}
             </div>
-            {errors.inclusions && <p className="text-red-600 text-sm mt-1">{errors.inclusions}</p>}
+            {errors.inclusions && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.inclusions}</p>}
             <button
               onClick={handleAddInclusion}
               className="mt-3 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm"

@@ -25,9 +25,10 @@ import {
     AlignLeft,
     AlignCenter,
     AlignRight,
-    AlignJustify
+    AlignJustify,
+    ChevronDown
 } from 'lucide-react';
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { LinkModal, ImageModal } from './EditorModals';
 import { HexColorPicker } from 'react-colorful';
 
@@ -106,6 +107,24 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
     const [currentColor, setCurrentColor] = useState('#000000');
     const [pickerPosition, setPickerPosition] = useState({ top: 0, left: 0 });
     const colorButtonRef = useRef<HTMLButtonElement>(null);
+    const [showFontFamily, setShowFontFamily] = useState(false);
+    const [showFontSize, setShowFontSize] = useState(false);
+    const fontFamilyRef = useRef<HTMLDivElement>(null);
+    const fontSizeRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (fontFamilyRef.current && !fontFamilyRef.current.contains(event.target as Node)) {
+                setShowFontFamily(false);
+            }
+            if (fontSizeRef.current && !fontSizeRef.current.contains(event.target as Node)) {
+                setShowFontSize(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     const editor = useEditor({
         immediatelyRender: false,
@@ -190,39 +209,81 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
             `}</style>
             <div className="border-2 border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900">
                 {/* Toolbar */}
-                <div className="flex flex-wrap items-center gap-2 p-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800/50 rounded-t-xl overflow-hidden">
+                <div className="flex flex-wrap items-center gap-2 p-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800/50 rounded-t-xl">
                     {/* Font Family */}
-                    <select
-                        defaultValue="Arial, sans-serif"
-                        onChange={(e) => editor.chain().focus().setFontFamily(e.target.value).run()}
-                        className="text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-lg pl-1 pr-4 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 min-w-[140px]"
-                        title="Font Family"
-                    >
-                        {FONT_FAMILIES.map((font) => (
-                            <option key={font.value} value={font.value}>
-                                {font.label}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="relative" ref={fontFamilyRef}>
+                        <button
+                            onClick={() => {
+                                setShowFontFamily(!showFontFamily);
+                                setShowFontSize(false);
+                            }}
+                            className="flex items-center justify-between text-sm border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800 text-gray-900 dark:text-white rounded-lg pl-3 pr-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] min-w-[140px] shadow-sm transition-all"
+                            title="Font Family"
+                        >
+                            <span className="truncate">
+                                {FONT_FAMILIES.find(f => editor.isActive('textStyle', { fontFamily: f.value }))?.label || 'Arial'}
+                            </span>
+                            <ChevronDown size={14} className="text-gray-500 ml-2 shrink-0" />
+                        </button>
+
+                        {showFontFamily && (
+                            <div className="absolute top-full left-0 mt-1 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
+                                {FONT_FAMILIES.map((font) => (
+                                    <button
+                                        key={font.value}
+                                        onClick={() => {
+                                            editor.chain().focus().setFontFamily(font.value).run();
+                                            setShowFontFamily(false);
+                                        }}
+                                        className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${editor.isActive('textStyle', { fontFamily: font.value })
+                                            ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
+                                            : 'text-gray-700 dark:text-gray-300'
+                                            }`}
+                                        style={{ fontFamily: font.value }}
+                                    >
+                                        {font.label}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     {/* Font Size */}
-                    <select
-                        onChange={(e) => {
-                            const size = e.target.value;
-                            if (size) {
-                                editor.chain().focus().setFontSize(size).run();
-                            }
-                        }}
-                        className="text-sm border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-lg pl-1 pr-4 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                        title="Font Size"
-                    >
-                        <option value="">Size</option>
-                        {FONT_SIZES.map((size) => (
-                            <option key={size} value={size}>
-                                {size}
-                            </option>
-                        ))}
-                    </select>
+                    <div className="relative" ref={fontSizeRef}>
+                        <button
+                            onClick={() => {
+                                setShowFontSize(!showFontSize);
+                                setShowFontFamily(false);
+                            }}
+                            className="flex items-center justify-between text-sm border border-gray-200 dark:border-gray-600 bg-slate-50 dark:bg-slate-900/50 hover:bg-white dark:hover:bg-slate-800 text-gray-900 dark:text-white rounded-lg pl-3 pr-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] min-w-[80px] shadow-sm transition-all"
+                            title="Font Size"
+                        >
+                            <span>
+                                {FONT_SIZES.find(size => editor.isActive('textStyle', { fontSize: size })) || 'Size'}
+                            </span>
+                            <ChevronDown size={14} className="text-gray-500 ml-2 shrink-0" />
+                        </button>
+
+                        {showFontSize && (
+                            <div className="absolute top-full left-0 mt-1 w-24 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 py-1 h-64 overflow-y-auto">
+                                {FONT_SIZES.map((size) => (
+                                    <button
+                                        key={size}
+                                        onClick={() => {
+                                            editor.chain().focus().setFontSize(size).run();
+                                            setShowFontSize(false);
+                                        }}
+                                        className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${editor.isActive('textStyle', { fontSize: size })
+                                            ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 font-medium'
+                                            : 'text-gray-700 dark:text-gray-300'
+                                            }`}
+                                    >
+                                        {size}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
 
                     <div className="w-px h-6 bg-gray-300 dark:bg-gray-600" />
 
