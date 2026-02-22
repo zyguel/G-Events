@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { getEventSettings, updateEventSettings, EventSettings } from "@/lib/eventManagement";
-import { EventSummary } from "@/lib/api";
+import { EventSummary } from "@/lib/types";
 
 interface SettingsTabProps {
   event: EventSummary;

@@ -6,7 +6,7 @@ import AdmissionTab from "./tabs/AdmissionTab";
 import AddOnsTab from "./tabs/AddOnsTab";
 import PromoCodesTab from "./tabs/PromoCodesTab";
 import SettingsTab from "./tabs/SettingsTab";
-import { EventSummary } from "@/lib/api";
+import { EventSummary } from "@/lib/types";
 
 interface TicketsPageClientProps {
   event: EventSummary;

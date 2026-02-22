@@ -500,7 +500,7 @@ const StatCard = ({ title, value }: { title: string; value: string | number }) =
 );
 
 // Main Page Component
-import { EventSummary } from '@/lib/api';
+import { EventSummary } from '@/lib/types';
 
 // Main Page Component
 interface ReportsClientProps {

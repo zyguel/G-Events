@@ -172,19 +172,27 @@ x:\projects\g-events\G-Events\
 // Server Actions
 import { createEvent, getEventById, updateEvent } from '@/lib/actions/events'
 
-// API utilities
-import { getEvents, getAllEvents } from '@/lib/api'
+// Type definitions
+import { EventData, EventSummary } from '@/lib/types'
+
+// Supabase client
 import { supabase } from '@/lib/supabase'
 
-// Database functions
-import { getEvent, createEvent } from '@/lib/db'
+// Database functions (API routes only)
+import { getEvent, getEvents, createEvent, updateEvent, deleteEvent } from '@/lib/db'
 ```
 
 ### ❌ Incorrect Imports (OLD - DO NOT USE)
 
 ```typescript
+// WRONG - api.ts no longer has mock functions!
+import { getEventData, getAllEvents, getAggregatedData } from '@/lib/api'
+
 // WRONG - This path no longer exists!
 import { getEventById } from '@/app/(admin_side)/backend/events'
+
+// WRONG - Use @/lib/types instead
+import { EventData } from '@/lib/api'
 
 // WRONG - Relative paths
 import { updateEvent } from '../../../../../backend/events'

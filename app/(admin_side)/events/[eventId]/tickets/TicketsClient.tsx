@@ -9,7 +9,7 @@ import CurrencySelect from "@/components/admin/CurrencySelect";
 import TimezoneSelect from "@/components/admin/TimezoneSelect";
 import { Plus, Edit2, Trash2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { getTickets, createTicket, updateTicket, deleteTicket, Ticket } from "@/lib/eventManagement";
-import { EventSummary } from "@/lib/api";
+import { EventSummary } from "@/lib/types";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TicketsClientProps {

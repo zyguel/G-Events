@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getAggregatedData } from '@/lib/api';
+import { getEvents } from '@/lib/db';
+import { EventSummary } from '@/lib/types';
 
-// GET /api/analytics/general - Aggregated analytics across all events
+// GET /api/analytics/general - List all events data
 export async function GET() {
     try {
-        const data = await getAggregatedData();
-        return NextResponse.json({ success: true, data });
+        const events = await getEvents();
+        
+        // Transform Event objects to EventSummary format
+        const eventSummaries: EventSummary[] = events.map(event => ({
+            id: event.id.toString(),
+            name: event.title,
+            date: event.event_start_at || 'Date TBD',
+            status: event.is_published ? 'Published' : 'Draft'
+        }));
+        
+        return NextResponse.json({ success: true, data: eventSummaries });
     } catch (error: any) {
         console.error('Error fetching general analytics:', error);
         return NextResponse.json(

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { LayoutDashboard, FileText, BarChart3, Ticket, ClipboardList, CheckCircle, Send, Users, Mail, UserCheck, Award, Clock, Presentation } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { EventSummary } from "@/lib/api";
+import { EventSummary } from "@/lib/types";
 
 interface EventsSidebarProps {
     event: EventSummary;

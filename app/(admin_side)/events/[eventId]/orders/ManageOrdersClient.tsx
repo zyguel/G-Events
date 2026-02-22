@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Search, Filter, Plus, MoreVertical, Users } from "lucide-react";
 import ForReviewTab from "./tabs/ForReviewTab";
-import { EventSummary } from "@/lib/api";
+import { EventSummary } from "@/lib/types";
 
 // Mock data for registrants
 const initialMockOrders = [

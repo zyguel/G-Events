@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown, Ticket } from 'lucide-react';
-import { EventSummary } from '@/lib/api';
+import { EventSummary } from '@/lib/types';
 
 // Mock waitlist data
 const mockWaitlistEntries = [

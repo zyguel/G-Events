@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { Search, X, Calendar, ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 
-import { EventSummary } from "@/lib/api";
+import { EventSummary } from "@/lib/types";
 
 interface EventSelectorProps {
     events: EventSummary[];

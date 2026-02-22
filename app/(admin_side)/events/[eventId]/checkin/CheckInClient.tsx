@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { Search, Filter, MoreVertical, CheckCircle, Clock, ChevronDown, UserCheck, UserX, Eye } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
-import { EventSummary } from '@/lib/api';
+import { EventSummary } from '@/lib/types';
 
 // --- Types ---
 interface Attendee {

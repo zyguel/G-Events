@@ -9,7 +9,7 @@ import TimezoneSelect from "@/components/admin/TimezoneSelect";
 import DateInput from "@/components/admin/DateInput";
 import TimeInput from "@/components/admin/TimeInput";
 import { getTickets, createTicket, updateTicket, deleteTicket, Ticket } from "@/lib/eventManagement";
-import { EventSummary } from "@/lib/api";
+import { EventSummary } from "@/lib/types";
 
 interface AdmissionTabProps {
   event: EventSummary;

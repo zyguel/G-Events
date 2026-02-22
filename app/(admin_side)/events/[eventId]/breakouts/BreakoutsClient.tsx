@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 // Types
-import { EventSummary } from '@/lib/api';
+import { EventSummary } from '@/lib/types';
 
 interface Speaker {
     name: string;

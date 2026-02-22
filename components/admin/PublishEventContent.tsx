@@ -8,7 +8,7 @@ import TimeInput from "./TimeInput";
 import { useRouter } from "next/navigation";
 import SuccessModal from "./SuccessModal";
 
-import { EventData } from "@/lib/api";
+import { EventData } from "@/lib/types";
 import { updateEvent } from "@/lib/actions/events";
 
 interface TicketData {

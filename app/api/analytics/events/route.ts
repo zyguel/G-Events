@@ -1,11 +1,21 @@
 import { NextResponse } from 'next/server';
-import { getAllEvents } from '@/lib/api';
+import { getEvents } from '@/lib/db';
+import { EventSummary } from '@/lib/types';
 
 // GET /api/analytics/events - List of all events (for dropdowns and selectors)
 export async function GET() {
     try {
-        const events = await getAllEvents();
-        return NextResponse.json({ success: true, data: events });
+        const events = await getEvents();
+        
+        // Transform Event objects to EventSummary format
+        const eventSummaries: EventSummary[] = events.map(event => ({
+            id: event.id.toString(),
+            name: event.title,
+            date: event.event_start_at || 'Date TBD',
+            status: event.is_published ? 'Published' : 'Draft'
+        }));
+        
+        return NextResponse.json({ success: true, data: eventSummaries });
     } catch (error: any) {
         console.error('Error fetching events list:', error);
         return NextResponse.json(

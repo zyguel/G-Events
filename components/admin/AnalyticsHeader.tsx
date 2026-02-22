@@ -4,7 +4,7 @@ import EventSelector from "@/components/admin/EventSelector";
 import ExportButton from "@/components/admin/ExportButton";
 import { useState } from "react";
 
-import { EventSummary } from "@/lib/api";
+import { EventSummary } from "@/lib/types";
 
 interface AnalyticsHeaderProps {
     events: EventSummary[];

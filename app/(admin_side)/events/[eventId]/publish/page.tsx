@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { EventData } from "@/lib/api";
+import { EventData } from "@/lib/types";
 import PublishEventContent from "@/components/admin/PublishEventContent";
 import { getEventById } from "@/lib/actions/events";
 

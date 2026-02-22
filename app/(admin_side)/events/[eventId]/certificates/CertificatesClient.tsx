@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { Award, Upload, Download, X, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
-import { EventSummary } from '@/lib/api';
+import { EventSummary } from '@/lib/types';
 
 interface Certificate {
     id: string;
