@@ -534,8 +534,8 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                     onClick={handlePublish}
                     disabled={isPublishing}
                     className={`px-6 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md transition-all flex items-center gap-2 ${isPublishing
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5'
+                        ? 'bg-gray-400 cursor-not-allowed'
+                        : 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5'
                         }`}
                 >
                     {isPublishing ? (

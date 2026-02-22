@@ -68,7 +68,7 @@ export default function TimezoneSelect({ value, onChange, label }: TimezoneSelec
       )}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-left flex items-center justify-between hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+        className="w-full px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-left flex items-center justify-between hover:border-gray-300 dark:hover:border-gray-600 transition-all shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none"
         type="button"
       >
         <span className="text-gray-900 dark:text-white">
@@ -101,9 +101,8 @@ export default function TimezoneSelect({ value, onChange, label }: TimezoneSelec
                   setSearchTerm("");
                 }}
                 type="button"
-                className={`w-full px-4 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors ${
-                  value === timezone.code ? "bg-blue-50 dark:bg-blue-900/30" : ""
-                }`}
+                className={`w-full px-4 py-2.5 text-left hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors ${value === timezone.code ? "bg-blue-50 dark:bg-blue-900/30" : ""
+                  }`}
               >
                 <div className="font-medium text-gray-900 dark:text-white">{timezone.code}</div>
                 <div className="text-xs text-gray-500 dark:text-gray-400">{timezone.label.split(" (")[1]?.replace(")", "")}</div>

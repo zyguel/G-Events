@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { Clock, X } from "lucide-react";
+import { useFloating, autoUpdate, offset, shift } from "@floating-ui/react";
 
 interface TimeInputProps {
     value: string; // Still stores in HH:mm (24-hour) format internally
@@ -15,39 +15,27 @@ interface TimeInputProps {
 
 export default function TimeInput({ value, onChange, placeholder, className, required, openAbove = false }: TimeInputProps) {
     const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-    const inputRef = useRef<HTMLDivElement>(null);
-    const pickerRef = useRef<HTMLDivElement>(null);
-    const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
-    const [mounted, setMounted] = useState(false);
 
-    useEffect(() => { setMounted(true); }, []);
+    const { refs, floatingStyles } = useFloating({
+        open: isOpen,
+        onOpenChange: setIsOpen,
+        placement: openAbove ? "top-start" : "bottom-start",
+        whileElementsMounted: autoUpdate,
+        middleware: [
+            offset(4),
+            shift({ padding: 8 })
+        ]
+    });
 
-    // Calculate picker position relative to viewport (fixed positioning)
-    const updatePickerPos = () => {
-        if (inputRef.current) {
-            const rect = inputRef.current.getBoundingClientRect();
-            if (openAbove) {
-                setPickerPos({ top: rect.top - 4, left: rect.left });
-            } else {
-                setPickerPos({ top: rect.bottom + 4, left: rect.left });
-            }
-        }
-    };
+    const [pickerWidth, setPickerWidth] = useState<number>(160);
 
-    // Recalculate position on open, scroll, and resize
+    // Sync input width for the floating element minimum width
     useEffect(() => {
-        if (isOpen) {
-            updatePickerPos();
-            const handleScrollOrResize = () => updatePickerPos();
-            window.addEventListener('scroll', handleScrollOrResize, true);
-            window.addEventListener('resize', handleScrollOrResize);
-            return () => {
-                window.removeEventListener('scroll', handleScrollOrResize, true);
-                window.removeEventListener('resize', handleScrollOrResize);
-            };
+        if (refs.reference.current) {
+            const rect = (refs.reference.current as HTMLElement).getBoundingClientRect();
+            setPickerWidth(Math.max(rect.width, 160));
         }
-    }, [isOpen, openAbove]);
+    }, [isOpen, refs.reference]);
 
     const [selectedHour, setSelectedHour] = useState(12);
     const [selectedMinute, setSelectedMinute] = useState(0);
@@ -101,15 +89,15 @@ export default function TimeInput({ value, onChange, placeholder, className, req
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
             const target = e.target as Node;
-            const clickedInsideContainer = containerRef.current?.contains(target);
-            const clickedInsidePicker = pickerRef.current?.contains(target);
+            const clickedInsideContainer = (refs.reference.current as HTMLElement | null)?.contains(target);
+            const clickedInsidePicker = refs.floating.current?.contains(target as Node);
             if (!clickedInsideContainer && !clickedInsidePicker) {
                 setIsOpen(false);
             }
         };
         if (isOpen) document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [isOpen]);
+    }, [isOpen, refs]);
 
     const to24Hour = (h: number, m: number, p: 'AM' | 'PM') => {
         let hour = h;
@@ -141,16 +129,16 @@ export default function TimeInput({ value, onChange, placeholder, className, req
     const minutes = Array.from({ length: 60 }, (_, i) => i);
 
     return (
-        <div className="relative" ref={containerRef}>
+        <div className="relative" ref={refs.setReference}>
             {/* Input - now shows 12-hour format */}
-            <div className="relative" ref={inputRef}>
+            <div className="relative">
                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3D518C] pointer-events-none" size={16} />
                 <input
                     value={displayValue}
                     readOnly
                     onClick={() => setIsOpen(true)}
                     placeholder={placeholder || "Select time"}
-                    className={`w-full pl-10 pr-8 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none shadow-sm cursor-pointer ${className}`}
+                    className={`w-full pl-10 pr-8 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none shadow-sm cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-all ${className}`}
                 />
                 {value && (
                     <button
@@ -163,32 +151,34 @@ export default function TimeInput({ value, onChange, placeholder, className, req
                 )}
             </div>
 
-            {/* Picker - rendered via portal to escape overflow:hidden containers */}
-            {isOpen && mounted && pickerPos && createPortal(
+            {/* Picker - rendered inline to stay within modal frame */}
+            {isOpen && (
                 <div
-                    ref={pickerRef}
-                    className="fixed z-[9999] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden w-56"
-                    style={{ top: `${pickerPos.top}px`, left: `${pickerPos.left}px` }}
+                    ref={refs.setFloating}
+                    className="absolute z-50 bg-white dark:bg-gray-800 rounded-xl shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] border border-gray-100 dark:border-gray-700 overflow-hidden font-sans"
+                    style={{ ...floatingStyles, width: `${pickerWidth}px` }}
                 >
                     {/* Header */}
-                    <div className="bg-[#2196F3] px-4 py-3 flex items-center gap-3">
-                        <Clock className="text-white/80" size={20} />
-                        <div className="text-white text-2xl font-medium tracking-wide">
-                            {selectedHour.toString().padStart(2, '0')}:{selectedMinute.toString().padStart(2, '0')} {selectedPeriod}
+                    <div className="bg-white dark:bg-gray-800 px-3 py-2 flex items-center justify-between border-b border-gray-50 dark:border-gray-700">
+                        <div className="flex items-center gap-1.5">
+                            <Clock className="text-gray-400" size={14} />
+                            <div className="text-gray-900 dark:text-white text-sm font-bold tracking-wide">
+                                {selectedHour.toString().padStart(2, '0')}:{selectedMinute.toString().padStart(2, '0')} {selectedPeriod}
+                            </div>
                         </div>
                         <X
-                            className="ml-auto text-white/60 hover:text-white cursor-pointer"
-                            size={20}
+                            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer"
+                            size={14}
                             onClick={handleCancel}
                         />
                     </div>
 
                     {/* Columns */}
-                    <div className="grid grid-cols-3 bg-white dark:bg-gray-800">
+                    <div className="grid grid-cols-[1fr_1fr_min-content] bg-white dark:bg-gray-800 h-40">
                         {/* Hours */}
                         <div
                             ref={hourRef}
-                            className="h-52 overflow-y-auto"
+                            className="overflow-y-auto px-1 py-1 border-r border-gray-50 dark:border-gray-700/50"
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
                             {hours.map((h) => (
@@ -197,9 +187,9 @@ export default function TimeInput({ value, onChange, placeholder, className, req
                                     type="button"
                                     data-value={h}
                                     onClick={() => setSelectedHour(h)}
-                                    className={`w-full py-3 text-center transition-all ${h === selectedHour
-                                        ? 'text-xl font-bold text-indigo-500'
-                                        : 'text-base text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                                    className={`w-full py-1.5 text-center rounded-lg transition-colors ${h === selectedHour
+                                        ? 'bg-[#EEF2FF] text-[#4F46E5] font-bold text-xs'
+                                        : 'text-gray-600 hover:bg-gray-50 text-xs font-medium'
                                         }`}
                                 >
                                     {h.toString().padStart(2, '0')}
@@ -210,7 +200,7 @@ export default function TimeInput({ value, onChange, placeholder, className, req
                         {/* Minutes */}
                         <div
                             ref={minuteRef}
-                            className="h-52 overflow-y-auto"
+                            className="overflow-y-auto px-1 py-1"
                             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
                         >
                             {minutes.map((m) => (
@@ -219,9 +209,9 @@ export default function TimeInput({ value, onChange, placeholder, className, req
                                     type="button"
                                     data-value={m}
                                     onClick={() => setSelectedMinute(m)}
-                                    className={`w-full py-3 text-center transition-all ${m === selectedMinute
-                                        ? 'text-xl font-bold text-indigo-500'
-                                        : 'text-base text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
+                                    className={`w-full py-1.5 text-center rounded-lg transition-colors ${m === selectedMinute
+                                        ? 'bg-[#EEF2FF] text-[#4F46E5] font-bold text-xs'
+                                        : 'text-gray-600 hover:bg-gray-50 text-xs font-medium'
                                         }`}
                                 >
                                     {m.toString().padStart(2, '0')}
@@ -230,15 +220,15 @@ export default function TimeInput({ value, onChange, placeholder, className, req
                         </div>
 
                         {/* AM/PM */}
-                        <div className="h-52 flex flex-col justify-center items-center gap-3">
+                        <div className="flex flex-col justify-center items-center gap-2 px-2 border-l border-gray-50 dark:border-gray-700/50">
                             {(['AM', 'PM'] as const).map((p) => (
                                 <button
                                     key={p}
                                     type="button"
                                     onClick={() => setSelectedPeriod(p)}
-                                    className={`px-4 py-2 rounded-lg font-semibold transition-all ${p === selectedPeriod
-                                        ? 'text-indigo-500 text-lg'
-                                        : 'text-gray-300 dark:text-gray-600 hover:text-gray-500'
+                                    className={`w-8 py-1 rounded-md text-[11px] font-bold transition-all ${p === selectedPeriod
+                                        ? 'border border-[#E0E7FF] text-[#4F46E5] bg-white'
+                                        : 'text-gray-500 hover:text-gray-700 border border-transparent'
                                         }`}
                                 >
                                     {p}
@@ -248,24 +238,23 @@ export default function TimeInput({ value, onChange, placeholder, className, req
                     </div>
 
                     {/* Footer */}
-                    <div className="flex justify-end gap-4 px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+                    <div className="flex justify-between items-center px-2 py-2 border-t border-gray-50 dark:border-gray-700 bg-white dark:bg-gray-800 gap-1">
                         <button
                             type="button"
                             onClick={handleCancel}
-                            className="px-3 py-1.5 text-sm font-bold text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg uppercase tracking-wide"
+                            className="px-2 py-1.5 text-[11px] font-medium text-gray-500 hover:text-gray-700 transition-colors"
                         >
                             Cancel
                         </button>
                         <button
                             type="button"
                             onClick={handleOk}
-                            className="px-3 py-1.5 text-sm font-bold text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg uppercase tracking-wide"
+                            className="px-3 py-1.5 text-[11px] font-semibold bg-[#4F46E5] text-white rounded-lg hover:bg-[#4338CA] transition-colors shadow-sm"
                         >
-                            OK
+                            Confirm
                         </button>
                     </div>
-                </div>,
-                document.body
+                </div>
             )}
 
             <style jsx>{`

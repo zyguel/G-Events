@@ -5,8 +5,6 @@ import Header from "@/components/admin/Header";
 import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
 import Modal from "@/components/admin/Modal";
-import CurrencySelect from "@/components/admin/CurrencySelect";
-import TimezoneSelect from "@/components/admin/TimezoneSelect";
 import { Plus, Edit2, Trash2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { getTickets, createTicket, updateTicket, deleteTicket, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
@@ -167,7 +165,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
 
               <button
                 onClick={handleAddTicket}
-                className="flex items-center gap-2 px-5 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm"
+                className="flex items-center gap-2 px-5 py-2 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm"
               >
                 <Plus size={18} />
                 Add Ticket
@@ -274,7 +272,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g., Early Bird, VIP Pass"
-                className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.name ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                   } rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
               />
               {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
@@ -291,7 +289,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                     key={type}
                     onClick={() => setFormData({ ...formData, type })}
                     type="button"
-                    className={`flex-1 px-4 py-2.5 rounded-lg font-medium transition-all ${formData.type === type
+                    className={`flex-1 px-4 py-2 rounded-lg font-medium transition-all ${formData.type === type
                       ? "bg-[#3D518C] text-white shadow-sm"
                       : "bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
                       }`}
@@ -313,7 +311,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   min="0"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.quantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.quantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                     } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                 />
                 {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
@@ -330,30 +328,13 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                     step="0.01"
                     value={formData.price || ""}
                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                    className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                    className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                       } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                   />
                   {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
                 </div>
               )}
             </div>
-
-            {/* Currency & Timezone */}
-            {formData.type === "paid" && (
-              <div className="grid grid-cols-2 gap-4">
-                <CurrencySelect
-                  value={formData.currency || "PHP"}
-                  onChange={(currency) => setFormData({ ...formData, currency })}
-                  label="Currency"
-                />
-              </div>
-            )}
-
-            <TimezoneSelect
-              value={formData.timezone}
-              onChange={(timezone) => setFormData({ ...formData, timezone })}
-              label="Timezone"
-            />
 
             {/* Date & Time */}
             <div className="grid grid-cols-2 gap-4">
@@ -365,7 +346,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   type="date"
                   value={formData.startDate}
                   onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.startDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                     } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                 />
                 {errors.startDate && <p className="text-red-500 text-xs mt-1">{errors.startDate}</p>}
@@ -379,11 +360,17 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   type="date"
                   value={formData.endDate}
                   onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                  className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                  className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.endDate ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                     } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                 />
                 {errors.endDate && <p className="text-red-500 text-xs mt-1">{errors.endDate}</p>}
               </div>
+            </div>
+
+            {/* Timezone Info */}
+            <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <AlertCircle size={14} />
+              <span>Timezone is PHT, UTC + 8</span>
             </div>
           </div>
 
@@ -408,7 +395,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder="Tell attendees more about this ticket"
                     rows={3}
-                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] resize-none"
+                    className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] resize-none"
                   />
                 </div>
 
@@ -440,7 +427,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                       min="1"
                       value={formData.minQuantity}
                       onChange={(e) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 1 })}
-                      className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                      className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
                     />
                   </div>
 
@@ -453,7 +440,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                       min="1"
                       value={formData.maxQuantity}
                       onChange={(e) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
-                      className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${errors.maxQuantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
+                      className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.maxQuantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
                         } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                     />
                     {errors.maxQuantity && <p className="text-red-500 text-xs mt-1">{errors.maxQuantity}</p>}
@@ -468,13 +455,13 @@ export default function TicketsClient({ event }: TicketsClientProps) {
             <button
               type="button"
               onClick={() => setIsModalOpen(false)}
-              className="px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-300 rounded-2xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2.5 bg-[#3D518C] text-white rounded-lg font-medium hover:bg-[#2d3d6b] transition-all"
+              className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-2xl font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all"
             >
               {editingTicketId ? "Update Ticket" : "Create Ticket"}
             </button>
@@ -498,19 +485,19 @@ export default function TicketsClient({ event }: TicketsClientProps) {
           <div className="flex gap-3 justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={() => setIsConfirmDeleteOpen(false)}
-              className="px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-300 rounded-2xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirmDelete}
-              className="px-4 py-2.5 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-all"
+              className="px-6 py-2.5 bg-red-600 text-white rounded-2xl font-semibold hover:bg-red-700 transition-all shadow-md hover:scale-[1.02] active:scale-98"
             >
               Delete Ticket
             </button>
           </div>
         </div>
       </Modal>
-    </div>
+    </div >
   );
 }

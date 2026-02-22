@@ -24,7 +24,7 @@ const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeho
             value={value}
             readOnly
             placeholder={placeholder}
-            className={`w-full pl-10 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm cursor-pointer hover:border-indigo-300 font-sans ${className}`}
+            className={`w-full pl-10 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all shadow-sm cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 ${className}`}
         />
     </div>
 ));
@@ -152,7 +152,7 @@ export default function DateInput({ value, onChange, placeholder, className }: D
                 customInput={<CustomInput className={className} />}
                 calendarClassName="shadow-xl"
                 popperProps={{
-                    strategy: "fixed"
+                    strategy: "absolute"
                 }}
                 popperClassName="!z-[9999]"
             />

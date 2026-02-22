@@ -38,37 +38,37 @@ export default function EventsPage() {
                 setIsLoading(true);
                 const data = await getEvents();
                 const mappedEvents: Event[] = data.map((e: any) => {
-                const now = new Date();
-                const startDate = e.event_start_at ? new Date(e.event_start_at) : null;
-                const endDate = e.event_end_at ? new Date(e.event_end_at) : null;
+                    const now = new Date();
+                    const startDate = e.event_start_at ? new Date(e.event_start_at) : null;
+                    const endDate = e.event_end_at ? new Date(e.event_end_at) : null;
 
-                let status: 'Draft' | 'Upcoming' | 'Live' | 'Completed' = 'Draft';
+                    let status: 'Draft' | 'Upcoming' | 'Live' | 'Completed' = 'Draft';
 
-                if (e.is_published) {
-                    if (endDate && endDate < now) {
-                        status = 'Completed';
-                    } else if (startDate && startDate <= now && endDate && endDate >= now) {
-                        status = 'Live';
-                    } else {
-                        status = 'Upcoming';
+                    if (e.is_published) {
+                        if (endDate && endDate < now) {
+                            status = 'Completed';
+                        } else if (startDate && startDate <= now && endDate && endDate >= now) {
+                            status = 'Live';
+                        } else {
+                            status = 'Upcoming';
+                        }
                     }
-                }
 
-                return {
-                    id: e.id,
-                    name: e.title,
-                    location: e.location || 'TBD',
-                    date: e.event_start_at ? e.event_start_at.split('T')[0] : '', // Simple date extraction
-                    ticketsSold: 0, // Mock for now
-                    totalTickets: e.capacity || 100,
-                    attendees: 0, // Mock for now
-                    status: status,
-                    type: (status === 'Completed') ? 'past' : 'upcoming',
-                    image: e.banner_image,
-                    analyticsId: e.id.toString()
-                };
-            });
-            setEvents(mappedEvents);
+                    return {
+                        id: e.id,
+                        name: e.title,
+                        location: e.location || 'TBD',
+                        date: e.event_start_at ? e.event_start_at.split('T')[0] : '', // Simple date extraction
+                        ticketsSold: 0, // Mock for now
+                        totalTickets: e.capacity || 100,
+                        attendees: 0, // Mock for now
+                        status: status,
+                        type: (status === 'Completed') ? 'past' : 'upcoming',
+                        image: e.banner_image,
+                        analyticsId: e.id.toString()
+                    };
+                });
+                setEvents(mappedEvents);
             } finally {
                 setIsLoading(false);
             }

@@ -1,0 +1,1330 @@
+commit 6c0b694fbcd828a9af72a8c0b8e1184a1e08b4b7
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Sun Feb 22 15:14:20 2026 +0800
+
+    Resolved merge conflicts and fixed time picker
+
+commit 07fb56af9033b03ef2914bfed0c0bca0ffc254f8
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 11:08:54 2026 +0800
+
+    refactor(app): Removed mock data;
+    
+    Summary of Changes:
+    
+    Deleted Files (581 lines)
+    certificateUtils.ts (279 lines) - Completely unused
+    api.ts (291 lines) - Legacy mock data superseded by Supabase
+    Updated Files (20 total)
+    Type Imports - 17 files changed from @/lib/api → @/lib/types:
+    
+    PublishEventContent.tsx
+    EventsSidebar.tsx
+    EventSelector.tsx
+    AnalyticsHeader.tsx
+    app/(admin_side)/events/[eventId]/**/ (11 client components)
+    API Routes - 3 routes fixed to use real Supabase data:
+    
+    route.ts - Now fetches real events via lib/db
+    route.ts - Real event summaries
+    route.ts - Real event data by ID
+    Documentation:
+    
+    BACKEND_ARCHITECTURE.md - Updated import examples and removed mock function references
+    Final lib Structure
+    lib/
+      ├── actions/
+      │   └── events.ts (server actions)
+      ├── db.ts (database queries)
+      ├── eventManagement.ts
+      ├── exportUtils.ts
+      ├── supabase.ts
+      └── types.ts (centralized types)
+    
+    Result: Codebase now cleanly uses Supabase for all data, with types centralized in types.ts. No orphaned code or mock data.
+
+commit 90be8c4a479333ff0ab0decc7d98f4b95bc572cb
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 10:31:42 2026 +0800
+
+    docs(copilot-context) : Update context for agent's overall reference
+
+commit 08c3b68946593c3177ba55ab1c138fdb7fcf3d88
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 10:28:14 2026 +0800
+
+    feat(dashboard and events): add loading skeletons and clean up static data
+    
+    - Add isLoading state to track data fetch progress
+    - Implement animated skeleton loaders for quick stats, upcoming events, and recent activity
+    - Remove hardcoded static data and display real data from Supabase
+    - Add fallback message for empty activity state
+    - Improve UX with smooth loading transitions matching component layouts
+
+commit a1090aa5389c0131aed0066ae91051747e5b8190
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 00:45:27 2026 +0800
+
+    fix(app): reroute backend; fix TS errors
+    
+    Summary of Fixes Applied:
+    1. EventsSidebar Type Error ✓
+    Issue: activePage prop doesn't exist in EventsSidebarProps interface
+    Fix: Removed non-existent props from TicketsClient.tsx (line 152) and page.tsx (line 41)
+    Why: Component determines active page automatically via usePathname()
+    2. Management Page - API Routes ✓
+    Issue: Fetch calls still using old /backend/ paths
+    Fix: Updated 7 fetch calls to use new /api/ paths:
+    /backend/management/users → /api/management/users
+    /backend/management/roles → /api/management/roles
+    /backend/management/permissions → /api/management/permissions
+    3. Management Page - Avatar Undefined ✓
+    Issue: member.avatar is optional but Image component requires string
+    Fix: Added conditional rendering with fallback:
+    4. Management Page - JSX Syntax ✓
+    Issue: Missing closing </div> for avatar container
+    Fix: Added proper closing div after conditional rendering
+    5. DateInput - Popper Props ✓
+    Issue: modifiers prop not supported in current react-datepicker version
+    Fix: Removed incompatible popperProps configuration (kept popperClassName which is supported)
+    Build Status: ✅ SUCCESS
+    All routes compiled, TypeScript validated, static pages generated (17 pages), dynamic routes registered (13 API routes)
+
+commit 83681d2a7ee2833617ecce01d4e9193aeec10765
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 00:33:55 2026 +0800
+
+    feature(docs>BE-structure) : Created guide for agents to follow
+
+commit 1c7f67fe179ae3e90144deeb0dc7b87a41e5fea2
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 00:15:18 2026 +0800
+
+    fix(tickets): Fix EventsSIdebar prop type error
+
+commit 929fb0f0def657e4fac1e25fe3917550929d7c85
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 00:11:20 2026 +0800
+
+    refactor(backend): Redirected to its proper directories
+    
+    Created Proper API Route Structure (api)
+    events → Event-related API routes
+    analytics → Analytics endpoints (general, event-specific, events list)
+    management → Management routes (permissions, roles, users)
+    2. Moved Server Actions (events.ts)
+    All server-side event operations (createEvent, updateEvent, getEventById, getEventAnalytics, etc.)
+    Properly marked with 'use server' directive
+    Now accessible from client and server components via @/lib/actions/events
+    3. Updated All Imports (20+ files)
+    Components: EventOverview.tsx, PublishEventContent.tsx
+    Pages: All [eventId] sub-pages (overview, publish, reports, tickets, checkin, etc.)
+    Dashboard & Analytics pages: Dashboard, all analytics pages
+    4. Removed Old Backend Directory
+    Deleted app/(admin_side)/backend/ structure entirely
+    Benefits:
+    ✅ Better Organization: API routes now live in api (Next.js convention)
+    ✅ Server Actions Separation: Business logic properly isolated in actions
+    ✅ Cleaner Route Groups: (admin_side) now only contains UI pages, not backend logic
+    ✅ Improved Maintainability: Clear separation of concerns
+    ✅ Type Safety: All imports use correct path aliases
+
+commit 5ac573807ea5a8dda573ac60e5613db91702465c
+Author: Eman <emanuelray23@gmail.com>
+Date:   Fri Feb 20 22:49:53 2026 +0800
+
+    fixed general analytics graph not showing correct data
+
+commit 5d88d424a9a8e461b1f8cd4b523b692771fc22d1
+Author: Eman <emanuelray23@gmail.com>
+Date:   Fri Feb 20 22:12:55 2026 +0800
+
+    worked on backend of analytics for general and each event, now gets data from database and no more mock data
+
+commit f5d7587432cc11aacac9d65b39b80395a18002f8
+Author: josh-354 <bryllejoshua354@gmail.com>
+Date:   Fri Feb 20 12:14:47 2026 +0800
+
+    Feb20 NewEventBE
+
+commit 20a6890dae09145290bc963e486eaaf5ce0487da
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Wed Feb 18 11:56:02 2026 +0800
+
+    fix(certificates): Partial Reimplementation of Certificates
+    
+    Changed approach to image based
+
+commit f3e5162f6f55372b5a3ccd120171ad9c63470252
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Feb 17 00:47:59 2026 +0800
+
+    Made management functional and connected it to backend
+
+commit 82b2b1465ebd12a495bd09b0aadc3e1cbf6f8ab3
+Author: VCN NAC <shawnryannacario@gmail.com>
+Date:   Tue Feb 17 00:35:38 2026 +0800
+
+    Made Empty state create event
+
+commit 1d06988a4deabf3d5471acc46fea8640ddaaf63d
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Fri Feb 13 05:00:06 2026 +0800
+
+    fixed fetching event data in sidebar
+
+commit 98aaeb479b953cc059648fac5a76e73bbdc7671c
+Author: Eman <emanuelray23@gmail.com>
+Date:   Thu Feb 12 22:12:17 2026 +0800
+
+    fixed file structure of analytics for each event and analytics for all events
+
+commit 2d76069e5d79220bb84e2b10510114772fce7832
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Thu Feb 12 21:37:40 2026 +0800
+
+    Feb12
+
+commit 7b69b283d5a79c404d325c859cb4dd8d55a8d8d9
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Thu Feb 12 14:41:28 2026 +0800
+
+    fix(events): validate eventId and prevent undefined URLs across pages and sidebar
+    
+    Detailed Description of Changes
+    
+    Added validation logic to ensure eventId is always defined before constructing URLs.
+    
+    Implemented safety checks on event detail pages to prevent navigation to invalid or undefined event URLs.
+    
+    Updated sidebar components to handle cases where eventId might be missing or undefined, avoiding broken links.
+    
+    Refactored event-related routing to centralize validation and improve maintainability.
+    
+    Added unit tests covering scenarios with missing or invalid eventId to prevent regressions.
+
+commit dfbfe18fc36bcf47c0406acad1254174edbade76
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 8 22:40:01 2026 +0800
+
+    feat(certificates): Partial Implementation (Needs Fixing)
+
+commit f67dc63ac1e81e2da0444ec6044cb7d36c63e3be
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Sat Feb 7 03:32:15 2026 +0800
+
+    added for reviews tab and review order modal
+
+commit 46c94b1ae166e98899bc8031c51560f21582f93b
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Sat Feb 7 02:45:11 2026 +0800
+
+    made changes buttons in tickets, aligned width with other pages
+
+commit c92409adf872429818497089ffd07454fa586702
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Fri Feb 6 23:31:51 2026 +0800
+
+    deleted svg and changed the headers
+
+commit 72a9db8ee390810af697e4f09c65f0947da721e6
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Fri Feb 6 09:37:13 2026 +0800
+
+    feat(Tickets:OrderForm) and refactor(Tickets): Implement Order Form and refactor tickets to align with current styling
+
+commit 4ef9b02724b341b08130cd784784a65fe48fa7d9
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Thu Feb 5 18:03:25 2026 +0800
+
+    fix(tickets): Settings Tab bug fixes
+
+commit d23e59e33a9b6d7e3451cab7f7e60f93715fdbfd
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Thu Feb 5 17:59:25 2026 +0800
+
+    fix(tickets): typescript error fixing (Settings Tab In-progress)
+
+commit adf1467650e695d35e896d4947c713100d0bb22a
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Thu Feb 5 17:55:02 2026 +0800
+
+    Fix(DateTime)
+
+commit 9235977ca876e480a05621b4507f37490c10e90c
+Author: Eman <emanuelray23@gmail.com>
+Date:   Thu Feb 5 00:59:26 2026 +0800
+
+    fixed error on analytics of each event where the event sidebar would dissapear if you click the event's analytics
+
+commit 7dd8b959cbb67d8e10b329fa999baa38fd3dde6e
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Wed Feb 4 17:13:34 2026 +0800
+
+    added orders page
+
+commit 19d7f43d5951abd3c36383cb3f8a908509b34234
+Author: Eman <emanuelray23@gmail.com>
+Date:   Mon Feb 2 02:15:25 2026 +0800
+
+    made notifications button functional
+
+commit 838cbc02aba10269df1993082429da448b2ea65b
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sat Jan 31 21:03:37 2026 +0800
+
+    feat(events): Implment Ticket: Admission, Add-Ons, Promo Codes, Settings (for Bug fixing)
+
+commit d9bbd3b2696bcd0992afb220b0eef83e0f80b97e
+Author: VCN NAC <shawnryannacario@gmail.com>
+Date:   Fri Jan 30 18:45:47 2026 +0800
+
+    Fix(Functionalities)
+
+commit 06de48d1f008e3db08088edec9acf0d13dd5a1cd
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Wed Jan 28 18:58:38 2026 +0800
+
+    Fix(bugs)
+
+commit c65fc21c28dd2d73691399ac2eb5edeb7dc438af
+Author: Eman <emanuelray23@gmail.com>
+Date:   Wed Jan 28 02:39:33 2026 +0800
+
+    fixed a visual bug where there is a blue highlight on event reports
+
+commit 54807a9f82720481041c79462e617d39d9dace7b
+Author: Eman <emanuelray23@gmail.com>
+Date:   Wed Jan 28 02:36:28 2026 +0800
+
+    updated waitlist to display general admission on default and added a filter to check
+    waitlist for other ticket tiers to avoid confusion and clutter
+    
+    updated analytics per event to display registration trends weekly from when registration opened until when event starts
+    
+    updated general analytics to have by year filter and can filter by quarter of that year
+    
+    added manage breakout session module for event sidebar
+    
+    added events report module for event sidebar
+
+commit 11c83bc2ab5d6271d5623084153b38b7bcc11423
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Wed Jan 28 01:37:24 2026 +0800
+
+    refactored directories in events
+
+commit 86b94f311cf7a904a480157719a1b42216aecb79
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 17:50:37 2026 +0800
+
+    resolved conflicts in sidebar
+
+commit c4a348db0e6d24c2b863cbc9e1e26c7464bc1931
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Tue Jan 27 17:29:48 2026 +0800
+
+    Fix(EtA) Add(CHKN)
+
+commit 3afd44098ab407adfab4d1638fbb1ce23b4816ad
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 03:42:23 2026 +0800
+
+    made date and time picker uniform, refined some features
+
+commit d3af3854a1df6202f36e92b4568cd8dcf64d420b
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Jan 27 03:09:50 2026 +0800
+
+    made manage waitlist feature functional, and also events in dashboard when clicked now go to that event's management
+
+commit 659b1d8bf526383e01f82a642ef69587c6dbb4dc
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 03:01:04 2026 +0800
+
+    fix: resolve merge conflicts
+
+commit 8725b2d159d4380ef0360ae1c940543152be3b54
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 02:53:21 2026 +0800
+
+    added publish event page
+
+commit 71c2626da3c42e05a0cfb1b3bbce610bc735110d
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 02:52:05 2026 +0800
+
+    added order publish event page
+
+commit 24fb602787a99b7b4593bd38ef50ba4402c6b390
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Jan 27 02:31:07 2026 +0800
+
+    fixed analytics for each event not displaying when analytics icon is clicked
+
+commit 7a97e4122d476316e932831fe191dfca9890875e
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 00:57:42 2026 +0800
+
+    made email filters into a dropdown and fixed errors in the order confirmation
+
+commit bd0d658a441ec2f3f4178c19390f543a4b937203
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 00:31:58 2026 +0800
+
+    fixed light/dark mode feature, refined the rich text editor
+
+commit 30d356394271a4371635123cd0db41ba663f092c
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Jan 27 00:05:26 2026 +0800
+
+    fixed lightmode/darkmode not working
+
+commit 19812ae39c081803107eff0e7cb917e39e34ddb7
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Jan 27 00:01:23 2026 +0800
+
+    fixed analytics for specific events not showing up
+
+commit 61a5863f44c35c5ae8eb9a95384c212fa7369db9
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 22:34:11 2026 +0800
+
+    changed the modals design in event overview page
+
+commit 0984c2317bfa601ba3d03f79517178df8828f622
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Mon Jan 26 22:11:29 2026 +0800
+
+    Refactor(Project tree): Restructure app routes and admin components
+    
+    Restructured app architecture for better organization:
+    
+    - Created (admin_side) grouped route containing:
+      analytics/, dashboard/, events/, login/, management/, profile/, settings/
+    - Created (client) grouped route for future client-side pages
+    - Added admin folder with 16 components:
+      AnalyticsHeader, DashboardTabs, EditorModals, EventOverview, EventSelector,
+      EventsSidebar, ExportButton, Header, Modal, OrderConfirmation, RegistrationChart,
+      RichTextEditor, Sidebar, StatCard, ThemeToggle, TopPerformingEvents
+    - Updated imports in admin pages to use @/components/admin/ path
+    - Updated internal component references to point to admin components
+    - Changed root page.tsx redirect from /dashboard to /admin_side/dashboard
+    
+    Notes:
+    - Grouped routes do not affect URL structure (e.g., /dashboard remains the same)
+    - Client folder prepared for future client-side features
+    - Improves maintainability and codebase organization without changing functionality
+
+commit 4ff3088a6cc7445c22de6de4674bd378b0f2a3d0
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 21:35:23 2026 +0800
+
+    fixed some issues
+
+commit 37ed813d2873f35bb8d431f3fc798ee0ce3056be
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Mon Jan 26 21:31:30 2026 +0800
+
+    Added Email to Attendees page
+
+commit 72f180a46b9a03d330bdb28ee02098b7ef6e2ebf
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Mon Jan 26 21:23:01 2026 +0800
+
+    Added email to atende page
+
+commit 1eed95db37fd0e110a2ac135808c2183c980b108
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 21:21:42 2026 +0800
+
+    fixed the issue package.json
+
+commit c01d9a4c693443b3c00e5b574f90637d3978d323
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 21:02:46 2026 +0800
+
+    I added the order confirmation page
+
+commit 28946aab34164aa6f27eb212298098ae6263e487
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Mon Jan 26 19:10:35 2026 +0800
+
+    chore: replace xlsx with exceljs to resolve vulnerabilities
+    
+    Replaced the vulnerable xlsx package with exceljs to improve security and maintainability.
+    
+    - Uninstalled xlsx and installed exceljs (v4.4.0) with @types/exceljs
+    - Updated exportUtils.ts:
+      - Changed import from xlsx to exceljs
+      - Refactored exportToXLSX() to use ExcelJS API
+      - Made the function async to handle Excel file generation
+    - Updated ExportButton.tsx:
+      - Updated handleExport() to be async
+      - Added await when calling exportToXLSX()
+    
+    Benefits:
+    - Removed 2 high-severity vulnerabilities (Prototype Pollution, ReDoS) flagged by npm audit
+    - ExcelJS is actively maintained with better TypeScript support
+    - More modern API with improved formatting options
+    - npm audit now shows 0 vulnerabilities
+    - ESLint and build checks pass without errors
+
+commit a311323b2e10da8101bf39b1e9352a4cd22956ae
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 18:51:47 2026 +0800
+
+    I added events overview page
+
+commit 08c59792e8235898e6118dc536c9a3810a0569ce
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 04:43:41 2026 +0800
+
+    Added analytics page again and renamed analyticssidebar to eventssidebar
+
+commit e1fe0cbd347e03cb25e02cb05b68e862b8873c50
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 03:48:22 2026 +0800
+
+    I added events overview page and login page
+
+commit 3d6f9ac1a799cdc0b9f19f2da82eeb803eae65ef
+Author: Eman <emanuelray23@gmail.com>
+Date:   Mon Jan 26 03:20:40 2026 +0800
+
+    remove redundant icon on analytics sidebar
+
+commit d074575db5838c9a523ea7d404370975a95359f3
+Author: Eman <emanuelray23@gmail.com>
+Date:   Mon Jan 26 00:31:07 2026 +0800
+
+    feat(analytics): add analytics sidebar and improved event search
+    - Add AnalyticsSidebar component for event specific analytics navigation
+    - Add AnalyticsHeader with search bar and year filter and also clear filter button
+    - Update EventSelector to search-only dropdown with year filtering
+    - Add disableExpand prop to Sidebar to prevent overlap with analytics sidebar
+    - Link events to their analytics pages from events list
+
+commit 2061a020dbf7dc8d9151fbfd542d3a888b702eae
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 21:02:30 2026 +0800
+
+    chore: delete duplicate repo #2
+
+commit ed07b3ee9d5bf47a45f4f63eaf0599faa7b33747
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:52:04 2026 +0800
+
+    chore: remove duplicate repo folder
+
+commit e71482ade25aedfb2b59099ec19eaaa6c691d45d
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:49:43 2026 +0800
+
+    chore: update package.json
+
+commit 31cccd96c9c3dfe91cc576de1dad139057d7c770
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Sun Jan 25 20:45:03 2026 +0800
+
+    docs(readme) : Revise README with project details and guidelines
+    
+    Updated README to include project description, table of contents, and contribution guidelines.
+
+commit be6d78e2ed8d5adc2fbf999979a6dc5514243075
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:29:30 2026 +0800
+
+    fix(merge): readme and .gitignore conflicts
+
+commit 27f16e43ec7a935ba3342e0aaab95d6a7bc9f6da
+Merge: e7643c1 eb2eef5
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:27:42 2026 +0800
+
+    Merge: resolve conflicts in .gitignore and README.md
+
+commit e7643c12ed5bf0563187fe5ac0602fde417019d8
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:19:54 2026 +0800
+
+    Create .gitignore
+
+commit ea8a23db0eb9cd1db77f47df850000f453426f34
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:19:28 2026 +0800
+
+    Update .gitignore
+
+commit eb2eef5600952cc765dce25b892399447328b9d8
+Author: Eman <emanuelray23@gmail.com>
+Date:   Sat Jan 24 01:01:42 2026 +0800
+
+    feat(app): initialize event analytics dashboard application
+    
+    - Set up Next.js 16 project with TypeScript and Tailwind CSS
+    - Create analytics dashboard with DashboardTabs, StatCard, and chart components
+    - Implement EventSelector with search and year filtering
+    - Add ExportButton supporting XLSX, PDF, and CSV formats
+    - Create Header and Sidebar navigation components
+    - Add ThemeToggle for dark mode support
+    - Structure app routes for analytics, events, management, settings, and profile
+
+commit 7fba3adf7a03999b7ae6bd090443e808b5c81383
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:25:58 2025 +0800
+
+    docs(readme): Reorganize Pull Request process steps in README
+
+commit 1740480166e1855e33e1a300bb56cf808f534bff
+Merge: 4537d22 7807e64
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:20:03 2025 +0800
+
+    Merge branch 'main' into nightly
+
+commit 7807e64819a963ec6230ab5b28ca8fc4da2f0da0
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:12:45 2025 +0800
+
+    Nightly (#7)
+
+commit 1aa3d5651a5a527014b3df19feaac8ba743b22bc
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:10:15 2025 +0800
+
+    Test Commit (#6)
+
+commit daa12ab8961ca29a1aad0098ee07795e53029804
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:07:02 2025 +0800
+
+    Nightly (#5)
+
+commit 4537d2265e203ed4124c094c0e9b47b796667a25
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:05:40 2025 +0800
+
+    docs(readme): corrected github clone link (#2) (#4)
+
+commit 97e3a830074145df4f111ce0a1149212405155c0
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:04:17 2025 +0800
+
+    docs(readme): corrected github clone link (#2) (#3)
+
+commit f00ec9e27dca19cc672c528c12b5e13b2809feac
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:03:05 2025 +0800
+
+    docs(readme): corrected github clone link (#2)
+
+commit 3b849a3a9e030d539d83756754b04fded4c7cf30
+Merge: 3d278a3 002d05a
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:02:48 2025 +0800
+
+    Merge branch 'main' into nightly
+
+commit 3d278a33e8116ebf1cebbad141b3c236b9b201ce
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 16:59:30 2025 +0800
+
+    docs(readme): corrected github clone link iteration#2
+
+commit a20f0aba53ddaa272934ce09614b3b383b99a765
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 16:54:27 2025 +0800
+
+    docs(readme): corrected link for github cloning
+
+commit 002d05ad94f0630bd04fcfa1f91bf5a81227f902
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 16:36:06 2025 +0800
+
+    docs(readme): implemented readme.md (#1)
+
+commit eaa8749966d93f902d1efbdad06e8677c43d09b1
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 16:32:10 2025 +0800
+
+    docs(readme): implemented readme.md
+
+commit 1e0411f99ab3ba4107f38b25f551253f817c2399
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Tue Dec 23 16:02:43 2025 +0800
+
+    Initialize Next.js project with basic setup
+    
+    Set up a new Next.js app with TypeScript, ESLint, Tailwind CSS, and initial configuration files. Includes default page, layout, global styles, public assets, and project metadata.
+
+commit 1d43c2263d668cd7e41352b52cf35ae9559b62e8
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Tue Dec 23 15:51:23 2025 +0800
+
+    Initial commit
+commit 6c0b694fbcd828a9af72a8c0b8e1184a1e08b4b7
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Sun Feb 22 15:14:20 2026 +0800
+
+    Resolved merge conflicts and fixed time picker
+
+commit 07fb56af9033b03ef2914bfed0c0bca0ffc254f8
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 11:08:54 2026 +0800
+
+    refactor(app): Removed mock data;
+    
+    Summary of Changes:
+    
+    Deleted Files (581 lines)
+    certificateUtils.ts (279 lines) - Completely unused
+    api.ts (291 lines) - Legacy mock data superseded by Supabase
+    Updated Files (20 total)
+    Type Imports - 17 files changed from @/lib/api → @/lib/types:
+    
+    PublishEventContent.tsx
+    EventsSidebar.tsx
+    EventSelector.tsx
+    AnalyticsHeader.tsx
+    app/(admin_side)/events/[eventId]/**/ (11 client components)
+    API Routes - 3 routes fixed to use real Supabase data:
+    
+    route.ts - Now fetches real events via lib/db
+    route.ts - Real event summaries
+    route.ts - Real event data by ID
+    Documentation:
+    
+    BACKEND_ARCHITECTURE.md - Updated import examples and removed mock function references
+    Final lib Structure
+    lib/
+      ├── actions/
+      │   └── events.ts (server actions)
+      ├── db.ts (database queries)
+      ├── eventManagement.ts
+      ├── exportUtils.ts
+      ├── supabase.ts
+      └── types.ts (centralized types)
+    
+    Result: Codebase now cleanly uses Supabase for all data, with types centralized in types.ts. No orphaned code or mock data.
+
+commit 90be8c4a479333ff0ab0decc7d98f4b95bc572cb
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 10:31:42 2026 +0800
+
+    docs(copilot-context) : Update context for agent's overall reference
+
+commit 08c3b68946593c3177ba55ab1c138fdb7fcf3d88
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 10:28:14 2026 +0800
+
+    feat(dashboard and events): add loading skeletons and clean up static data
+    
+    - Add isLoading state to track data fetch progress
+    - Implement animated skeleton loaders for quick stats, upcoming events, and recent activity
+    - Remove hardcoded static data and display real data from Supabase
+    - Add fallback message for empty activity state
+    - Improve UX with smooth loading transitions matching component layouts
+
+commit a1090aa5389c0131aed0066ae91051747e5b8190
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 00:45:27 2026 +0800
+
+    fix(app): reroute backend; fix TS errors
+    
+    Summary of Fixes Applied:
+    1. EventsSidebar Type Error ✓
+    Issue: activePage prop doesn't exist in EventsSidebarProps interface
+    Fix: Removed non-existent props from TicketsClient.tsx (line 152) and page.tsx (line 41)
+    Why: Component determines active page automatically via usePathname()
+    2. Management Page - API Routes ✓
+    Issue: Fetch calls still using old /backend/ paths
+    Fix: Updated 7 fetch calls to use new /api/ paths:
+    /backend/management/users → /api/management/users
+    /backend/management/roles → /api/management/roles
+    /backend/management/permissions → /api/management/permissions
+    3. Management Page - Avatar Undefined ✓
+    Issue: member.avatar is optional but Image component requires string
+    Fix: Added conditional rendering with fallback:
+    4. Management Page - JSX Syntax ✓
+    Issue: Missing closing </div> for avatar container
+    Fix: Added proper closing div after conditional rendering
+    5. DateInput - Popper Props ✓
+    Issue: modifiers prop not supported in current react-datepicker version
+    Fix: Removed incompatible popperProps configuration (kept popperClassName which is supported)
+    Build Status: ✅ SUCCESS
+    All routes compiled, TypeScript validated, static pages generated (17 pages), dynamic routes registered (13 API routes)
+
+commit 83681d2a7ee2833617ecce01d4e9193aeec10765
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 00:33:55 2026 +0800
+
+    feature(docs>BE-structure) : Created guide for agents to follow
+
+commit 1c7f67fe179ae3e90144deeb0dc7b87a41e5fea2
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 00:15:18 2026 +0800
+
+    fix(tickets): Fix EventsSIdebar prop type error
+
+commit 929fb0f0def657e4fac1e25fe3917550929d7c85
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 22 00:11:20 2026 +0800
+
+    refactor(backend): Redirected to its proper directories
+    
+    Created Proper API Route Structure (api)
+    events → Event-related API routes
+    analytics → Analytics endpoints (general, event-specific, events list)
+    management → Management routes (permissions, roles, users)
+    2. Moved Server Actions (events.ts)
+    All server-side event operations (createEvent, updateEvent, getEventById, getEventAnalytics, etc.)
+    Properly marked with 'use server' directive
+    Now accessible from client and server components via @/lib/actions/events
+    3. Updated All Imports (20+ files)
+    Components: EventOverview.tsx, PublishEventContent.tsx
+    Pages: All [eventId] sub-pages (overview, publish, reports, tickets, checkin, etc.)
+    Dashboard & Analytics pages: Dashboard, all analytics pages
+    4. Removed Old Backend Directory
+    Deleted app/(admin_side)/backend/ structure entirely
+    Benefits:
+    ✅ Better Organization: API routes now live in api (Next.js convention)
+    ✅ Server Actions Separation: Business logic properly isolated in actions
+    ✅ Cleaner Route Groups: (admin_side) now only contains UI pages, not backend logic
+    ✅ Improved Maintainability: Clear separation of concerns
+    ✅ Type Safety: All imports use correct path aliases
+
+commit 5ac573807ea5a8dda573ac60e5613db91702465c
+Author: Eman <emanuelray23@gmail.com>
+Date:   Fri Feb 20 22:49:53 2026 +0800
+
+    fixed general analytics graph not showing correct data
+
+commit 5d88d424a9a8e461b1f8cd4b523b692771fc22d1
+Author: Eman <emanuelray23@gmail.com>
+Date:   Fri Feb 20 22:12:55 2026 +0800
+
+    worked on backend of analytics for general and each event, now gets data from database and no more mock data
+
+commit f5d7587432cc11aacac9d65b39b80395a18002f8
+Author: josh-354 <bryllejoshua354@gmail.com>
+Date:   Fri Feb 20 12:14:47 2026 +0800
+
+    Feb20 NewEventBE
+
+commit 20a6890dae09145290bc963e486eaaf5ce0487da
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Wed Feb 18 11:56:02 2026 +0800
+
+    fix(certificates): Partial Reimplementation of Certificates
+    
+    Changed approach to image based
+
+commit f3e5162f6f55372b5a3ccd120171ad9c63470252
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Feb 17 00:47:59 2026 +0800
+
+    Made management functional and connected it to backend
+
+commit 82b2b1465ebd12a495bd09b0aadc3e1cbf6f8ab3
+Author: VCN NAC <shawnryannacario@gmail.com>
+Date:   Tue Feb 17 00:35:38 2026 +0800
+
+    Made Empty state create event
+
+commit 1d06988a4deabf3d5471acc46fea8640ddaaf63d
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Fri Feb 13 05:00:06 2026 +0800
+
+    fixed fetching event data in sidebar
+
+commit 98aaeb479b953cc059648fac5a76e73bbdc7671c
+Author: Eman <emanuelray23@gmail.com>
+Date:   Thu Feb 12 22:12:17 2026 +0800
+
+    fixed file structure of analytics for each event and analytics for all events
+
+commit 2d76069e5d79220bb84e2b10510114772fce7832
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Thu Feb 12 21:37:40 2026 +0800
+
+    Feb12
+
+commit 7b69b283d5a79c404d325c859cb4dd8d55a8d8d9
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Thu Feb 12 14:41:28 2026 +0800
+
+    fix(events): validate eventId and prevent undefined URLs across pages and sidebar
+    
+    Detailed Description of Changes
+    
+    Added validation logic to ensure eventId is always defined before constructing URLs.
+    
+    Implemented safety checks on event detail pages to prevent navigation to invalid or undefined event URLs.
+    
+    Updated sidebar components to handle cases where eventId might be missing or undefined, avoiding broken links.
+    
+    Refactored event-related routing to centralize validation and improve maintainability.
+    
+    Added unit tests covering scenarios with missing or invalid eventId to prevent regressions.
+
+commit dfbfe18fc36bcf47c0406acad1254174edbade76
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Feb 8 22:40:01 2026 +0800
+
+    feat(certificates): Partial Implementation (Needs Fixing)
+
+commit f67dc63ac1e81e2da0444ec6044cb7d36c63e3be
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Sat Feb 7 03:32:15 2026 +0800
+
+    added for reviews tab and review order modal
+
+commit 46c94b1ae166e98899bc8031c51560f21582f93b
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Sat Feb 7 02:45:11 2026 +0800
+
+    made changes buttons in tickets, aligned width with other pages
+
+commit c92409adf872429818497089ffd07454fa586702
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Fri Feb 6 23:31:51 2026 +0800
+
+    deleted svg and changed the headers
+
+commit 72a9db8ee390810af697e4f09c65f0947da721e6
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Fri Feb 6 09:37:13 2026 +0800
+
+    feat(Tickets:OrderForm) and refactor(Tickets): Implement Order Form and refactor tickets to align with current styling
+
+commit 4ef9b02724b341b08130cd784784a65fe48fa7d9
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Thu Feb 5 18:03:25 2026 +0800
+
+    fix(tickets): Settings Tab bug fixes
+
+commit d23e59e33a9b6d7e3451cab7f7e60f93715fdbfd
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Thu Feb 5 17:59:25 2026 +0800
+
+    fix(tickets): typescript error fixing (Settings Tab In-progress)
+
+commit adf1467650e695d35e896d4947c713100d0bb22a
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Thu Feb 5 17:55:02 2026 +0800
+
+    Fix(DateTime)
+
+commit 9235977ca876e480a05621b4507f37490c10e90c
+Author: Eman <emanuelray23@gmail.com>
+Date:   Thu Feb 5 00:59:26 2026 +0800
+
+    fixed error on analytics of each event where the event sidebar would dissapear if you click the event's analytics
+
+commit 7dd8b959cbb67d8e10b329fa999baa38fd3dde6e
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Wed Feb 4 17:13:34 2026 +0800
+
+    added orders page
+
+commit 19d7f43d5951abd3c36383cb3f8a908509b34234
+Author: Eman <emanuelray23@gmail.com>
+Date:   Mon Feb 2 02:15:25 2026 +0800
+
+    made notifications button functional
+
+commit 838cbc02aba10269df1993082429da448b2ea65b
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sat Jan 31 21:03:37 2026 +0800
+
+    feat(events): Implment Ticket: Admission, Add-Ons, Promo Codes, Settings (for Bug fixing)
+
+commit d9bbd3b2696bcd0992afb220b0eef83e0f80b97e
+Author: VCN NAC <shawnryannacario@gmail.com>
+Date:   Fri Jan 30 18:45:47 2026 +0800
+
+    Fix(Functionalities)
+
+commit 06de48d1f008e3db08088edec9acf0d13dd5a1cd
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Wed Jan 28 18:58:38 2026 +0800
+
+    Fix(bugs)
+
+commit c65fc21c28dd2d73691399ac2eb5edeb7dc438af
+Author: Eman <emanuelray23@gmail.com>
+Date:   Wed Jan 28 02:39:33 2026 +0800
+
+    fixed a visual bug where there is a blue highlight on event reports
+
+commit 54807a9f82720481041c79462e617d39d9dace7b
+Author: Eman <emanuelray23@gmail.com>
+Date:   Wed Jan 28 02:36:28 2026 +0800
+
+    updated waitlist to display general admission on default and added a filter to check
+    waitlist for other ticket tiers to avoid confusion and clutter
+    
+    updated analytics per event to display registration trends weekly from when registration opened until when event starts
+    
+    updated general analytics to have by year filter and can filter by quarter of that year
+    
+    added manage breakout session module for event sidebar
+    
+    added events report module for event sidebar
+
+commit 11c83bc2ab5d6271d5623084153b38b7bcc11423
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Wed Jan 28 01:37:24 2026 +0800
+
+    refactored directories in events
+
+commit 86b94f311cf7a904a480157719a1b42216aecb79
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 17:50:37 2026 +0800
+
+    resolved conflicts in sidebar
+
+commit c4a348db0e6d24c2b863cbc9e1e26c7464bc1931
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Tue Jan 27 17:29:48 2026 +0800
+
+    Fix(EtA) Add(CHKN)
+
+commit 3afd44098ab407adfab4d1638fbb1ce23b4816ad
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 03:42:23 2026 +0800
+
+    made date and time picker uniform, refined some features
+
+commit d3af3854a1df6202f36e92b4568cd8dcf64d420b
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Jan 27 03:09:50 2026 +0800
+
+    made manage waitlist feature functional, and also events in dashboard when clicked now go to that event's management
+
+commit 659b1d8bf526383e01f82a642ef69587c6dbb4dc
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 03:01:04 2026 +0800
+
+    fix: resolve merge conflicts
+
+commit 8725b2d159d4380ef0360ae1c940543152be3b54
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 02:53:21 2026 +0800
+
+    added publish event page
+
+commit 71c2626da3c42e05a0cfb1b3bbce610bc735110d
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 02:52:05 2026 +0800
+
+    added order publish event page
+
+commit 24fb602787a99b7b4593bd38ef50ba4402c6b390
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Jan 27 02:31:07 2026 +0800
+
+    fixed analytics for each event not displaying when analytics icon is clicked
+
+commit 7a97e4122d476316e932831fe191dfca9890875e
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 00:57:42 2026 +0800
+
+    made email filters into a dropdown and fixed errors in the order confirmation
+
+commit bd0d658a441ec2f3f4178c19390f543a4b937203
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Tue Jan 27 00:31:58 2026 +0800
+
+    fixed light/dark mode feature, refined the rich text editor
+
+commit 30d356394271a4371635123cd0db41ba663f092c
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Jan 27 00:05:26 2026 +0800
+
+    fixed lightmode/darkmode not working
+
+commit 19812ae39c081803107eff0e7cb917e39e34ddb7
+Author: Eman <emanuelray23@gmail.com>
+Date:   Tue Jan 27 00:01:23 2026 +0800
+
+    fixed analytics for specific events not showing up
+
+commit 61a5863f44c35c5ae8eb9a95384c212fa7369db9
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 22:34:11 2026 +0800
+
+    changed the modals design in event overview page
+
+commit 0984c2317bfa601ba3d03f79517178df8828f622
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Mon Jan 26 22:11:29 2026 +0800
+
+    Refactor(Project tree): Restructure app routes and admin components
+    
+    Restructured app architecture for better organization:
+    
+    - Created (admin_side) grouped route containing:
+      analytics/, dashboard/, events/, login/, management/, profile/, settings/
+    - Created (client) grouped route for future client-side pages
+    - Added admin folder with 16 components:
+      AnalyticsHeader, DashboardTabs, EditorModals, EventOverview, EventSelector,
+      EventsSidebar, ExportButton, Header, Modal, OrderConfirmation, RegistrationChart,
+      RichTextEditor, Sidebar, StatCard, ThemeToggle, TopPerformingEvents
+    - Updated imports in admin pages to use @/components/admin/ path
+    - Updated internal component references to point to admin components
+    - Changed root page.tsx redirect from /dashboard to /admin_side/dashboard
+    
+    Notes:
+    - Grouped routes do not affect URL structure (e.g., /dashboard remains the same)
+    - Client folder prepared for future client-side features
+    - Improves maintainability and codebase organization without changing functionality
+
+commit 4ff3088a6cc7445c22de6de4674bd378b0f2a3d0
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 21:35:23 2026 +0800
+
+    fixed some issues
+
+commit 37ed813d2873f35bb8d431f3fc798ee0ce3056be
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Mon Jan 26 21:31:30 2026 +0800
+
+    Added Email to Attendees page
+
+commit 72f180a46b9a03d330bdb28ee02098b7ef6e2ebf
+Author: AquaDarknessMegumin <shawnryannacario@gmail.com>
+Date:   Mon Jan 26 21:23:01 2026 +0800
+
+    Added email to atende page
+
+commit 1eed95db37fd0e110a2ac135808c2183c980b108
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 21:21:42 2026 +0800
+
+    fixed the issue package.json
+
+commit c01d9a4c693443b3c00e5b574f90637d3978d323
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 21:02:46 2026 +0800
+
+    I added the order confirmation page
+
+commit 28946aab34164aa6f27eb212298098ae6263e487
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Mon Jan 26 19:10:35 2026 +0800
+
+    chore: replace xlsx with exceljs to resolve vulnerabilities
+    
+    Replaced the vulnerable xlsx package with exceljs to improve security and maintainability.
+    
+    - Uninstalled xlsx and installed exceljs (v4.4.0) with @types/exceljs
+    - Updated exportUtils.ts:
+      - Changed import from xlsx to exceljs
+      - Refactored exportToXLSX() to use ExcelJS API
+      - Made the function async to handle Excel file generation
+    - Updated ExportButton.tsx:
+      - Updated handleExport() to be async
+      - Added await when calling exportToXLSX()
+    
+    Benefits:
+    - Removed 2 high-severity vulnerabilities (Prototype Pollution, ReDoS) flagged by npm audit
+    - ExcelJS is actively maintained with better TypeScript support
+    - More modern API with improved formatting options
+    - npm audit now shows 0 vulnerabilities
+    - ESLint and build checks pass without errors
+
+commit a311323b2e10da8101bf39b1e9352a4cd22956ae
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 18:51:47 2026 +0800
+
+    I added events overview page
+
+commit 08c59792e8235898e6118dc536c9a3810a0569ce
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 04:43:41 2026 +0800
+
+    Added analytics page again and renamed analyticssidebar to eventssidebar
+
+commit e1fe0cbd347e03cb25e02cb05b68e862b8873c50
+Author: Karylle <karyllebernate8@gmail.com>
+Date:   Mon Jan 26 03:48:22 2026 +0800
+
+    I added events overview page and login page
+
+commit 3d6f9ac1a799cdc0b9f19f2da82eeb803eae65ef
+Author: Eman <emanuelray23@gmail.com>
+Date:   Mon Jan 26 03:20:40 2026 +0800
+
+    remove redundant icon on analytics sidebar
+
+commit d074575db5838c9a523ea7d404370975a95359f3
+Author: Eman <emanuelray23@gmail.com>
+Date:   Mon Jan 26 00:31:07 2026 +0800
+
+    feat(analytics): add analytics sidebar and improved event search
+    - Add AnalyticsSidebar component for event specific analytics navigation
+    - Add AnalyticsHeader with search bar and year filter and also clear filter button
+    - Update EventSelector to search-only dropdown with year filtering
+    - Add disableExpand prop to Sidebar to prevent overlap with analytics sidebar
+    - Link events to their analytics pages from events list
+
+commit 2061a020dbf7dc8d9151fbfd542d3a888b702eae
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 21:02:30 2026 +0800
+
+    chore: delete duplicate repo #2
+
+commit ed07b3ee9d5bf47a45f4f63eaf0599faa7b33747
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:52:04 2026 +0800
+
+    chore: remove duplicate repo folder
+
+commit e71482ade25aedfb2b59099ec19eaaa6c691d45d
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:49:43 2026 +0800
+
+    chore: update package.json
+
+commit 31cccd96c9c3dfe91cc576de1dad139057d7c770
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Sun Jan 25 20:45:03 2026 +0800
+
+    docs(readme) : Revise README with project details and guidelines
+    
+    Updated README to include project description, table of contents, and contribution guidelines.
+
+commit be6d78e2ed8d5adc2fbf999979a6dc5514243075
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:29:30 2026 +0800
+
+    fix(merge): readme and .gitignore conflicts
+
+commit 27f16e43ec7a935ba3342e0aaab95d6a7bc9f6da
+Merge: e7643c1 eb2eef5
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:27:42 2026 +0800
+
+    Merge: resolve conflicts in .gitignore and README.md
+
+commit e7643c12ed5bf0563187fe5ac0602fde417019d8
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:19:54 2026 +0800
+
+    Create .gitignore
+
+commit ea8a23db0eb9cd1db77f47df850000f453426f34
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Sun Jan 25 20:19:28 2026 +0800
+
+    Update .gitignore
+
+commit eb2eef5600952cc765dce25b892399447328b9d8
+Author: Eman <emanuelray23@gmail.com>
+Date:   Sat Jan 24 01:01:42 2026 +0800
+
+    feat(app): initialize event analytics dashboard application
+    
+    - Set up Next.js 16 project with TypeScript and Tailwind CSS
+    - Create analytics dashboard with DashboardTabs, StatCard, and chart components
+    - Implement EventSelector with search and year filtering
+    - Add ExportButton supporting XLSX, PDF, and CSV formats
+    - Create Header and Sidebar navigation components
+    - Add ThemeToggle for dark mode support
+    - Structure app routes for analytics, events, management, settings, and profile
+
+commit 7fba3adf7a03999b7ae6bd090443e808b5c81383
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:25:58 2025 +0800
+
+    docs(readme): Reorganize Pull Request process steps in README
+
+commit 1740480166e1855e33e1a300bb56cf808f534bff
+Merge: 4537d22 7807e64
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:20:03 2025 +0800
+
+    Merge branch 'main' into nightly
+
+commit 7807e64819a963ec6230ab5b28ca8fc4da2f0da0
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:12:45 2025 +0800
+
+    Nightly (#7)
+
+commit 1aa3d5651a5a527014b3df19feaac8ba743b22bc
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:10:15 2025 +0800
+
+    Test Commit (#6)
+
+commit daa12ab8961ca29a1aad0098ee07795e53029804
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:07:02 2025 +0800
+
+    Nightly (#5)
+
+commit 4537d2265e203ed4124c094c0e9b47b796667a25
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:05:40 2025 +0800
+
+    docs(readme): corrected github clone link (#2) (#4)
+
+commit 97e3a830074145df4f111ce0a1149212405155c0
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:04:17 2025 +0800
+
+    docs(readme): corrected github clone link (#2) (#3)
+
+commit f00ec9e27dca19cc672c528c12b5e13b2809feac
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:03:05 2025 +0800
+
+    docs(readme): corrected github clone link (#2)
+
+commit 3b849a3a9e030d539d83756754b04fded4c7cf30
+Merge: 3d278a3 002d05a
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 17:02:48 2025 +0800
+
+    Merge branch 'main' into nightly
+
+commit 3d278a33e8116ebf1cebbad141b3c236b9b201ce
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 16:59:30 2025 +0800
+
+    docs(readme): corrected github clone link iteration#2
+
+commit a20f0aba53ddaa272934ce09614b3b383b99a765
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 16:54:27 2025 +0800
+
+    docs(readme): corrected link for github cloning
+
+commit 002d05ad94f0630bd04fcfa1f91bf5a81227f902
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 16:36:06 2025 +0800
+
+    docs(readme): implemented readme.md (#1)
+
+commit eaa8749966d93f902d1efbdad06e8677c43d09b1
+Author: Zyguel Philip Cabogoy <123135343+zyguel@users.noreply.github.com>
+Date:   Tue Dec 23 16:32:10 2025 +0800
+
+    docs(readme): implemented readme.md
+
+commit 1e0411f99ab3ba4107f38b25f551253f817c2399
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Tue Dec 23 16:02:43 2025 +0800
+
+    Initialize Next.js project with basic setup
+    
+    Set up a new Next.js app with TypeScript, ESLint, Tailwind CSS, and initial configuration files. Includes default page, layout, global styles, public assets, and project metadata.
+
+commit 1d43c2263d668cd7e41352b52cf35ae9559b62e8
+Author: Zyguel Philip Cabogoy <zyguel@gmail.com>
+Date:   Tue Dec 23 15:51:23 2025 +0800
+
+    Initial commit
