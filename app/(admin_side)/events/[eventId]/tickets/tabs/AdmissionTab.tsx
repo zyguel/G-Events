@@ -1,12 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, AlertCircle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import Modal from "@/components/admin/Modal";
-import DateInput from "@/components/admin/DateInput";
+import { Edit2, Plus, GripVertical, Trash2, Calendar, Clock, Image as ImageIcon, CheckCircle, Ticket as TicketIcon, Filter, Search, Tag, Settings, MoreVertical, Eye, Download, Info, AlertCircle, CalendarRange } from "lucide-react";
+import Modal, { ModalInput, ModalTextarea, ModalFooter } from "../../../../../../components/admin/Modal";
+import DateInput from "../../../../../../components/admin/DateInput";
 import TimeInput from "@/components/admin/TimeInput";
 import { getTickets, createTicket, updateTicket, deleteTicket, Ticket } from "@/lib/eventManagement";
+import { motion, AnimatePresence } from "framer-motion";
 import { EventSummary } from "@/lib/types";
 
 interface AdmissionTabProps {
@@ -220,12 +220,11 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
           {/* Basic Fields */}
           <div>
             <label className="block text-sm font-medium mb-2">Ticket Name *</label>
-            <input
+            <ModalInput
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.name ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                }`}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+              className={errors.name ? "border-red-500" : ""}
             />
             {errors.name && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.name}</p>}
           </div>
@@ -251,14 +250,13 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
 
             <div>
               <label className="block text-sm font-medium mb-2">Quantity *</label>
-              <input
+              <ModalInput
                 type="number"
                 min="1"
                 placeholder="0"
                 value={formData.quantity || ""}
-                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.quantity ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                  }`}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                className={errors.quantity ? "border-red-500" : ""}
               />
               {errors.quantity && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.quantity}</p>}
             </div>
@@ -268,18 +266,17 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             <div>
               <label className="block text-sm font-medium mb-2">Price *</label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium z-10">
                   ₱
                 </span>
-                <input
+                <ModalInput
                   type="number"
                   min="0"
                   step="0.01"
                   placeholder="0.00"
                   value={formData.price || ""}
-                  onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  className={`w-full pl-8 pr-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.price ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                    }`}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                  className={`pl-8 ${errors.price ? "border-red-500" : ""}`}
                 />
               </div>
               {errors.price && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.price}</p>}
@@ -383,11 +380,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             <div className="space-y-4 border-t border-gray-300 dark:border-gray-600 pt-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Description</label>
-                <textarea
+                <ModalTextarea
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none resize-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm"
                 />
               </div>
 
@@ -408,24 +404,22 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Min Quantity per Order</label>
-                  <input
+                  <ModalInput
                     type="number"
                     min="1"
                     value={formData.minQuantity}
-                    onChange={(e) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 1 })}
-                    className="w-full px-3 py-2.5 min-h-[42px] border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm"
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 1 })}
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium mb-2">Max Quantity per Order</label>
-                  <input
+                  <ModalInput
                     type="number"
                     min="1"
                     value={formData.maxQuantity}
-                    onChange={(e) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
-                    className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.maxQuantity ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                      }`}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
+                    className={errors.maxQuantity ? "border-red-500" : ""}
                   />
                   {errors.maxQuantity && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.maxQuantity}</p>}
                 </div>
@@ -434,20 +428,12 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
           )}
 
           {/* Modal Footer */}
-          <div className="flex gap-3 justify-end border-t border-gray-300 dark:border-gray-600 pt-4">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveTicket}
-              className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
-            >
-              {editingTicketId ? "Update" : "Create"} Ticket
-            </button>
-          </div>
+          <ModalFooter
+            onCancel={() => setIsModalOpen(false)}
+            onSave={handleSaveTicket}
+            saveText={editingTicketId ? "Update Ticket" : "Create Ticket"}
+            submitType="button"
+          />
         </div>
       </Modal >
 
@@ -460,20 +446,13 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       >
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400">Are you sure you want to delete this ticket?</p>
-          <div className="flex gap-3 justify-end">
-            <button
-              onClick={() => setIsConfirmDeleteOpen(false)}
-              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirmDelete}
-              className="px-6 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all shadow-md hover:scale-[1.02] active:scale-98 text-sm"
-            >
-              Delete
-            </button>
-          </div>
+          <ModalFooter
+            onCancel={() => setIsConfirmDeleteOpen(false)}
+            onSave={handleConfirmDelete}
+            saveText="Delete"
+            submitType="button"
+            isDanger={true}
+          />
         </div>
       </Modal >
     </div >

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Modal from "@/components/admin/Modal";
+import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
 
@@ -252,36 +252,33 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
           <div>
             <label className="block text-sm font-medium mb-2">Add-on Name *</label>
-            <input
+            <ModalInput
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.name ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                }`}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+              className={errors.name ? "border-red-500" : ""}
             />
             {errors.name && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.name}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Type (e.g., VIP Package, Workshop) *</label>
-            <input
+            <ModalInput
               type="text"
               value={formData.type}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.type ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                }`}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, type: e.target.value })}
+              className={errors.type ? "border-red-500" : ""}
             />
             {errors.type && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.type}</p>}
           </div>
 
           <div>
             <label className="block text-sm font-medium mb-2">Description *</label>
-            <textarea
+            <ModalTextarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
-              className={`w-full px-3 py-2.5 border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none resize-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.description ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                }`}
+              className={errors.description ? "border-red-500" : ""}
             />
             {errors.description && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.description}</p>}
           </div>
@@ -307,12 +304,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <div className="space-y-2">
               {formData.inclusions.map((inclusion, index) => (
                 <div key={index} className="flex gap-2">
-                  <input
+                  <ModalInput
                     type="text"
                     value={inclusion}
-                    onChange={(e) => handleUpdateInclusion(index, e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateInclusion(index, e.target.value)}
                     placeholder="e.g., Lunch, T-shirt, etc."
-                    className="flex-1 px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 border-gray-200 dark:border-gray-700 text-sm"
                   />
                   <button
                     onClick={() => handleRemoveInclusion(index)}
@@ -333,20 +329,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
           </div>
 
           {/* Modal Footer */}
-          <div className="flex gap-3 justify-end border-t border-gray-300 dark:border-gray-600 pt-4">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSaveAddOn}
-              className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
-            >
-              {editingAddOnId ? "Update" : "Create"} Add-on
-            </button>
-          </div>
+          <ModalFooter
+            onCancel={() => setIsModalOpen(false)}
+            onSave={handleSaveAddOn}
+            saveText={editingAddOnId ? "Update Add-on" : "Create Add-on"}
+            submitType="button"
+          />
         </div>
       </Modal>
 
@@ -398,20 +386,13 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       >
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400">Are you sure you want to delete this add-on?</p>
-          <div className="flex gap-3 justify-end">
-            <button
-              onClick={() => setIsConfirmDeleteOpen(false)}
-              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-lg font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirmDelete}
-              className="px-6 py-2.5 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-all shadow-md hover:scale-[1.02] active:scale-98 text-sm"
-            >
-              Delete
-            </button>
-          </div>
+          <ModalFooter
+            onCancel={() => setIsConfirmDeleteOpen(false)}
+            onSave={handleConfirmDelete}
+            saveText="Delete"
+            submitType="button"
+            isDanger={true}
+          />
         </div>
       </Modal>
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Filter, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Modal from "@/components/admin/Modal";
+import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import { getPromoCodes, createPromoCode, updatePromoCode, deletePromoCode, PromoCode, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
 
@@ -308,13 +308,12 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium mb-2">Promo Code *</label>
-            <input
+            <ModalInput
               type="text"
               placeholder="e.g. EARLYBIRD2024"
               value={formData.code}
-              onChange={(e) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
-              className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm uppercase ${errors.code ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                }`}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, code: e.target.value.toUpperCase() })}
+              className={`uppercase ${errors.code ? "border-red-500" : ""}`}
             />
             {errors.code && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.code}</p>}
           </div>
@@ -342,19 +341,18 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
               <label className="block text-sm font-medium mb-2">Value *</label>
               <div className="relative">
                 {formData.valueType === "fixed" && (
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium z-10">
                     ₱
                   </span>
                 )}
-                <input
+                <ModalInput
                   type="number"
                   min="0"
                   step="0.01"
                   placeholder="0"
                   value={formData.value || ""}
-                  onChange={(e) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
-                  className={`w-full ${formData.valueType === "fixed" ? "pl-8 pr-3" : formData.valueType === "percentage" ? "pl-3 pr-8" : "px-3"} py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.value ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                    }`}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, value: parseFloat(e.target.value) || 0 })}
+                  className={`${formData.valueType === "fixed" ? "pl-8 pr-3" : formData.valueType === "percentage" ? "pl-3 pr-8" : "px-3"} ${errors.value ? "border-red-500" : ""}`}
                 />
                 {formData.valueType === "percentage" && (
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 font-medium">
@@ -410,13 +408,12 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
 
           <div>
             <label className="block text-sm font-medium mb-2">Usage Limit (0 = unlimited)</label>
-            <input
+            <ModalInput
               type="number"
               min="0"
               placeholder="0"
               value={formData.usageLimit || ""}
-              onChange={(e) => setFormData({ ...formData, usageLimit: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2.5 min-h-[42px] border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm"
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, usageLimit: parseInt(e.target.value) || 0 })}
             />
           </div>
 
@@ -433,20 +430,12 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
           </div>
 
           {/* Modal Footer */}
-          <div className="flex gap-3 justify-end border-t border-gray-300 dark:border-gray-600 pt-4">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="px-6 py-2.5 bg-gray-100/80 dark:bg-gray-800 text-[#3D518C] dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 transition-all text-sm"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSavePromo}
-              className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-xl font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
-            >
-              {editingPromoId ? "Update" : "Create"} Promo
-            </button>
-          </div>
+          <ModalFooter
+            onCancel={() => setIsModalOpen(false)}
+            onSave={handleSavePromo}
+            saveText={editingPromoId ? "Update Promo" : "Create Promo"}
+            submitType="button"
+          />
         </div>
       </Modal>
 
@@ -458,20 +447,13 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
       >
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400">Are you sure you want to delete this promo code?</p>
-          <div className="flex gap-3 justify-end">
-            <button
-              onClick={() => setIsConfirmDeleteOpen(false)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleConfirmDelete}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors font-medium"
-            >
-              Delete
-            </button>
-          </div>
+          <ModalFooter
+            onCancel={() => setIsConfirmDeleteOpen(false)}
+            onSave={handleConfirmDelete}
+            saveText="Delete"
+            submitType="button"
+            isDanger={true}
+          />
         </div>
       </Modal>
     </div>

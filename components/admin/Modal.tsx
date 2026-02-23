@@ -1,7 +1,7 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
 interface ModalProps {
@@ -77,5 +77,94 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, size
             </div>
         </div>,
         document.body
+    );
+}
+
+// --- Reusable Modal Form Components ---
+
+interface ModalInputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+    icon?: React.ReactNode;
+}
+
+export const ModalInput = React.forwardRef<HTMLInputElement, ModalInputProps>(
+    ({ className = "", icon, ...props }, ref) => {
+        return (
+            <div className="relative">
+                {icon && (
+                    <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400">
+                        {icon}
+                    </div>
+                )}
+                <input
+                    ref={ref}
+                    className={`w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 shadow-sm font-sans text-sm ${icon ? 'pl-10' : ''} ${className}`}
+                    {...props}
+                />
+            </div>
+        );
+    }
+);
+ModalInput.displayName = "ModalInput";
+
+export const ModalTextarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
+    ({ className = "", ...props }, ref) => {
+        return (
+            <textarea
+                ref={ref}
+                className={`w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none resize-none transition-all hover:border-gray-300 dark:hover:border-gray-600 shadow-sm font-sans text-sm ${className}`}
+                {...props}
+            />
+        );
+    }
+);
+ModalTextarea.displayName = "ModalTextarea";
+
+interface ModalFooterProps {
+    onCancel: () => void;
+    cancelText?: string;
+    onSave?: () => void;
+    saveText?: string;
+    isSubmitting?: boolean;
+    submitType?: "button" | "submit";
+    isDanger?: boolean;
+    disableSave?: boolean;
+}
+
+export function ModalFooter({
+    onCancel,
+    cancelText = "Cancel",
+    onSave,
+    saveText = "Save Changes",
+    isSubmitting = false,
+    submitType = "submit",
+    isDanger = false,
+    disableSave = false,
+}: ModalFooterProps) {
+    return (
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
+            <button
+                type="button"
+                onClick={onCancel}
+                disabled={isSubmitting}
+                className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white rounded-xl transition-colors font-sans disabled:opacity-50"
+            >
+                {cancelText}
+            </button>
+            <button
+                type={submitType}
+                onClick={submitType === 'button' ? onSave : undefined}
+                disabled={isSubmitting || disableSave}
+                className={`px-5 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md transition-all font-sans flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed ${isDanger ? 'bg-red-600 hover:bg-red-700 hover:shadow-lg hover:-translate-y-0.5' : 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5'}`}
+            >
+                {isSubmitting ? (
+                    <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Saving...
+                    </>
+                ) : (
+                    saveText
+                )}
+            </button>
+        </div>
     );
 }

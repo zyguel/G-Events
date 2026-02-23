@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List, Check, CheckCircle } from "lucide-react";
-import Modal from "./Modal";
+import Modal, { ModalInput, ModalTextarea, ModalFooter } from "./Modal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import DateTimeInput from "./DateTimeInput";
@@ -1057,16 +1057,13 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 <form onSubmit={handleSaveTitle} className="space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Title</label>
-                        <input name="name" defaultValue={event.name} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm font-sans" placeholder="Input event title" />
+                        <ModalInput name="name" defaultValue={event.name} placeholder="Input event title" />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Subtitle</label>
-                        <textarea name="subtitle" rows={3} defaultValue={event.subtitle} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none transition-all shadow-sm font-sans" placeholder="Input subtitle" />
+                        <ModalTextarea name="subtitle" rows={3} defaultValue={event.subtitle} placeholder="Input subtitle" />
                     </div>
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white rounded-xl transition-colors font-sans">Cancel</button>
-                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save</button>
-                    </div>
+                    <ModalFooter onCancel={() => setActiveModal(null)} />
                 </form>
             </Modal>
 
@@ -1103,15 +1100,9 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Location</label>
-                        <div className="relative">
-                            <MapPin className="absolute left-3.5 top-3 text-gray-400" size={18} />
-                            <input name="location" defaultValue={event.location} className="w-full pl-10 px-4 py-2.5 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm" placeholder="Enter venue or address" />
-                        </div>
+                        <ModalInput name="location" defaultValue={event.location} placeholder="Enter venue or address" icon={<MapPin size={18} />} />
                     </div>
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors font-sans">Cancel</button>
-                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save</button>
-                    </div>
+                    <ModalFooter onCancel={() => setActiveModal(null)} />
                 </form>
             </Modal>
 
@@ -1120,11 +1111,11 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 <form onSubmit={handleSaveOverview} className="space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Description</label>
-                        <textarea name="description" rows={5} defaultValue={event.description} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none transition-all shadow-sm" placeholder="What is this event about?" />
+                        <ModalTextarea name="description" rows={5} defaultValue={event.description} placeholder="What is this event about?" />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Theme</label>
-                        <input name="theme" defaultValue={event.theme} className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm" placeholder="e.g. Technology & Innovation" />
+                        <ModalInput name="theme" defaultValue={event.theme} placeholder="e.g. Technology & Innovation" />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Objectives</label>
@@ -1153,7 +1144,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                                             onChange={(e) => setNewObjective(e.target.value)}
                                             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddObjective())}
                                             placeholder="Type a new objective..."
-                                            className="flex-1 px-4 py-2 text-sm rounded-lg border border-indigo-300 focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-800 shadow-sm"
+                                            className="flex-1 px-4 py-2 text-sm rounded-lg border border-indigo-300 focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-800 shadow-sm transition-all hover:border-indigo-400 dark:hover:border-indigo-400"
                                         />
                                         <button type="button" onClick={handleAddObjective} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
                                             <Plus size={16} />
@@ -1170,9 +1161,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                             </div>
                         </div>
                     </div>
-                    <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700">
-                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">Save Changes</button>
-                    </div>
+                    <ModalFooter onCancel={() => setActiveModal(null)} />
                 </form>
             </Modal>
 
@@ -1181,26 +1170,22 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 <form onSubmit={(e) => { e.preventDefault(); handleAddAgendaSlot(); }} className="space-y-6">
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Title <span className="text-red-500">*</span></label>
-                        <input
+                        <ModalInput
                             required
                             value={newAgenda.title || ''}
-                            onChange={e => setNewAgenda({ ...newAgenda, title: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm"
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewAgenda({ ...newAgenda, title: e.target.value })}
                             placeholder="e.g. Opening Keynote"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Speaker <span className="text-red-500">*</span></label>
-                        <div className="relative">
-                            <Users className="absolute left-3.5 top-3 text-gray-400" size={18} />
-                            <input
-                                required
-                                value={newAgenda.speaker || ''}
-                                onChange={e => setNewAgenda({ ...newAgenda, speaker: e.target.value })}
-                                className="w-full pl-10 px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm"
-                                placeholder="Name"
-                            />
-                        </div>
+                        <ModalInput
+                            required
+                            value={newAgenda.speaker || ''}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewAgenda({ ...newAgenda, speaker: e.target.value })}
+                            placeholder="Name"
+                            icon={<Users size={18} />}
+                        />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -1224,18 +1209,17 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Description</label>
-                        <textarea
+                        <ModalTextarea
                             rows={3}
                             value={newAgenda.description || ''}
-                            onChange={e => setNewAgenda({ ...newAgenda, description: e.target.value })}
-                            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none resize-none transition-all shadow-sm"
+                            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNewAgenda({ ...newAgenda, description: e.target.value })}
                             placeholder="Brief description of the activity"
                         />
                     </div>
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={() => setActiveModal(null)} className="px-5 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 hover:text-gray-900 dark:hover:text-white rounded-xl transition-colors font-sans">Cancel</button>
-                        <button type="submit" className="px-5 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl rounded-xl shadow-md hover:-translate-y-0.5 transition-all font-sans">{editingAgendaId ? "Save Changes" : "Add Item"}</button>
-                    </div>
+                    <ModalFooter
+                        onCancel={() => setActiveModal(null)}
+                        saveText={editingAgendaId ? "Save Changes" : "Add Item"}
+                    />
                 </form>
             </Modal>
 
@@ -1250,20 +1234,13 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                             Are you sure you want to remove the event banner?<br />This action cannot be undone.
                         </p>
                     </div>
-                    <div className="flex justify-center gap-3 pt-2">
-                        <button
-                            onClick={() => setActiveModal(null)}
-                            className="px-5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-colors font-sans"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={confirmDeleteBanner}
-                            className="px-5 py-2.5 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md hover:shadow-lg hover:-translate-y-0.5 transition-all font-sans"
-                        >
-                            Yes, Remove It
-                        </button>
-                    </div>
+                    <ModalFooter
+                        onCancel={() => setActiveModal(null)}
+                        onSave={confirmDeleteBanner}
+                        saveText="Yes, Remove It"
+                        submitType="button"
+                        isDanger={true}
+                    />
                 </div>
             </Modal>
 
