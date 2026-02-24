@@ -74,6 +74,7 @@ export default function OrderForm({
     initialDescription?: string
 }) {
     const router = useRouter();
+    const [currentFormId, setCurrentFormId] = useState<string | undefined>(formId);
     const [data, setData] = useState<OrderFormData>({
         sections: [
             {
@@ -100,20 +101,8 @@ export default function OrderForm({
     const [previewMode, setPreviewMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-    const [isLoading, setIsLoading] = useState(!!formId);
+    const [isLoading, setIsLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
-
-    // Load existing form on mount
-    useEffect(() => {
-        console.log('useEffect triggered - formId:', formId);
-        if (formId) {
-            console.log('Loading form with ID:', formId);
-            loadForm(parseInt(formId));
-        } else {
-            setIsLoading(false);
-            setHasLoaded(true);
-        }
-    }, [formId]);
 
     const loadForm = async (id: number) => {
         setIsLoading(true);
@@ -148,16 +137,73 @@ export default function OrderForm({
         }
     };
 
+    const loadExistingFormForEvent = async (eventIdNum: number) => {
+        setIsLoading(true);
+        try {
+            const response = await fetch(`/api/orderform?eventId=${eventIdNum}`);
+            if (!response.ok) {
+                throw new Error(`API Error: ${response.status}`);
+            }
+
+            const result = await response.json();
+            const existingForm = Array.isArray(result.data) && result.data.length > 0 ? result.data[0] : null;
+
+            if (existingForm) {
+                setCurrentFormId(existingForm.id?.toString());
+                setFormTitle(existingForm.title || initialTitle);
+                setFormDescription(existingForm.description || initialDescription);
+                if (existingForm.form_data) {
+                    setData(existingForm.form_data);
+                }
+                setSaveMessage(null);
+
+                // Keep URL in sync so future navigations have formId
+                try {
+                    router.replace(`/events/${eventId}/orderform?formId=${existingForm.id}`);
+                } catch {
+                    // ignore navigation errors in client hook context
+                }
+            }
+
+            setHasLoaded(true);
+        } catch (e) {
+            console.error('Failed to load existing form for event:', e);
+            setSaveMessage({ type: 'error', text: `Failed to load form: ${e instanceof Error ? e.message : 'Unknown error'}` });
+            setHasLoaded(true);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    // Load existing form on mount or when identifiers change
+    useEffect(() => {
+        const init = async () => {
+            const eventIdNum = parseInt(eventId);
+            if (formId) {
+                await loadForm(parseInt(formId));
+                setCurrentFormId(formId);
+            } else if (!isNaN(eventIdNum)) {
+                await loadExistingFormForEvent(eventIdNum);
+            } else {
+                setIsLoading(false);
+                setHasLoaded(true);
+            }
+        };
+
+        // Only run once on mount or when eventId/formId changes from outside
+        init();
+    }, [eventId, formId]);
+
     const handleSaveForm = async () => {
         setIsSaving(true);
         setSaveMessage(null);
 
         try {
-            const endpoint = formId 
-                ? `/api/orderform/${formId}`
+            const endpoint = currentFormId 
+                ? `/api/orderform/${currentFormId}`
                 : '/api/orderform';
             
-            const method = formId ? 'PUT' : 'POST';
+            const method = currentFormId ? 'PUT' : 'POST';
             
             const response = await fetch(endpoint, {
                 method,
@@ -179,8 +225,9 @@ export default function OrderForm({
             if (result.success) {
                 setSaveMessage({ type: 'success', text: result.message || 'Form saved successfully!' });
                 
-                // If this was a new form (no formId), navigate with the returned formId as query param
-                if (!formId && result.formId) {
+                // If this was a new form (no currentFormId), navigate with the returned formId as query param
+                if (!currentFormId && result.formId) {
+                    setCurrentFormId(result.formId.toString());
                     setTimeout(() => {
                         router.push(`/events/${eventId}/orderform?formId=${result.formId}`);
                     }, 1500); // Wait a bit so user sees success message

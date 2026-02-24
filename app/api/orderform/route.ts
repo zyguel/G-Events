@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
             .from('OrderForm')
             .select('*')
             .eq('event_id', parseInt(eventId))
-            .order('created_at', { ascending: false });
+            .order('updated_at', { ascending: false });
 
         if (error) {
             console.error('Supabase Error:', error);
@@ -53,6 +53,51 @@ export async function POST(request: NextRequest) {
             return NextResponse.json(
                 { error: 'eventId and title are required' },
                 { status: 400 }
+            );
+        }
+
+        // Enforce a single OrderForm per event:
+        // if a form already exists for this event, update it instead of creating a new one
+        const { data: existingForms, error: existingError } = await supabase
+            .from('OrderForm')
+            .select('*')
+            .eq('event_id', parseInt(eventId))
+            .limit(1);
+
+        if (existingError) {
+            console.error('Supabase Error (checking existing form):', existingError);
+            return NextResponse.json(
+                { error: existingError.message },
+                { status: 500 }
+            );
+        }
+
+        if (existingForms && existingForms.length > 0) {
+            const existing = existingForms[0];
+
+            const { data, error } = await supabase
+                .from('OrderForm')
+                .update({
+                    title,
+                    description: description || '',
+                    form_data: form_data || { sections: [] },
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', existing.id)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Supabase Error (updating existing form):', error);
+                return NextResponse.json(
+                    { error: error.message },
+                    { status: 500 }
+                );
+            }
+
+            return NextResponse.json(
+                { success: true, data, formId: data.id },
+                { status: 200 }
             );
         }
 
