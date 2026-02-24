@@ -1,11 +1,10 @@
 import { notFound } from "next/navigation";
-import { getEventById } from "@/lib/actions/events";
+import { getEventById, getEventReports } from "@/lib/actions/events";
 import ReportsClient from "./ReportsClient";
 
 export default async function ReportsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 
-    // Validate eventId
     if (!eventId || eventId === 'undefined') {
         console.error('Invalid eventId:', eventId);
         return notFound();
@@ -14,14 +13,16 @@ export default async function ReportsPage({ params }: { params: Promise<{ eventI
     const id = parseInt(eventId);
     if (isNaN(id)) return notFound();
 
-    const data = await getEventById(id);
+    const [data, reports] = await Promise.all([
+        getEventById(id),
+        getEventReports(id),
+    ]);
 
     if (!data) {
         console.error('Event not found for eventId:', eventId);
         return notFound();
     }
 
-    // Derive status
     const now = new Date();
     const startDate = data.event_start_at ? new Date(data.event_start_at) : null;
     const endDate = data.event_end_at ? new Date(data.event_end_at) : null;
@@ -44,5 +45,5 @@ export default async function ReportsPage({ params }: { params: Promise<{ eventI
         status: status
     };
 
-    return <ReportsClient event={event} />;
+    return <ReportsClient event={event} reports={reports} />;
 }

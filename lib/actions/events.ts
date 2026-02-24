@@ -681,3 +681,171 @@ function buildMonthlyTrend(registrations: { created_at: string }[]) {
     // Return raw counts per month (not cumulative)
     return { monthly: counts, monthLabels: months };
 }
+
+// ─── Event Reports ────────────────────────────────────────────────────────────
+
+export interface ReportRegistrant {
+    id: string;
+    name: string;
+    email: string;
+    gender: string;
+    age: number;
+    birthdate: string;
+    ticketType: string;
+    registrationType: 'Individual' | 'Group';
+    status: 'Confirmed' | 'Pending' | 'Rejected';
+    paymentStatus: 'Paid' | 'Pending' | 'Refunded';
+    registrationDate: string;
+    checkedIn: boolean;
+}
+
+export interface ReportBreakoutSession {
+    id: string;
+    name: string;
+    speaker: string;
+    room: string;
+    capacity: number;
+    registered: number;
+    checkedIn: number;
+    attendanceRate: number;
+}
+
+export interface EventReportsData {
+    registrants: ReportRegistrant[];
+    stats: {
+        registration: {
+            total: number;
+            confirmed: number;
+            rejected: number;
+            generalAdmission: number;
+            premium: number;
+            group: number;
+            individual: number;
+        };
+        attendance: {
+            totalRegistered: number;
+            checkedIn: number;
+            noShow: number;
+            attendanceRate: number;
+            generalAttended: number;
+            generalTotal: number;
+            premiumAttended: number;
+            premiumTotal: number;
+        };
+    };
+    breakoutSessions: ReportBreakoutSession[];
+}
+
+export async function getEventReports(eventId: number): Promise<EventReportsData> {
+    const empty: EventReportsData = {
+        registrants: [],
+        stats: {
+            registration: { total: 0, confirmed: 0, rejected: 0, generalAdmission: 0, premium: 0, group: 0, individual: 0 },
+            attendance: { totalRegistered: 0, checkedIn: 0, noShow: 0, attendanceRate: 0, generalAttended: 0, generalTotal: 0, premiumAttended: 0, premiumTotal: 0 },
+        },
+        breakoutSessions: [],
+    };
+
+    try {
+        // ── 1. Registrations with User + Ticket ──────────────────────────────
+        const { data: regRows, error: regErr } = await supabase
+            .from('Registration')
+            .select('id, status, has_checked_in, registration_group_id, created_at, final_price_paid, ticket_id, User(name, email), Ticket(name)')
+            .eq('event_id', eventId)
+            .order('created_at', { ascending: false });
+
+        if (regErr) {
+            console.error('getEventReports: registration query failed', regErr);
+            return empty;
+        }
+
+        const rows = regRows || [];
+
+        // Map status strings to UI labels
+        const mapStatus = (s: string): 'Confirmed' | 'Pending' | 'Rejected' => {
+            if (s === 'confirmed') return 'Confirmed';
+            if (s === 'rejected' || s === 'cancelled') return 'Rejected';
+            return 'Pending';
+        };
+
+        const mapPayment = (s: string): 'Paid' | 'Pending' | 'Refunded' => {
+            if (s === 'confirmed') return 'Paid';
+            if (s === 'cancelled') return 'Refunded';
+            return 'Pending';
+        };
+
+        const registrants: ReportRegistrant[] = rows.map((r: any) => ({
+            id: r.id.toString(),
+            name: r.User?.name || 'Unknown',
+            email: r.User?.email || '—',
+            gender: 'N/A',     // not in schema yet
+            age: 0,            // not in schema yet
+            birthdate: 'N/A',  // not in schema yet
+            ticketType: r.Ticket?.name || 'General Admission',
+            registrationType: r.registration_group_id ? 'Group' : 'Individual',
+            status: mapStatus(r.status || ''),
+            paymentStatus: mapPayment(r.status || ''),
+            registrationDate: r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '',
+            checkedIn: !!r.has_checked_in,
+        }));
+
+        // ── 2. Aggregate stats ───────────────────────────────────────────────
+        const nonCancelled = rows.filter((r: any) => r.status !== 'cancelled');
+        const total = nonCancelled.length;
+        const confirmed = nonCancelled.filter((r: any) => r.status === 'confirmed').length;
+        const rejected = rows.filter((r: any) => r.status === 'rejected' || r.status === 'cancelled').length;
+        const group = nonCancelled.filter((r: any) => !!r.registration_group_id).length;
+        const individual = total - group;
+
+        // Ticket-type breakdown (treat anything not "Premium" as General Admission)
+        const generalAdmissionRows = nonCancelled.filter((r: any) =>
+            !(r.Ticket?.name || '').toLowerCase().includes('premium'));
+        const premiumRows = nonCancelled.filter((r: any) =>
+            (r.Ticket?.name || '').toLowerCase().includes('premium'));
+
+        const checkedInAll = nonCancelled.filter((r: any) => r.has_checked_in).length;
+        const noShow = Math.max(0, total - checkedInAll);
+        const attendanceRate = total > 0 ? parseFloat(((checkedInAll / total) * 100).toFixed(1)) : 0;
+
+        const generalAttended = generalAdmissionRows.filter((r: any) => r.has_checked_in).length;
+        const generalTotal = generalAdmissionRows.length;
+        const premiumAttended = premiumRows.filter((r: any) => r.has_checked_in).length;
+        const premiumTotal = premiumRows.length;
+
+        // ── 3. Breakout Sessions ─────────────────────────────────────────────
+        const { data: bsRows } = await supabase
+            .from('BreakoutSession')
+            .select('id, name, speaker_name, room_name, room_capacity, BreakoutSessionRegistration(id, check_in_time, status)')
+            .eq('event_id', eventId);
+
+        const breakoutSessions: ReportBreakoutSession[] = (bsRows || []).map((s: any) => {
+            const regs: any[] = s.BreakoutSessionRegistration || [];
+            const registeredCount = regs.length;
+            const checkedInCount = regs.filter((r: any) => !!r.check_in_time || r.status === 'checked_in').length;
+            return {
+                id: s.id.toString(),
+                name: s.name || `Session ${s.id}`,
+                speaker: s.speaker_name || '—',
+                room: s.room_name || '—',
+                capacity: s.room_capacity || 0,
+                registered: registeredCount,
+                checkedIn: checkedInCount,
+                attendanceRate: registeredCount > 0
+                    ? parseFloat(((checkedInCount / registeredCount) * 100).toFixed(1))
+                    : 0,
+            };
+        });
+
+        return {
+            registrants,
+            stats: {
+                registration: { total, confirmed, rejected, generalAdmission: generalAdmissionRows.length, premium: premiumRows.length, group, individual },
+                attendance: { totalRegistered: total, checkedIn: checkedInAll, noShow, attendanceRate, generalAttended, generalTotal, premiumAttended, premiumTotal },
+            },
+            breakoutSessions,
+        };
+    } catch (e) {
+        console.error('getEventReports error:', e);
+        return empty;
+    }
+}

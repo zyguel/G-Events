@@ -37,123 +37,8 @@ interface BreakoutSession {
     attendanceRate: number;
 }
 
-// Random name pools
-const firstNames = ['Lisa', 'Juan', 'Maria', 'Carlos', 'Anna', 'Miguel', 'Sofia', 'Jose', 'Elena', 'Daniel', 'Isabella', 'Rafael', 'Carmen', 'Luis', 'Gabriela', 'Antonio', 'Nicole', 'Fernando', 'Patricia', 'Roberto'];
-const lastNames = ['Nacario', 'Dela Cruz', 'Santos', 'Diaz', 'Reyes', 'Garcia', 'Lopez', 'Mendoza', 'Torres', 'Fernandez', 'Ramos', 'Cruz', 'Gonzales', 'Villanueva', 'Bautista', 'Aquino', 'Rivera', 'Castro', 'Morales', 'Tan'];
-const speakers = ['Andrew Chen', 'Elena Santos', 'Michael Tan', 'Sarah Johnson', 'David Liu', 'Maria Rodriguez', 'James Park', 'Nicole Wu'];
+// (mock data removed — real data comes from getEventReports() server action)
 
-// Generate mock data based on eventId
-const generateEventData = (eventId: string) => {
-    // Return empty data for draft/local mock events
-    if (eventId.startsWith('evt-')) {
-        return {
-            registrants: [],
-            stats: {
-                registration: {
-                    total: 0,
-                    confirmed: 0,
-                    rejected: 0,
-                    generalAdmission: 0,
-                    premium: 0,
-                    group: 0,
-                    individual: 0,
-                },
-                attendance: {
-                    totalRegistered: 0,
-                    checkedIn: 0,
-                    noShow: 0,
-                    attendanceRate: 0,
-                    generalAttended: 0,
-                    generalTotal: 0,
-                    premiumAttended: 0,
-                    premiumTotal: 0,
-                }
-            },
-            breakoutSessions: []
-        };
-    }
-
-    // Seed random based on eventId for consistency
-    const seed = eventId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const random = (max: number, min = 0) => {
-        const x = Math.sin(seed + max) * 10000;
-        return Math.floor((x - Math.floor(x)) * (max - min + 1) + min);
-    };
-
-    // Generate registrants
-    const registrantCount = 8 + random(4);
-    const registrants: Registrant[] = Array.from({ length: registrantCount }, (_, i) => {
-        const firstName = firstNames[(seed + i) % firstNames.length];
-        const lastName = lastNames[(seed + i * 3) % lastNames.length];
-        const statuses: ('Confirmed' | 'Pending' | 'Rejected')[] = ['Confirmed', 'Confirmed', 'Confirmed', 'Pending', 'Rejected'];
-        const paymentStatuses: ('Paid' | 'Pending' | 'Refunded')[] = ['Paid', 'Paid', 'Paid', 'Pending', 'Refunded'];
-        const status = statuses[(seed + i) % statuses.length];
-
-        return {
-            id: `${seed + i}`,
-            name: `${firstName} ${lastName}`,
-            email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}@gmail.com`,
-            gender: i % 2 === 0 ? 'Female' : 'Male',
-            age: 20 + random(15, 0),
-            birthdate: `${['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][random(11)]} ${random(28, 1)}, ${1990 + random(10)}`,
-            ticketType: i % 3 === 0 ? 'Premium' : 'General Admission',
-            registrationType: (i % 4 === 0 ? 'Group' : 'Individual') as 'Individual' | 'Group',
-            status,
-            paymentStatus: paymentStatuses[(seed + i) % paymentStatuses.length],
-            registrationDate: `2025-0${5 + random(2)}-${10 + i}`,
-            checkedIn: status === 'Confirmed' && i % 3 !== 2,
-        };
-    });
-
-    // Base stats with variation
-    const baseTotal = 800 + random(600);
-    const confirmedRate = 0.7 + random(25) / 100;
-    const rejectedRate = 0.02 + random(3) / 100;
-
-    const stats = {
-        registration: {
-            total: baseTotal,
-            confirmed: Math.round(baseTotal * confirmedRate),
-            rejected: Math.round(baseTotal * rejectedRate),
-            generalAdmission: Math.round(baseTotal * 0.75),
-            premium: Math.round(baseTotal * 0.25),
-            group: Math.round(baseTotal * 0.21),
-            individual: Math.round(baseTotal * 0.79),
-        },
-        attendance: {
-            totalRegistered: baseTotal,
-            checkedIn: Math.round(baseTotal * (0.55 + random(20) / 100)),
-            noShow: 0,
-            attendanceRate: 0,
-            generalAttended: 70 + random(20),
-            generalTotal: 100,
-            premiumAttended: 75 + random(20),
-            premiumTotal: 100,
-        }
-    };
-    stats.attendance.noShow = stats.attendance.totalRegistered - stats.attendance.checkedIn;
-    stats.attendance.attendanceRate = parseFloat(((stats.attendance.checkedIn / stats.attendance.totalRegistered) * 100).toFixed(1));
-
-    // Breakout sessions
-    const sessionCount = 2 + random(3);
-    const breakoutSessions: BreakoutSession[] = Array.from({ length: sessionCount }, (_, i) => {
-        const capacity = 100 + random(150);
-        const registered = Math.round(capacity * (0.8 + random(20) / 100));
-        const checkedIn = Math.round(registered * (0.7 + random(20) / 100));
-        return {
-            id: `${i + 1}`,
-            name: `Breakout ${i + 1}`,
-            speaker: speakers[(seed + i) % speakers.length],
-            room: `LB${500 + random(30)}`,
-            capacity,
-            registered,
-            checkedIn,
-            attendanceRate: parseFloat(((checkedIn / registered) * 100).toFixed(1)),
-        };
-    });
-
-    return { registrants, stats, breakoutSessions };
-};
 
 
 
@@ -501,13 +386,15 @@ const StatCard = ({ title, value }: { title: string; value: string | number }) =
 
 // Main Page Component
 import { EventSummary } from '@/lib/types';
+import { EventReportsData } from '@/lib/actions/events';
 
 // Main Page Component
 interface ReportsClientProps {
     event: EventSummary;
+    reports: EventReportsData;
 }
 
-export default function EventReportsPage({ event }: ReportsClientProps) {
+export default function EventReportsPage({ event, reports }: ReportsClientProps) {
     const eventId = event.id;
 
     // Validate eventId
@@ -523,9 +410,8 @@ export default function EventReportsPage({ event }: ReportsClientProps) {
         );
     }
 
-    // Generate data based on eventId
-    const eventData = generateEventData(eventId);
-    const { registrants, stats, breakoutSessions } = eventData;
+    // Use real data from server
+    const { registrants, stats, breakoutSessions } = reports;
 
     const [activeTab, setActiveTab] = useState<'registration' | 'attendance' | 'breakout'>('registration');
     const [searchQuery, setSearchQuery] = useState('');
