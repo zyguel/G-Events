@@ -524,10 +524,10 @@ export default function OrderForm({
                     </div>
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            Order Forms
+                            Order Form
                         </h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                            Create custom forms to collect order information from attendees
+                            Create custom form to collect order information from attendees
                         </p>
                     </div>
                 </div>
