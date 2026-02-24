@@ -33,8 +33,6 @@ const INPUT_TYPES = [
     { value: "checkboxes", label: "Checkboxes" },
     { value: "dropdown", label: "Dropdown" },
     { value: "file_upload", label: "File Upload" },
-    { value: "multiple_choice_grid", label: "Multiple Choice Grid" },
-    { value: "checkbox_grid", label: "Checkbox Grid" },
     { value: "date", label: "Date" },
     { value: "time", label: "Time" }
 ];
