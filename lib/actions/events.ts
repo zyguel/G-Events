@@ -849,3 +849,93 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
         return empty;
     }
 }
+
+// ─── Demographics ─────────────────────────────────────────────────────────────
+
+const DEMOGRAPHIC_FIELDS: { identifier: string; label: string }[] = [
+    { identifier: 'gender', label: 'Gender' },
+    { identifier: 'age', label: 'Age' },
+    { identifier: 'city', label: 'City' },
+    { identifier: 'country', label: 'Country' },
+    { identifier: 'state', label: 'State / Province' },
+    { identifier: 'company', label: 'Company' },
+    { identifier: 'job_title', label: 'Job Title' },
+    { identifier: 'department', label: 'Department' },
+    { identifier: 'dietary_restrictions', label: 'Dietary Restrictions' },
+    { identifier: 'special_needs', label: 'Special Needs' },
+    { identifier: 'newsletter_signup', label: 'Newsletter Signup' },
+];
+
+export interface DemographicsFieldData {
+    identifier: string;
+    label: string;
+    distribution: { value: string; count: number }[];
+}
+
+export interface DemographicsData {
+    totalResponses: number;
+    fields: DemographicsFieldData[];
+}
+
+export async function getEventDemographics(eventId: number): Promise<DemographicsData> {
+    const empty: DemographicsData = { totalResponses: 0, fields: [] };
+
+    try {
+        const { data: entries, error } = await supabase
+            .from('OrderFormEntries')
+            .select('form_data')
+            .eq('event_id', eventId);
+
+        if (error) {
+            console.error('getEventDemographics query error:', error);
+            return empty;
+        }
+
+        if (!entries || entries.length === 0) return empty;
+
+        const counts: Record<string, Record<string, number>> = {};
+
+        for (const entry of entries) {
+            const formData = entry.form_data as any;
+            if (!formData?.sections) continue;
+
+            for (const section of formData.sections) {
+                if (!section?.inputs) continue;
+
+                for (const input of section.inputs) {
+                    const id: string = input.fieldIdentifier || input.field_identifier;
+                    if (!id || id === 'custom') continue;
+                    if (!DEMOGRAPHIC_FIELDS.some(f => f.identifier === id)) continue;
+
+                    if (!counts[id]) counts[id] = {};
+
+                    const raw = input.answer ?? input.answers;
+                    const values: string[] = Array.isArray(raw)
+                        ? raw.filter(Boolean)
+                        : raw != null && String(raw).trim() !== ''
+                            ? [String(raw).trim()]
+                            : [];
+
+                    for (const v of values) {
+                        counts[id][v] = (counts[id][v] ?? 0) + 1;
+                    }
+                }
+            }
+        }
+
+        const fields: DemographicsFieldData[] = DEMOGRAPHIC_FIELDS
+            .filter(f => counts[f.identifier] && Object.keys(counts[f.identifier]).length > 0)
+            .map(f => ({
+                identifier: f.identifier,
+                label: f.label,
+                distribution: Object.entries(counts[f.identifier])
+                    .map(([value, count]) => ({ value, count }))
+                    .sort((a, b) => b.count - a.count),
+            }));
+
+        return { totalResponses: entries.length, fields };
+    } catch (e) {
+        console.error('getEventDemographics error:', e);
+        return empty;
+    }
+}

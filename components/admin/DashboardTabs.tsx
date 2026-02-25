@@ -3,8 +3,45 @@
 import { useState } from "react";
 import RegistrationChart from "./RegistrationChart";
 import TopPerformingEvents from "./TopPerformingEvents";
+import type { DemographicsData } from "@/lib/actions/events";
 
-// Define the data types expected by this component
+// ── Chart helpers ────────────────────────────────────────────────────────────
+const CHART_COLORS = [
+    'rgb(99, 102, 241)',   // indigo
+    'rgb(139, 92, 246)',  // violet
+    'rgb(236, 72, 153)',  // pink
+    'rgb(251, 191, 36)',  // amber
+    'rgb(20, 184, 166)',  // teal
+    'rgb(34, 197, 94)',   // green
+];
+
+function buildConicGradient(items: { count: number }[], total: number): string {
+    let deg = 0;
+    return 'conic-gradient(' + items.map((item, i) => {
+        const slice = (item.count / total) * 360;
+        const s = `${CHART_COLORS[i % CHART_COLORS.length]} ${deg}deg ${deg + slice}deg`;
+        deg += slice;
+        return s;
+    }).join(', ') + ')';
+}
+
+function groupAgeRanges(distribution: { value: string; count: number }[]) {
+    const ranges = [
+        { label: 'Under 25', min: 0, max: 24 },
+        { label: '25–34', min: 25, max: 34 },
+        { label: '35–44', min: 35, max: 44 },
+        { label: '45+', min: 45, max: 999 },
+    ];
+    return ranges
+        .map(r => ({
+            value: r.label,
+            count: distribution
+                .filter(d => { const a = parseInt(d.value); return !isNaN(a) && a >= r.min && a <= r.max; })
+                .reduce((s, d) => s + d.count, 0),
+        }))
+        .filter(g => g.count > 0);
+}
+
 interface DashboardData {
     trends: {
         registrations: {
@@ -41,7 +78,13 @@ interface DashboardData {
     topEvents?: { id: string; name: string; registrations: number; revenue: number; satisfaction: number; attendance: number }[];
 }
 
-export default function DashboardTabs({ data }: { data: DashboardData }) {
+export default function DashboardTabs({
+    data,
+    demographics,
+}: {
+    data: DashboardData;
+    demographics?: DemographicsData;
+}) {
     const [activeTab, setActiveTab] = useState("registrations");
 
     return (
@@ -74,6 +117,15 @@ export default function DashboardTabs({ data }: { data: DashboardData }) {
                         }`}
                 >
                     Feedback
+                </button>
+                <button
+                    onClick={() => setActiveTab("demographics")}
+                    className={`pb-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "demographics"
+                        ? "border-indigo-500 text-gray-900 dark:border-indigo-400 dark:text-white"
+                        : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        }`}
+                >
+                    Demographics
                 </button>
             </div>
 
@@ -293,6 +345,132 @@ export default function DashboardTabs({ data }: { data: DashboardData }) {
                                 ))}
                             </div>
                         </div>
+                    </div>
+                )}
+
+                {/* === DEMOGRAPHICS TAB === */}
+                {activeTab === "demographics" && (
+                    <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
+
+                        {/* Empty state */}
+                        {(!demographics || demographics.totalResponses === 0 || demographics.fields.length === 0) ? (
+                            <div className="flex flex-col items-center justify-center py-24 text-center bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                <div className="text-5xl mb-4">📋</div>
+                                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No responses yet</h3>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm">
+                                    Demographic data will appear here once attendees submit your order form.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Summary cards */}
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                                    <div className="p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm">
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Total Responses</p>
+                                        <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+                                            {demographics.totalResponses.toLocaleString()}
+                                        </p>
+                                    </div>
+                                    <div className="p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm">
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">Fields Captured</p>
+                                        <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+                                            {demographics.fields.length}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {/* Per-field charts */}
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                    {demographics.fields.map((field) => {
+                                        const isAgeField = field.identifier === 'age';
+                                        const isDonut = isAgeField || field.distribution.length <= 5;
+                                        const displayData = isAgeField
+                                            ? groupAgeRanges(field.distribution)
+                                            : field.distribution;
+                                        const maxCount = displayData[0]?.count || 1;
+
+                                        return (
+                                            <div
+                                                key={field.identifier}
+                                                className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm"
+                                            >
+                                                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">
+                                                    {field.label}
+                                                </h3>
+                                                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+                                                    {isAgeField
+                                                        ? `${field.distribution.length} unique ages · grouped by range`
+                                                        : `${field.distribution.length} unique value${field.distribution.length !== 1 ? 's' : ''}`}
+                                                </p>
+
+                                                {/* DONUT CHART — for fields with ≤ 5 unique values */}
+                                                {isDonut && (
+                                                    <div className="flex items-center gap-6">
+                                                        <div
+                                                            className="relative shrink-0 w-32 h-32 rounded-full"
+                                                            style={{ background: buildConicGradient(displayData, demographics.totalResponses) }}
+                                                        >
+                                                            <div className="absolute inset-4 rounded-full bg-white dark:bg-gray-800 flex flex-col items-center justify-center">
+                                                                <span className="text-xs text-gray-500 dark:text-gray-400">Total</span>
+                                                                <span className="text-lg font-bold text-gray-900 dark:text-white">{demographics.totalResponses}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2 flex-1">
+                                                            {displayData.map((item, i) => (
+                                                                <div key={item.value} className="flex items-center justify-between text-sm">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div
+                                                                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                                                                            style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }}
+                                                                        />
+                                                                        <span className="text-gray-700 dark:text-gray-200">{item.value}</span>
+                                                                    </div>
+                                                                    <span className="text-gray-500 dark:text-gray-400 text-xs ml-2">
+                                                                        {item.count} ({Math.round((item.count / demographics.totalResponses) * 100)}%)
+                                                                    </span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {/* HORIZONTAL BARS — for age ranges and multi-value fields */}
+                                                {!isDonut && (
+                                                    <div className="space-y-3">
+                                                        {displayData.slice(0, 8).map((item, i) => (
+                                                            <div key={item.value}>
+                                                                <div className="flex justify-between items-center text-sm mb-1">
+                                                                    <span className="text-gray-600 dark:text-gray-300 font-medium truncate max-w-[70%]">
+                                                                        {item.value}
+                                                                    </span>
+                                                                    <span className="text-gray-500 dark:text-gray-400 text-xs ml-2 shrink-0">
+                                                                        {item.count} ({Math.round((item.count / demographics.totalResponses) * 100)}%)
+                                                                    </span>
+                                                                </div>
+                                                                <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                                                                    <div
+                                                                        className="h-2.5 rounded-full transition-all duration-500"
+                                                                        style={{
+                                                                            width: `${(item.count / maxCount) * 100}%`,
+                                                                            backgroundColor: CHART_COLORS[i % CHART_COLORS.length],
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                        {displayData.length > 8 && (
+                                                            <p className="text-xs text-gray-400 dark:text-gray-500 pt-1">
+                                                                +{displayData.length - 8} more values
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 

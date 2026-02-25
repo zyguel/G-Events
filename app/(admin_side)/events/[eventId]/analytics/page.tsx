@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import StatCard from '@/components/admin/StatCard';
 import DashboardTabs from '@/components/admin/DashboardTabs';
 import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
-import { getEventById, getEvents, getEventAnalytics } from "@/lib/actions/events";
+import { getEventById, getEvents, getEventAnalytics, getEventDemographics } from "@/lib/actions/events";
 
 export default async function EventAnalyticsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -22,10 +22,11 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
     if (isNaN(id)) return notFound();
 
     // Fetch event details + real analytics in parallel
-    const [apiData, allEventsRaw, analytics] = await Promise.all([
+    const [apiData, allEventsRaw, analytics, demographics] = await Promise.all([
         getEventById(id),
         getEvents(),
         getEventAnalytics(id),
+        getEventDemographics(id),
     ]);
 
     if (!apiData) {
@@ -143,7 +144,7 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
                 </div>
 
                 {/* Summary & Trends Section */}
-                <DashboardTabs data={data} />
+                <DashboardTabs data={data} demographics={demographics} />
             </div>
         </div>
     );
