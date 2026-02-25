@@ -25,14 +25,21 @@ export interface Ticket {
   createdAt: string;
 }
 
+export interface AddOnVariant {
+  id: string;
+  label: string;
+  stock: number;
+}
+
 export interface AddOn {
   id: string;
   name: string;
-  type: string;
   image?: string;
   description: string;
+  hasVariants: boolean;
+  variants: AddOnVariant[];
+  stock: number;
   appliedTo: 'all' | string[];
-  inclusions: string[];
   createdAt: string;
 }
 

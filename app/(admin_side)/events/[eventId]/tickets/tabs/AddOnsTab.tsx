@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
-import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
+import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, AddOnVariant, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
 
 interface AddOnsTabProps {
@@ -13,11 +13,12 @@ interface AddOnsTabProps {
 
 const initialAddOnForm: Omit<AddOn, "id" | "createdAt"> = {
   name: "",
-  type: "",
   description: "",
   image: "",
   appliedTo: "all",
-  inclusions: [""],
+  hasVariants: false,
+  variants: [],
+  stock: 0,
 };
 
 export default function AddOnsTab({ event }: AddOnsTabProps) {
@@ -54,11 +55,19 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = "Add-on name is required";
-    if (!formData.type.trim()) newErrors.type = "Add-on type is required";
-    if (formData.inclusions.length === 0 || formData.inclusions.every((i) => !i.trim())) {
-      newErrors.inclusions = "At least one inclusion is required";
-    }
     if (!formData.description.trim()) newErrors.description = "Description is required";
+
+    if (formData.hasVariants) {
+      if (formData.variants.length === 0) {
+        newErrors.variants = "At least one variant is required when variants are enabled";
+      } else if (formData.variants.some((v) => !v.label.trim() || v.stock < 0)) {
+        newErrors.variants = "All variants must have a valid label and stock >= 0";
+      }
+    } else {
+      if (formData.stock < 0) {
+        newErrors.stock = "Stock must be 0 or greater";
+      }
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -75,11 +84,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     setEditingAddOnId(addOn.id);
     setFormData({
       name: addOn.name,
-      type: addOn.type,
       description: addOn.description,
       image: addOn.image,
       appliedTo: addOn.appliedTo,
-      inclusions: addOn.inclusions,
+      hasVariants: addOn.hasVariants || false,
+      variants: addOn.variants || [],
+      stock: addOn.stock || 0,
     });
     setErrors({});
     setIsModalOpen(true);
@@ -130,24 +140,25 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     }
   };
 
-  const handleAddInclusion = () => {
+  const handleAddVariant = () => {
     setFormData({
       ...formData,
-      inclusions: [...formData.inclusions, ""],
+      variants: [...formData.variants, { id: Date.now().toString(), label: '', stock: 0 }],
     });
   };
 
-  const handleRemoveInclusion = (index: number) => {
+  const handleRemoveVariant = (id: string) => {
     setFormData({
       ...formData,
-      inclusions: formData.inclusions.filter((_, i) => i !== index),
+      variants: formData.variants.filter((v) => v.id !== id),
     });
   };
 
-  const handleUpdateInclusion = (index: number, value: string) => {
-    const newInclusions = [...formData.inclusions];
-    newInclusions[index] = value;
-    setFormData({ ...formData, inclusions: newInclusions });
+  const handleUpdateVariant = (id: string, field: 'label' | 'stock', value: string | number) => {
+    const newVariants = formData.variants.map((v) =>
+      v.id === id ? { ...v, [field]: value } : v
+    );
+    setFormData({ ...formData, variants: newVariants });
   };
 
   if (loading) {
@@ -194,7 +205,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                 )}
                 <div className="p-4">
                   <h3 className="font-semibold text-lg">{addOn.name}</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{addOn.type}</p>
+                  {addOn.hasVariants && addOn.variants ? (
+                    <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">{addOn.variants.length} Variant{addOn.variants.length !== 1 ? 's' : ''}</p>
+                  ) : (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Standard Add-on (Stock: {addOn.stock || 0})</p>
+                  )}
                   <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">{addOn.description}</p>
 
                   <div className="mt-4 flex gap-2">
@@ -262,17 +277,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Type (e.g., VIP Package, Workshop) *</label>
-            <ModalInput
-              type="text"
-              value={formData.type}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, type: e.target.value })}
-              className={errors.type ? "border-red-500" : ""}
-            />
-            {errors.type && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.type}</p>}
-          </div>
-
-          <div>
             <label className="block text-sm font-medium mb-2">Description *</label>
             <ModalTextarea
               value={formData.description}
@@ -282,6 +286,92 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             />
             {errors.description && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.description}</p>}
           </div>
+
+          <div className="flex items-center gap-4 py-2">
+            <span className="text-sm font-medium">Has variants?</span>
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, hasVariants: true, variants: formData.variants.length ? formData.variants : [{ id: Date.now().toString(), label: '', stock: 0 }] })}
+                className={`px-4 py-1.5 text-sm rounded-md transition-all ${formData.hasVariants ? 'bg-white dark:bg-gray-700 shadow text-[#3D518C] dark:text-indigo-300 font-semibold cursor-default' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+              >
+                Yes
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData({ ...formData, hasVariants: false })}
+                className={`px-4 py-1.5 text-sm rounded-md transition-all ${!formData.hasVariants ? 'bg-white dark:bg-gray-700 shadow text-[#3D518C] dark:text-indigo-300 font-semibold cursor-default' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
+              >
+                No
+              </button>
+            </div>
+          </div>
+
+          {!formData.hasVariants && (
+            <div>
+              <label className="block text-sm font-medium mb-2">Stock/Quantity *</label>
+              <ModalInput
+                type="number"
+                min="0"
+                value={formData.stock.toString()}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                className={errors.stock ? "border-red-500" : ""}
+                placeholder="0"
+              />
+              {errors.stock && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.stock}</p>}
+            </div>
+          )}
+
+          {formData.hasVariants && (
+            <div className="bg-slate-50 dark:bg-gray-900/30 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-4">
+              <div className="flex justify-between items-center mb-1">
+                <label className="text-sm font-medium">Variants *</label>
+                <button
+                  type="button"
+                  onClick={handleAddVariant}
+                  className="text-xs font-semibold text-[#3D518C] dark:text-indigo-400 hover:underline flex items-center gap-1"
+                >
+                  <Plus size={14} /> Add Variant
+                </button>
+              </div>
+              <div className="space-y-3">
+                {formData.variants.map((variant) => (
+                  <div key={variant.id} className="flex gap-3 items-start bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                    <div className="flex-1 grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Label</label>
+                        <ModalInput
+                          type="text"
+                          value={variant.label}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'label', e.target.value)}
+                          placeholder="e.g., Small, VIP"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Stock/Quantity</label>
+                        <ModalInput
+                          type="number"
+                          min="0"
+                          value={variant.stock.toString()}
+                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'stock', parseInt(e.target.value) || 0)}
+                          placeholder="0"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveVariant(variant.id)}
+                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mt-5"
+                      aria-label="Remove variant"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              {errors.variants && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.variants}</p>}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-2">Apply To</label>
@@ -297,35 +387,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                 </option>
               ))}
             </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium mb-3">Inclusions *</label>
-            <div className="space-y-2">
-              {formData.inclusions.map((inclusion, index) => (
-                <div key={index} className="flex gap-2">
-                  <ModalInput
-                    type="text"
-                    value={inclusion}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateInclusion(index, e.target.value)}
-                    placeholder="e.g., Lunch, T-shirt, etc."
-                  />
-                  <button
-                    onClick={() => handleRemoveInclusion(index)}
-                    className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors font-medium text-sm"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ))}
-            </div>
-            {errors.inclusions && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.inclusions}</p>}
-            <button
-              onClick={handleAddInclusion}
-              className="mt-3 px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300 shadow-sm"
-            >
-              + Add Inclusion
-            </button>
           </div>
 
           {/* Modal Footer */}
@@ -351,22 +412,25 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             )}
             <div>
               <h3 className="font-semibold text-lg">{selectedAddOn.name}</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{selectedAddOn.type}</p>
             </div>
             <div>
               <h4 className="font-medium text-sm mb-2">Description</h4>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">{selectedAddOn.description}</p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm whitespace-pre-wrap">{selectedAddOn.description}</p>
             </div>
             <div>
-              <h4 className="font-medium text-sm mb-2">Inclusions</h4>
-              <ul className="space-y-1">
-                {selectedAddOn.inclusions.map((inclusion, index) => (
-                  <li key={index} className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 bg-[#3D518C] rounded-full"></span>
-                    {inclusion}
-                  </li>
-                ))}
-              </ul>
+              <h4 className="font-medium text-sm mb-2">Variants</h4>
+              {selectedAddOn.hasVariants && selectedAddOn.variants && selectedAddOn.variants.length > 0 ? (
+                <ul className="space-y-2">
+                  {selectedAddOn.variants.map((variant) => (
+                    <li key={variant.id} className="text-sm bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                      <span className="font-medium">{variant.label}</span>
+                      <span className="text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 shadow-sm">Stock: {variant.stock}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-gray-500 dark:text-gray-400 italic">Standard Add-on (Stock: {selectedAddOn.stock || 0})</p>
+              )}
             </div>
             <button
               onClick={() => setIsDetailsModalOpen(false)}
