@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Eye } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, AddOnVariant, getTickets, Ticket } from "@/lib/eventManagement";
@@ -24,6 +24,8 @@ const initialAddOnForm: Omit<AddOn, "id" | "createdAt"> = {
 export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [addOns, setAddOns] = useState<AddOn[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [newVariantLabel, setNewVariantLabel] = useState("");
+  const [newVariantStock, setNewVariantStock] = useState("");
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -141,10 +143,14 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   const handleAddVariant = () => {
+    if (!newVariantLabel.trim() || !newVariantStock.trim() || parseInt(newVariantStock) < 0) return;
+
     setFormData({
       ...formData,
-      variants: [...formData.variants, { id: Date.now().toString(), label: '', stock: 0 }],
+      variants: [...formData.variants, { id: Date.now().toString(), label: newVariantLabel, stock: parseInt(newVariantStock) }],
     });
+    setNewVariantLabel("");
+    setNewVariantStock("");
   };
 
   const handleRemoveVariant = (id: string) => {
@@ -292,7 +298,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, hasVariants: true, variants: formData.variants.length ? formData.variants : [{ id: Date.now().toString(), label: '', stock: 0 }] })}
+                onClick={() => setFormData({ ...formData, hasVariants: true, variants: formData.variants || [] })}
                 className={`px-4 py-1.5 text-sm rounded-md transition-all ${formData.hasVariants ? 'bg-white dark:bg-gray-700 shadow text-[#3D518C] dark:text-indigo-300 font-semibold cursor-default' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
               >
                 Yes
@@ -324,51 +330,59 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
           {formData.hasVariants && (
             <div className="bg-slate-50 dark:bg-gray-900/30 p-4 rounded-xl border border-gray-200 dark:border-gray-700 space-y-4">
-              <div className="flex justify-between items-center mb-1">
-                <label className="text-sm font-medium">Variants *</label>
-                <button
-                  type="button"
-                  onClick={handleAddVariant}
-                  className="text-xs font-semibold text-[#3D518C] dark:text-indigo-400 hover:underline flex items-center gap-1"
-                >
-                  <Plus size={14} /> Add Variant
-                </button>
-              </div>
+              <label className="text-sm font-medium">Variants *</label>
+
               <div className="space-y-3">
-                {formData.variants.map((variant) => (
-                  <div key={variant.id} className="flex gap-3 items-start bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                    <div className="flex-1 grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Label</label>
-                        <ModalInput
-                          type="text"
-                          value={variant.label}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'label', e.target.value)}
-                          placeholder="e.g., Small, VIP"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Stock/Quantity</label>
-                        <ModalInput
-                          type="number"
-                          min="0"
-                          value={variant.stock.toString()}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'stock', parseInt(e.target.value) || 0)}
-                          placeholder="0"
-                        />
-                      </div>
+
+                {formData.variants.filter(v => v.label.trim()).map((variant) => (
+                  <div key={variant.id} className="flex gap-3 items-center bg-white dark:bg-gray-800 min-h-[42px] py-1.5 px-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="flex-1 pl-1 text-gray-900 dark:text-gray-100 min-w-0 pr-2">
+                      <span className="text-sm font-medium break-words leading-tight">
+                        {variant.label}
+                        <span className="text-gray-400 mx-2 font-light">|</span>
+                        <span className="text-[11px] uppercase font-semibold text-gray-500 dark:text-gray-400">QTY: </span>
+                        <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{variant.stock}</span>
+                      </span>
                     </div>
                     <button
                       type="button"
                       onClick={() => handleRemoveVariant(variant.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mt-5"
+                      className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                       aria-label="Remove variant"
                     >
-                      <Trash2 size={18} />
+                      <X size={16} />
                     </button>
                   </div>
                 ))}
               </div>
+
+              {/* Add New Variant Row */}
+              <div className="flex gap-2 items-center mt-4">
+                <div className="flex-1 grid grid-cols-[1fr_100px] gap-2">
+                  <ModalInput
+                    type="text"
+                    value={newVariantLabel}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantLabel(e.target.value)}
+                    placeholder="Label"
+                  />
+                  <ModalInput
+                    type="number"
+                    min="0"
+                    value={newVariantStock}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantStock(e.target.value)}
+                    placeholder="Stock"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddVariant}
+                  disabled={!newVariantLabel.trim() || !newVariantStock.trim()}
+                  className="w-[42px] h-[42px] flex items-center justify-center bg-[#5C6BC0] text-white rounded-[10px] hover:bg-[#3D518C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+
               {errors.variants && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.variants}</p>}
             </div>
           )}
