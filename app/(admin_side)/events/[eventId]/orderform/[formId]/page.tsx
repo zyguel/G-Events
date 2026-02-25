@@ -10,13 +10,15 @@ export default async function EditOrderFormPage({
 }) {
     const { eventId, formId } = await params;
 
-    // Validate params
+    // Validate params (eventId is a slug like "my-event-123")
     if (!eventId || eventId === 'undefined' || !formId || formId === 'undefined') {
         console.error('Invalid params:', { eventId, formId });
         return notFound();
     }
 
-    const eventIdNum = parseInt(eventId);
+    const slug = eventId;
+    const idPart = slug.split('-').pop() ?? '';
+    const eventIdNum = parseInt(idPart, 10);
     const formIdNum = parseInt(formId);
     if (isNaN(eventIdNum) || isNaN(formIdNum)) return notFound();
 
@@ -64,7 +66,8 @@ export default async function EditOrderFormPage({
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable]">
                 <OrderForm 
-                    eventId={eventId} 
+                    eventId={eventIdNum.toString()} 
+                    eventSlug={slug}
                     formId={formId}
                     initialTitle={formData.title || "Order Form"}
                     initialDescription={formData.description || ""}

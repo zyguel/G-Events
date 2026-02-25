@@ -6,11 +6,13 @@ export default async function ReportsPage({ params }: { params: Promise<{ eventI
     const { eventId } = await params;
 
     if (!eventId || eventId === 'undefined') {
-        console.error('Invalid eventId:', eventId);
+        console.error('Invalid eventId slug:', eventId);
         return notFound();
     }
 
-    const id = parseInt(eventId);
+    const slug = eventId;
+    const idPart = slug.split('-').pop() ?? '';
+    const id = parseInt(idPart, 10);
     if (isNaN(id)) return notFound();
 
     const [data, reports] = await Promise.all([

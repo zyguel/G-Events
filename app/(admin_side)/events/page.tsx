@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Search, Filter, Plus, Calendar, List, Grid, MoreVertical, Users, Ticket, MapPin } from 'lucide-react';
 
 import { getEvents } from '@/lib/actions/events';
+import { buildEventSlug } from '@/lib/slug';
 
 type FilterOption = 'all' | 'drafts' | 'upcoming' | 'past';
 
@@ -284,8 +285,10 @@ export default function EventsPage() {
                         ) : viewMode === 'list' ? (
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {filteredEvents.map((event) => (
-                                        <Link key={event.id} href={event.analyticsId ? `/events/${event.analyticsId}/overview` : '#'} className="block">
+                                    {filteredEvents.map((event) => {
+                                        const slug = buildEventSlug(event.name, event.id);
+                                        return (
+                                        <Link key={event.id} href={event.analyticsId ? `/events/${slug}/overview` : '#'} className="block">
                                             <div className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
                                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                     <div className="flex items-center gap-4 flex-1 min-w-0">
@@ -335,15 +338,17 @@ export default function EventsPage() {
                                                 </div>
                                             </div>
                                         </Link>
-                                    ))}
+                                    )})}
                                 </div>
                             </div>
                         ) : (
                             // ... existing grid view code ...
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-                                {filteredEvents.map((event) => (
-                                    <Link key={event.id} href={event.analyticsId ? `/events/${event.analyticsId}/overview` : '#'} className="block">
+                                {filteredEvents.map((event) => {
+                                    const slug = buildEventSlug(event.name, event.id);
+                                    return (
+                                    <Link key={event.id} href={event.analyticsId ? `/events/${slug}/overview` : '#'} className="block">
                                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">
                                             <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
                                                 {event.image ? (
@@ -390,7 +395,7 @@ export default function EventsPage() {
                                             </div>
                                         </div>
                                     </Link>
-                                ))}
+                                )})}
                             </div>
                         )}
 

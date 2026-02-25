@@ -9,13 +9,16 @@ import { getEventById, getEvents, getEventAnalytics } from "@/lib/actions/events
 export default async function EventAnalyticsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 
-    // Redirect "all" to the aggregated analytics page
+    // Support /events/all as a special case (no slug)
     if (eventId === 'all') {
         const { redirect } = await import('next/navigation');
         redirect('/analytics/all');
     }
 
-    const id = parseInt(eventId);
+    // eventId is otherwise a slug like "my-event-123"
+    const slug = eventId;
+    const idPart = slug.split('-').pop() ?? '';
+    const id = parseInt(idPart, 10);
     if (isNaN(id)) return notFound();
 
     // Fetch event details + real analytics in parallel

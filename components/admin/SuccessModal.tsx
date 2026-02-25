@@ -3,6 +3,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, ArrowRight, LayoutDashboard, Eye } from "lucide-react";
 import Link from "next/link";
+import { buildEventSlug } from "@/lib/slug";
 
 interface SuccessModalProps {
     isOpen: boolean;
@@ -14,6 +15,8 @@ interface SuccessModalProps {
 
 export default function SuccessModal({ isOpen, onClose, eventName, eventId, onGoToDashboard }: SuccessModalProps) {
     if (!isOpen) return null;
+
+    const slug = buildEventSlug(eventName, eventId);
 
     return (
         <AnimatePresence>
@@ -77,7 +80,7 @@ export default function SuccessModal({ isOpen, onClose, eventName, eventId, onGo
 
                             <div className="grid grid-cols-1 gap-3">
                                 <Link
-                                    href={`/events/${eventId}/overview`}
+                                    href={`/events/${slug}/overview`}
                                     className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition-all shadow-md group"
                                 >
                                     <Eye size={18} />

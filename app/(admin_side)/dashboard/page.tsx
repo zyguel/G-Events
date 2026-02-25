@@ -7,6 +7,7 @@ import Sidebar from '@/components/admin/Sidebar';
 import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
 
 import { getEvents } from '@/lib/actions/events';
+import { buildEventSlug } from '@/lib/slug';
 
 export default function DashboardPage() {
     // State
@@ -129,7 +130,7 @@ export default function DashboardPage() {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
-                                    <Link href={`/events/${nextEvent?.id}/overview`}>
+                                    <Link href={nextEvent ? `/events/${buildEventSlug(nextEvent.name, nextEvent.id)}/overview` : '#'}>
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-indigo-100 text-sm font-medium">Next Event</p>
@@ -240,7 +241,7 @@ export default function DashboardPage() {
                                         {dashboardEvents.slice(0, 5).map((event) => (
                                             <Link
                                                 key={event.id}
-                                                href={`/events/${event.id}/overview`}
+                                                href={`/events/${buildEventSlug(event.name, event.id)}/overview`}
                                                 className="block p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
                                             >
                                                 <div className="flex items-center justify-between">

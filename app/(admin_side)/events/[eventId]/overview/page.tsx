@@ -8,7 +8,9 @@ import { getEventById } from "@/lib/actions/events";
 
 export default function EventOverviewPage() {
     const params = useParams();
-    const eventId = params.eventId as string; // useParams returns string | string[]
+    const slug = params.eventId as string; // useParams returns string | string[]
+    const idPart = slug?.split("-").pop() ?? "";
+    const eventId = idPart; // numeric ID as string
 
     // Define the type for event data
     type EventDataType = {
@@ -29,7 +31,7 @@ export default function EventOverviewPage() {
             // 1. Fetch from Supabase
             try {
                 // Ensure eventId is a number if your DB uses number IDs
-                console.log('Overview Page: eventId param:', eventId);
+                console.log('Overview Page: eventId slug:', slug);
                 const id = parseInt(eventId);
                 console.log('Overview Page: parsed id:', id);
 

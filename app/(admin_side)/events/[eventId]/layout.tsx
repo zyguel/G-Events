@@ -14,12 +14,15 @@ export default async function EventLayout({
 }) {
     const { eventId } = await params;
 
+    // Treat the route segment as a slug like "event-name-123"
     if (!eventId) return notFound();
 
-    const id = parseInt(eventId);
-    if (isNaN(id)) return notFound();
+    const slug = eventId;
+    const idPart = slug.split("-").pop() ?? "";
+    const numericId = parseInt(idPart, 10);
+    if (isNaN(numericId)) return notFound();
 
-    const data = await getEventById(id);
+    const data = await getEventById(numericId);
 
     if (!data) return notFound();
 

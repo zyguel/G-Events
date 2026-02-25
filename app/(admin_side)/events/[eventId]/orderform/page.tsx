@@ -12,16 +12,18 @@ export default async function OrderFormPage({
     const { eventId } = await params;
     const { formId } = await searchParams;
 
-    // Validate eventId
+    // Validate and parse eventId slug (e.g. "my-event-123")
     if (!eventId || eventId === 'undefined') {
-        console.error('Invalid eventId:', eventId);
+        console.error('Invalid eventId slug:', eventId);
         return notFound();
     }
 
-    const id = parseInt(eventId);
-    if (isNaN(id)) return notFound();
+    const slug = eventId;
+    const idPart = slug.split('-').pop() ?? '';
+    const numericId = parseInt(idPart, 10);
+    if (isNaN(numericId)) return notFound();
 
-    const data = await getEventById(id);
+    const data = await getEventById(numericId);
 
     if (!data) {
         console.error('Event not found for eventId:', eventId);
@@ -55,7 +57,7 @@ export default async function OrderFormPage({
         <div className="flex flex-col h-screen text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable]">
-                <OrderForm eventId={eventId} formId={formId} />
+                <OrderForm eventId={numericId.toString()} eventSlug={slug} formId={formId} />
             </main>
         </div>
     );

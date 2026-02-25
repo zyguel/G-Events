@@ -63,16 +63,19 @@ const FIELD_IDENTIFIERS = [
 export default function OrderForm({ 
     eventId, 
     formId,
+    eventSlug,
     initialTitle = "New Order Form",
     initialDescription = ""
 }: { 
     eventId: string
     formId?: string
+    eventSlug?: string
     initialTitle?: string
     initialDescription?: string
 }) {
     const router = useRouter();
     const [currentFormId, setCurrentFormId] = useState<string | undefined>(formId);
+    const eventPathId = eventSlug ?? eventId;
     const [data, setData] = useState<OrderFormData>({
         sections: [
             {
@@ -157,7 +160,7 @@ export default function OrderForm({
 
                 // Keep URL in sync so future navigations have formId
                 try {
-                    router.replace(`/events/${eventId}/orderform?formId=${existingForm.id}`);
+                    router.replace(`/events/${eventPathId}/orderform?formId=${existingForm.id}`);
                 } catch {
                     // ignore navigation errors in client hook context
                 }
@@ -227,7 +230,7 @@ export default function OrderForm({
                 if (!currentFormId && result.formId) {
                     setCurrentFormId(result.formId.toString());
                     setTimeout(() => {
-                        router.push(`/events/${eventId}/orderform?formId=${result.formId}`);
+                        router.push(`/events/${eventPathId}/orderform?formId=${result.formId}`);
                     }, 1500); // Wait a bit so user sees success message
                 }
                 

@@ -5,6 +5,7 @@ import { Search, X, Calendar, ChevronDown } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 
 import { EventSummary } from "@/lib/types";
+import { buildEventSlug } from "@/lib/slug";
 
 interface EventSelectorProps {
     events: EventSummary[];
@@ -62,9 +63,10 @@ export default function EventSelector({ events, currentEventId, selectedYear, on
         });
     }, [events, searchQuery, selectedYear]);
 
-    const handleSelect = (eventId: string) => {
+    const handleSelect = (event: EventSummary) => {
+        const slug = buildEventSlug(event.name, event.id);
         setSearchQuery("");
-        router.push(`/events/${eventId}/analytics`);
+        router.push(`/events/${slug}/analytics`);
     };
 
     const handleYearSelect = (year: number | null) => {
@@ -105,7 +107,7 @@ export default function EventSelector({ events, currentEventId, selectedYear, on
                                 filteredEvents.map((event) => (
                                     <button
                                         key={event.id}
-                                        onClick={() => handleSelect(event.id)}
+                                        onClick={() => handleSelect(event)}
                                         className={`w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-between ${event.id === currentEventId
                                             ? "bg-indigo-50 dark:bg-indigo-900/30 border-l-2 border-indigo-500"
                                             : ""

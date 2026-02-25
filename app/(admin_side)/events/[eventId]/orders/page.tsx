@@ -5,7 +5,10 @@ import ManageOrdersClient from "./ManageOrdersClient";
 export default async function ManageOrdersPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 
-    const id = parseInt(eventId);
+    // eventId is a slug like "my-event-123"
+    const slug = eventId;
+    const idPart = slug.split("-").pop() ?? "";
+    const id = parseInt(idPart, 10);
     if (isNaN(id)) return notFound();
 
     const data = await getEventById(id);

@@ -5,6 +5,7 @@ import { LayoutDashboard, FileText, BarChart3, Ticket, ClipboardList, CheckCircl
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EventSummary } from "@/lib/types";
+import { buildEventSlug } from "@/lib/slug";
 
 interface EventsSidebarProps {
     event: EventSummary;
@@ -65,11 +66,20 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
         return dateStr;
     };
 
+    const slug = buildEventSlug(eventName || event.name, event.id);
+
     // Helper to check if link is active
     const isActive = (path: string) => {
         if (path === 'overview') {
-            // Match /events/[id]/overview OR /events/[id] exactly if that was the route (though usually it redirects)
-            return pathname.endsWith(`/events/${event.id}/overview`) || pathname === `/events/${event.id}`;
+            // Match slug-based or ID-based URLs for backwards compatibility
+            const idBase = `/events/${event.id}`;
+            const slugBase = `/events/${slug}`;
+            return (
+                pathname === idBase ||
+                pathname === slugBase ||
+                pathname.endsWith(`${idBase}/overview`) ||
+                pathname.endsWith(`${slugBase}/overview`)
+            );
         }
         return pathname.includes(`/${path}`);
     };
@@ -105,7 +115,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                         <ul className="space-y-1">
                             <li>
                                 <Link
-                                    href={event.id === 'new' ? '#' : `/events/${event.id}/overview`}
+                                    href={event.id === 'new' ? '#' : `/events/${slug}/overview`}
                                     className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive('overview')
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -127,7 +137,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                             {['tickets', 'orderform', 'orderconfirmation', 'publish'].map((page) => (
                                 <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
                                     <Link
-                                        href={event.id === 'new' ? '#' : `/events/${event.id}/${page}`}
+                                        href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
                                         className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page)
                                             ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -155,7 +165,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                             {['orders', 'email-attendees', 'checkin', 'certificates', 'waitlist', 'breakouts'].map((page) => (
                                 <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
                                     <Link
-                                        href={event.id === 'new' ? '#' : `/events/${event.id}/${page}`}
+                                        href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
                                         className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page)
                                             ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -187,7 +197,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                             {['reports', 'analytics'].map((page) => (
                                 <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
                                     <Link
-                                        href={event.id === 'new' ? '#' : `/events/${event.id}/${page}`}
+                                        href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
                                         className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page)
                                             ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'

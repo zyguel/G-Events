@@ -8,7 +8,9 @@ import { getEventById } from "@/lib/actions/events";
 
 export default function PublishEventPage() {
     const params = useParams();
-    const eventId = params.eventId as string;
+    const slug = params.eventId as string;
+    const idPart = slug?.split("-").pop() ?? "";
+    const eventId = idPart;
 
     // Use any here to allow flexibility since we are mixing API types with mapped local types
     const [eventData, setEventData] = useState<any | null>(null);
