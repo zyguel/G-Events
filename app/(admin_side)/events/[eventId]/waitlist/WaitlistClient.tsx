@@ -1,18 +1,28 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
 import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown, Ticket } from 'lucide-react';
 import { EventSummary } from '@/lib/types';
 
-// Mock waitlist data
-const mockWaitlistEntries = [
-    { id: '1', fullName: 'Karylle Bernate', email: 'karyllebernate8@gmail.com', ticketType: 'General Admission', queue: 1, status: 'Invited' as const },
-    { id: '2', fullName: 'Jan Carlo Juab', email: 'juab.jancarlo@gmail.com', ticketType: 'General Admission', queue: 2, status: 'Invited' as const },
-    { id: '3', fullName: 'Ray Emannuel John', email: 'rayemanismgmail.com', ticketType: 'General Admission', queue: 3, status: 'Waiting' as const },
-    { id: '4', fullName: 'Keith Lemuel', email: 'keithlemuel@gmail.com', ticketType: 'Premium Admission', queue: 1, status: 'Invited' as const },
-    { id: '5', fullName: 'Vinz Waldheim Villarin', email: 'vinzvillarin@gmail.com', ticketType: 'Premium Admission', queue: 2, status: 'Invited' as const },
-    { id: '6', fullName: 'John Carlo', email: 'johncarlo10gmail.com', ticketType: 'Premium Admission', queue: 3, status: 'Waiting' as const },
+// Waitlist entry type and mock data (used only for local draft events)
+type WaitlistStatus = 'Invited' | 'Waiting';
+
+interface WaitlistEntryRow {
+    id: string;
+    fullName: string;
+    email: string;
+    ticketType: string;
+    queue: number;
+    status: WaitlistStatus;
+}
+
+const mockWaitlistEntries: WaitlistEntryRow[] = [
+    { id: '1', fullName: 'Karylle Bernate', email: 'karyllebernate8@gmail.com', ticketType: 'General Admission', queue: 1, status: 'Invited' },
+    { id: '2', fullName: 'Jan Carlo Juab', email: 'juab.jancarlo@gmail.com', ticketType: 'General Admission', queue: 2, status: 'Invited' },
+    { id: '3', fullName: 'Ray Emannuel John', email: 'rayemanismgmail.com', ticketType: 'General Admission', queue: 3, status: 'Waiting' },
+    { id: '4', fullName: 'Keith Lemuel', email: 'keithlemuel@gmail.com', ticketType: 'Premium Admission', queue: 1, status: 'Invited' },
+    { id: '5', fullName: 'Vinz Waldheim Villarin', email: 'vinzvillarin@gmail.com', ticketType: 'Premium Admission', queue: 2, status: 'Invited' },
+    { id: '6', fullName: 'John Carlo', email: 'johncarlo10gmail.com', ticketType: 'Premium Admission', queue: 3, status: 'Waiting' },
 ];
 
 // Toast notification component
@@ -106,25 +116,70 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     const [showPosition, setShowPosition] = useState(false);
 
     // Waitlist entries state
-    const [entries] = useState(eventId.startsWith('evt-') ? [] : mockWaitlistEntries);
+    const [entries, setEntries] = useState<WaitlistEntryRow[]>(eventId.startsWith('evt-') ? mockWaitlistEntries : []);
+
+    // Load entries from backend for real events
+    useEffect(() => {
+        if (eventId.startsWith('evt-')) {
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const loadEntries = async () => {
+            try {
+                setIsLoading(true);
+                const res = await fetch(`/api/events/${eventId}/waitlist`, {
+                    signal: controller.signal,
+                });
+                if (!res.ok) {
+                    throw new Error(`Failed to load waitlist (${res.status})`);
+                }
+                const json = await res.json();
+                if (json?.success && Array.isArray(json.data)) {
+                    setEntries(json.data);
+                } else {
+                    throw new Error(json?.error || 'Unexpected response format');
+                }
+            } catch (e) {
+                if (e instanceof DOMException && e.name === 'AbortError') return;
+                console.error('Error loading waitlist:', e);
+                setToast({ message: e instanceof Error ? e.message : 'Failed to load waitlist', type: 'error' });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadEntries();
+
+        return () => controller.abort();
+    }, [eventId]);
 
     // Extract unique ticket types from entries
     const ticketTypes = Array.from(new Set(entries.map(e => e.ticketType)));
 
     // Determine default ticket type: General Admission if it has entries, otherwise the first tier with entries
-    const getDefaultTicketType = () => {
+    const getDefaultTicketType = (source: WaitlistEntryRow[]) => {
         const generalAdmission = 'General Admission';
-        const hasGeneralAdmission = entries.some(e => e.ticketType === generalAdmission);
+        const hasGeneralAdmission = source.some(e => e.ticketType === generalAdmission);
         if (hasGeneralAdmission) return generalAdmission;
-        // Find first ticket type that has entries
-        return ticketTypes.length > 0 ? ticketTypes[0] : '';
+        return source.length > 0 ? source[0].ticketType : '';
     };
 
     // Ticket type filter state
-    const [selectedTicketType, setSelectedTicketType] = useState(getDefaultTicketType());
+    const [selectedTicketType, setSelectedTicketType] = useState(() => getDefaultTicketType(entries));
+
+    // Keep selected ticket type in sync when entries change
+    useEffect(() => {
+        if (!selectedTicketType && entries.length > 0) {
+            setSelectedTicketType(getDefaultTicketType(entries));
+        }
+    }, [entries, selectedTicketType]);
 
     // Filtered entries based on selected ticket type
-    const filteredEntries = entries.filter(e => e.ticketType === selectedTicketType);
+    const filteredEntries = selectedTicketType
+        ? entries.filter(e => e.ticketType === selectedTicketType)
+        : [];
 
 
 
@@ -137,6 +192,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     };
 
     const handleInvite = async (entryId: string) => {
+        // TODO: Wire up invite API when email workflow is implemented
         setToast({ message: `Invitation sent to waitlist entry #${entryId}`, type: 'success' });
     };
 
@@ -360,7 +416,13 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {filteredEntries.map((entry) => (
+                                    {isLoading ? (
+                                        <tr>
+                                            <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                                                Loading waitlist...
+                                            </td>
+                                        </tr>
+                                    ) : filteredEntries.map((entry) => (
                                         <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -402,7 +464,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                             </table>
                         </div>
 
-                        {filteredEntries.length === 0 && (
+                        {filteredEntries.length === 0 && !isLoading && (
                             <div className="p-12 text-center">
                                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                     <Users className="w-8 h-8 text-gray-400" />

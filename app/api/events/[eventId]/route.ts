@@ -1,23 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEvent, updateEvent, deleteEvent } from '@/lib/db';
 
-// GET /api/events/[id] - Get a single event by ID
+// GET /api/events/[eventId] - Get a single event by ID
 export async function GET(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
-        const { id } = await params;
-        const eventId = parseInt(id);
+        const { eventId } = await params;
+        const id = parseInt(eventId);
 
-        if (isNaN(eventId)) {
+        if (isNaN(id)) {
             return NextResponse.json(
                 { success: false, error: 'Invalid event ID' },
                 { status: 400 }
             );
         }
 
-        const event = await getEvent(eventId);
+        const event = await getEvent(id);
         return NextResponse.json({ success: true, data: event });
     } catch (error: any) {
         console.error('Error fetching event:', error);
@@ -35,17 +35,17 @@ export async function GET(
     }
 }
 
-// PATCH /api/events/[id] - Update an event
+// PATCH /api/events/[eventId] - Update an event
 export async function PATCH(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
-        const { id } = await params;
-        const eventId = parseInt(id);
+        const { eventId } = await params;
+        const id = parseInt(eventId);
         const body = await request.json();
 
-        if (isNaN(eventId)) {
+        if (isNaN(id)) {
             return NextResponse.json(
                 { success: false, error: 'Invalid event ID' },
                 { status: 400 }
@@ -59,7 +59,7 @@ export async function PATCH(
             );
         }
 
-        await updateEvent(eventId, body);
+        await updateEvent(id, body);
         return NextResponse.json({ success: true, message: 'Event updated successfully' });
     } catch (error: any) {
         console.error('Error updating event:', error);
@@ -70,23 +70,23 @@ export async function PATCH(
     }
 }
 
-// DELETE /api/events/[id] - Delete an event
+// DELETE /api/events/[eventId] - Delete an event
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: Promise<{ id: string }> }
+    { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
-        const { id } = await params;
-        const eventId = parseInt(id);
+        const { eventId } = await params;
+        const id = parseInt(eventId);
 
-        if (isNaN(eventId)) {
+        if (isNaN(id)) {
             return NextResponse.json(
                 { success: false, error: 'Invalid event ID' },
                 { status: 400 }
             );
         }
 
-        await deleteEvent(eventId);
+        await deleteEvent(id);
         return NextResponse.json({ success: true, message: 'Event deleted successfully' });
     } catch (error: any) {
         console.error('Error deleting event:', error);

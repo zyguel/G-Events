@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useEffect, useState } from 'react';
 import {
     Presentation, Users, Calendar, Clock, MapPin, Video, Plus, Search,
     Edit2, Trash2, X, ChevronDown, List, BarChart3,
@@ -473,13 +472,54 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
         );
     }
 
-    const [sessions, setSessions] = useState<BreakoutSession[]>(eventId.startsWith('evt-') ? [] : mockSessions);
+    const [sessions, setSessions] = useState<BreakoutSession[]>(eventId.startsWith('evt-') ? mockSessions : []);
     const [activeView, setActiveView] = useState<'dashboard' | 'list'>('dashboard');
     const [searchQuery, setSearchQuery] = useState('');
     const [typeFilter, setTypeFilter] = useState<'All' | 'Online' | 'In-Person'>('All');
     const [statusFilter, setStatusFilter] = useState<'All' | BreakoutSession['status']>('All');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingSession, setEditingSession] = useState<BreakoutSession | null>(null);
+    const [isLoading, setIsLoading] = useState(!eventId.startsWith('evt-'));
+    const [error, setError] = useState<string | null>(null);
+
+    // Load sessions from backend for real events
+    useEffect(() => {
+        if (eventId.startsWith('evt-')) {
+            setIsLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const loadSessions = async () => {
+            try {
+                setIsLoading(true);
+                setError(null);
+                const res = await fetch(`/api/events/${eventId}/breakouts`, {
+                    signal: controller.signal,
+                });
+                if (!res.ok) {
+                    throw new Error(`Failed to load breakout sessions (${res.status})`);
+                }
+                const json = await res.json();
+                if (json?.success && Array.isArray(json.data)) {
+                    setSessions(json.data);
+                } else {
+                    throw new Error(json?.error || 'Unexpected response format');
+                }
+            } catch (e) {
+                if (e instanceof DOMException && e.name === 'AbortError') return;
+                console.error('Error loading breakout sessions:', e);
+                setError(e instanceof Error ? e.message : 'Failed to load breakout sessions');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadSessions();
+
+        return () => controller.abort();
+    }, [eventId]);
 
     // Use passed event data for sidebar
     const sidebarEvent = event;
@@ -506,17 +546,85 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
         cancelled: sessions.filter(s => s.status === 'Cancelled').length,
     };
 
-    const handleSaveSession = (session: BreakoutSession) => {
-        if (editingSession) {
-            setSessions(sessions.map(s => s.id === session.id ? session : s));
-        } else {
-            setSessions([...sessions, session]);
+    const handleSaveSession = async (session: BreakoutSession) => {
+        // Local draft events: keep purely in-memory
+        if (eventId.startsWith('evt-')) {
+            if (editingSession) {
+                setSessions(prev => prev.map(s => (s.id === session.id ? session : s)));
+            } else {
+                setSessions(prev => [...prev, session]);
+            }
+            setEditingSession(null);
+            return;
         }
-        setEditingSession(null);
+
+        try {
+            const isEdit = !!editingSession;
+            const endpoint = isEdit
+                ? `/api/events/${eventId}/breakouts/${session.id}`
+                : `/api/events/${eventId}/breakouts`;
+            const method = isEdit ? 'PATCH' : 'POST';
+
+            const res = await fetch(endpoint, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    session: {
+                        id: session.id,
+                        title: session.title,
+                        type: session.type,
+                        status: session.status,
+                        date: session.date,
+                        time: session.time,
+                        location: session.location,
+                        joinLink: session.joinLink,
+                        maxCapacity: session.maxCapacity,
+                        speakers: session.speakers,
+                    },
+                }),
+            });
+
+            if (!res.ok) {
+                throw new Error(`Failed to save session (${res.status})`);
+            }
+
+            const json = await res.json();
+            if (!json?.success || !json.data) {
+                throw new Error(json?.error || 'Unexpected response format');
+            }
+
+            const saved: BreakoutSession = json.data;
+            setSessions(prev =>
+                isEdit
+                    ? prev.map(s => (s.id === saved.id ? saved : s))
+                    : [...prev, saved]
+            );
+            setEditingSession(null);
+        } catch (e) {
+            console.error('Error saving breakout session:', e);
+            setError(e instanceof Error ? e.message : 'Failed to save breakout session');
+        }
     };
 
-    const handleDeleteSession = (id: string) => {
-        setSessions(sessions.filter(s => s.id !== id));
+    const handleDeleteSession = async (id: string) => {
+        // Local draft events: in-memory delete only
+        if (eventId.startsWith('evt-')) {
+            setSessions(prev => prev.filter(s => s.id !== id));
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/events/${eventId}/breakouts/${id}`, {
+                method: 'DELETE',
+            });
+            if (!res.ok) {
+                throw new Error(`Failed to delete session (${res.status})`);
+            }
+            setSessions(prev => prev.filter(s => s.id !== id));
+        } catch (e) {
+            console.error('Error deleting breakout session:', e);
+            setError(e instanceof Error ? e.message : 'Failed to delete breakout session');
+        }
     };
 
     const openCreateModal = () => {
@@ -566,6 +674,13 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                             Add Session
                         </button>
                     </div>
+
+                    {/* Error state */}
+                    {error && (
+                        <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 text-sm">
+                            {error}
+                        </div>
+                    )}
 
                     {/* View Tabs */}
                     <div className="flex items-center gap-2 bg-white dark:bg-gray-800 p-1 rounded-xl border border-gray-200 dark:border-gray-700 w-fit">

@@ -2,19 +2,7 @@ import { X, ChevronLeft, ChevronRight, Check, X as XIcon, Download, Maximize2 } 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-
-interface Order {
-    id: string;
-    name: string;
-    email: string;
-    ticketType: string;
-    registrationType: string;
-    status: string;
-    date: string;
-    time: string;
-    addOnStatus: string;
-    proofOfPayment?: string;
-}
+import type { Order } from "../ManageOrdersClient";
 
 interface ReviewOrderModalProps {
     isOpen: boolean;

@@ -1,12 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, Filter, Plus, MoreVertical, Users } from "lucide-react";
 import ForReviewTab from "./tabs/ForReviewTab";
 import { EventSummary } from "@/lib/types";
 
-// Mock data for registrants
-const initialMockOrders = [
+// Type for orders coming from the backend
+export interface Order {
+    id: string;
+    name: string;
+    email: string;
+    ticketType: string;
+    registrationType: string;
+    status: "Confirmed" | "Pending" | "Rejected";
+    date: string;
+    time: string;
+    addOnStatus: string;
+    proofOfPayment?: string | null;
+}
+
+// Fallback mock data for local/demo events
+const initialMockOrders: Order[] = [
     {
         id: "20240502000002",
         name: "Karylle Bernate",
@@ -111,10 +125,50 @@ interface ManageOrdersClientProps {
 
 export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
     const [activeTab, setActiveTab] = useState<"all" | "review">("all");
-    // Initialize with mock data only if not a local draft event
-    const [orders, setOrders] = useState(event.id.startsWith('evt-') ? [] : initialMockOrders);
+    const [orders, setOrders] = useState<Order[]>(event.id.startsWith("evt-") ? [] : initialMockOrders);
     const [searchQuery, setSearchQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
+    const [isLoading, setIsLoading] = useState(!event.id.startsWith("evt-"));
+    const [error, setError] = useState<string | null>(null);
+
+    // Load orders from backend for real events
+    useEffect(() => {
+        if (event.id.startsWith("evt-")) {
+            setIsLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const loadOrders = async () => {
+            try {
+                setIsLoading(true);
+                setError(null);
+                const res = await fetch(`/api/events/${event.id}/orders`, {
+                    signal: controller.signal,
+                });
+                if (!res.ok) {
+                    throw new Error(`Failed to load orders (${res.status})`);
+                }
+                const json = await res.json();
+                if (json?.success && Array.isArray(json.data)) {
+                    setOrders(json.data);
+                } else {
+                    throw new Error(json?.error || "Unexpected response format");
+                }
+            } catch (e) {
+                if (e instanceof DOMException && e.name === "AbortError") return;
+                console.error("Error loading orders:", e);
+                setError(e instanceof Error ? e.message : "Failed to load orders");
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadOrders();
+
+        return () => controller.abort();
+    }, [event.id]);
 
     // Filter orders based on search query
     const filteredOrders = orders.filter(order => {
@@ -131,16 +185,64 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
         setShowFilters(false);
     };
 
-    const handleConfirmOrder = (orderId: string) => {
-        setOrders(prev => prev.map(order =>
-            order.id === orderId ? { ...order, status: "Confirmed" } : order
-        ));
+    const handleConfirmOrder = async (orderId: string) => {
+        // Optimistic update
+        setOrders(prev =>
+            prev.map(order =>
+                order.id === orderId ? { ...order, status: "Confirmed" } : order
+            )
+        );
+
+        if (event.id.startsWith("evt-")) return;
+
+        try {
+            const res = await fetch(`/api/events/${event.id}/orders/${orderId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "confirm" }),
+            });
+            if (!res.ok) {
+                throw new Error(`Failed to confirm order (${res.status})`);
+            }
+        } catch (e) {
+            console.error("Error confirming order:", e);
+            // Roll back optimistic change if needed
+            setOrders(prev =>
+                prev.map(order =>
+                    order.id === orderId ? { ...order, status: "Pending" } : order
+                )
+            );
+        }
     };
 
-    const handleRejectOrder = (orderId: string) => {
-        setOrders(prev => prev.map(order =>
-            order.id === orderId ? { ...order, status: "Rejected" } : order
-        ));
+    const handleRejectOrder = async (orderId: string) => {
+        // Optimistic update
+        setOrders(prev =>
+            prev.map(order =>
+                order.id === orderId ? { ...order, status: "Rejected" } : order
+            )
+        );
+
+        if (event.id.startsWith("evt-")) return;
+
+        try {
+            const res = await fetch(`/api/events/${event.id}/orders/${orderId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "reject" }),
+            });
+            if (!res.ok) {
+                throw new Error(`Failed to reject order (${res.status})`);
+            }
+        } catch (e) {
+            console.error("Error rejecting order:", e);
+            // Roll back optimistic change if needed
+            setOrders(prev =>
+                prev.map(order =>
+                    order.id === orderId ? { ...order, status: "Pending" } : order
+                )
+            );
+        }
     };
 
     return (
@@ -192,6 +294,13 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                         </button>
                     </div>
 
+                    {/* Error / loading states */}
+                    {error && (
+                        <div className="mb-4 p-4 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 text-sm">
+                            {error}
+                        </div>
+                    )}
+
                     {/* All Orders Tab Content */}
                     {activeTab === "all" && (
                         <div className="space-y-6">
@@ -237,8 +346,14 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
 
                             {/* Orders Table */}
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full">
+                                {isLoading ? (
+                                    <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        Loading orders...
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
                                         <thead>
                                             <tr className="bg-blue-100 dark:bg-blue-900/30">
                                                 <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
@@ -325,13 +440,15 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                 </div>
 
                                 {/* Empty State */}
-                                {filteredOrders.length === 0 && (
+                                {filteredOrders.length === 0 && !isLoading && (
                                     <div className="text-center py-12">
                                         <p className="text-gray-500 dark:text-gray-400">No orders found</p>
                                         <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
                                             Try adjusting your search query
                                         </p>
                                     </div>
+                                )}
+                                </>
                                 )}
                             </div>
                         </div>

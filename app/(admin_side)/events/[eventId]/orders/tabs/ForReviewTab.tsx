@@ -1,19 +1,7 @@
 import { useState } from "react";
 import { Eye, ImageIcon } from "lucide-react";
 import ReviewOrderModal from "../components/ReviewOrderModal";
-
-interface Order {
-    id: string;
-    name: string;
-    email: string;
-    ticketType: string;
-    registrationType: string;
-    status: string;
-    date: string;
-    time: string;
-    addOnStatus: string;
-    proofOfPayment?: string;
-}
+import type { Order } from "../ManageOrdersClient";
 
 interface ForReviewTabProps {
     orders: Order[];
