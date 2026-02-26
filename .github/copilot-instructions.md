@@ -75,7 +75,7 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **Icons**: Lucide-react (Bell, Calendar, ChevronRight, Edit, Trash, etc.)
 - **Animations**: Framer Motion v12 for transitions
 - **PDF generation**: jsPDF + jspdf-autotable
-- **Excel generation**: ExcelJS v4.4.0
+- **Excel generation**: ExcelJS v4.4.0 (sole Excel library; the `xlsx`/SheetJS package was removed due to unresolved security vulnerabilities — do NOT re-add it)
 - **Global state**: `NotificationContext.tsx` - Provides `addNotification()`, `dismissNotification()` for toast-like alerts
 
 ### Event Status Logic (Important)

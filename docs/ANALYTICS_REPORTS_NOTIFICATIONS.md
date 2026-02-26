@@ -164,6 +164,7 @@ page.tsx (Server Component)
           ↓
   Destructures: { registrants, stats, breakoutSessions }
   Renders 3 tabs with search, filter, export (CSV/XLSX/PDF)
+  Note: XLSX export uses ExcelJS (not the xlsx/SheetJS package, which was removed for security reasons)
 ```
 
 > **Note:** Gender, age, and birthdate are not currently in the schema. When a `Registrant` profile table is added, update the query in `getEventReports()` and the `'N/A'` defaults will be replaced automatically.
@@ -252,7 +253,7 @@ Then refresh the page.
 | Notifications | Server-Sent Events (SSE) or Supabase Realtime for live push notifications |
 | Notifications | Notification persistence in DB so multiple admins share the same feed |
 | Demographics | Real-time refresh when new order form submissions arrive |
-| Demographics | Export demographics breakdown to CSV/XLSX |
+| Demographics | Export demographics breakdown to CSV/XLSX (via ExcelJS) |
 
 ---
 
