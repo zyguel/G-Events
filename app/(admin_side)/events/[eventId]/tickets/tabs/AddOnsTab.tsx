@@ -35,6 +35,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [editingAddOnId, setEditingAddOnId] = useState<string | null>(null);
   const [formData, setFormData] = useState(initialAddOnForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -78,6 +79,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const handleAddAddOn = () => {
     setEditingAddOnId(null);
     setFormData(initialAddOnForm);
+    setImagePreview(null);
     setErrors({});
     setIsModalOpen(true);
   };
@@ -93,6 +95,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       variants: addOn.variants || [],
       stock: addOn.stock || 0,
     });
+    setImagePreview(addOn.image || null);
     setErrors({});
     setIsModalOpen(true);
   };
@@ -131,14 +134,71 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     }
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File, maxWidth = 1920, quality = 0.85): Promise<File> => {
+    return new Promise((resolve) => {
+      // Skip compression for small files (< 500KB) or non-raster formats
+      if (file.size < 512_000 || !file.type.startsWith('image/')) {
+        return resolve(file);
+      }
+
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+
+        // Only resize if the image exceeds maxWidth on its longest side
+        let { width, height } = img;
+        if (width <= maxWidth && height <= maxWidth) {
+          // Dimensions are fine — just re-encode at quality setting
+        } else if (width >= height) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        } else {
+          width = Math.round((width * maxWidth) / height);
+          height = maxWidth;
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d')!;
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Use WebP for better compression-to-quality ratio; fall back to JPEG
+        const outputType = 'image/webp';
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return resolve(file);
+            const ext = outputType === 'image/webp' ? '.webp' : '.jpg';
+            const baseName = file.name.replace(/\.[^.]+$/, '');
+            const compressed = new File([blob], `${baseName}${ext}`, { type: outputType });
+            // Only use compressed version if it's actually smaller
+            resolve(compressed.size < file.size ? compressed : file);
+          },
+          outputType,
+          quality
+        );
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file); // Fall back to original on any error
+      };
+
+      img.src = url;
+    });
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, image: reader.result as string });
-      };
-      reader.readAsDataURL(file);
+      const compressed = await compressImage(file);
+      setFormData({ ...formData, imageFile: compressed });
+      setImagePreview(URL.createObjectURL(compressed));
     }
   };
 
@@ -266,7 +326,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             />
             {formData.image && (
               <div className="mt-3">
-                <img src={formData.image} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
+                <img src={imagePreview || formData.image} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
+              </div>
+            )}
+            {!formData.image && imagePreview && (
+              <div className="mt-3">
+                <img src={imagePreview} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
               </div>
             )}
           </div>

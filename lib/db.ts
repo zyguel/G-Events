@@ -348,3 +348,349 @@ export async function deleteEvent(eventId: number) {
     if (error) throw error;
 }
 
+// ─── Tickets ──────────────────────────────────────────────────────────────────
+
+export async function getTickets(eventId: number) {
+    const { data, error } = await supabase
+        .from('Ticket')
+        .select('*')
+        .eq('event_id', eventId)
+        .order('id', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function getTicket(ticketId: number) {
+    const { data, error } = await supabase
+        .from('Ticket')
+        .select('*')
+        .eq('id', ticketId)
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function createTicket(
+    eventId: number,
+    fields: {
+        name: string;
+        description?: string;
+        price?: number;
+        available_quantity?: number;
+        min_per_user?: number;
+        max_per_user?: number;
+        selling_start_at?: string;
+        selling_end_at?: string;
+        selling_start_time?: string;
+        selling_end_time?: string;
+    }
+) {
+    const { data, error } = await supabase
+        .from('Ticket')
+        .insert([{ event_id: eventId, ...fields }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function updateTicket(
+    ticketId: number,
+    fields: Partial<{
+        name: string;
+        description: string;
+        price: number;
+        available_quantity: number;
+        min_per_user: number;
+        max_per_user: number;
+        selling_start_at: string;
+        selling_end_at: string;
+        selling_start_time: string;
+        selling_end_time: string;
+    }>
+) {
+    const { data, error } = await supabase
+        .from('Ticket')
+        .update(fields)
+        .eq('id', ticketId)
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function deleteTicket(ticketId: number) {
+    const { error } = await supabase
+        .from('Ticket')
+        .delete()
+        .eq('id', ticketId);
+
+    if (error) throw error;
+}
+
+// ─── Add-Ons ──────────────────────────────────────────────────────────────────
+
+export async function getAddOns(eventId: number) {
+    const { data, error } = await supabase
+        .from('AddOn')
+        .select(`
+            *,
+            AddOnVariant (*)
+        `)
+        .eq('event_id', eventId)
+        .order('id', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function getAddOn(addOnId: number) {
+    const { data, error } = await supabase
+        .from('AddOn')
+        .select(`
+            *,
+            AddOnVariant (*)
+        `)
+        .eq('id', addOnId)
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function createAddOn(
+    eventId: number,
+    fields: {
+        name: string;
+        description?: string;
+        image_path?: string;
+        has_variants?: boolean;
+    },
+    variants?: { code: string; label: string; stock_total: number }[]
+) {
+    const { data: addOn, error: addOnError } = await supabase
+        .from('AddOn')
+        .insert([{ event_id: eventId, ...fields }])
+        .select()
+        .single();
+
+    if (addOnError) throw addOnError;
+
+    if (variants && variants.length > 0) {
+        const variantRows = variants.map((v) => ({
+            add_on_id: addOn.id,
+            code: v.code,
+            label: v.label,
+            stock_total: v.stock_total,
+        }));
+
+        const { error: varError } = await supabase
+            .from('AddOnVariant')
+            .insert(variantRows);
+
+        if (varError) throw varError;
+    }
+
+    // Re-fetch with variants
+    return getAddOn(addOn.id);
+}
+
+export async function updateAddOn(
+    addOnId: number,
+    fields: Partial<{
+        name: string;
+        description: string;
+        image_path: string;
+        has_variants: boolean;
+    }>,
+    variants?: { id?: number; code: string; label: string; stock_total: number }[]
+) {
+    const { error: addOnError } = await supabase
+        .from('AddOn')
+        .update(fields)
+        .eq('id', addOnId);
+
+    if (addOnError) throw addOnError;
+
+    // If variants are provided, replace them
+    if (variants !== undefined) {
+        // Delete existing variants
+        await supabase
+            .from('AddOnVariant')
+            .delete()
+            .eq('add_on_id', addOnId);
+
+        // Insert new variants
+        if (variants.length > 0) {
+            const variantRows = variants.map((v) => ({
+                add_on_id: addOnId,
+                code: v.code,
+                label: v.label,
+                stock_total: v.stock_total,
+            }));
+
+            const { error: varError } = await supabase
+                .from('AddOnVariant')
+                .insert(variantRows);
+
+            if (varError) throw varError;
+        }
+    }
+
+    return getAddOn(addOnId);
+}
+
+export async function deleteAddOn(addOnId: number) {
+    // Delete variants first (FK constraint)
+    await supabase
+        .from('AddOnVariant')
+        .delete()
+        .eq('add_on_id', addOnId);
+
+    const { error } = await supabase
+        .from('AddOn')
+        .delete()
+        .eq('id', addOnId);
+
+    if (error) throw error;
+}
+
+// ─── Promotions ───────────────────────────────────────────────────────────────
+
+export async function getPromotions(eventId: number) {
+    const { data, error } = await supabase
+        .from('Promotion')
+        .select(`
+            *,
+            PromotionTicket (
+                ticket_id
+            )
+        `)
+        .eq('event_id', eventId)
+        .order('id', { ascending: true });
+
+    if (error) throw error;
+    return data || [];
+}
+
+export async function getPromotion(promotionId: number) {
+    const { data, error } = await supabase
+        .from('Promotion')
+        .select(`
+            *,
+            PromotionTicket (
+                ticket_id
+            )
+        `)
+        .eq('id', promotionId)
+        .single();
+
+    if (error) throw error;
+    return data;
+}
+
+export async function createPromotion(
+    eventId: number,
+    fields: {
+        name?: string;
+        code: string;
+        discount_type: string;
+        discount_value: number;
+        max_uses?: number;
+        current_uses?: number;
+        start_at?: string;
+        end_at?: string;
+        is_automatic?: boolean;
+    },
+    ticketIds?: number[]
+) {
+    const { data: promo, error: promoError } = await supabase
+        .from('Promotion')
+        .insert([{ event_id: eventId, ...fields }])
+        .select()
+        .single();
+
+    if (promoError) throw promoError;
+
+    if (ticketIds && ticketIds.length > 0) {
+        const rows = ticketIds.map((tid) => ({
+            promotion_id: promo.id,
+            ticket_id: tid,
+        }));
+
+        const { error: ptError } = await supabase
+            .from('PromotionTicket')
+            .insert(rows);
+
+        if (ptError) throw ptError;
+    }
+
+    return getPromotion(promo.id);
+}
+
+export async function updatePromotion(
+    promotionId: number,
+    fields: Partial<{
+        name: string;
+        code: string;
+        discount_type: string;
+        discount_value: number;
+        max_uses: number;
+        current_uses: number;
+        start_at: string;
+        end_at: string;
+        is_automatic: boolean;
+    }>,
+    ticketIds?: number[]
+) {
+    const { error: promoError } = await supabase
+        .from('Promotion')
+        .update(fields)
+        .eq('id', promotionId);
+
+    if (promoError) throw promoError;
+
+    if (ticketIds !== undefined) {
+        // Delete existing ticket associations
+        await supabase
+            .from('PromotionTicket')
+            .delete()
+            .eq('promotion_id', promotionId);
+
+        // Insert new associations
+        if (ticketIds.length > 0) {
+            const rows = ticketIds.map((tid) => ({
+                promotion_id: promotionId,
+                ticket_id: tid,
+            }));
+
+            const { error: ptError } = await supabase
+                .from('PromotionTicket')
+                .insert(rows);
+
+            if (ptError) throw ptError;
+        }
+    }
+
+    return getPromotion(promotionId);
+}
+
+export async function deletePromotion(promotionId: number) {
+    // Delete ticket associations first (FK constraint)
+    await supabase
+        .from('PromotionTicket')
+        .delete()
+        .eq('promotion_id', promotionId);
+
+    const { error } = await supabase
+        .from('Promotion')
+        .delete()
+        .eq('id', promotionId);
+
+    if (error) throw error;
+}
+
