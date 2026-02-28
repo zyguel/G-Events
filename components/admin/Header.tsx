@@ -23,7 +23,7 @@ const Header = () => {
                         G Events
                     </span>
                     <span className="hidden md:block text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wider uppercase">
-                        Event Management
+                        Event Registration
                     </span>
                 </div>
             </div>
