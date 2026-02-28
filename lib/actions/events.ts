@@ -939,3 +939,64 @@ export async function getEventDemographics(eventId: number): Promise<Demographic
         return empty;
     }
 }
+
+export async function deleteEvent(id: number) {
+    try {
+        // Find forms to delete their answers first
+        const { data: forms } = await supabase
+            .from('FeedbackForm')
+            .select('id')
+            .eq('event_id', id);
+
+        if (forms && forms.length > 0) {
+            const formIds = forms.map((f: any) => f.id);
+            await supabase.from('FeedbackAnswer').delete().in('feedback_form_id', formIds);
+            await supabase.from('FeedbackForm').delete().eq('event_id', id);
+        }
+
+        // Delete Registration-related data
+        // RegistrationAddOn depends on Registration and AddOn
+        const { data: regs } = await supabase
+            .from('Registration')
+            .select('id')
+            .eq('event_id', id);
+
+        if (regs && regs.length > 0) {
+            const regIds = regs.map((r: any) => r.id);
+            await supabase.from('RegistrationAddOn').delete().in('registration_id', regIds);
+        }
+
+        // Delete other related tables
+        await Promise.all([
+            supabase.from('AgendaSlot').delete().eq('event_id', id),
+            supabase.from('Ticket').delete().eq('event_id', id),
+            supabase.from('AddOn').delete().eq('event_id', id),
+            supabase.from('PromoCode').delete().eq('event_id', id),
+            supabase.from('Registration').delete().eq('event_id', id), // Finally delete registrations
+            supabase.from('OrderForm').delete().eq('event_id', id)
+        ]);
+
+        // Attempt to delete order form entries
+        try {
+            await supabase.from('OrderFormEntries').delete().eq('event_id', id);
+        } catch (e) { /* ignore if doesn't exist */ }
+
+        // Finally, delete the Event itself
+        const { error } = await supabase
+            .from('Event')
+            .delete()
+            .eq('id', id);
+
+        if (error) {
+            console.error('Error deleting event:', error);
+            // It might fail if there are still constraints we missed, but we try to supply a better error.
+            return { success: false, error: error.details || error.message };
+        }
+
+        revalidatePath('/events');
+        return { success: true };
+    } catch (e: any) {
+        console.error('Unexpected error deleting event:', e);
+        return { success: false, error: e.message || 'Failed to delete event' };
+    }
+}

@@ -97,7 +97,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                             ? "bg-green-500/30 text-green-100"
                             : "bg-gray-500/30 text-gray-100"
                             }`}>
-                            ● {eventStatus}
+                            ● {eventStatus === "Ongoing" ? "Live" : eventStatus}
                         </div>
                     </div>
                     {/* Decorative circle */}

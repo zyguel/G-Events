@@ -148,7 +148,7 @@ export default function DashboardPage() {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-emerald-100 text-sm font-medium">Today's Registrations</p>
-                                            <h3 className="text-xl font-bold mt-1">0 new</h3>
+                                            <h3 className="text-xl font-bold mt-1">0</h3>
                                             <p className="text-emerald-200 text-sm mt-2">No data available</p>
                                         </div>
                                         <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
@@ -161,7 +161,7 @@ export default function DashboardPage() {
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-rose-100 text-sm font-medium">Pending Reviews</p>
-                                            <h3 className="text-xl font-bold mt-1">0 applications</h3>
+                                            <h3 className="text-xl font-bold mt-1">0</h3>
                                             <p className="text-rose-200 text-sm mt-2">All caught up!</p>
                                         </div>
                                         <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
@@ -227,7 +227,7 @@ export default function DashboardPage() {
                             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                                 {/* Upcoming Events */}
-                                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-lg">
+                                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-lg self-start">
                                     <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
                                         <div>
                                             <h2 className="font-semibold text-gray-900 dark:text-white">Upcoming Events</h2>
@@ -238,36 +238,49 @@ export default function DashboardPage() {
                                         </Link>
                                     </div>
                                     <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                        {dashboardEvents.slice(0, 5).map((event) => (
-                                            <Link
-                                                key={event.id}
-                                                href={`/events/${buildEventSlug(event.name, event.id)}/overview`}
-                                                className="block p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
-                                            >
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
-                                                            {event.name.charAt(0)}
+                                        {dashboardEvents.length === 0 ? (
+                                            <div className="p-8 text-center flex flex-col items-center justify-center">
+                                                <Calendar size={32} className="text-gray-300 dark:text-gray-600 mb-3" />
+                                                <p className="text-gray-500 dark:text-gray-400 font-medium">No upcoming events found</p>
+                                                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Get started by creating your first event!</p>
+                                                <Link href="/events/new/overview" className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#3D518C] text-white rounded-lg text-sm font-medium hover:bg-[#2d3d6b] transition-all">
+                                                    Create Event
+                                                </Link>
+                                            </div>
+                                        ) : (
+                                            dashboardEvents.slice(0, 5).map((event) => (
+                                                <Link
+                                                    key={event.id}
+                                                    href={`/events/${buildEventSlug(event.name, event.id)}/overview`}
+                                                    className="block p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                                                                {event.name.charAt(0)}
+                                                            </div>
+                                                            <div>
+                                                                <h3 className="font-medium text-gray-900 dark:text-white">{event.name}</h3>
+                                                                <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
+                                                                    <Calendar size={14} /> {event.date}
+                                                                </p>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <h3 className="font-medium text-gray-900 dark:text-white">{event.name}</h3>
-                                                            <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
-                                                                <Calendar size={14} /> {event.date}
-                                                            </p>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-semibold text-gray-900 dark:text-white">{event.registrations} registered</p>
+                                                            <div className="flex justify-end mt-1">
+                                                                <span className={`inline-flex items-center justify-center min-w-[80px] px-2.5 py-0.5 rounded-full text-xs font-medium ${(event.status === 'Upcoming' || event.status === 'Published') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                                                                    (event.status === 'Completed' || event.status === 'Live') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
+                                                                        'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+                                                                    }`}>
+                                                                    {event.status === 'Published' ? 'Upcoming' : event.status}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{event.registrations} registered</p>
-                                                        <span className={`inline-flex items-center justify-center min-w-[80px] px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${(event.status === 'Upcoming' || event.status === 'Published') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
-                                                            (event.status === 'Completed' || event.status === 'Live') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
-                                                                'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
-                                                            }`}>
-                                                            {event.status === 'Published' ? 'Upcoming' : event.status}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </Link>
-                                        ))}
+                                                </Link>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
 

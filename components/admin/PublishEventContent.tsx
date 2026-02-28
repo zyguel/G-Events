@@ -7,6 +7,7 @@ import DateInput from "./DateInput";
 import TimeInput from "./TimeInput";
 import { useRouter } from "next/navigation";
 import SuccessModal from "./SuccessModal";
+import Modal, { ModalFooter } from "./Modal";
 
 import { EventData } from "@/lib/types";
 import { updateEvent } from "@/lib/actions/events";
@@ -27,6 +28,9 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
     const router = useRouter();
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
+    const [isUnpublishModalOpen, setIsUnpublishModalOpen] = useState(false);
+    const [localStatus, setLocalStatus] = useState(event.status);
+    const isEventPublished = localStatus === 'Published' || localStatus === 'Ongoing' || localStatus === 'Completed';
 
     // Form State
     const [settings, setSettings] = useState<{
@@ -134,6 +138,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                 console.warn('localStorage update failed (non-critical):', storageErr);
             }
 
+            setLocalStatus('Published');
             setShowSuccessModal(true);
 
         } catch (e) {
@@ -144,45 +149,39 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
         }
     };
 
-    const handleSaveDraft = async () => {
+    const handleUnpublishClick = () => {
+        setIsUnpublishModalOpen(true);
+    };
+
+    const confirmUnpublish = async () => {
+        setIsPublishing(true);
         try {
             const id = parseInt(event.id);
             if (!isNaN(id)) {
-                setToast({ message: 'Saving draft...', type: 'info' });
+                setToast({ message: 'Unpublishing...', type: 'info' });
                 const { updateEvent } = await import('@/lib/actions/events');
 
-                // Construct timestamps
-                const regStart = settings.registrationOpenDate
-                    ? new Date(`${settings.registrationOpenDate}T${settings.registrationOpenTime || '00:00'}:00`).toISOString()
-                    : null;
-                const regEnd = settings.registrationCloseDate
-                    ? new Date(`${settings.registrationCloseDate}T${settings.registrationCloseTime || '23:59'}:00`).toISOString()
-                    : null;
-
                 const res = await updateEvent(id, {
-                    // is_published: false, // Don't force unpublish if just saving draft settings, or maybe we should? 
-                    // Usually "Save Draft" implies keeping it as draft.
-                    // But if it's already published, this might be "Save Changes".
-                    // For now, let's assume this page is for publishing, so "Save Draft" means saving progress without publishing.
-                    allow_group_registration: settings.allowGroupRegistration,
-                    allow_waitlist: settings.allowWaitlist,
-                    allow_breakout_sessions: settings.enableBreakoutSession,
-                    is_visible: settings.isVisibleToPublic,
-                    registration_open_at: regStart,
-                    registration_close_at: regEnd
+                    is_published: false
                 });
 
                 if (res.success) {
-                    setToast({ message: 'Draft settings saved!', type: 'success' });
+                    setLocalStatus('Draft');
+                    setToast({ message: 'Event unpublished successfully!', type: 'success' });
+                    // Give the toast a moment to show, then refresh/redirect
+                    setTimeout(() => router.refresh(), 1000);
                 } else {
-                    setToast({ message: `Failed to save draft: ${res.error}`, type: 'error' });
+                    setToast({ message: `Failed to unpublish: ${res.error}`, type: 'error' });
                 }
             } else {
-                setToast({ message: "Draft saved locally!", type: 'success' });
+                setToast({ message: "Mock event unpublished!", type: 'success' });
             }
         } catch (e) {
-            console.error("Failed to save draft", e);
-            setToast({ message: "Failed to save draft.", type: 'error' });
+            console.error("Failed to unpublish", e);
+            setToast({ message: "Failed to unpublish.", type: 'error' });
+        } finally {
+            setIsPublishing(false);
+            setIsUnpublishModalOpen(false);
         }
     };
 
@@ -523,12 +522,15 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
 
             {/* Actions */}
             <div className="flex justify-end gap-3 mt-8">
-                <button
-                    onClick={handleSaveDraft}
-                    className="px-6 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-xl transition-colors shadow-sm"
-                >
-                    Save as Draft
-                </button>
+                {isEventPublished && (
+                    <button
+                        onClick={handleUnpublishClick}
+                        disabled={isPublishing}
+                        className="px-6 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl transition-colors shadow-sm"
+                    >
+                        Unpublish Event
+                    </button>
+                )}
 
                 <button
                     onClick={handlePublish}
@@ -541,12 +543,12 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                     {isPublishing ? (
                         <>
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Publishing...
+                            {isEventPublished ? 'Saving...' : 'Publishing...'}
                         </>
                     ) : (
                         <>
                             <Send size={16} />
-                            Publish Event
+                            {isEventPublished ? 'Save Changes' : 'Publish Event'}
                         </>
                     )}
                 </button>
@@ -559,6 +561,30 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                 eventId={event.id}
                 onGoToDashboard={() => router.push('/events')}
             />
+
+            <Modal
+                isOpen={isUnpublishModalOpen}
+                onClose={() => !isPublishing && setIsUnpublishModalOpen(false)}
+                title="Unpublish Event"
+                subtitle="This action will hide the event from the public."
+                size="sm"
+            >
+                <div className="text-sm border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-900/20 p-4 rounded-r-lg mb-6">
+                    <p className="text-amber-800 dark:text-amber-300">
+                        Are you sure you want to unpublish <strong>{event.name}</strong>? Users will no longer be able to view the landing page or register for this event.
+                    </p>
+                </div>
+
+                <ModalFooter
+                    onCancel={() => setIsUnpublishModalOpen(false)}
+                    cancelText="Keep Published"
+                    onSave={confirmUnpublish}
+                    saveText="Unpublish Event"
+                    isSubmitting={isPublishing}
+                    isDanger={true}
+                    submitType="button"
+                />
+            </Modal>
         </div>
     );
 }

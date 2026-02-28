@@ -6,8 +6,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Search, Filter, Plus, Calendar, List, Grid, MoreVertical, Users, Ticket, MapPin } from 'lucide-react';
 
-import { getEvents } from '@/lib/actions/events';
+import { getEvents, deleteEvent } from '@/lib/actions/events';
 import { buildEventSlug } from '@/lib/slug';
+import Modal, { ModalFooter } from '@/components/admin/Modal';
 
 type FilterOption = 'all' | 'drafts' | 'upcoming' | 'past';
 
@@ -31,6 +32,9 @@ export default function EventsPage() {
     const [searchQuery, setSearchQuery] = useState('');
     const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
     const [isLoading, setIsLoading] = useState(true);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Load events from Supabase
     useEffect(() => {
@@ -76,6 +80,33 @@ export default function EventsPage() {
         };
         fetchEvents();
     }, []);
+
+    const handleDeleteClick = (e: React.MouseEvent, event: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setEventToDelete(event);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (!eventToDelete) return;
+        setIsDeleting(true);
+        try {
+            const res = await deleteEvent(eventToDelete.id as number);
+            if (res.success) {
+                setEvents(events.filter(e => e.id !== eventToDelete.id));
+                setIsDeleteModalOpen(false);
+                setEventToDelete(null);
+            } else {
+                alert(res.error || 'Failed to delete event');
+            }
+        } catch (error) {
+            console.error(error);
+            alert('Failed to delete event');
+        } finally {
+            setIsDeleting(false);
+        }
+    };
 
     const filteredEvents = events.filter(event => {
         const matchesSearch = event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -288,57 +319,58 @@ export default function EventsPage() {
                                     {filteredEvents.map((event) => {
                                         const slug = buildEventSlug(event.name, event.id);
                                         return (
-                                        <Link key={event.id} href={event.analyticsId ? `/events/${slug}/overview` : '#'} className="block">
-                                            <div className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
-                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                        <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg md:text-xl flex-shrink-0">
-                                                            {event.name.charAt(0)}
-                                                        </div>
-                                                        <div className="min-w-0 flex-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <Image
-                                                                    src={getStatusIcon(event.status)}
-                                                                    alt={event.status}
-                                                                    width={16}
-                                                                    height={16}
-                                                                    className="w-4 h-4 md:w-[18px] md:h-[18px]"
-                                                                />
-                                                                <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm md:text-base">{event.name}</h3>
+                                            <Link key={event.id} href={event.analyticsId ? `/events/${slug}/overview` : '#'} className="block">
+                                                <div className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
+                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg md:text-xl flex-shrink-0">
+                                                                {event.name.charAt(0)}
                                                             </div>
-                                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                                                                <span className="flex items-center gap-1">
-                                                                    <MapPin size={12} className="md:w-[14px] md:h-[14px]" /> {event.location}
-                                                                </span>
-                                                                <span className="flex items-center gap-1">
-                                                                    <Calendar size={12} className="md:w-[14px] md:h-[14px]" /> {formatDate(event.date)}
-                                                                </span>
+                                                            <div className="min-w-0 flex-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <Image
+                                                                        src={getStatusIcon(event.status)}
+                                                                        alt={event.status}
+                                                                        width={16}
+                                                                        height={16}
+                                                                        className="w-4 h-4 md:w-[18px] md:h-[18px]"
+                                                                    />
+                                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm md:text-base">{event.name}</h3>
+                                                                </div>
+                                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                                                                    <span className="flex items-center gap-1">
+                                                                        <MapPin size={12} className="md:w-[14px] md:h-[14px]" /> {event.location}
+                                                                    </span>
+                                                                    <span className="flex items-center gap-1">
+                                                                        <Calendar size={12} className="md:w-[14px] md:h-[14px]" /> {formatDate(event.date)}
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                    </div>
 
-                                                    <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 pl-16 md:pl-0">
-                                                        <div className="text-center hidden md:block w-32">
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Tickets</p>
-                                                            <p className="font-semibold text-gray-900 dark:text-white">{event.ticketsSold}/{event.totalTickets}</p>
+                                                        <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 pl-16 md:pl-0">
+                                                            <div className="text-center hidden md:block w-32">
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400">Tickets</p>
+                                                                <p className="font-semibold text-gray-900 dark:text-white">{event.ticketsSold}/{event.totalTickets}</p>
+                                                            </div>
+                                                            <div className="text-center hidden md:block w-24">
+                                                                <p className="text-xs text-gray-500 dark:text-gray-400">Attendees</p>
+                                                                <p className="font-semibold text-gray-900 dark:text-white">{event.attendees}</p>
+                                                            </div>
+                                                            <div className="min-w-[80px] md:w-28 flex justify-center">
+                                                                <span className={`px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium ${getStatusColor(event.status)}`}>
+                                                                    {getDisplayStatus(event.status)}
+                                                                </span>
+                                                            </div>
+                                                            <button onClick={(e) => handleDeleteClick(e, event)} className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors group/delete relative z-10" title="Delete event">
+                                                                <MoreVertical size={18} className="text-gray-400 group-hover/delete:text-red-500 transition-colors" />
+                                                            </button>
                                                         </div>
-                                                        <div className="text-center hidden md:block w-24">
-                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Attendees</p>
-                                                            <p className="font-semibold text-gray-900 dark:text-white">{event.attendees}</p>
-                                                        </div>
-                                                        <div className="min-w-[80px] md:w-28 flex justify-center">
-                                                            <span className={`px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium ${getStatusColor(event.status)}`}>
-                                                                {getDisplayStatus(event.status)}
-                                                            </span>
-                                                        </div>
-                                                        <button onClick={(e) => e.preventDefault()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors">
-                                                            <MoreVertical size={18} className="text-gray-400" />
-                                                        </button>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </Link>
-                                    )})}
+                                            </Link>
+                                        )
+                                    })}
                                 </div>
                             </div>
                         ) : (
@@ -348,60 +380,85 @@ export default function EventsPage() {
                                 {filteredEvents.map((event) => {
                                     const slug = buildEventSlug(event.name, event.id);
                                     return (
-                                    <Link key={event.id} href={event.analyticsId ? `/events/${slug}/overview` : '#'} className="block">
-                                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">
-                                            <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
-                                                {event.image ? (
-                                                    <Image
-                                                        src={event.image}
-                                                        alt={event.name}
-                                                        fill
-                                                        className="object-cover"
-                                                    />
-                                                ) : (
-                                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
-                                                )}
-                                                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
-                                                <span className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-medium z-10 ${getStatusColor(event.status)}`}>
-                                                    {getDisplayStatus(event.status)}
-                                                </span>
-                                            </div>
-                                            <div className="p-5">
-                                                <div className="flex items-center gap-2">
-                                                    <Image
-                                                        src={getStatusIcon(event.status)}
-                                                        alt={event.status}
-                                                        width={18}
-                                                        height={18}
-                                                    />
-                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
+                                        <Link key={event.id} href={event.analyticsId ? `/events/${slug}/overview` : '#'} className="block">
+                                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">
+                                                <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
+                                                    {event.image ? (
+                                                        <Image
+                                                            src={event.image}
+                                                            alt={event.name}
+                                                            fill
+                                                            className="object-cover"
+                                                        />
+                                                    ) : (
+                                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+                                                    )}
+                                                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                                                    <span className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-medium z-10 ${getStatusColor(event.status)}`}>
+                                                        {getDisplayStatus(event.status)}
+                                                    </span>
                                                 </div>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                                                    <MapPin size={14} /> {event.location}
-                                                </p>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                                                    <Calendar size={14} /> {formatDate(event.date)}
-                                                </p>
-                                                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                                                    <div className="flex items-center gap-1 text-sm">
-                                                        <Ticket size={14} className="text-gray-400" />
-                                                        <span className="text-gray-600 dark:text-gray-300">{event.ticketsSold}/{event.totalTickets}</span>
+                                                <div className="p-5">
+                                                    <div className="flex items-center gap-2">
+                                                        <Image
+                                                            src={getStatusIcon(event.status)}
+                                                            alt={event.status}
+                                                            width={18}
+                                                            height={18}
+                                                        />
+                                                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
                                                     </div>
-                                                    <div className="flex items-center gap-1 text-sm">
-                                                        <Users size={14} className="text-gray-400" />
-                                                        <span className="text-gray-600 dark:text-gray-300">{event.attendees} attended</span>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                                        <MapPin size={14} /> {event.location}
+                                                    </p>
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                                        <Calendar size={14} /> {formatDate(event.date)}
+                                                    </p>
+                                                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                                        <div className="flex items-center gap-1 text-sm">
+                                                            <Ticket size={14} className="text-gray-400" />
+                                                            <span className="text-gray-600 dark:text-gray-300">{event.ticketsSold}/{event.totalTickets}</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1 text-sm">
+                                                            <Users size={14} className="text-gray-400" />
+                                                            <span className="text-gray-600 dark:text-gray-300">{event.attendees} attended</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </Link>
-                                )})}
+                                        </Link>
+                                    )
+                                })}
                             </div>
                         )}
 
                     </div>
                 </main>
             </div>
+
+            <Modal
+                isOpen={isDeleteModalOpen}
+                onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
+                title="Delete Event"
+                subtitle="This action cannot be undone."
+                size="sm"
+            >
+                <div className="text-sm border-l-4 border-red-500 bg-red-50 dark:bg-red-900/20 p-4 rounded-r-lg mb-6">
+                    <p className="text-red-700 dark:text-red-400">
+                        Are you sure you want to delete the event <strong>{eventToDelete?.name}</strong>? All associated data will be permanently deleted.
+                    </p>
+                </div>
+
+                <ModalFooter
+                    onCancel={() => setIsDeleteModalOpen(false)}
+                    cancelText="Keep Event"
+                    onSave={confirmDelete}
+                    saveText="Delete Event"
+                    isSubmitting={isDeleting}
+                    isDanger={true}
+                    submitType="button"
+                />
+            </Modal>
         </div>
     );
 }

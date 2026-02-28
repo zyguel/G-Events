@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import RichTextEditor from "./RichTextEditor";
 import { CheckCircle, Mail, Check, X } from "lucide-react";
+import { getOrderConfirmationSettings, saveOrderConfirmationSettings } from "@/lib/actions/orderConfirmation";
 
 interface EmailTemplate {
     subject: string;
@@ -40,20 +41,58 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
         }
     });
 
-    const handleSaveSubmissionMessage = () => {
-        console.log("Saving submission message:", data.submissionMessage);
-        // TODO: API call to save
-        setSavedStates({ ...savedStates, submissionMessage: true });
-        setTimeout(() => setSavedStates({ ...savedStates, submissionMessage: false }), 3000);
+    const [isLoading, setIsLoading] = useState(true);
+
+    // Fetch initial data
+    useEffect(() => {
+        const loadSettings = async () => {
+            try {
+                const fetchedData = await getOrderConfirmationSettings(parseInt(eventId, 10));
+
+                // If data exists, populate the form
+                if (fetchedData) {
+                    setData(fetchedData);
+                }
+            } catch (error) {
+                console.error("Failed to load settings:", error);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        if (eventId) {
+            loadSettings();
+        }
+    }, [eventId]);
+
+    const handleSaveSubmissionMessage = async () => {
+        try {
+            await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
+            setSavedStates({ ...savedStates, submissionMessage: true });
+            setTimeout(() => setSavedStates({ ...savedStates, submissionMessage: false }), 3000);
+        } catch (error) {
+            console.error("Failed to save submission message:", error);
+        }
     };
 
-    const handleSaveEmail = (type: 'submission' | 'confirmation' | 'rejection') => {
-        console.log(`Saving ${type} email:`, data[`${type}Email`]);
-        // TODO: API call to save
-        const key = `${type}Email` as keyof typeof savedStates;
-        setSavedStates({ ...savedStates, [key]: true });
-        setTimeout(() => setSavedStates({ ...savedStates, [key]: false }), 3000);
+    const handleSaveEmail = async (type: 'submission' | 'confirmation' | 'rejection') => {
+        try {
+            await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
+            const key = `${type}Email` as keyof typeof savedStates;
+            setSavedStates({ ...savedStates, [key]: true });
+            setTimeout(() => setSavedStates({ ...savedStates, [key]: false }), 3000);
+        } catch (error) {
+            console.error(`Failed to save ${type} email:`, error);
+        }
     };
+
+    if (isLoading) {
+        return (
+            <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans flex items-center justify-center min-h-[50vh]">
+                <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
+            </div>
+        )
+    }
 
     return (
         <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans">
