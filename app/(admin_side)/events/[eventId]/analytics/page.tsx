@@ -110,7 +110,7 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
                 <AnalyticsHeader
                     events={events}
                     currentEventId={eventId}
-                    data={data}
+                    data={{ ...data, demographics }}
                     title={data.name}
                     description={`Performance analytics for ${data.name} • ${data.date ? new Date(data.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
                 />

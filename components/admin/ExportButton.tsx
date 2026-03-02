@@ -17,6 +17,14 @@ interface ExportableData {
     };
     revenueBreakdown: { name: string; value: number; percentage: number }[];
     recentTransactions: { id: string; user: string; type: string; amount: number; date: string; status: string }[];
+    demographics?: {
+        totalResponses: number;
+        fields: {
+            identifier: string;
+            label: string;
+            distribution: { value: string; count: number }[];
+        }[];
+    };
 }
 
 interface ExportButtonProps {

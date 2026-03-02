@@ -15,6 +15,14 @@ interface ExportData {
     };
     revenueBreakdown: { name: string; value: number; percentage: number }[];
     recentTransactions: { id: string; user: string; type: string; amount: number; date: string; status: string }[];
+    demographics?: {
+        totalResponses: number;
+        fields: {
+            identifier: string;
+            label: string;
+            distribution: { value: string; count: number }[];
+        }[];
+    };
 }
 
 // Helper to trigger file download
@@ -68,6 +76,21 @@ export function exportToCSV(data: ExportData) {
     data.recentTransactions.forEach(tx => {
         csv += `${tx.id},${tx.user},${tx.type},$${tx.amount.toLocaleString()},${tx.date},${tx.status}\n`;
     });
+
+    // Demographics Section
+    if (data.demographics && data.demographics.totalResponses > 0) {
+        csv += 'DEMOGRAPHICS\n';
+        csv += `Total Responses,${data.demographics.totalResponses}\n\n`;
+        for (const field of data.demographics.fields) {
+            csv += `${field.label}\n`;
+            csv += 'Value,Count,Percentage\n';
+            field.distribution.forEach(item => {
+                const pct = Math.round((item.count / data.demographics!.totalResponses) * 100);
+                csv += `${item.value},${item.count},${pct}%\n`;
+            });
+            csv += '\n';
+        }
+    }
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     downloadFile(blob, filename);
@@ -140,6 +163,28 @@ export async function exportToXLSX(data: ExportData) {
 
     txSheet.addRows(txData);
     txSheet.getRow(1).font = { bold: true };
+
+    // Demographics Sheets (one per field)
+    if (data.demographics && data.demographics.totalResponses > 0) {
+        const summarySheet = workbook.addWorksheet('Demographics');
+        summarySheet.columns = [
+            { header: 'Field', key: 'field', width: 22 },
+            { header: 'Value', key: 'value', width: 24 },
+            { header: 'Count', key: 'count', width: 10 },
+            { header: 'Percentage', key: 'pct', width: 14 },
+        ];
+        summarySheet.addRow({ field: 'Total Responses', value: data.demographics.totalResponses, count: '', pct: '' });
+        summarySheet.addRow({});
+        for (const field of data.demographics.fields) {
+            summarySheet.addRow({ field: field.label, value: '', count: '', pct: '' });
+            field.distribution.forEach(item => {
+                const pct = Math.round((item.count / data.demographics!.totalResponses) * 100);
+                summarySheet.addRow({ field: '', value: item.value, count: item.count, pct: `${pct}%` });
+            });
+            summarySheet.addRow({});
+        }
+        summarySheet.getRow(1).font = { bold: true };
+    }
 
     // Generate file
     const buffer = await workbook.xlsx.writeBuffer();
@@ -246,6 +291,51 @@ export function exportToPDF(data: ExportData) {
             4: { cellWidth: 25 },
         },
     });
+
+    // Demographics Section
+    if (data.demographics && data.demographics.totalResponses > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        yPosition = (doc as any).lastAutoTable.finalY + 15;
+
+        if (yPosition > 230) {
+            doc.addPage();
+            yPosition = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.setTextColor(55, 65, 81);
+        doc.text('Demographics', 14, yPosition);
+        doc.setFontSize(10);
+        doc.setTextColor(107, 114, 128);
+        doc.text(`Total Responses: ${data.demographics.totalResponses}`, 14, yPosition + 6);
+        yPosition += 14;
+
+        for (const field of data.demographics.fields) {
+            if (yPosition > 245) {
+                doc.addPage();
+                yPosition = 20;
+            }
+            autoTable(doc, {
+                startY: yPosition,
+                head: [[field.label, 'Count', '%']],
+                body: field.distribution.map(item => [
+                    item.value,
+                    item.count.toString(),
+                    `${Math.round((item.count / data.demographics!.totalResponses) * 100)}%`,
+                ]),
+                theme: 'striped',
+                headStyles: { fillColor: [99, 102, 241] },
+                margin: { left: 14, right: 14 },
+                columnStyles: {
+                    0: { cellWidth: 100 },
+                    1: { cellWidth: 30 },
+                    2: { cellWidth: 30 },
+                },
+            });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            yPosition = (doc as any).lastAutoTable.finalY + 8;
+        }
+    }
 
     doc.save(filename);
 }
