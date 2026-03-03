@@ -8,19 +8,19 @@ import { getEvents } from '@/lib/actions/events';
 import { buildEventSlug } from '@/lib/slug';
 import Link from 'next/link';
 import { Calendar, MapPin, ChevronRight, Clock } from 'lucide-react';
+import { createClient } from '@/lib/supabase-browser';
 
 export default function ClientDashboardPage() {
+    const supabase = React.useMemo(() => createClient(), []);
     const [events, setEvents] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [userName, setUserName] = useState<string>('Guest');
 
     useEffect(() => {
-        // Simulate fetching the authenticated user's name
         const fetchUser = async () => {
-            // In a real app, this would be await supabase.auth.getUser()
-            setTimeout(() => {
-                setUserName("Karylle Bernate");
-            }, 500);
+            const { data } = await supabase.auth.getUser();
+            const metadataName = data.user?.user_metadata?.name as string | undefined;
+            setUserName(metadataName || data.user?.email || 'Guest');
         };
         fetchUser();
 
@@ -67,7 +67,7 @@ export default function ClientDashboardPage() {
         };
 
         loadEvents();
-    }, []);
+    }, [supabase]);
 
     // Get first name for greeting
     const firstName = userName.split(' ')[0];
