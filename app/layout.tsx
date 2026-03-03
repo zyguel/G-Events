@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Figtree } from "next/font/google";
 import "./globals.css";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { Analytics } from "@vercel/analytics/next";
 
 const figtree = Figtree({
   variable: "--font-figtree",
@@ -25,6 +26,7 @@ export default function RootLayout({
         <NotificationProvider>
           {children}
         </NotificationProvider>
+        <Analytics />
       </body>
     </html>
   );
