@@ -45,7 +45,7 @@ export default function ProfilePage() {
                         {/* Profile Header Card */}
                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg">
                             {/* Cover Image */}
-                            <div className="h-32 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 relative">
+                            <div className="h-32 bg-linear-to-r from-indigo-500 via-purple-500 to-pink-500 relative">
                                 <button className="absolute bottom-3 right-3 p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm">
                                     <Camera size={18} className="text-white" />
                                 </button>
@@ -174,7 +174,7 @@ export default function ProfilePage() {
                                         const IconComponent = achievement.icon;
                                         return (
                                             <div key={achievement.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 hover:scale-[1.02] cursor-pointer">
-                                                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${achievement.color} flex items-center justify-center text-white`}>
+                                                <div className={`w-10 h-10 rounded-xl bg-linear-to-br ${achievement.color} flex items-center justify-center text-white`}>
                                                     <IconComponent size={18} />
                                                 </div>
                                                 <div>
@@ -198,7 +198,7 @@ export default function ProfilePage() {
                                 {recentEvents.map((event) => (
                                     <div key={event.id} className="p-5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
+                                            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold">
                                                 {event.name.charAt(0)}
                                             </div>
                                             <div>

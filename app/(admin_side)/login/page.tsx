@@ -35,7 +35,7 @@ export default function LoginPage() {
             title: (
                 <>
                     Experience the <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 animate-gradient-x">
+                    <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-400 via-indigo-400 to-purple-400 animate-gradient-x">
                         Extraordinary
                     </span>
                 </>
@@ -46,7 +46,7 @@ export default function LoginPage() {
             title: (
                 <>
                     Seamlessly <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400 animate-gradient-x">
+                    <span className="text-transparent bg-clip-text bg-linear-to-r from-emerald-400 via-teal-400 to-cyan-400 animate-gradient-x">
                         Connected
                     </span>
                 </>
@@ -57,7 +57,7 @@ export default function LoginPage() {
             title: (
                 <>
                     Powerful <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-pink-500 to-red-500 animate-gradient-x">
+                    <span className="text-transparent bg-clip-text bg-linear-to-r from-orange-400 via-pink-500 to-red-500 animate-gradient-x">
                         Insights
                     </span>
                 </>
@@ -180,9 +180,9 @@ export default function LoginPage() {
     return (
         <div className="h-screen w-full flex flex-col md:flex-row bg-[#020617] font-sans overflow-hidden relative">
             {/* Animated Background Blobs (Global Backdrop) */}
-            <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] animate-pulse" />
-            <div className="absolute bottom-[-20%] right-[40%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] animate-pulse delay-1000" />
-            <div className="absolute top-[30%] left-[20%] w-[400px] h-[400px] bg-indigo-600/20 rounded-full blur-[100px] animate-pulse delay-700" />
+            <div className="absolute top-[-20%] left-[-10%] w-150 h-150 bg-purple-600/20 rounded-full blur-[120px] animate-pulse" />
+            <div className="absolute bottom-[-20%] right-[40%] w-125 h-125 bg-blue-600/20 rounded-full blur-[120px] animate-pulse delay-1000" />
+            <div className="absolute top-[30%] left-[20%] w-100 h-100 bg-indigo-600/20 rounded-full blur-[100px] animate-pulse delay-700" />
 
             {/* Left Side - Branding */}
             <div className="hidden md:flex w-full md:w-[50%] relative flex-col justify-center items-start z-10 p-12 lg:p-20">
@@ -190,7 +190,7 @@ export default function LoginPage() {
                 <div className="relative z-10 w-full">
                     <div className="flex items-center gap-4 mb-8">
                         <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition duration-500"></div>
+                            <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-purple-600 rounded-xl blur opacity-60 group-hover:opacity-100 transition duration-500"></div>
                             <div className="relative bg-slate-900/50 p-3 rounded-xl border border-white/10 backdrop-blur-sm">
                                 <Image
                                     src="/icons/company-logo.svg"
@@ -204,7 +204,7 @@ export default function LoginPage() {
                         <span className="text-3xl font-bold text-white tracking-wide drop-shadow-lg">G Events</span>
                     </div>
 
-                    <div className="min-h-[280px] transition-all duration-500 ease-in-out">
+                    <div className="min-h-70 transition-all duration-500 ease-in-out">
                         <h1 className="text-5xl lg:text-7xl font-bold leading-tight text-white mb-8 drop-shadow-md animate-fade-in transition-opacity duration-500" key={`title-${currentSlide}`}>
                             {slides[currentSlide].title}
                         </h1>
@@ -220,7 +220,7 @@ export default function LoginPage() {
                                 key={index}
                                 onClick={() => setCurrentSlide(index)}
                                 className={`h-2 rounded-full transition-all duration-500 ${currentSlide === index
-                                    ? 'w-24 bg-gradient-to-r from-blue-500 to-indigo-600'
+                                    ? 'w-24 bg-linear-to-r from-blue-500 to-indigo-600'
                                     : 'w-6 bg-white/20 hover:bg-white/40'
                                     }`}
                                 aria-label={`Go to slide ${index + 1}`}
@@ -272,7 +272,7 @@ export default function LoginPage() {
                                     Full Name
                                 </label>
                                 <div className="relative group">
-                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                    <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
                                     <div className="relative bg-white rounded-2xl shadow-sm">
                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
                                             <UserRound size={20} />
@@ -295,7 +295,7 @@ export default function LoginPage() {
                                 Email Address
                             </label>
                             <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
                                 <div className="relative bg-white rounded-2xl shadow-sm">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
                                         <Mail size={20} />
@@ -317,7 +317,7 @@ export default function LoginPage() {
                                 Password
                             </label>
                             <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
                                 <div className="relative bg-white rounded-2xl shadow-sm">
                                     <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
                                         <Lock size={20} />
@@ -347,7 +347,7 @@ export default function LoginPage() {
                                     Confirm Password
                                 </label>
                                 <div className="relative group">
-                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                    <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
                                     <div className="relative bg-white rounded-2xl shadow-sm">
                                         <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
                                             <Lock size={20} />
@@ -376,7 +376,7 @@ export default function LoginPage() {
                                             onChange={() => setRememberMe(!rememberMe)}
                                         />
                                         <div className={`w-5 h-5 border-2 rounded transition-all duration-300 flex items-center justify-center ${rememberMe ? 'bg-blue-600 border-blue-600 scale-105' : 'bg-transparent border-gray-300 group-hover:border-blue-400'}`}>
-                                            {rememberMe && <Check size={12} className="text-white stroke-[4]" />}
+                                            {rememberMe && <Check size={12} className="text-white stroke-4" />}
                                         </div>
                                     </div>
                                     <span className="ml-2.5 text-sm font-medium text-gray-600 group-hover:text-gray-800 transition-colors select-none">Remember Me</span>
@@ -390,13 +390,13 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="w-full group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="w-full group relative overflow-hidden bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             <span className="relative z-10 flex items-center justify-center gap-2">
                                 {isSubmitting ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
                                 {!isSubmitting && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
                             </span>
-                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                            <div className="absolute inset-0 bg-linear-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                         </button>
 
                         <div className="relative my-8">

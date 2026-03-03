@@ -129,12 +129,12 @@ export default function DashboardPage() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div className="bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
+                                <div className="bg-linear-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                     <Link href={nextEvent ? `/events/${buildEventSlug(nextEvent.name, nextEvent.id)}/overview` : '#'}>
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-indigo-100 text-sm font-medium">Next Event</p>
-                                                <h3 className="text-xl font-bold mt-1 truncate max-w-[200px]">{nextEvent?.name || "No Upcoming Events"}</h3>
+                                                <h3 className="text-xl font-bold mt-1 truncate max-w-50">{nextEvent?.name || "No Upcoming Events"}</h3>
                                                 <p className="text-indigo-200 text-sm mt-2">{nextEvent?.date || "--"}</p>
                                             </div>
                                             <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
@@ -144,7 +144,7 @@ export default function DashboardPage() {
                                     </Link>
                                 </div>
 
-                                <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
+                                <div className="bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-emerald-100 text-sm font-medium">Today's Registrations</p>
@@ -157,7 +157,7 @@ export default function DashboardPage() {
                                     </div>
                                 </div>
 
-                                <div className="bg-gradient-to-br from-rose-500 to-rose-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
+                                <div className="bg-linear-to-br from-rose-500 to-rose-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-rose-100 text-sm font-medium">Pending Reviews</p>
@@ -188,7 +188,7 @@ export default function DashboardPage() {
                                             <div key={i} className="p-5">
                                                 <div className="flex items-center justify-between gap-4">
                                                     <div className="flex items-center gap-4 flex-1">
-                                                        <div className="w-12 h-12 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse flex-shrink-0"></div>
+                                                        <div className="w-12 h-12 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse shrink-0"></div>
                                                         <div className="flex-1 space-y-2">
                                                             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded-lg w-32 animate-pulse"></div>
                                                             <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-40 animate-pulse"></div>
@@ -213,7 +213,7 @@ export default function DashboardPage() {
                                     <div className="p-4 space-y-4">
                                         {[...Array(4)].map((_, i) => (
                                             <div key={i} className="flex items-start gap-3 p-3">
-                                                <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse flex-shrink-0"></div>
+                                                <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse shrink-0"></div>
                                                 <div className="flex-1 space-y-2">
                                                     <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-32 animate-pulse"></div>
                                                     <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-lg w-40 animate-pulse"></div>
@@ -256,7 +256,7 @@ export default function DashboardPage() {
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                                                            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
                                                                 {event.name.charAt(0)}
                                                             </div>
                                                             <div>
@@ -269,7 +269,7 @@ export default function DashboardPage() {
                                                         <div className="text-right">
                                                             <p className="text-sm font-semibold text-gray-900 dark:text-white">{event.registrations} registered</p>
                                                             <div className="flex justify-end mt-1">
-                                                                <span className={`inline-flex items-center justify-center min-w-[80px] px-2.5 py-0.5 rounded-full text-xs font-medium ${(event.status === 'Upcoming' || event.status === 'Published') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
+                                                                <span className={`inline-flex items-center justify-center min-w-20 px-2.5 py-0.5 rounded-full text-xs font-medium ${(event.status === 'Upcoming' || event.status === 'Published') ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' :
                                                                     (event.status === 'Completed' || event.status === 'Live') ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' :
                                                                         'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
                                                                     }`}>
@@ -294,7 +294,7 @@ export default function DashboardPage() {
                                         {activities.length > 0 ? (
                                             activities.map((activity: any) => (
                                                 <div key={activity.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 hover:scale-[1.02] cursor-pointer">
-                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center flex-shrink-0">
+                                                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center shrink-0">
                                                         <Bell size={14} className="text-indigo-600 dark:text-indigo-400" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
