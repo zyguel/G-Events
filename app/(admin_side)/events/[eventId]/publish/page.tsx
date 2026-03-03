@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { EventData } from "@/lib/types";
 import PublishEventContent from "@/components/admin/PublishEventContent";
 import { getEventById } from "@/lib/actions/events";
+import { getTickets } from "@/lib/eventManagement";
 
 export default function PublishEventPage() {
     const params = useParams();
@@ -21,11 +22,14 @@ export default function PublishEventPage() {
         const loadEvent = async () => {
             if (!eventId) return;
 
-            // 1. Try fetching from Supabase
             try {
                 const id = parseInt(eventId);
                 if (!isNaN(id)) {
-                    const apiData = await getEventById(id);
+                    // Fetch event and tickets concurrently
+                    const [apiData, ticketsData] = await Promise.all([
+                        getEventById(id),
+                        getTickets(eventId)
+                    ]);
 
                     if (apiData) {
                         // Derive status
@@ -76,6 +80,7 @@ export default function PublishEventPage() {
                         };
 
                         setEventData(reconstructedEvent);
+                        setTickets(ticketsData || []);
                         setLoading(false);
                         return;
                     }

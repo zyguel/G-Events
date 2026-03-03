@@ -599,37 +599,9 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             {/* Page Header */}
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    {(() => {
-                        const getStatusConfig = (status: string) => {
-                            const normalized = status?.toLowerCase() || '';
-                            if (normalized === 'draft') {
-                                return {
-                                    bg: 'from-gray-400 to-gray-500',
-                                    icon: CheckCircle
-                                };
-                            }
-                            if (normalized === 'completed') {
-                                return {
-                                    bg: 'from-emerald-500 to-green-600',
-                                    icon: CheckCircle
-                                };
-                            }
-                            // Default to Blue for "Upcoming" / "Published" / "Not Yet Published" / "Ongoing"
-                            return {
-                                bg: 'from-[#3D518C] to-[#5C6BC0]',
-                                icon: CheckCircle
-                            };
-                        };
-
-                        const config = getStatusConfig(event.status);
-                        const StatusIcon = config.icon;
-
-                        return (
-                            <div className={`w-14 h-14 bg-gradient-to-br ${config.bg} rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300`}>
-                                <StatusIcon className="w-7 h-7 text-white" />
-                            </div>
-                        );
-                    })()}
+                    <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg transition-all duration-300">
+                        <CheckCircle className="w-7 h-7 text-white" />
+                    </div>
 
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
