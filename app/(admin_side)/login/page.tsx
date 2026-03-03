@@ -96,6 +96,7 @@ export default function LoginPage() {
         router.replace(`/login?${query.toString()}`);
     };
 
+
     const handleAuthSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setAuthError('');
@@ -137,7 +138,10 @@ export default function LoginPage() {
             return;
         }
 
-        const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+        let redirectTo = '';
+        if (typeof window !== 'undefined') {
+            redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+        }
         const { error } = await supabase.auth.signUp({
             email,
             password,
@@ -164,7 +168,10 @@ export default function LoginPage() {
     const handleGoogleLogin = async () => {
         setAuthError('');
         setAuthSuccess('');
-        const redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+        let redirectTo = '';
+        if (typeof window !== 'undefined') {
+            redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+        }
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: {
