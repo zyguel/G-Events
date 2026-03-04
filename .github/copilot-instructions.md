@@ -9,13 +9,13 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 **Admin dashboard** uses protected sidebar layout at `app/(admin_side)/`:
 - **`dashboard/`** - Main overview with stats and recent events (client component, `"use client"`)
 - **`events/`** - Event list page and event-specific subroutes
-  - **`[eventId]/layout.tsx`** - Async server layout fetching event via `getEventById()` server action
-  - **`[eventId]/overview/`**, **`analytics/`**, **`checkin/`**, **`email-attendees/`**, **`reports/`**, **`publish/`**, **`tickets/`**, **`breakouts/`**, **`certificates/`**, **`orders/`**, **`waitlist/`** - Feature-specific pages (most marked `"use client"`)
+  - **`[eventId]/layout.tsx`** - Async server layout that parses slug routes (e.g., `event-name-123`) and fetches event data via `getEventById()`
+  - **`[eventId]/overview/`**, **`analytics/`**, **`checkin/`**, **`email-attendees/`**, **`reports/`**, **`publish/`**, **`tickets/`**, **`breakouts/`**, **`certificates/`**, **`orders/`**, **`orderform/`**, **`orderconfirmation/`**, **`waitlist/`** - Feature-specific pages (most marked `"use client"`)
 - **`analytics/all/`** - All-events overview analytics
 - **`management/`**, **`profile/`**, **`settings/`** - Admin configuration pages
 - **`login/`** - Authentication entry point
 
-**Key pattern**: Layouts are server components (can use async, `getEventById()`, `revalidatePath()`), while feature pages are typically client components for interactive UX.
+**Key pattern**: Layouts are server components (can use async data fetching and route guards), while feature pages are typically client components for interactive UX.
 
 ### Data Layer & Server Actions
 - **Database**: Supabase with PostgreSQL schema (`User`, `Event`, `OrganizationRole`, `OrganizationUserRole`, etc.)
@@ -26,7 +26,8 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
   - `createEvent(prevState, formData)` - Server-side form processing with banner upload
   - `updateEvent()`, `deleteEvent()` - Modify events
   - `uploadFileToStorage()` - Upload to Supabase storage bucket
-- **API routes** ([app/api/](app/api/)): REST endpoints for external integrations (e.g., `/api/events`, `/api/management/users`)
+- **Additional server actions**: [lib/actions/orderForm.ts](lib/actions/orderForm.ts), [lib/actions/orderConfirmation.ts](lib/actions/orderConfirmation.ts)
+- **API routes** ([app/api/](app/api/)): REST endpoints for analytics, events, management, notifications, and order forms (e.g., `/api/events`, `/api/management/users`, `/api/orderform`, `/api/orderform/[id]`)
 - **Database utilities** ([lib/db.ts](lib/db.ts)): Low-level Supabase queries (user management, roles, permissions)
 
 ### Component Architecture
@@ -43,7 +44,7 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 
 ### Data Models & Types
 - **[lib/types.ts](lib/types.ts)**: Core types
-  - `EventStatus` enum: "Draft", "Published", "Ongoing", "Completed", "Not Started", "Cancelled"
+  - `EventStatus` union: "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled" | "Draft"
   - `EventData` interface: Event with stats (registrations, revenue, satisfaction), trends (weekly registrations, attendance), revenueBreakdown, recentTransactions
   - `Comment` interface: User feedback with rating and timestamp
 - **[lib/supabase.ts](lib/supabase.ts)**: Database schema types
@@ -86,6 +87,10 @@ Event status is derived from:
 
 Pattern (from [app/(admin_side)/events/[eventId]/layout.tsx](app/%28admin_side%29/events/%5BeventId%5D/layout.tsx)):
 ```typescript
+const idPart = eventId.split("-").pop() ?? "";
+const numericId = parseInt(idPart, 10);
+if (isNaN(numericId)) return notFound();
+
 let status = 'Draft';
 if (data.is_published) {
   if (endDate && endDate < now) status = 'Completed';
@@ -118,10 +123,13 @@ if (data.is_published) {
 - [app/layout.tsx](app/layout.tsx) - Root layout, font setup via `figtree.variable`, NotificationProvider wrapper
 - [app/(admin_side)/events/[eventId]/layout.tsx](app/%28admin_side%29/events/%5BeventId%5D/layout.tsx) - Server-side event data fetching, status derivation
 - [lib/actions/events.ts](lib/actions/events.ts) - Server actions for CRUD, file uploads, data transformations
+- [lib/actions/orderForm.ts](lib/actions/orderForm.ts) - Order form creation and persistence actions
+- [lib/actions/orderConfirmation.ts](lib/actions/orderConfirmation.ts) - Confirmation page actions
 - [lib/supabase.ts](lib/supabase.ts) - Supabase client init, database schema types
 - [lib/types.ts](lib/types.ts) - EventData, EventStatus, Comment types
 - [components/admin/RichTextEditor.tsx](components/admin/RichTextEditor.tsx) - TipTap editor pattern for content editing
 - [components/admin/Sidebar.tsx](components/admin/Sidebar.tsx) - Navigation sidebar with active state indicator
+- [components/admin/EventsSidebar.tsx](components/admin/EventsSidebar.tsx) - Event-specific navigation sidebar
 - [lib/exportUtils.ts](lib/exportUtils.ts) - Export to CSV/XLSX/PDF patterns
 - [contexts/NotificationContext.tsx](contexts/NotificationContext.tsx) - Global notification context usage</content>
 <parameter name="filePath">x:/projects/g-events/G-Events/.github/copilot-instructions.md

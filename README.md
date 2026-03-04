@@ -2,7 +2,7 @@
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen) ![License](https://img.shields.io/badge/license-Proprietary-red) ![Version](https://img.shields.io/badge/version-1.0.0-orange)
 
-**G-Events** is a **[Insert short description: e.g., comprehensive event management system]** designed to facilitate **[Insert main goal]**.
+**G-Events** is a **comprehensive event management dashboard** designed to give organizers full control over every stage of an event — from creation and registration to check-in, analytics, and certificate distribution.
 
 ## 📋 Table of Contents
 * [About the Project](#-about-the-project)
@@ -17,17 +17,34 @@
 
 ## 📖 About the Project
 
-G-Events provides a robust solution for **[Insert problem being solved]**.
+G-Events provides a robust solution for **managing the full lifecycle of events** — from drafting and publishing, through attendee registration and check-in, to post-event analytics and reporting.
 
 **Key Features:**
-* **Feature A:** [Description]
-* **Feature B:** [Description]
-* **Feature C:** [Description]
+* **Event Management:** Create, edit, and publish events with rich-text descriptions, banner images, agendas, themes, and objectives.
+* **Attendee Registration & Order Forms:** Customisable multi-section order forms with field types (short answer, multiple choice, dropdowns, file upload, grids, etc.) and automatic confirmation pages.
+* **Check-In:** Real-time attendee check-in interface for on-the-day operations.
+* **Ticketing & Waitlists:** Manage ticket types, capacity limits, and waitlist queues.
+* **Breakout Sessions:** Optional breakout session management per event.
+* **Email Attendees:** Compose and send targeted emails to registered attendees directly from the dashboard.
+* **Analytics & Reports:** Per-event and cross-event analytics (registrations, revenue, attendance trends, demographics) with export to CSV, Excel (XLSX), and PDF.
+* **Certificates:** Certificate generation and distribution for attendees.
+* **Team Management:** Role-based organisation user management with granular permissions.
+* **Dark / Light Mode:** Full theme support across the entire admin dashboard.
 
 ### Built With
-* [Language/Framework 1]
-* [Database]
-* [Tooling]
+
+| Layer | Technology |
+| :--- | :--- |
+| **Framework** | Next.js (App Router), React 19, TypeScript |
+| **Styling** | Tailwind CSS v4 |
+| **Database / Auth** | Supabase (PostgreSQL + Row-Level Security) |
+| **Rich Text** | TipTap v3 (StarterKit, Underline, Link, Image, TextAlign, Color, FontFamily, FontSize, Placeholder) |
+| **Charts / Data** | Custom Recharts-based components |
+| **Exports** | jsPDF + jspdf-autotable (PDF), ExcelJS (XLSX), native CSV |
+| **Animations** | Framer Motion v12 |
+| **Icons** | Lucide React |
+| **Date Handling** | date-fns v4, react-datepicker, react-time-picker |
+| **Analytics** | Vercel Analytics |
 
 ---
 
@@ -45,8 +62,9 @@ We utilize a strict branching workflow to ensure stability while allowing for ra
 ## 🛠 Getting Started
 
 ### Prerequisites
-* [Software 1] vX.X.X
-* [Software 2]
+* **Node.js** v20 or later
+* **npm** v10 or later
+* A **Supabase** project (free tier is sufficient for development)
 
 ### Installation
 1.  **Clone the repository:**
@@ -59,12 +77,30 @@ We utilize a strict branching workflow to ensure stability while allowing for ra
     ```
 3.  **Install dependencies:**
     ```bash
-    # [npm install / pip install / go mod download]
+    npm install
     ```
-4.  **Run the application:**
+4.  **Configure environment variables:**
+
+    Create a `.env.local` file in the project root:
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+    NEXT_PUBLIC_DEFAULT_ORG_ID=1
+    ```
+5.  **Run the development server:**
     ```bash
-    # [npm start / python main.py]
+    npm run dev
     ```
+    Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Available Scripts
+
+| Command | Description |
+| :--- | :--- |
+| `npm run dev` | Start local development server |
+| `npm run build` | Compile production build |
+| `npm run start` | Serve production build locally |
+| `npm run lint` | Run ESLint checks |
 
 ---
 
@@ -100,6 +136,29 @@ We follow the **Conventional Commits** specification. This allows us to automati
 > ❌ `added login` (Missing type)
 >
 > ❌ `fixed stuff` (Vague)
+
+### ⚡ Safe Commit & Push Helper
+
+A cross-platform Node.js script (`push-nightly.mjs`) is included at the repo root. It works on **macOS and Windows** using the Node.js already required by the project, and mirrors the GitHub Desktop workflow — pulling remote changes before committing, and auto-merging if the remote receives new commits between your pull and push.
+
+```bash
+# Via npm (recommended — works identically on macOS and Windows)
+npm run push -- "feat(events): add certificate expiry field"
+
+# Or directly with Node.js
+node push-nightly.mjs "feat(events): add certificate expiry field"
+
+# Commit only pre-staged files (skip auto git add --all)
+npm run push -- "fix(checkin): resolve null ref" --no-add
+```
+
+The script will:
+1. Ensure you are on the `nightly` branch (switches automatically if not).
+2. Fetch `origin/nightly` to detect any remote-ahead commits.
+3. Merge remote commits into local **before** creating the commit.
+4. Stage and commit with the provided message.
+5. Push to `origin/nightly`.
+6. If the push is rejected (someone else pushed while you were working), automatically merge the new remote commits and retry the push.
 
 ### 🔄 Pull Request Process
 
