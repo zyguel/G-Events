@@ -39,7 +39,7 @@ const Header = () => {
 
         fetchUser();
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: string, session: { user: { user_metadata?: { name?: string; full_name?: string }; email?: string } } | null) => {
             if (session?.user) {
                 const name = session.user.user_metadata?.name
                     || session.user.user_metadata?.full_name
@@ -106,7 +106,7 @@ const Header = () => {
                         title="View profile"
                         className="flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all duration-200 group"
                     >
-                        <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
                             {user ? (
                                 <img
                                     src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`}
