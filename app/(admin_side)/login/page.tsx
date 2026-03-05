@@ -4,10 +4,8 @@ import React, { Suspense, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Check, Mail, Lock, ArrowRight, UserRound } from 'lucide-react';
+import { Eye, EyeOff, Check, Mail, Lock, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
-
-type AuthMode = 'signin' | 'signup';
 
 export default function LoginPage() {
     return (
@@ -22,14 +20,10 @@ function LoginContent() {
     const searchParams = useSearchParams();
     const supabase = useMemo(() => createClient(), []);
 
-    const initialMode = searchParams.get('mode') === 'signup' ? 'signup' : 'signin';
-    const [mode, setMode] = useState<AuthMode>(initialMode);
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
-    const [fullName, setFullName] = useState('');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [authError, setAuthError] = useState('');
     const [authSuccess, setAuthSuccess] = useState('');
@@ -38,7 +32,7 @@ function LoginContent() {
 
     const nextPath = searchParams.get('next')?.startsWith('/') ? searchParams.get('next')! : '/dashboard';
 
-    const slides = [
+    const slides: { title: React.ReactNode; description: string }[] = [
         {
             title: (
                 <>
@@ -82,10 +76,6 @@ function LoginContent() {
     }, []);
 
     React.useEffect(() => {
-        setMode(initialMode);
-    }, [initialMode]);
-
-    React.useEffect(() => {
         const checkSession = async () => {
             const { data } = await supabase.auth.getUser();
             if (data.user) {
@@ -95,17 +85,7 @@ function LoginContent() {
         checkSession();
     }, [supabase, router, nextPath]);
 
-    const switchMode = (newMode: AuthMode) => {
-        setMode(newMode);
-        setAuthError('');
-        setAuthSuccess('');
-        const query = new URLSearchParams(searchParams.toString());
-        query.set('mode', newMode);
-        router.replace(`/login?${query.toString()}`);
-    };
-
-
-    const handleAuthSubmit = async (e: React.FormEvent) => {
+    const handleSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
         setAuthError('');
         setAuthSuccess('');
@@ -115,51 +95,9 @@ function LoginContent() {
             return;
         }
 
-        if (mode === 'signup') {
-            if (!fullName.trim()) {
-                setAuthError('Please provide your full name.');
-                return;
-            }
-
-            if (password !== confirmPassword) {
-                setAuthError('Passwords do not match.');
-                return;
-            }
-        }
-
         setIsSubmitting(true);
 
-        if (mode === 'signin') {
-            const { error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-
-            if (error) {
-                setAuthError(error.message);
-                setIsSubmitting(false);
-                return;
-            }
-
-            router.replace(nextPath);
-            router.refresh();
-            return;
-        }
-
-        let redirectTo = '';
-        if (typeof window !== 'undefined') {
-            redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
-        }
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                emailRedirectTo: redirectTo,
-                data: {
-                    name: fullName,
-                },
-            },
-        });
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
             setAuthError(error.message);
@@ -167,29 +105,21 @@ function LoginContent() {
             return;
         }
 
-        setAuthSuccess('Account created. Please check your email to confirm your account before signing in.');
-        setMode('signin');
-        setConfirmPassword('');
-        setIsSubmitting(false);
+        router.replace(nextPath);
+        router.refresh();
     };
 
     const handleGoogleLogin = async () => {
         setAuthError('');
-        setAuthSuccess('');
         let redirectTo = '';
         if (typeof window !== 'undefined') {
             redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
         }
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
-            options: {
-                redirectTo,
-            },
+            options: { redirectTo },
         });
-
-        if (error) {
-            setAuthError(error.message);
-        }
+        if (error) setAuthError(error.message);
     };
 
     return (
@@ -267,10 +197,10 @@ function LoginContent() {
                     {/* Headers */}
                     <div className="mb-10 text-center md:text-left">
                         <h2 className="text-4xl font-extrabold text-slate-900 mb-2 tracking-tight">
-                            {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
+                            Welcome Back
                         </h2>
                         <p className="text-slate-500 font-medium text-lg">
-                            {mode === 'signin' ? 'Sign in to continue to G Events' : 'Sign up once and use both admin and client portals'}
+                            Sign in to continue to G Events
                         </p>
                     </div>
 
@@ -280,31 +210,7 @@ function LoginContent() {
                         </div>
                     )}
 
-                    <form className="space-y-6" onSubmit={handleAuthSubmit}>
-                        {mode === 'signup' && (
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="fullName">
-                                    Full Name
-                                </label>
-                                <div className="relative group">
-                                    <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-                                    <div className="relative bg-white rounded-2xl shadow-sm">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                            <UserRound size={20} />
-                                        </div>
-                                        <input
-                                            type="text"
-                                            id="fullName"
-                                            value={fullName}
-                                            onChange={(e) => setFullName(e.target.value)}
-                                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-base placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
-                                            placeholder="Jane Doe"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
+                    <form className="space-y-6" onSubmit={handleSignIn}>
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="email">
                                 Email Address
@@ -356,51 +262,26 @@ function LoginContent() {
                             </div>
                         </div>
 
-                        {mode === 'signup' && (
-                            <div>
-                                <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="confirmPassword">
-                                    Confirm Password
-                                </label>
-                                <div className="relative group">
-                                    <div className="absolute inset-0 bg-linear-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-                                    <div className="relative bg-white rounded-2xl shadow-sm">
-                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                            <Lock size={20} />
-                                        </div>
-                                        <input
-                                            type={showPassword ? "text" : "password"}
-                                            id="confirmPassword"
-                                            value={confirmPassword}
-                                            onChange={(e) => setConfirmPassword(e.target.value)}
-                                            className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-base placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
-                                            placeholder="••••••••"
-                                        />
+                        {/* Remember Me + Forgot Password */}
+                        <div className="flex items-center justify-between pt-2">
+                            <label className="flex items-center cursor-pointer group">
+                                <div className="relative">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only"
+                                        checked={rememberMe}
+                                        onChange={() => setRememberMe(!rememberMe)}
+                                    />
+                                    <div className={`w-5 h-5 border-2 rounded transition-all duration-300 flex items-center justify-center ${rememberMe ? 'bg-blue-600 border-blue-600 scale-105' : 'bg-transparent border-gray-300 group-hover:border-blue-400'}`}>
+                                        {rememberMe && <Check size={12} className="text-white stroke-4" />}
                                     </div>
                                 </div>
-                            </div>
-                        )}
-
-                        {mode === 'signin' && (
-                            <div className="flex items-center justify-between pt-2">
-                                <label className="flex items-center cursor-pointer group">
-                                    <div className="relative">
-                                        <input
-                                            type="checkbox"
-                                            className="sr-only"
-                                            checked={rememberMe}
-                                            onChange={() => setRememberMe(!rememberMe)}
-                                        />
-                                        <div className={`w-5 h-5 border-2 rounded transition-all duration-300 flex items-center justify-center ${rememberMe ? 'bg-blue-600 border-blue-600 scale-105' : 'bg-transparent border-gray-300 group-hover:border-blue-400'}`}>
-                                            {rememberMe && <Check size={12} className="text-white stroke-4" />}
-                                        </div>
-                                    </div>
-                                    <span className="ml-2.5 text-sm font-medium text-gray-600 group-hover:text-gray-800 transition-colors select-none">Remember Me</span>
-                                </label>
-                                <Link href="/login" className="text-sm font-semibold text-blue-600 hover:text-indigo-600 transition-colors">
-                                    Forgot Password?
-                                </Link>
-                            </div>
-                        )}
+                                <span className="ml-2.5 text-sm font-medium text-gray-600 group-hover:text-gray-800 transition-colors select-none">Remember Me</span>
+                            </label>
+                            <Link href="/forgot-password" className="text-sm font-semibold text-blue-600 hover:text-indigo-600 transition-colors">
+                                Forgot Password?
+                            </Link>
+                        </div>
 
                         <button
                             type="submit"
@@ -408,7 +289,7 @@ function LoginContent() {
                             className="w-full group relative overflow-hidden bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             <span className="relative z-10 flex items-center justify-center gap-2">
-                                {isSubmitting ? 'Please wait...' : mode === 'signin' ? 'Sign In' : 'Create Account'}
+                                {isSubmitting ? 'Please wait...' : 'Sign In'}
                                 {!isSubmitting && <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />}
                             </span>
                             <div className="absolute inset-0 bg-linear-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -452,14 +333,10 @@ function LoginContent() {
 
                     <div className="text-center mt-8">
                         <p className="text-sm text-gray-500">
-                            {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}
-                            <button
-                                type="button"
-                                onClick={() => switchMode(mode === 'signin' ? 'signup' : 'signin')}
-                                className="font-bold text-blue-600 hover:text-indigo-600 transition-colors"
-                            >
-                                {mode === 'signin' ? 'Sign up now' : 'Sign in'}
-                            </button>
+                            Don&apos;t have an account?{' '}
+                            <Link href="/register" className="font-bold text-blue-600 hover:text-indigo-600 transition-colors">
+                                Sign up now
+                            </Link>
                         </p>
                     </div>
                 </div>

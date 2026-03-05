@@ -4,16 +4,20 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Mail, Lock, Check, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Lock, Check, ArrowLeft, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 
-type Step = 'email' | 'sent';
+type Step = 'reset' | 'success';
 
-export default function ForgotPasswordPage() {
+export default function ResetPasswordPage() {
     const router = useRouter();
     const supabase = useMemo(() => createClient(), []);
-    const [step, setStep] = useState<Step>('email');
-    const [email, setEmail] = useState('');
+
+    const [step, setStep] = useState<Step>('reset');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [showNewPassword, setShowNewPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -55,7 +59,6 @@ export default function ForgotPasswordPage() {
         }
     ];
 
-    // Slide auto-advance
     React.useEffect(() => {
         const timer = setInterval(() => {
             setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -63,34 +66,31 @@ export default function ForgotPasswordPage() {
         return () => clearInterval(timer);
     }, []);
 
-    const handleEmailSubmit = async (e: React.FormEvent) => {
+    const handleResetSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
-        if (!email) return;
 
-        setIsSubmitting(true);
-
-        const redirectTo = typeof window !== 'undefined'
-            ? `${window.location.origin}/auth/callback?next=/reset-password`
-            : '/auth/callback?next=/reset-password';
-
-        const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo,
-        });
-
-        setIsSubmitting(false);
-
-        if (resetError) {
-            setError(resetError.message);
+        if (newPassword.length < 8) {
+            setError('Password must be at least 8 characters.');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            setError("Passwords don't match.");
             return;
         }
 
-        setStep('sent');
-    };
+        setIsSubmitting(true);
 
-    const stepBack = () => {
-        if (step === 'sent') setStep('email');
-        else router.push('/login');
+        const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+
+        setIsSubmitting(false);
+
+        if (updateError) {
+            setError(updateError.message);
+            return;
+        }
+
+        setStep('success');
     };
 
     return (
@@ -145,14 +145,14 @@ export default function ForgotPasswordPage() {
             </div>
 
             {/* Right Side - Form */}
-            <div className="w-full md:w-[50%] bg-white relative z-20 flex flex-col justify-center pt-0 p-6 md:p-10 lg:p-16 items-center transition-all duration-500 ease-in-out shadow-[-50px_0_100px_rgba(0,0,0,0.5)]">
+            <div className="w-full md:w-[50%] bg-white relative z-20 flex flex-col justify-center pt-0 p-6 md:p-10 lg:p-16 items-center transition-all duration-500 ease-in-out shadow-[-50px_0_100px_rgba(0,0,0,0.5)] overflow-hidden">
 
-                {/* Back Arrow — only on email step */}
-                {step === 'email' && (
+                {/* Back Arrow — only on reset step */}
+                {step === 'reset' && (
                     <button
-                        onClick={stepBack}
+                        onClick={() => router.push('/login')}
                         className="absolute top-10 left-10 text-slate-400 hover:text-slate-600 transition-colors p-2 z-50"
-                        aria-label="Go back"
+                        aria-label="Go back to login"
                     >
                         <ArrowLeft size={28} />
                     </button>
@@ -171,8 +171,8 @@ export default function ForgotPasswordPage() {
 
                 <div className="w-full max-w-md mx-auto relative z-10">
 
-                    {/* ── STEP 1: Email ── */}
-                    {step === 'email' && (
+                    {/* ── STEP 1: Set New Password ── */}
+                    {step === 'reset' && (
                         <>
                             {/* Icon */}
                             <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-5 shadow-sm ring-4 ring-white">
@@ -180,36 +180,76 @@ export default function ForgotPasswordPage() {
                             </div>
 
                             <div className="mb-5 text-left">
-                                <h2 className="text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">Forgot Password?</h2>
-                                <p className="text-slate-500 font-medium text-base">Enter your email and we&apos;ll send you a reset link</p>
+                                <h2 className="text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">Set New Password</h2>
+                                <p className="text-slate-500 font-medium text-base">Enter your new password to complete the reset</p>
                             </div>
 
                             {error && (
-                                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                                    {error}
+                                <div className="mb-4 flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                                    <AlertCircle size={16} className="shrink-0" />
+                                    <span>{error}</span>
                                 </div>
                             )}
 
-                            <form className="space-y-4" onSubmit={handleEmailSubmit}>
+                            <form className="space-y-4" onSubmit={handleResetSubmit}>
+                                {/* New Password */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="fp-email">
-                                        Email
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="new-password">
+                                        New Password
                                     </label>
                                     <div className="relative group">
                                         <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
                                         <div className="relative bg-white rounded-2xl shadow-sm">
                                             <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                                <Mail size={20} />
+                                                <Lock size={20} />
                                             </div>
                                             <input
-                                                type="email"
-                                                id="fp-email"
-                                                value={email}
-                                                onChange={(e) => setEmail(e.target.value)}
-                                                className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
-                                                placeholder="your@email.com"
+                                                type={showNewPassword ? 'text' : 'password'}
+                                                id="new-password"
+                                                value={newPassword}
+                                                onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
+                                                className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
+                                                placeholder="Enter new password"
                                                 required
                                             />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowNewPassword(!showNewPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                                            >
+                                                {showNewPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Confirm Password */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="confirm-password">
+                                        Confirm New Password
+                                    </label>
+                                    <div className="relative group">
+                                        <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                        <div className="relative bg-white rounded-2xl shadow-sm">
+                                            <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                                                <Lock size={20} />
+                                            </div>
+                                            <input
+                                                type={showConfirmPassword ? 'text' : 'password'}
+                                                id="confirm-password"
+                                                value={confirmPassword}
+                                                onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
+                                                className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
+                                                placeholder="Confirm new password"
+                                                required
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                                            >
+                                                {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -220,14 +260,14 @@ export default function ForgotPasswordPage() {
                                     className="w-full group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                                 >
                                     <span className="relative z-10 flex items-center justify-center gap-2">
-                                        {isSubmitting ? 'Sending...' : 'Send Reset Link'}
+                                        {isSubmitting ? 'Saving...' : 'Save New Password'}
                                     </span>
                                     <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition duration-300"></div>
                                 </button>
 
-                                <div className="text-center mt-4">
+                                <div className="text-center mt-3">
                                     <p className="text-sm text-gray-500">
-                                        Remember your password?{' '}
+                                        Remember old password?{' '}
                                         <Link href="/login" className="font-bold text-blue-600 hover:text-indigo-600 transition-colors">
                                             Sign in
                                         </Link>
@@ -237,46 +277,30 @@ export default function ForgotPasswordPage() {
                         </>
                     )}
 
-                    {/* ── STEP 2: Email Sent ── */}
-                    {step === 'sent' && (
+                    {/* ── STEP 2: Success ── */}
+                    {step === 'success' && (
                         <div className="flex flex-col items-start text-left animate-fade-in w-full">
                             {/* Success Icon */}
-                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-6 shadow-sm ring-4 ring-white">
-                                <Mail size={28} className="text-blue-500" strokeWidth={1.5} />
+                            <div className="w-16 h-16 bg-[#18a020] rounded-full flex items-center justify-center mb-6 shadow-md shadow-green-500/20">
+                                <Check size={32} className="text-white" strokeWidth={3} />
                             </div>
 
                             <div className="w-full mb-6">
                                 <h2 className="text-3xl font-extrabold text-slate-800 mb-2 tracking-tight leading-snug">
-                                    Check Your Email
+                                    Password Successfully<br />Changed
                                 </h2>
                                 <p className="text-slate-500 font-medium text-base">
-                                    We&apos;ve sent a password reset link to <span className="font-semibold text-slate-700">{email}</span>. Click the link in the email to reset your password.
+                                    Your password has been updated. You can now sign in with your new password.
                                 </p>
                             </div>
 
-                            <div className="w-full p-4 bg-blue-50 rounded-2xl border border-blue-100 mb-6">
-                                <div className="flex items-start gap-3">
-                                    <Check size={18} className="text-blue-500 mt-0.5 shrink-0" strokeWidth={2.5} />
-                                    <p className="text-sm text-blue-700 font-medium">
-                                        Didn&apos;t receive it? Check your spam folder or{' '}
-                                        <button
-                                            type="button"
-                                            onClick={() => setStep('email')}
-                                            className="underline font-semibold hover:text-blue-900 transition-colors"
-                                        >
-                                            try again
-                                        </button>.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <Link
-                                href="/login"
-                                className="w-full text-center group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98]"
+                            <button
+                                onClick={() => router.push('/login')}
+                                className="w-full group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98]"
                             >
-                                <span className="relative z-10 flex items-center justify-center gap-2">Back to Sign In</span>
+                                <span className="relative z-10 flex items-center justify-center gap-2">Go to Sign In</span>
                                 <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition duration-300"></div>
-                            </Link>
+                            </button>
                         </div>
                     )}
 

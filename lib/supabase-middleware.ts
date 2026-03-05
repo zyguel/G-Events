@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_ROUTES = new Set(['/login', '/auth/callback']);
+const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/reset-password', '/auth/callback']);
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

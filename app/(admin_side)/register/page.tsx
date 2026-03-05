@@ -1,11 +1,14 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, EyeOff, Mail, Lock, User, Check } from 'lucide-react';
+import { createClient } from '@/lib/supabase-browser';
 
 export default function RegisterPage() {
+    const supabase = useMemo(() => createClient(), []);
+
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [agreeTerms, setAgreeTerms] = useState(false);
@@ -13,7 +16,9 @@ export default function RegisterPage() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
-
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [authError, setAuthError] = useState('');
+    const [authSuccess, setAuthSuccess] = useState('');
     const [currentSlide, setCurrentSlide] = useState(0);
 
     const slides = [
@@ -59,9 +64,52 @@ export default function RegisterPage() {
         return () => clearInterval(timer);
     }, []);
 
-    const handleRegisterSubmit = (e: React.FormEvent) => {
+    const handleRegisterSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        // Registration logic goes here
+        setAuthError('');
+        setAuthSuccess('');
+
+        if (!fullName.trim()) { setAuthError('Please provide your full name.'); return; }
+        if (!email) { setAuthError('Please provide your email.'); return; }
+        if (password.length < 8) { setAuthError('Password must be at least 8 characters.'); return; }
+        if (password !== confirmPassword) { setAuthError('Passwords do not match.'); return; }
+        if (!agreeTerms) { setAuthError('You must agree to the Terms & Conditions.'); return; }
+
+        setIsSubmitting(true);
+
+        const redirectTo = typeof window !== 'undefined'
+            ? `${window.location.origin}/auth/callback?next=/dashboard`
+            : '/auth/callback?next=/dashboard';
+
+        const { error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+                emailRedirectTo: redirectTo,
+                data: { name: fullName },
+            },
+        });
+
+        setIsSubmitting(false);
+
+        if (error) {
+            setAuthError(error.message);
+            return;
+        }
+
+        setAuthSuccess('Account created! Please check your email to confirm your account before signing in.');
+    };
+
+    const handleGoogleSignUp = async () => {
+        setAuthError('');
+        const redirectTo = typeof window !== 'undefined'
+            ? `${window.location.origin}/auth/callback?next=/dashboard`
+            : '/auth/callback?next=/dashboard';
+        const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: { redirectTo },
+        });
+        if (error) setAuthError(error.message);
     };
 
     return (
@@ -139,6 +187,12 @@ export default function RegisterPage() {
                         <h2 className="text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">Get Started Now</h2>
                         <p className="text-slate-500 font-medium text-base">Let&apos;s create your account</p>
                     </div>
+
+                    {(authError || authSuccess) && (
+                        <div className={`mb-4 rounded-xl border px-4 py-3 text-sm ${authError ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
+                            {authError || authSuccess}
+                        </div>
+                    )}
 
                     <form className="space-y-3" onSubmit={handleRegisterSubmit}>
                         {/* Full Name Input */}
@@ -273,10 +327,11 @@ export default function RegisterPage() {
                         {/* Sign Up Button */}
                         <button
                             type="submit"
-                            className="w-full group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98]"
+                            disabled={isSubmitting}
+                            className="w-full group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             <span className="relative z-10 flex items-center justify-center gap-2">
-                                Sign up
+                                {isSubmitting ? 'Please wait...' : 'Sign up'}
                             </span>
                             <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition duration-300 transition-opacity"></div>
                         </button>
@@ -294,6 +349,7 @@ export default function RegisterPage() {
                         {/* Social Login */}
                         <button
                             type="button"
+                            onClick={handleGoogleSignUp}
                             className="w-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 group"
                         >
                             <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24">
