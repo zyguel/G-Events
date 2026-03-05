@@ -10,10 +10,11 @@ interface TimeInputProps {
     placeholder?: string;
     className?: string;
     required?: boolean;
+    disabled?: boolean;
     openAbove?: boolean; // If true, picker opens above the input
 }
 
-export default function TimeInput({ value, onChange, placeholder, className, required, openAbove = false }: TimeInputProps) {
+export default function TimeInput({ value, onChange, placeholder, className, required, disabled, openAbove = false }: TimeInputProps) {
     const [isOpen, setIsOpen] = useState(false);
 
     const { refs, floatingStyles } = useFloating({
@@ -131,16 +132,17 @@ export default function TimeInput({ value, onChange, placeholder, className, req
     return (
         <div className="relative" ref={refs.setReference}>
             {/* Input - now shows 12-hour format */}
-            <div className="relative">
+            <div className={`relative ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}>
                 <Clock className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3D518C] pointer-events-none" size={16} />
                 <input
                     value={displayValue}
                     readOnly
-                    onClick={() => setIsOpen(true)}
+                    disabled={disabled}
+                    onClick={() => !disabled && setIsOpen(true)}
                     placeholder={placeholder || "Select time"}
-                    className={`w-full pl-10 pr-8 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none shadow-sm cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 transition-all ${className}`}
+                    className={`w-full pl-10 pr-8 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none shadow-sm transition-all ${disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:border-gray-300 dark:hover:border-gray-600'} ${className}`}
                 />
-                {value && (
+                {!disabled && value && (
                     <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); onChange(''); }}

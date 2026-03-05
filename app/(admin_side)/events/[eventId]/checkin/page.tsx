@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import CheckInClient from "./CheckInClient";
+import PermissionGate from "@/components/admin/PermissionGate";
 
 export default async function CheckInPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -46,5 +47,9 @@ export default async function CheckInPage({ params }: { params: Promise<{ eventI
         status: status
     };
 
-    return <CheckInClient event={event} />;
+    return (
+        <PermissionGate permission="Check In Attendees">
+            <CheckInClient event={event} />
+        </PermissionGate>
+    );
 }

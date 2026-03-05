@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import BreakoutsClient from "./BreakoutsClient";
+import PermissionGate from "@/components/admin/PermissionGate";
 
 export default async function BreakoutsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -46,5 +47,9 @@ export default async function BreakoutsPage({ params }: { params: Promise<{ even
         status: status
     };
 
-    return <BreakoutsClient event={event} />;
+    return (
+        <PermissionGate permission="Create Breakout Sessions">
+            <BreakoutsClient event={event} />
+        </PermissionGate>
+    );
 }

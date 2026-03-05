@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EventSummary } from "@/lib/types";
 import { buildEventSlug } from "@/lib/slug";
+import { usePermissions } from "@/contexts/PermissionContext";
 
 interface EventsSidebarProps {
     event: EventSummary;
@@ -13,6 +14,8 @@ interface EventsSidebarProps {
 
 export default function EventsSidebar({ event }: EventsSidebarProps) {
     const pathname = usePathname();
+    const { hasPermission, isAdmin, role, loading } = usePermissions();
+    const permResolved = !loading && role !== '';
     const [eventName, setEventName] = useState(event?.name || '');
     const [eventDate, setEventDate] = useState(event?.date || '');
     const [eventStatus, setEventStatus] = useState(event?.status || 'Draft');
@@ -162,29 +165,27 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                     <div>
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Manage Attendees</h3>
                         <ul className="space-y-1">
-                            {['orders', 'email-attendees', 'checkin', 'certificates', 'waitlist', 'breakouts'].map((page) => (
-                                <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
-                                    <Link
-                                        href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
-                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page)
-                                            ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
-                                        {page === 'orders' && <Users size={16} />}
-                                        {page === 'email-attendees' && <Mail size={16} />}
-                                        {page === 'checkin' && <UserCheck size={16} />}
-                                        {page === 'certificates' && <Award size={16} />}
-                                        {page === 'waitlist' && <Clock size={16} />}
-                                        {page === 'breakouts' && <Presentation size={16} />}
-                                        {page === 'orders' && 'Manage Orders'}
-                                        {page === 'email-attendees' && 'Email to Attendees'}
-                                        {page === 'checkin' && 'Check-In'}
-                                        {page === 'certificates' && 'Certificates'}
-                                        {page === 'waitlist' && 'Manage Waitlist'}
-                                        {page === 'breakouts' && 'Manage Breakout Sessions'}
-                                    </Link>
-                                </li>
-                            ))}
+                            {[
+                                { page: 'orders', icon: <Users size={16} />, label: 'Manage Orders', perm: 'View List of Attendees' },
+                                { page: 'email-attendees', icon: <Mail size={16} />, label: 'Email to Attendees', perm: 'Send Emails' },
+                                { page: 'checkin', icon: <UserCheck size={16} />, label: 'Check-In', perm: 'Check In Attendees' },
+                                { page: 'certificates', icon: <Award size={16} />, label: 'Certificates', perm: 'View E-Certificates' },
+                                { page: 'waitlist', icon: <Clock size={16} />, label: 'Manage Waitlist', perm: 'Manage Waitlist' },
+                                { page: 'breakouts', icon: <Presentation size={16} />, label: 'Manage Breakout Sessions', perm: 'Create Breakout Sessions' },
+                            ].map(({ page, icon, label, perm }) => {
+                                // While loading, show all (fail-open). After load, check permission.
+                                if (permResolved && !isAdmin && !hasPermission(perm)) return null;
+                                return (
+                                    <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
+                                        <Link
+                                            href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
+                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page) ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
+                                            {icon}{label}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </div>
 
@@ -194,21 +195,22 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                     <div>
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Reporting</h3>
                         <ul className="space-y-1">
-                            {['reports', 'analytics'].map((page) => (
-                                <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
-                                    <Link
-                                        href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
-                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page)
-                                            ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
-                                        {page === 'reports' && <FileText size={16} />}
-                                        {page === 'analytics' && <BarChart3 size={16} />}
-                                        {page === 'reports' && 'Event Reports'}
-                                        {page === 'analytics' && 'Analytics'}
-                                    </Link>
-                                </li>
-                            ))}
+                            {[
+                                { page: 'reports', icon: <FileText size={16} />, label: 'Event Reports', perm: 'View Reports' },
+                                { page: 'analytics', icon: <BarChart3 size={16} />, label: 'Analytics', perm: 'View Reports' },
+                            ].map(({ page, icon, label, perm }) => {
+                                if (permResolved && !isAdmin && !hasPermission(perm)) return null;
+                                return (
+                                    <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
+                                        <Link
+                                            href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
+                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page) ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
+                                            {icon}{label}
+                                        </Link>
+                                    </li>
+                                );
+                            })}
                         </ul>
                     </div>
 

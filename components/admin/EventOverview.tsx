@@ -9,6 +9,7 @@ import DateTimeInput from "./DateTimeInput";
 import TimeInput from "./TimeInput";
 import { createEvent, saveAgendaSlot, deleteAgendaSlot } from '@/lib/actions/events';
 import DateInput from "./DateInput";
+import { usePermissions } from "@/contexts/PermissionContext";
 
 // Toast Component
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
@@ -56,6 +57,9 @@ interface EventData {
 }
 
 export default function EventOverview({ initialData }: { initialData: any }) {
+    const { hasPermission, isAdmin } = usePermissions();
+    const canEditAgenda = isAdmin || hasPermission('Manage Event Agenda');
+
     // State
     const [event, setEvent] = useState<EventData>({
         ...initialData,
@@ -865,7 +869,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                             </p>
                         </div>
                     </div>
-                    {event.agenda.length > 0 && (
+                    {event.agenda.length > 0 && canEditAgenda && (
                         <button
                             onClick={() => {
                                 setNewAgenda({});
@@ -906,28 +910,30 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                                                             <span className="truncate max-w-[150px]">{slot.speaker}</span>
                                                         </div>
                                                     )}
-                                                    <div className="flex gap-1 ml-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleEditAgendaItem(slot);
-                                                            }}
-                                                            className="text-gray-400 hover:text-indigo-500 transition-colors p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg"
-                                                            title="Edit Item"
-                                                        >
-                                                            <Pencil size={16} />
-                                                        </button>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleDeleteAgendaSlot(slot.id);
-                                                            }}
-                                                            className="text-gray-400 hover:text-red-500 transition-colors p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg"
-                                                            title="Remove Item"
-                                                        >
-                                                            <X size={16} />
-                                                        </button>
-                                                    </div>
+                                                    {canEditAgenda && (
+                                                        <div className="flex gap-1 ml-2 opacity-0 group-hover/item:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleEditAgendaItem(slot);
+                                                                }}
+                                                                className="text-gray-400 hover:text-indigo-500 transition-colors p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg"
+                                                                title="Edit Item"
+                                                            >
+                                                                <Pencil size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDeleteAgendaSlot(slot.id);
+                                                                }}
+                                                                className="text-gray-400 hover:text-red-500 transition-colors p-1.5 hover:bg-white dark:hover:bg-gray-700 rounded-lg"
+                                                                title="Remove Item"
+                                                            >
+                                                                <X size={16} />
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             {slot.description && (
@@ -944,16 +950,18 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                             </div>
                             <h3 className="text-gray-900 dark:text-white font-medium mb-1">No agenda items</h3>
                             <p className="text-gray-500 text-sm mb-4">Start building your event schedule</p>
-                            <button
-                                onClick={() => {
-                                    setNewAgenda({});
-                                    setEditingAgendaId(null);
-                                    setActiveModal('agenda');
-                                }}
-                                className="text-sm font-semibold text-white bg-[#3D518C] hover:bg-[#2D4178] px-5 py-2.5 rounded-xl transition-colors shadow-sm"
-                            >
-                                + Add First Item
-                            </button>
+                            {canEditAgenda && (
+                                <button
+                                    onClick={() => {
+                                        setNewAgenda({});
+                                        setEditingAgendaId(null);
+                                        setActiveModal('agenda');
+                                    }}
+                                    className="text-sm font-semibold text-white bg-[#3D518C] hover:bg-[#2D4178] px-5 py-2.5 rounded-xl transition-colors shadow-sm"
+                                >
+                                    + Add First Item
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import EmailAttendeesClient from "./EmailAttendeesClient";
+import PermissionGate from "@/components/admin/PermissionGate";
 
 export default async function EmailAttendeesPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -46,5 +47,9 @@ export default async function EmailAttendeesPage({ params }: { params: Promise<{
         status: status
     };
 
-    return <EmailAttendeesClient event={event} />;
+    return (
+        <PermissionGate permission="Send Emails">
+            <EmailAttendeesClient event={event} />
+        </PermissionGate>
+    );
 }

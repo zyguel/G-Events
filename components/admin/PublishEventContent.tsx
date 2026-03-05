@@ -11,6 +11,7 @@ import Modal, { ModalFooter } from "./Modal";
 
 import { EventData } from "@/lib/types";
 import { updateEvent } from "@/lib/actions/events";
+import { usePermissions } from "@/contexts/PermissionContext";
 
 interface TicketData {
     id: string;
@@ -26,6 +27,9 @@ interface TicketData {
 
 export default function PublishEventContent({ event, tickets }: { event: EventData; tickets: any[] }) {
     const router = useRouter();
+    const { hasPermission, isAdmin } = usePermissions();
+    const canManageEventStatus = isAdmin || hasPermission('Manage Event Status');
+
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
     const [isUnpublishModalOpen, setIsUnpublishModalOpen] = useState(false);
@@ -366,6 +370,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         className="hidden"
                                         checked={settings[item.key as keyof typeof settings] as boolean}
                                         onChange={() => handleCheckboxChange(item.key as keyof typeof settings)}
+                                        disabled={!canManageEventStatus}
                                     />
                                 </div>
                                 <span className="font-semibold text-gray-900 dark:text-gray-100">{item.label}</span>
@@ -458,6 +463,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         value={settings.registrationOpenDate ? new Date(settings.registrationOpenDate) : null}
                                         onChange={(date) => setSettings({ ...settings, registrationOpenDate: date ? date.toISOString().split('T')[0] : '' })}
                                         placeholder="Select date"
+                                        disabled={!canManageEventStatus}
                                     />
                                 </div>
                                 <div>
@@ -466,6 +472,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         value={settings.registrationOpenTime}
                                         onChange={(time) => setSettings({ ...settings, registrationOpenTime: time })}
                                         placeholder="Select time"
+                                        disabled={!canManageEventStatus}
                                     />
                                 </div>
                             </div>
@@ -481,6 +488,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         value={settings.registrationCloseDate ? new Date(settings.registrationCloseDate) : null}
                                         onChange={(date) => setSettings({ ...settings, registrationCloseDate: date ? date.toISOString().split('T')[0] : '' })}
                                         placeholder="Select date"
+                                        disabled={!canManageEventStatus}
                                     />
                                 </div>
                                 <div>
@@ -489,6 +497,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         value={settings.registrationCloseTime}
                                         onChange={(time) => setSettings({ ...settings, registrationCloseTime: time })}
                                         placeholder="Select time"
+                                        disabled={!canManageEventStatus}
                                     />
                                 </div>
                             </div>
@@ -510,7 +519,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                             `}>
                                 {settings.isVisibleToPublic && <CheckCircle size={14} />}
                             </div>
-                            <input type="checkbox" className="hidden" checked={settings.isVisibleToPublic} onChange={() => handleCheckboxChange('isVisibleToPublic')} />
+                            <input type="checkbox" className="hidden" checked={settings.isVisibleToPublic} onChange={() => handleCheckboxChange('isVisibleToPublic')} disabled={!canManageEventStatus} />
                             <div>
                                 <span className="text-sm font-semibold text-gray-900 dark:text-white block">Make Event Page Visible to Public</span>
                                 <span className="text-xs text-gray-500">Enable this to make the landing page accessible even if registration hasn't started.</span>
@@ -521,38 +530,40 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
             </section>
 
             {/* Actions */}
-            <div className="flex justify-end gap-3 mt-8">
-                {isEventPublished && (
-                    <button
-                        onClick={handleUnpublishClick}
-                        disabled={isPublishing}
-                        className="px-6 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl transition-colors shadow-sm"
-                    >
-                        Unpublish Event
-                    </button>
-                )}
-
-                <button
-                    onClick={handlePublish}
-                    disabled={isPublishing}
-                    className={`px-6 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md transition-all flex items-center gap-2 ${isPublishing
-                        ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5'
-                        }`}
-                >
-                    {isPublishing ? (
-                        <>
-                            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            {isEventPublished ? 'Saving...' : 'Publishing...'}
-                        </>
-                    ) : (
-                        <>
-                            <Send size={16} />
-                            {isEventPublished ? 'Save Changes' : 'Publish Event'}
-                        </>
+            {canManageEventStatus && (
+                <div className="flex justify-end gap-3 mt-8">
+                    {isEventPublished && (
+                        <button
+                            onClick={handleUnpublishClick}
+                            disabled={isPublishing}
+                            className="px-6 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl transition-colors shadow-sm"
+                        >
+                            Unpublish Event
+                        </button>
                     )}
-                </button>
-            </div>
+
+                    <button
+                        onClick={handlePublish}
+                        disabled={isPublishing}
+                        className={`px-6 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md transition-all flex items-center gap-2 ${isPublishing
+                            ? 'bg-gray-400 cursor-not-allowed'
+                            : 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5'
+                            }`}
+                    >
+                        {isPublishing ? (
+                            <>
+                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                {isEventPublished ? 'Saving...' : 'Publishing...'}
+                            </>
+                        ) : (
+                            <>
+                                <Send size={16} />
+                                {isEventPublished ? 'Save Changes' : 'Publish Event'}
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
 
             <SuccessModal
                 isOpen={showSuccessModal}

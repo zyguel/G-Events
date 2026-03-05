@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import WaitlistClient from "./WaitlistClient";
+import PermissionGate from "@/components/admin/PermissionGate";
 
 export default async function WaitlistPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -46,5 +47,9 @@ export default async function WaitlistPage({ params }: { params: Promise<{ event
         status: status
     };
 
-    return <WaitlistClient event={event} />;
+    return (
+        <PermissionGate permission="Manage Waitlist">
+            <WaitlistClient event={event} />
+        </PermissionGate>
+    );
 }

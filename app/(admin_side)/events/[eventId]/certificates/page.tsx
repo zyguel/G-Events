@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import CertificatesClient from './CertificatesClient';
 import { getEventById } from "@/lib/actions/events";
+import PermissionGate from "@/components/admin/PermissionGate";
 
 interface PageProps {
     params: Promise<{
@@ -52,5 +53,9 @@ export default async function CertificatesPage({ params }: PageProps) {
         status: status,
     };
 
-    return <CertificatesClient event={event} />;
+    return (
+        <PermissionGate permission="View E-Certificates">
+            <CertificatesClient event={event} />
+        </PermissionGate>
+    );
 }

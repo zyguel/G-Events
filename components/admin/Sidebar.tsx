@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 interface SidebarItemProps {
     iconSrc: string;
@@ -62,6 +63,14 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
     };
 
     const indicatorPos = getIndicatorPosition();
+    const { hasPermission, isAdmin, role, loading } = usePermissions();
+
+    // permResolved = true means we know the user's role; apply restrictions
+    // permResolved = false (still loading, or lookup failed) → fail-open (show all)
+    const permResolved = !loading && role !== '';
+    const canViewEvents = !permResolved || isAdmin || hasPermission('Create Event') || hasPermission('Edit Event Details') || hasPermission('View List of Attendees');
+    const canViewAnalytics = !permResolved || isAdmin || hasPermission('View Reports');
+    const canViewManagement = !permResolved || isAdmin;
 
     return (
         <aside
@@ -80,9 +89,15 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
                     />
                 )}
                 <SidebarItem iconSrc="/icons/home.png" alt="Dashboard" href="/dashboard" active={activePage === 'dashboard'} label="Dashboard" isExpanded={isExpanded} />
-                <SidebarItem iconSrc="/icons/calendar.png" alt="Events" href="/events" active={activePage === 'events'} label="Events" isExpanded={isExpanded} />
-                <SidebarItem iconSrc="/icons/bar-chart.png" alt="Analytics" href="/analytics/all" active={activePage === 'analytics'} label="Analytics" isExpanded={isExpanded} />
-                <SidebarItem iconSrc="/icons/team.png" alt="Management" href="/management" active={activePage === 'management'} label="Management" isExpanded={isExpanded} />
+                {canViewEvents && (
+                    <SidebarItem iconSrc="/icons/calendar.png" alt="Events" href="/events" active={activePage === 'events'} label="Events" isExpanded={isExpanded} />
+                )}
+                {canViewAnalytics && (
+                    <SidebarItem iconSrc="/icons/bar-chart.png" alt="Analytics" href="/analytics/all" active={activePage === 'analytics'} label="Analytics" isExpanded={isExpanded} />
+                )}
+                {canViewManagement && (
+                    <SidebarItem iconSrc="/icons/team.png" alt="Management" href="/management" active={activePage === 'management'} label="Management" isExpanded={isExpanded} />
+                )}
             </div>
 
             {/* Bottom navigation items */}

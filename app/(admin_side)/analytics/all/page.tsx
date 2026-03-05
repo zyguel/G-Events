@@ -5,6 +5,7 @@ import StatCard from '@/components/admin/StatCard';
 import DashboardTabs from '@/components/admin/DashboardTabs';
 import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
 import { getEvents, getGeneralAnalytics } from '@/lib/actions/events';
+import PermissionGate from '@/components/admin/PermissionGate';
 
 export default async function AggregatedAnalyticsPage() {
     // Fetch real data in parallel
@@ -61,50 +62,52 @@ export default async function AggregatedAnalyticsPage() {
                 <Sidebar activePage="analytics" />
 
                 <main className="flex-1 ml-20 overflow-y-auto p-4 md:p-8">
-                    <div className="max-w-7xl mx-auto space-y-8">
+                    <PermissionGate permission="View Reports">
+                        <div className="max-w-7xl mx-auto space-y-8">
 
-                        {/* Header Section with Event Selector & Export */}
-                        <AnalyticsHeader
-                            events={events}
-                            currentEventId="all"
-                            data={data}
-                            title="Analytics Overview"
-                            description="Comprehensive performance data across all your events"
-                        />
+                            {/* Header Section with Event Selector & Export */}
+                            <AnalyticsHeader
+                                events={events}
+                                currentEventId="all"
+                                data={data}
+                                title="Analytics Overview"
+                                description="Comprehensive performance data across all your events"
+                            />
 
-                        {/* KPI Cards — real values from DB */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            <StatCard
-                                title="Total Events"
-                                value={formatNumber(analytics.stats.totalEvents)}
-                                growth=""
-                                trend="up"
-                            />
-                            <StatCard
-                                title="Registrations"
-                                value={formatNumber(analytics.stats.registrations)}
-                                growth=""
-                                trend="up"
-                            />
-                            <StatCard
-                                title="Total Revenue"
-                                value={formatCurrency(analytics.stats.revenue)}
-                                growth=""
-                                trend="up"
-                            />
-                            <StatCard
-                                title="Satisfaction"
-                                value={analytics.stats.satisfaction > 0
-                                    ? `${analytics.stats.satisfaction}/5.0`
-                                    : 'N/A'}
-                                growth=""
-                                trend="up"
-                            />
+                            {/* KPI Cards — real values from DB */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                <StatCard
+                                    title="Total Events"
+                                    value={formatNumber(analytics.stats.totalEvents)}
+                                    growth=""
+                                    trend="up"
+                                />
+                                <StatCard
+                                    title="Registrations"
+                                    value={formatNumber(analytics.stats.registrations)}
+                                    growth=""
+                                    trend="up"
+                                />
+                                <StatCard
+                                    title="Total Revenue"
+                                    value={formatCurrency(analytics.stats.revenue)}
+                                    growth=""
+                                    trend="up"
+                                />
+                                <StatCard
+                                    title="Satisfaction"
+                                    value={analytics.stats.satisfaction > 0
+                                        ? `${analytics.stats.satisfaction}/5.0`
+                                        : 'N/A'}
+                                    growth=""
+                                    trend="up"
+                                />
+                            </div>
+
+                            {/* Summary & Trends Section */}
+                            <DashboardTabs data={data} />
                         </div>
-
-                        {/* Summary & Trends Section */}
-                        <DashboardTabs data={data} />
-                    </div>
+                    </PermissionGate>
                 </main>
             </div>
         </div>

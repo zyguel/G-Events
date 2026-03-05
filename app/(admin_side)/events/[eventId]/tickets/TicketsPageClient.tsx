@@ -7,6 +7,7 @@ import AddOnsTab from "./tabs/AddOnsTab";
 import PromoCodesTab from "./tabs/PromoCodesTab";
 import SettingsTab from "./tabs/SettingsTab";
 import { EventSummary } from "@/lib/types";
+import { usePermissions } from "@/contexts/PermissionContext";
 
 interface TicketsPageClientProps {
   event: EventSummary;
@@ -23,6 +24,15 @@ const tabs: { id: Tab; label: string }[] = [
 
 export default function TicketsPageClient({ event }: TicketsPageClientProps) {
   const [activeTab, setActiveTab] = useState<Tab>("admission");
+  const { hasPermission, isAdmin, loading } = usePermissions();
+
+  // Build tab list — hide tabs the user doesn't have permission for
+  const visibleTabs = tabs.filter((tab) => {
+    if (loading || isAdmin) return true; // show all while loading or for admins
+    if (tab.id === "addons") return hasPermission("Manage Ticket Add-Ons");
+    if (tab.id === "promo") return hasPermission("Apply Discounts and Promo Codes");
+    return true; // admission and settings always visible
+  });
 
   const renderTabContent = () => {
     switch (activeTab) {
@@ -59,7 +69,7 @@ export default function TicketsPageClient({ event }: TicketsPageClientProps) {
       {/* Tab Navigation */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className="flex border-b border-gray-200 dark:border-gray-700">
-          {tabs.map((tab) => (
+          {visibleTabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}

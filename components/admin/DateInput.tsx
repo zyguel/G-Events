@@ -10,11 +10,12 @@ interface DateInputProps {
     onChange: (date: Date | null) => void;
     placeholder?: string;
     className?: string;
+    disabled?: boolean;
 }
 
 // Custom input component to match DateTimeInput design
-const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeholder, className }, ref) => (
-    <div className="relative group cursor-pointer w-full" onClick={onClick}>
+const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeholder, className, disabled }, ref) => (
+    <div className={`relative group w-full ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`} onClick={!disabled ? onClick : undefined}>
         <Calendar
             className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3D518C] z-10 pointer-events-none transition-colors"
             size={16}
@@ -23,15 +24,16 @@ const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeho
             ref={ref}
             value={value}
             readOnly
+            disabled={disabled}
             placeholder={placeholder}
-            className={`w-full pl-10 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all shadow-sm cursor-pointer hover:border-gray-300 dark:hover:border-gray-600 ${className}`}
+            className={`w-full pl-10 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all shadow-sm ${disabled ? 'cursor-not-allowed' : 'cursor-pointer hover:border-gray-300 dark:hover:border-gray-600'} ${className}`}
         />
     </div>
 ));
 
 CustomInput.displayName = "CustomInput";
 
-export default function DateInput({ value, onChange, placeholder, className }: DateInputProps) {
+export default function DateInput({ value, onChange, placeholder, className, disabled }: DateInputProps) {
     return (
         <div className="date-input-wrapper">
             <style jsx global>{`
@@ -147,9 +149,10 @@ export default function DateInput({ value, onChange, placeholder, className }: D
             <DatePicker
                 selected={value}
                 onChange={onChange}
+                disabled={disabled}
                 dateFormat="MM/dd/yyyy"
                 placeholderText={placeholder || "Select date"}
-                customInput={<CustomInput className={className} />}
+                customInput={<CustomInput className={className} disabled={disabled} />}
                 calendarClassName="shadow-xl"
                 popperProps={{
                     strategy: "absolute"

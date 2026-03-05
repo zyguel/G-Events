@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Figtree } from "next/font/google";
 import "./globals.css";
 import { NotificationProvider } from "@/contexts/NotificationContext";
+import { PermissionProvider } from "@/contexts/PermissionContext";
 import { Analytics } from "@vercel/analytics/next";
 
 const figtree = Figtree({
@@ -24,7 +25,9 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${figtree.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <NotificationProvider>
-          {children}
+          <PermissionProvider>
+            {children}
+          </PermissionProvider>
         </NotificationProvider>
         <Analytics />
       </body>

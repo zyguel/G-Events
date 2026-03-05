@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { getEventById, getEventReports } from "@/lib/actions/events";
 import ReportsClient from "./ReportsClient";
+import PermissionGate from "@/components/admin/PermissionGate";
 
 export default async function ReportsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -47,5 +48,9 @@ export default async function ReportsPage({ params }: { params: Promise<{ eventI
         status: status
     };
 
-    return <ReportsClient event={event} reports={reports} />;
+    return (
+        <PermissionGate permission="View Reports">
+            <ReportsClient event={event} reports={reports} />
+        </PermissionGate>
+    );
 }

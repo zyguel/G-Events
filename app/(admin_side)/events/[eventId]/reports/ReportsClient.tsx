@@ -9,6 +9,7 @@ import {
 import ExcelJS from 'exceljs';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { usePermissions } from '@/contexts/PermissionContext';
 
 // Types
 interface Registrant {
@@ -396,6 +397,7 @@ interface ReportsClientProps {
 
 export default function EventReportsPage({ event, reports }: ReportsClientProps) {
     const eventId = event.id;
+    const { hasPermission } = usePermissions();
 
     // Validate eventId
     if (!eventId || eventId === 'undefined') {
@@ -606,7 +608,9 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                 </h1>
                             </div>
                         </div>
-                        <ExportDropdown onExport={handleExport} exportedFormat={exportedFormat} />
+                        {hasPermission('Export Order Report') && (
+                            <ExportDropdown onExport={handleExport} exportedFormat={exportedFormat} />
+                        )}
                     </div>
 
                     {/* Tabs */}

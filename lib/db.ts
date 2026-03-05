@@ -40,11 +40,15 @@ export async function inviteUser(
     roleId: number,
     organizationId: number = DEFAULT_ORG_ID
 ): Promise<UserWithRole> {
-    // Check if user already exists
+    // Normalize email to avoid case-mismatch between auth session and stored value
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check if user already exists (case-insensitive)
     const { data: existingUser } = await supabase
         .from('User')
         .select('id')
-        .eq('email', email)
+        .ilike('email', normalizedEmail)
+        .limit(1)
         .single();
 
     let userId: number;
@@ -52,10 +56,10 @@ export async function inviteUser(
     if (existingUser) {
         userId = existingUser.id;
     } else {
-        // Create new user
+        // Create new user — always store lowercase email
         const { data: newUser, error: userError } = await supabase
             .from('User')
-            .insert([{ name, email }])
+            .insert([{ name, email: normalizedEmail }])
             .select()
             .single();
 

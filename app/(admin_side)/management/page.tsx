@@ -4,6 +4,8 @@ import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import Image from 'next/image';
 import { ToastContainer, useToast } from '@/components/admin/Toast';
+import { usePermissions } from '@/contexts/PermissionContext';
+import AccessDenied from '@/components/admin/AccessDenied';
 
 interface TeamMember {
     id: number;
@@ -19,7 +21,28 @@ interface Role {
     name: string;
 }
 
+// Thin guard wrapper — keeps all useState/useEffect hooks inside ManagementPageInner
+// to avoid React Rules of Hooks violations from conditional returns
 export default function ManagementPage() {
+    const { isAdmin, loading } = usePermissions();
+    if (loading) return null;
+    if (!isAdmin) {
+        return (
+            <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+                <Header />
+                <div className="flex flex-1 overflow-hidden">
+                    <Sidebar activePage="management" />
+                    <main className="flex-1 ml-20 overflow-y-auto">
+                        <AccessDenied message="Only administrators can access the Management page." />
+                    </main>
+                </div>
+            </div>
+        );
+    }
+    return <ManagementPageInner />;
+}
+
+function ManagementPageInner() {
     // Toast notifications
     const { toasts, showToast, removeToast } = useToast();
 
@@ -177,7 +200,7 @@ export default function ManagementPage() {
                     return;
                 }
 
-                const response = await fetch(`/backend/management/users/${editingMember.id}`, {
+                const response = await fetch(`/api/management/users/${editingMember.id}`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -217,7 +240,7 @@ export default function ManagementPage() {
     const handleConfirmRemove = async () => {
         if (editingMember) {
             try {
-                const response = await fetch(`/backend/management/users/${editingMember.id}`, {
+                const response = await fetch(`/api/management/users/${editingMember.id}`, {
                     method: 'DELETE',
                 });
 
@@ -320,8 +343,63 @@ export default function ManagementPage() {
     const handleSaveRole = async () => {
         if (newRoleName.trim()) {
             try {
+                // Mapping from UI state keys to database permission names
+                const PERMISSION_MAP: Record<string, Record<string, string>> = {
+                    eventCreation: {
+                        createEvent: 'Create Event',
+                        editEventDetails: 'Edit Event Details',
+                        manageEventStatus: 'Manage Event Status',
+                        manageTickets: 'Manage Tickets',
+                        manageEventAgenda: 'Manage Event Agenda',
+                    },
+                    orderRegistration: {
+                        addAttendee: 'Add Attendee',
+                        editAttendeeDetails: 'Edit Attendee Details',
+                        cancelAttendeeRegistration: 'Cancel Attendee Registration',
+                        viewListOfAttendees: 'View List of Attendees',
+                        checkInAttendees: 'Check In Attendees',
+                        applyDiscountsAndPromoCodes: 'Apply Discounts and Promo Codes',
+                        manageTicketAddOns: 'Manage Ticket Add-Ons',
+                        sendEmails: 'Send Emails',
+                    },
+                    breakoutSession: {
+                        createBreakoutSessions: 'Create Breakout Sessions',
+                        editBreakoutSessions: 'Edit Breakout Sessions',
+                        manageBreakoutSessionAttendance: 'Manage Breakout Session Attendance',
+                    },
+                    waitlistManagement: {
+                        manageWaitlist: 'Manage Waitlist',
+                        viewWaitlistQueue: 'View Waitlist Queue',
+                    },
+                    eCertificate: {
+                        manageCertificateIssuance: 'Manage Certificate Issuance',
+                        viewECertificates: 'View E-Certificates',
+                    },
+                    reporting: {
+                        viewReports: 'View Reports',
+                        exportOrderReport: 'Export Order Report',
+                    },
+                    emailsUserCanReceive: {
+                        newRegistrantEmail: 'New Registrant Email',
+                        waitlistEmail: 'Waitlist Email',
+                        newMessageOrInquiryFromAttendee: 'New Message or Inquiry From Attendee',
+                    }
+                };
+
+                const currentSelectedPermissions: string[] = [];
+                Object.entries(permissions).forEach(([category, perms]) => {
+                    const mapping = PERMISSION_MAP[category];
+                    if (mapping) {
+                        Object.entries(perms).forEach(([key, value]) => {
+                            if (value && mapping[key]) {
+                                currentSelectedPermissions.push(mapping[key]);
+                            }
+                        });
+                    }
+                });
+
                 // Fetch all permissions to convert names to IDs
-                const permResponse = await fetch('/backend/management/permissions');
+                const permResponse = await fetch('/api/management/permissions');
                 const permResult = await permResponse.json();
 
                 let permissionIds: number[] = [];
@@ -329,7 +407,7 @@ export default function ManagementPage() {
                     const allPermissions = permResult.data;
                     // Convert selected permission names to IDs
                     permissionIds = allPermissions
-                        .filter((perm: any) => selectedPermissions.includes(perm.name))
+                        .filter((perm: any) => currentSelectedPermissions.includes(perm.name))
                         .map((perm: any) => perm.id);
                 }
 
