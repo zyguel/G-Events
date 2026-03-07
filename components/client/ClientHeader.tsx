@@ -1,57 +1,243 @@
 "use client";
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { LogOut, Home, Ticket, Settings, ChevronDown, AlertTriangle } from 'lucide-react';
 import ThemeToggle from '../admin/ThemeToggle';
 import NotificationDropdown from '../admin/NotificationDropdown';
+import { createClient } from '@/lib/supabase-browser';
+
+interface UserProfile {
+    name: string;
+    email: string;
+    avatarSeed: string;
+}
 
 const ClientHeader = () => {
+    const router = useRouter();
+    const supabase = React.useMemo(() => createClient(), []);
+
+    const [user, setUser] = useState<UserProfile | null>(null);
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const [showLogoutModal, setShowLogoutModal] = useState(false);
+    const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const name =
+                    user.user_metadata?.name ||
+                    user.user_metadata?.full_name ||
+                    user.email?.split('@')[0] ||
+                    'User';
+                setUser({ name, email: user.email ?? '', avatarSeed: encodeURIComponent(name) });
+            }
+        };
+        fetchUser();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            if (session?.user) {
+                const name =
+                    session.user.user_metadata?.name ||
+                    session.user.user_metadata?.full_name ||
+                    session.user.email?.split('@')[0] ||
+                    'User';
+                setUser({ name, email: session.user.email ?? '', avatarSeed: encodeURIComponent(name) });
+            } else {
+                setUser(null);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, [supabase]);
+
+    // Close dropdown when clicking outside
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const handleLogoutConfirm = async () => {
+        setIsLoggingOut(true);
+        await supabase.auth.signOut();
+        router.replace('/login');
+    };
+
+    const navLinks = [
+        { label: 'Home', href: '/home', icon: Home },
+        { label: 'Tickets', href: '/tickets', icon: Ticket },
+        { label: 'Settings', href: '/settings', icon: Settings },
+    ];
+
     return (
-        <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-gray-800 dark:text-gray-100 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-50 border-b border-gray-200/50 dark:border-gray-700/50 transition-all duration-300">
-            {/* Logo Section */}
-            <div className="flex items-center gap-3">
-                <div className="relative">
-                    <Image
-                        src="/icons/company-logo.svg"
-                        alt="G Events Logo"
-                        width={40}
-                        height={40}
-                        className="drop-shadow-sm"
-                    />
-                </div>
-                <div className="flex flex-col">
-                    <span className="font-bold text-xl tracking-tight text-[#3D518C] dark:text-white leading-none">
-                        G Events
-                    </span>
-                    <span className="hidden md:block text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wider uppercase">
-                        Event Registration
-                    </span>
-                </div>
-            </div>
-
-            {/* Right Side Profile */}
-            <div className="flex items-center gap-4">
-                {/* Theme Toggle */}
-                <ThemeToggle />
-
-                {/* Notification Dropdown */}
-                <NotificationDropdown />
-
-                {/* User Profile */}
-                <div className="flex items-center gap-3 pl-4 border-l border-gray-200 dark:border-gray-700">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 shadow-sm">
-                        <img
-                            src="https://api.dicebear.com/7.x/avataaars/svg?seed=Karylle"
-                            alt="Profile"
-                            className="object-cover w-full h-full"
+        <>
+            <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-gray-800 dark:text-gray-100 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-50 border-b border-gray-200/50 dark:border-gray-700/50 transition-all duration-300">
+                {/* Logo */}
+                <div className="flex items-center gap-3">
+                    <div className="relative">
+                        <Image
+                            src="/icons/company-logo.svg"
+                            alt="G Events Logo"
+                            width={40}
+                            height={40}
+                            className="drop-shadow-sm"
                         />
                     </div>
-                    <div className="hidden md:flex flex-col">
-                        <span className="font-semibold text-sm text-gray-800 dark:text-white leading-tight">Karylle Bernate</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">notestobunny@gmail.com</span>
+                    <div className="flex flex-col">
+                        <span className="font-bold text-xl tracking-tight text-[#3D518C] dark:text-white leading-none">
+                            G Events
+                        </span>
+                        <span className="hidden md:block text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wider uppercase">
+                            Event Registration
+                        </span>
                     </div>
                 </div>
-            </div>
-        </header>
+
+                {/* Right Side */}
+                <div className="flex items-center gap-2">
+                    <ThemeToggle />
+                    <NotificationDropdown />
+
+                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+                    {/* Profile Button with Dropdown */}
+                    <div className="relative" ref={dropdownRef}>
+                        <button
+                            onClick={() => setDropdownOpen((prev) => !prev)}
+                            title="Account menu"
+                            className="flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all duration-200 group"
+                        >
+                            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
+                                {user ? (
+                                    <img
+                                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`}
+                                        alt={user.name}
+                                        className="object-cover w-full h-full"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                                )}
+                            </div>
+                            <div className="hidden md:flex flex-col text-left">
+                                {user ? (
+                                    <>
+                                        <span className="font-semibold text-sm text-gray-800 dark:text-white leading-tight group-hover:text-[#3D518C] dark:group-hover:text-indigo-300 transition-colors">
+                                            {user.name}
+                                        </span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400">{user.email}</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1" />
+                                        <div className="h-2.5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                                    </>
+                                )}
+                            </div>
+                            <ChevronDown
+                                size={14}
+                                className={`hidden md:block text-gray-400 group-hover:text-[#3D518C] dark:group-hover:text-indigo-300 transition-all duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
+                            />
+                        </button>
+
+                        {/* Dropdown Menu */}
+                        {dropdownOpen && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                                {navLinks.map(({ label, href, icon: Icon }) => (
+                                    <Link
+                                        key={href}
+                                        href={href}
+                                        onClick={() => setDropdownOpen(false)}
+                                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#3D518C] dark:hover:text-indigo-300 transition-colors duration-150 mx-1 rounded-xl"
+                                    >
+                                        <Icon size={16} className="shrink-0 text-gray-400" />
+                                        {label}
+                                    </Link>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Sign Out Button */}
+                    <button
+                        onClick={() => setShowLogoutModal(true)}
+                        title="Sign out"
+                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                    >
+                        <LogOut size={17} />
+                        <span className="hidden md:block text-sm font-medium">Sign out</span>
+                    </button>
+                </div>
+            </header>
+
+            {/* Sign Out Confirmation Modal */}
+            {showLogoutModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center">
+                    <div
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+                        onClick={() => !isLoggingOut && setShowLogoutModal(false)}
+                    />
+                    <div className="relative bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 flex flex-col items-center gap-4 animate-in fade-in zoom-in-95 duration-200">
+                        <div className="w-14 h-14 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center">
+                            <AlertTriangle size={28} className="text-red-500" />
+                        </div>
+                        <div className="text-center">
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Sign out?</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                                You'll be logged out of your G Events session.
+                            </p>
+                        </div>
+                        {user && (
+                            <div className="w-full flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
+                                <img
+                                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`}
+                                    alt={user.name}
+                                    className="w-9 h-9 rounded-full shrink-0"
+                                />
+                                <div className="flex flex-col min-w-0">
+                                    <span className="text-sm font-semibold text-gray-800 dark:text-white truncate">{user.name}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</span>
+                                </div>
+                            </div>
+                        )}
+                        <div className="flex gap-3 w-full mt-1">
+                            <button
+                                onClick={() => setShowLogoutModal(false)}
+                                disabled={isLoggingOut}
+                                className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleLogoutConfirm}
+                                disabled={isLoggingOut}
+                                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-sm font-semibold text-white transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isLoggingOut ? (
+                                    <>
+                                        <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                                        Signing out...
+                                    </>
+                                ) : (
+                                    <>
+                                        <LogOut size={15} />
+                                        Yes, sign out
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </>
     );
 };
 

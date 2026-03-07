@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import ClientHeader from '@/components/client/ClientHeader';
-import ClientSidebar from '@/components/client/ClientSidebar';
 import { getEvents } from '@/lib/actions/events';
 import { buildEventSlug } from '@/lib/slug';
 import Link from 'next/link';
@@ -81,9 +80,8 @@ export default function ClientDashboardPage() {
             <ClientHeader />
 
             <div className="flex flex-1 overflow-hidden z-10">
-                <ClientSidebar activePage="dashboard" />
 
-                <main className="flex-1 ml-20 overflow-y-auto w-full">
+                <main className="flex-1 overflow-y-auto w-full">
                     <div className="max-w-6xl mx-auto p-8 md:p-12 lg:p-16">
 
                         {/* Greeting Section */}

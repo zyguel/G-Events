@@ -1,0 +1,341 @@
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
+import {
+    Calendar, MapPin, Clock, Target, Palette,
+    ChevronLeft, ArrowRight, Loader2, AlertTriangle, Ticket, Users, Check
+} from 'lucide-react';
+import ClientHeader from '@/components/client/ClientHeader';
+import { getEventById } from '@/lib/actions/events';
+import { getTickets, Ticket as TicketType } from '@/lib/eventManagement';
+
+interface AgendaSlot {
+    id: number;
+    title: string;
+    description?: string;
+    speaker_name?: string;
+    start_time?: string;
+    end_time?: string;
+}
+
+interface EventDetail {
+    id: number;
+    title: string;
+    description?: string;
+    location?: string;
+    banner_image?: string;
+    event_start_at?: string;
+    event_end_at?: string;
+    theme?: string;
+    objectives?: string[];
+    AgendaSlot?: AgendaSlot[];
+}
+
+function formatDate(iso?: string) {
+    if (!iso) return 'TBD';
+    return new Date(iso).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function formatTime(iso?: string) {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+export default function ClientEventDetailPage() {
+    const params = useParams();
+    const router = useRouter();
+    const slug = params.eventId as string;
+    const eventId = parseInt(slug?.split('-').pop() ?? '');
+
+    const [event, setEvent] = useState<EventDetail | null>(null);
+    const [tickets, setTickets] = useState<TicketType[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (isNaN(eventId)) { setLoading(false); return; }
+        Promise.all([
+            getEventById(eventId),
+            getTickets(String(eventId)),
+        ]).then(([eventData, ticketData]) => {
+            setEvent(eventData ?? null);
+            setTickets(ticketData.filter(t => t.visibility === 'visible'));
+            setLoading(false);
+        }).catch(() => setLoading(false));
+    }, [eventId]);
+
+    if (loading) {
+        return (
+            <div className="flex flex-col h-screen bg-[#F4F7FC] dark:bg-[#0f111a] font-sans">
+                <ClientHeader />
+                <div className="flex flex-1 items-center justify-center">
+                    <Loader2 size={40} className="animate-spin text-blue-500" />
+                </div>
+            </div>
+        );
+    }
+
+    if (!event) {
+        return (
+            <div className="flex flex-col h-screen bg-[#F4F7FC] dark:bg-[#0f111a] font-sans">
+                <ClientHeader />
+                <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center px-6">
+                    <AlertTriangle size={48} className="text-gray-300" />
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Event Not Found</h1>
+                    <p className="text-gray-500 dark:text-gray-400">This event doesn't exist or may have been removed.</p>
+                    <Link href="/home" className="text-sm font-semibold text-blue-600 hover:text-indigo-600 transition-colors flex items-center gap-1">
+                        <ChevronLeft size={16} /> Back to Home
+                    </Link>
+                </div>
+            </div>
+        );
+    }
+
+    const sortedAgenda = [...(event.AgendaSlot ?? [])].sort((a, b) => {
+        if (!a.start_time) return 1;
+        if (!b.start_time) return -1;
+        return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
+    });
+
+    return (
+        <div className="flex flex-col min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
+            {/* Ambient glows */}
+            <div className="fixed top-[-10%] left-[-10%] w-125 h-125 bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0" />
+            <div className="fixed bottom-[-10%] right-[-5%] w-150 h-150 bg-indigo-400/10 dark:bg-purple-600/10 rounded-full blur-[120px] pointer-events-none z-0" />
+
+            <ClientHeader />
+
+            <main className="flex-1 overflow-y-auto relative z-10">
+
+                {/* ── Hero Banner ───────────────────────────────── */}
+                <div className="relative w-full h-72 md:h-96 bg-[#161a2b] overflow-hidden">
+                    {event.banner_image ? (
+                        <Image
+                            src={event.banner_image}
+                            alt={event.title}
+                            fill
+                            className="object-cover opacity-80"
+                            priority
+                        />
+                    ) : (
+                        <div className="absolute inset-0 bg-gradient-to-br from-[#3D518C] via-[#5C6BC0] to-[#1a1c2e] flex items-center justify-center">
+                            <span className="text-8xl font-black text-white/20 select-none">
+                                {event.title.charAt(0)}
+                            </span>
+                        </div>
+                    )}
+                    {/* Gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+
+                    {/* Back button */}
+                    <button
+                        onClick={() => router.back()}
+                        className="absolute top-5 left-5 flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-medium bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl transition-all duration-200"
+                    >
+                        <ChevronLeft size={16} /> Back
+                    </button>
+
+                    {/* Title overlay */}
+                    <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
+                        <h1 className="text-3xl md:text-5xl font-extrabold text-white leading-tight drop-shadow-lg">
+                            {event.title}
+                        </h1>
+                    </div>
+                </div>
+
+                {/* ── Content ───────────────────────────────────── */}
+                <div className="max-w-5xl mx-auto px-4 md:px-8 py-10 space-y-10">
+
+                    {/* Quick Info Row */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="flex items-center gap-3 bg-white dark:bg-gray-800/60 rounded-2xl px-5 py-4 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
+                                <Calendar size={20} className="text-blue-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Date</p>
+                                <p className="text-sm font-semibold text-gray-800 dark:text-white">{formatDate(event.event_start_at)}</p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-white dark:bg-gray-800/60 rounded-2xl px-5 py-4 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
+                                <Clock size={20} className="text-indigo-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Time</p>
+                                <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                                    {event.event_start_at && event.event_end_at
+                                        ? `${formatTime(event.event_start_at)} – ${formatTime(event.event_end_at)}`
+                                        : 'TBD'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-white dark:bg-gray-800/60 rounded-2xl px-5 py-4 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                            <div className="w-10 h-10 rounded-xl bg-rose-50 dark:bg-rose-900/20 flex items-center justify-center shrink-0">
+                                <MapPin size={20} className="text-rose-500" />
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-0.5">Location</p>
+                                <p className="text-sm font-semibold text-gray-800 dark:text-white">{event.location || 'TBD'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Description */}
+                    {event.description && (
+                        <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">About this Event</h2>
+                            <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line">{event.description}</p>
+                        </section>
+                    )}
+
+                    {/* Theme & Objectives */}
+                    {(event.theme || (event.objectives && event.objectives.length > 0)) && (
+                        <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm space-y-6">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white">Overview</h2>
+
+                            {event.theme && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Palette size={16} className="text-indigo-500" />
+                                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Theme</span>
+                                    </div>
+                                    <p className="text-gray-700 dark:text-gray-200 font-medium text-[15px] pl-6">{event.theme}</p>
+                                </div>
+                            )}
+
+                            {event.objectives && event.objectives.length > 0 && (
+                                <div>
+                                    <div className="flex items-center gap-2 mb-3">
+                                        <Target size={16} className="text-blue-500" />
+                                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Objectives</span>
+                                    </div>
+                                    <ul className="space-y-2 pl-6">
+                                        {event.objectives.map((obj, i) => (
+                                            <li key={i} className="flex items-start gap-2.5 text-[15px] text-gray-700 dark:text-gray-200">
+                                                <span className="mt-1.5 w-2 h-2 rounded-full bg-blue-500 shrink-0" />
+                                                {obj}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+                        </section>
+                    )}
+
+                    {/* Agenda */}
+                    {sortedAgenda.length > 0 && (
+                        <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Agenda</h2>
+                            <ol className="relative border-l-2 border-blue-100 dark:border-blue-900/40 space-y-0">
+                                {sortedAgenda.map((slot, i) => (
+                                    <li key={slot.id} className="ml-5 pb-8 last:pb-0 relative">
+                                        {/* Timeline dot */}
+                                        <span className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-blue-500 ring-4 ring-white dark:ring-gray-800 shrink-0" />
+
+                                        <div className="flex flex-col sm:flex-row sm:items-start sm:gap-4">
+                                            {/* Time */}
+                                            {(slot.start_time || slot.end_time) && (
+                                                <span className="text-xs font-bold text-blue-500 dark:text-blue-400 whitespace-nowrap mt-0.5 mb-1 sm:mb-0 sm:w-36 shrink-0">
+                                                    {slot.start_time ? formatTime(slot.start_time) : ''}
+                                                    {slot.end_time ? ` – ${formatTime(slot.end_time)}` : ''}
+                                                </span>
+                                            )}
+                                            <div>
+                                                <p className="font-bold text-gray-900 dark:text-white text-[15px]">{slot.title}</p>
+                                                {slot.speaker_name && (
+                                                    <p className="text-xs text-indigo-500 dark:text-indigo-400 font-semibold mt-0.5">{slot.speaker_name}</p>
+                                                )}
+                                                {slot.description && (
+                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{slot.description}</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ol>
+                        </section>
+                    )}
+
+                    {/* Tickets */}
+                    {tickets.length > 0 && (
+                        <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                            <div className="flex items-center gap-2 mb-6">
+                                <Ticket size={20} className="text-blue-500" />
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Tickets Available</h2>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {tickets.map((ticket) => {
+                                    const isFree = ticket.type === 'free' || !ticket.price || ticket.price === 0;
+                                    const inclusions = ticket.description
+                                        ? ticket.description.split('\n').map(l => l.trim()).filter(Boolean)
+                                        : [];
+                                    return (
+                                        <div
+                                            key={ticket.id}
+                                            className="relative flex flex-col gap-4 rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40 p-5 hover:border-blue-200 dark:hover:border-blue-700/50 hover:shadow-md transition-all duration-200"
+                                        >
+                                            {/* Top row: name + price badge */}
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="font-bold text-gray-900 dark:text-white text-[15px] leading-snug">{ticket.name}</p>
+                                                    <div className="flex items-center gap-1.5 mt-1.5">
+                                                        <Users size={13} className="text-gray-400" />
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400">{ticket.quantity} slots available</span>
+                                                    </div>
+                                                </div>
+                                                <span className={`shrink-0 text-sm font-extrabold px-3 py-1 rounded-full ${isFree
+                                                    ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
+                                                    {isFree ? 'Free' : `₱${Number(ticket.price).toLocaleString()}`}
+                                                </span>
+                                            </div>
+
+                                            {/* Inclusions */}
+                                            {inclusions.length > 0 && (
+                                                <div>
+                                                    <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">What's included</p>
+                                                    <ul className="space-y-1.5">
+                                                        {inclusions.map((line, i) => (
+                                                            <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                                                <span className="mt-0.5 w-4 h-4 rounded-full bg-blue-500/10 dark:bg-blue-500/20 flex items-center justify-center shrink-0">
+                                                                    <Check size={10} className="text-blue-500" />
+                                                                </span>
+                                                                {line}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
+
+                    {/* Register CTA */}
+
+                    <div className="bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-500/20">
+                        <div>
+                            <h3 className="text-2xl font-extrabold text-white mb-1">Ready to Join?</h3>
+                            <p className="text-blue-100/80 text-sm">Secure your spot at <span className="font-semibold text-white">{event.title}</span> today.</p>
+                        </div>
+                        <Link
+                            href={`/events/${slug}/register`}
+                            className="flex items-center gap-2.5 bg-white text-[#3D518C] font-bold px-8 py-3.5 rounded-2xl shadow-lg hover:shadow-xl hover:bg-blue-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+                        >
+                            Register for this Event
+                            <ArrowRight size={18} />
+                        </Link>
+                    </div>
+
+                </div>
+            </main>
+        </div>
+    );
+}

@@ -318,7 +318,7 @@ export default function RegisterPage() {
                                 <span className="ml-2.5 text-[15px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors select-none">
                                     I agree to{" "}
                                     <Link href="#" className="font-semibold text-blue-600 hover:text-indigo-600 hover:underline">
-                                        Term & Condition
+                                        Terms & Conditions
                                     </Link>
                                 </span>
                             </label>
@@ -331,7 +331,7 @@ export default function RegisterPage() {
                             className="w-full group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             <span className="relative z-10 flex items-center justify-center gap-2">
-                                {isSubmitting ? 'Please wait...' : 'Sign up'}
+                                {isSubmitting ? 'Please wait...' : 'Sign Up'}
                             </span>
                             <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition duration-300 transition-opacity"></div>
                         </button>
@@ -370,7 +370,7 @@ export default function RegisterPage() {
                                     fill="#EA4335"
                                 />
                             </svg>
-                            Sign up with Google
+                            Sign Up with Google
                         </button>
                     </form>
 
@@ -379,7 +379,7 @@ export default function RegisterPage() {
                         <p className="text-[15px] text-gray-500">
                             Already have an account?{' '}
                             <Link href="/login" className="font-bold text-blue-600 hover:text-indigo-600 transition-colors">
-                                Sign in
+                                Sign In
                             </Link>
                         </p>
                     </div>

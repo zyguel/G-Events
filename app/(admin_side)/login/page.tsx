@@ -25,7 +25,9 @@ function LoginContent() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [authError, setAuthError] = useState('');
+    const [generalError, setGeneralError] = useState('');
+    const [emailError, setEmailError] = useState('');
+    const [passwordError, setPasswordError] = useState('');
     const [authSuccess, setAuthSuccess] = useState('');
 
     const [currentSlide, setCurrentSlide] = useState(0);
@@ -87,11 +89,21 @@ function LoginContent() {
 
     const handleSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
-        setAuthError('');
+        setGeneralError('');
+        setEmailError('');
+        setPasswordError('');
         setAuthSuccess('');
 
-        if (!email || !password) {
-            setAuthError('Email and password are required.');
+        if (!email && !password) {
+            setGeneralError('Email and password are required.');
+            return;
+        }
+        if (!email) {
+            setEmailError('Email is required.');
+            return;
+        }
+        if (!password) {
+            setPasswordError('Password is required.');
             return;
         }
 
@@ -100,7 +112,13 @@ function LoginContent() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
-            setAuthError(error.message);
+            // Route Supabase errors to the most relevant field
+            const msg = error.message.toLowerCase();
+            if (msg.includes('email') || msg.includes('user not found')) {
+                setEmailError(error.message);
+            } else {
+                setPasswordError(error.message);
+            }
             setIsSubmitting(false);
             return;
         }
@@ -110,7 +128,9 @@ function LoginContent() {
     };
 
     const handleGoogleLogin = async () => {
-        setAuthError('');
+        setGeneralError('');
+        setEmailError('');
+        setPasswordError('');
         let redirectTo = '';
         if (typeof window !== 'undefined') {
             redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
@@ -119,7 +139,7 @@ function LoginContent() {
             provider: 'google',
             options: { redirectTo },
         });
-        if (error) setAuthError(error.message);
+        if (error) setGeneralError(error.message);
     };
 
     return (
@@ -204,13 +224,16 @@ function LoginContent() {
                         </p>
                     </div>
 
-                    {(authError || authSuccess) && (
-                        <div className={`mb-6 rounded-xl border px-4 py-3 text-sm ${authError ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
-                            {authError || authSuccess}
+                    {authSuccess && (
+                        <div className="mb-6 rounded-xl border px-4 py-3 text-sm border-green-200 bg-green-50 text-green-700">
+                            {authSuccess}
                         </div>
                     )}
 
                     <form className="space-y-6" onSubmit={handleSignIn}>
+                        {generalError && (
+                            <p className="text-xs text-red-500 mb-1">{generalError}</p>
+                        )}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="email">
                                 Email Address
@@ -226,11 +249,12 @@ function LoginContent() {
                                         id="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-base placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
+                                        className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
                                         placeholder="your@email.com"
                                     />
                                 </div>
                             </div>
+                            {emailError && <p className="mt-1.5 ml-1 text-xs text-red-500">{emailError}</p>}
                         </div>
 
                         <div>
@@ -248,7 +272,7 @@ function LoginContent() {
                                         id="password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-12 pr-12 py-4 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-base placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
+                                        className="w-full pl-12 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
                                         placeholder="••••••••"
                                     />
                                     <button
@@ -260,6 +284,7 @@ function LoginContent() {
                                     </button>
                                 </div>
                             </div>
+                            {passwordError && <p className="mt-1.5 ml-1 text-xs text-red-500">{passwordError}</p>}
                         </div>
 
                         {/* Remember Me + Forgot Password */}
@@ -286,7 +311,7 @@ function LoginContent() {
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="w-full group relative overflow-hidden bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                            className="w-full group relative overflow-hidden bg-linear-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
                         >
                             <span className="relative z-10 flex items-center justify-center gap-2">
                                 {isSubmitting ? 'Please wait...' : 'Sign In'}
@@ -307,7 +332,7 @@ function LoginContent() {
                         <button
                             type="button"
                             onClick={handleGoogleLogin}
-                            className="w-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 font-semibold py-4 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 group"
+                            className="w-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 group"
                         >
                             <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24">
                                 <path
