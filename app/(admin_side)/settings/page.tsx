@@ -1,20 +1,16 @@
 "use client";
 
-import React, { useState } from 'react';
+import React from 'react';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
-import { User, Bell, Shield, Palette, Globe, CreditCard, ChevronRight } from 'lucide-react';
+import { User, Globe, ChevronRight } from 'lucide-react';
+import { useNotifications } from '@/contexts/NotificationContext';
 
 import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
     const router = useRouter();
-    const [notifications, setNotifications] = useState({
-        email: true,
-        push: true,
-        marketing: false,
-        updates: true,
-    });
+    const { preferences, setPreferences } = useNotifications();
 
     const settingsSections = [
         {
@@ -24,40 +20,14 @@ export default function SettingsPage() {
             icon: User,
             color: 'from-blue-500 to-indigo-600',
         },
-        {
-            id: 'notifications',
-            title: 'Notifications',
-            description: 'Configure how you receive notifications',
-            icon: Bell,
-            color: 'from-amber-500 to-orange-500',
-        },
-        {
-            id: 'privacy',
-            title: 'Privacy & Security',
-            description: 'Manage your privacy and security settings',
-            icon: Shield,
-            color: 'from-emerald-500 to-green-600',
-        },
-        {
-            id: 'appearance',
-            title: 'Appearance',
-            description: 'Customize how the app looks',
-            icon: Palette,
-            color: 'from-purple-500 to-pink-500',
-        },
+
+
         {
             id: 'language',
             title: 'Language & Region',
             description: 'Set your preferred language and region',
             icon: Globe,
             color: 'from-cyan-500 to-blue-500',
-        },
-        {
-            id: 'billing',
-            title: 'Billing & Payments',
-            description: 'Manage your billing information',
-            icon: CreditCard,
-            color: 'from-rose-500 to-red-600',
         },
     ];
 
@@ -125,10 +95,10 @@ export default function SettingsPage() {
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Receive notifications via email</p>
                                     </div>
                                     <button
-                                        onClick={() => setNotifications(prev => ({ ...prev, email: !prev.email }))}
-                                        className={`relative w-12 h-6 rounded-full transition-colors ${notifications.email ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                        onClick={() => setPreferences(prev => ({ ...prev, email: !prev.email }))}
+                                        className={`relative w-12 h-6 rounded-full transition-colors ${preferences.email ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
                                     >
-                                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notifications.email ? 'translate-x-6' : ''}`}></span>
+                                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${preferences.email ? 'translate-x-6' : ''}`}></span>
                                     </button>
                                 </div>
                                 <div className="p-5 flex items-center justify-between">
@@ -137,34 +107,23 @@ export default function SettingsPage() {
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Receive push notifications in browser</p>
                                     </div>
                                     <button
-                                        onClick={() => setNotifications(prev => ({ ...prev, push: !prev.push }))}
-                                        className={`relative w-12 h-6 rounded-full transition-colors ${notifications.push ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                        onClick={() => setPreferences(prev => ({ ...prev, push: !prev.push }))}
+                                        className={`relative w-12 h-6 rounded-full transition-colors ${preferences.push ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
                                     >
-                                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notifications.push ? 'translate-x-6' : ''}`}></span>
+                                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${preferences.push ? 'translate-x-6' : ''}`}></span>
                                     </button>
                                 </div>
-                                <div className="p-5 flex items-center justify-between">
-                                    <div>
-                                        <h4 className="font-medium text-gray-900 dark:text-white">Marketing Emails</h4>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Receive updates about new features</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setNotifications(prev => ({ ...prev, marketing: !prev.marketing }))}
-                                        className={`relative w-12 h-6 rounded-full transition-colors ${notifications.marketing ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
-                                    >
-                                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notifications.marketing ? 'translate-x-6' : ''}`}></span>
-                                    </button>
-                                </div>
+
                                 <div className="p-5 flex items-center justify-between">
                                     <div>
                                         <h4 className="font-medium text-gray-900 dark:text-white">Event Updates</h4>
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Get notified about event changes</p>
                                     </div>
                                     <button
-                                        onClick={() => setNotifications(prev => ({ ...prev, updates: !prev.updates }))}
-                                        className={`relative w-12 h-6 rounded-full transition-colors ${notifications.updates ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+                                        onClick={() => setPreferences(prev => ({ ...prev, updates: !prev.updates }))}
+                                        className={`relative w-12 h-6 rounded-full transition-colors ${preferences.updates ? 'bg-indigo-600' : 'bg-gray-300 dark:bg-gray-600'}`}
                                     >
-                                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${notifications.updates ? 'translate-x-6' : ''}`}></span>
+                                        <span className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${preferences.updates ? 'translate-x-6' : ''}`}></span>
                                     </button>
                                 </div>
                             </div>

@@ -8,7 +8,6 @@ export default function NewEventOverviewPage() {
     const newEventData = {
         id: "new",
         name: "",
-        subtitle: "",
         date: "",
         startTime: "",
         endTime: "",

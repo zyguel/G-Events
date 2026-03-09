@@ -43,7 +43,6 @@ interface AgendaItem {
 interface EventData {
     id: string;
     name: string;
-    subtitle?: string;
     date: string;
     startTime?: string;
     endTime?: string;
@@ -63,7 +62,6 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     // State
     const [event, setEvent] = useState<EventData>({
         ...initialData,
-        subtitle: initialData.subtitle || "",
         startTime: initialData.startTime || "14:00", // 24h format for inputs
         endTime: initialData.endTime || "20:00",
         // Ensure objectives start empty if not provided, or respecting user request to start empty
@@ -101,12 +99,10 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         e.preventDefault();
         const formData = new FormData(e.target as HTMLFormElement);
         const name = formData.get('name') as string;
-        const subtitle = formData.get('subtitle') as string;
 
         const updatedEvent = {
             ...event,
-            name,
-            subtitle
+            name
         };
         setEvent(updatedEvent);
         setActiveModal(null);
@@ -727,9 +723,6 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
                             {event.name || <span className="opacity-50">Event Title</span>}
                         </h1>
-                        <p className="text-lg text-gray-500 dark:text-gray-400 font-medium italic">
-                            {event.subtitle}
-                        </p>
                     </div>
                 </div>
             </section>
@@ -1038,10 +1031,6 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Title</label>
                         <ModalInput name="name" defaultValue={event.name} placeholder="Input event title" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Subtitle</label>
-                        <ModalTextarea name="subtitle" rows={3} defaultValue={event.subtitle} placeholder="Input subtitle" />
                     </div>
                     <ModalFooter onCancel={() => setActiveModal(null)} />
                 </form>

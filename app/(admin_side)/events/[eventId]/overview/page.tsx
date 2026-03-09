@@ -79,7 +79,6 @@ export default function EventOverviewPage() {
                             // Map other fields as necessary
                             objectives: apiData.objectives || [],
                             theme: apiData.theme || '',
-                            subtitle: '', // Not in DB
                             startTime: startDate ? formatTime(startDate) : '',
                             endTime: endDate ? formatTime(endDate) : '',
                             bannerUrl: apiData.banner_image

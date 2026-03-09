@@ -7,7 +7,7 @@ export async function GET() {
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
         const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
 
-        const [regsToday, pendingOrders, upcomingEvents, waitlistEntries] = await Promise.allSettled([
+        const [regsToday, pendingOrders, upcomingEvents, waitlistEntries, updatedEvents] = await Promise.allSettled([
             // 1. Registrations created today
             supabase
                 .from('Registration')
@@ -35,6 +35,13 @@ export async function GET() {
                 .from('WaitlistEntry')
                 .select('id, event_id, Event(title)', { count: 'exact' })
                 .eq('status', 'pending'),
+
+            // 5. Events updated in the last 24 hours
+            supabase
+                .from('Event')
+                .select('id, title, updated_at')
+                .gte('updated_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
+                .order('updated_at', { ascending: false }),
         ]);
 
         const notifications: Array<{
@@ -129,6 +136,21 @@ export async function GET() {
                 message: `${count} attendee${count !== 1 ? 's' : ''} on the waitlist${topEvent ? ` for ${topEvent.name}` : ''}`,
                 timestamp: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
                 read: false,
+            });
+        }
+
+        // Updated events
+        if (updatedEvents.status === 'fulfilled' && (updatedEvents.value.data?.length ?? 0) > 0) {
+            const events: any[] = updatedEvents.value.data!;
+            events.forEach((event: any) => {
+                notifications.push({
+                    id: `event-update-${event.id}-${event.updated_at}`,
+                    type: 'info',
+                    title: 'Event Updated',
+                    message: `Details for ${event.title} were recently modified`,
+                    timestamp: event.updated_at,
+                    read: false,
+                });
             });
         }
 
