@@ -14,18 +14,25 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **`analytics/all/`** - All-events overview analytics
 - **`management/`**, **`profile/`**, **`settings/`** - Admin configuration pages
 - **`login/`** - Authentication entry point
+- **`auth/`** - OAuth callback and auth-related routes
+- **`(client_side)/`** - Public-facing pages (event landing pages, order forms, attendee flows)
 
 **Key pattern**: Layouts are server components (can use async data fetching and route guards), while feature pages are typically client components for interactive UX.
 
 ### Data Layer & Server Actions
 - **Database**: Supabase with PostgreSQL schema (`User`, `Event`, `OrganizationRole`, `OrganizationUserRole`, etc.)
-- **Supabase client**: [lib/supabase.ts](lib/supabase.ts) - Exports `supabase` instance and TypeScript interfaces
+- **Supabase client**:
+  - [lib/supabase.ts](lib/supabase.ts) - Shared Supabase client + schema types used across server + client.
+  - [lib/supabase-server.ts](lib/supabase-server.ts) - Server-only Supabase wrapper used in API routes, server actions, and middleware.
+  - [lib/supabase-browser.ts](lib/supabase-browser.ts) - Browser Supabase instance used in client-side pages and hooks.
+  - [lib/supabase-middleware.ts](lib/supabase-middleware.ts) - Edge middleware for auth/session handling.
 - **Server actions** ([lib/actions/events.ts](lib/actions/events.ts)): Use `'use server'` directive
   - `getEvents()` - Fetch all events for org
   - `getEventById(id)` - Fetch single event (used in layouts)
   - `createEvent(prevState, formData)` - Server-side form processing with banner upload
   - `updateEvent()`, `deleteEvent()` - Modify events
   - `uploadFileToStorage()` - Upload to Supabase storage bucket
+- **Client helper layer**: [lib/eventManagement.ts](lib/eventManagement.ts) and [lib/hooks/useOrderFormSubmit.ts](lib/hooks/useOrderFormSubmit.ts) provide client-side APIs for tickets, add-ons, promo codes, settings, and order form submission flows.
 - **Additional server actions**: [lib/actions/orderForm.ts](lib/actions/orderForm.ts), [lib/actions/orderConfirmation.ts](lib/actions/orderConfirmation.ts)
 - **API routes** ([app/api/](app/api/)): REST endpoints for analytics, events, management, notifications, and order forms (e.g., `/api/events`, `/api/management/users`, `/api/orderform`, `/api/orderform/[id]`)
 - **Database utilities** ([lib/db.ts](lib/db.ts)): Low-level Supabase queries (user management, roles, permissions)
@@ -37,6 +44,8 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **Data Display**: `DashboardTabs.tsx`, `RegistrationChart.tsx`, `TopPerformingEvents.tsx`, `StatCard.tsx`
 - **Modals**: `Modal.tsx`, `SuccessModal.tsx`, `EditorModals.tsx` (Link/Image insertion for rich text)
 - **Utilities**: `ExportButton.tsx` (CSV/PDF/Excel export), `NotificationDropdown.tsx`, `EventSelector.tsx`
+- **Authorization helpers**: `PermissionGate.tsx` (component guard), `contexts/PermissionContext.tsx` (permission state + helpers), `AccessDenied.tsx` (fallback UI)
+- **Public/client components**: `components/client/ClientHeader.tsx`, `components/client/ClientSidebar.tsx`, `components/public/OrderFormDisplay.tsx` for attendee-facing pages.
 
 **Event-specific client components** ([app/(admin_side)/events/[eventId]/*/](app/%28admin_side%29/events/%5BeventId%5D/)):
 - Pages like `TicketsClient.tsx`, `CheckInClient.tsx`, `EmailAttendeesClient.tsx` handle user interactions
