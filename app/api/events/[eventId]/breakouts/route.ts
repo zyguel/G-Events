@@ -155,6 +155,8 @@ export async function POST(
         const description = buildDescription(session);
         const speakerName = session.speakers.map(s => s.name.trim()).join(", ");
 
+        const supabase = await createClient();
+
         const { data, error } = await supabase
             .from("BreakoutSession")
             .insert([
