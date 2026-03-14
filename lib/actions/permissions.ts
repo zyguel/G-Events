@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase-server'
 
 export interface UserPermissions {
     role: string
@@ -24,6 +24,7 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
     if (!email) return EMPTY
 
     try {
+        const supabase = await createClient();
         console.log('[Permissions] Looking up permissions for:', email)
 
         // ── Step 1: Find the User row ─────────────────────────────────────────

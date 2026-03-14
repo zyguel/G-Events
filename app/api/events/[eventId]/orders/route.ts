@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 
 type UiStatus = "Confirmed" | "Pending" | "Rejected";
 
@@ -23,6 +23,8 @@ export async function GET(
                 { status: 400 }
             );
         }
+
+        const supabase = await createClient();
 
         // 1. Fetch registrations for the event with joined User and Ticket
         const { data: regRows, error: regErr } = await supabase

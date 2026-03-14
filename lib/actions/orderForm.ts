@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 import { OrderFormData, OrderFormEntry } from "@/lib/types"
 
@@ -33,6 +33,8 @@ export async function saveOrderForm(
     formData: OrderFormData,
     formId?: number
 ): Promise<SaveOrderFormState> {
+    const supabase = await createClient();
+
     try {
         if (formId) {
             // Update existing form
@@ -101,6 +103,8 @@ export async function saveOrderForm(
  * Get order form by ID
  */
 export async function getOrderFormById(formId: number) {
+    const supabase = await createClient();
+
     try {
         const { data, error } = await supabase
             .from('OrderForm')
@@ -127,6 +131,8 @@ export async function getOrderFormById(formId: number) {
  * Get all order forms for an event
  */
 export async function getOrderFormsByEvent(eventId: number) {
+    const supabase = await createClient();
+
     try {
         const { data, error } = await supabase
             .from('OrderForm')
@@ -153,6 +159,8 @@ export async function getOrderFormsByEvent(eventId: number) {
  * Delete order form
  */
 export async function deleteOrderForm(formId: number, eventId: number) {
+    const supabase = await createClient();
+
     try {
         const { error } = await supabase
             .from('OrderForm')
@@ -194,6 +202,8 @@ export async function saveOrderFormEntry(
     userEmail?: string,
     registrationId?: number
 ): Promise<SaveOrderFormEntryState> {
+    const supabase = await createClient();
+
     try {
         const { data, error } = await supabase
             .from('OrderFormEntries')
@@ -235,6 +245,8 @@ export async function saveOrderFormEntry(
  * Get all order form entries for an event
  */
 export async function getOrderFormEntriesByEvent(eventId: number) {
+    const supabase = await createClient();
+
     try {
         const { data, error } = await supabase
             .from('OrderFormEntries')
@@ -261,6 +273,8 @@ export async function getOrderFormEntriesByEvent(eventId: number) {
  * Get order form entries for a specific order form
  */
 export async function getOrderFormEntriesByForm(orderFormId: number) {
+    const supabase = await createClient();
+
     try {
         const { data, error } = await supabase
             .from('OrderFormEntries')
@@ -287,6 +301,8 @@ export async function getOrderFormEntriesByForm(orderFormId: number) {
  * Get a single order form entry
  */
 export async function getOrderFormEntry(entryId: number) {
+    const supabase = await createClient();
+
     try {
         const { data, error } = await supabase
             .from('OrderFormEntries')
@@ -313,6 +329,8 @@ export async function getOrderFormEntry(entryId: number) {
  * Delete an order form entry
  */
 export async function deleteOrderFormEntry(entryId: number, eventId: number) {
+    const supabase = await createClient();
+
     try {
         const { error } = await supabase
             .from('OrderFormEntries')
@@ -343,6 +361,8 @@ export async function deleteOrderFormEntry(entryId: number, eventId: number) {
  * Export order form entries as CSV
  */
 export async function generateOrderFormEntriesCSV(orderFormId: number) {
+    const supabase = await createClient();
+
     try {
         const { data, error } = await supabase
             .from('OrderFormEntries')

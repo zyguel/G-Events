@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-server';
 
 /**
  * GET /api/orderform?eventId=1
@@ -16,6 +16,7 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        const supabase = await createClient();
         const { data, error } = await supabase
             .from('OrderForm')
             .select('*')
@@ -58,6 +59,8 @@ export async function POST(request: NextRequest) {
 
         // Enforce a single OrderForm per event:
         // if a form already exists for this event, update it instead of creating a new one
+        const supabase = await createClient();
+
         const { data: existingForms, error: existingError } = await supabase
             .from('OrderForm')
             .select('*')

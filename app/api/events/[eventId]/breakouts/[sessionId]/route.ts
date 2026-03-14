@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
 
 type UiType = "Online" | "In-Person";
@@ -111,6 +111,7 @@ export async function PATCH(
         const description = buildDescription(session);
         const speakerName = session.speakers.map(s => s.name.trim()).join(", ");
 
+        const supabase = await createClient();
         const { data, error } = await supabase
             .from("BreakoutSession")
             .update({
@@ -164,6 +165,7 @@ export async function DELETE(
             );
         }
 
+        const supabase = await createClient();
         const { error } = await supabase
             .from("BreakoutSession")
             .delete()

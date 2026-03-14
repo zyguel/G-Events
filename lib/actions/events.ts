@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 
 export interface CreateEventState {
@@ -11,7 +11,7 @@ export interface CreateEventState {
 }
 
 // Helper for uploading
-async function uploadFileToStorage(file: File, bucket: string = 'events') {
+async function uploadFileToStorage(supabase: Awaited<ReturnType<typeof createClient>>, file: File, bucket: string = 'events') {
     const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`
     const { data, error } = await supabase.storage
         .from(bucket)
@@ -32,12 +32,14 @@ async function uploadFileToStorage(file: File, bucket: string = 'events') {
 export async function createEvent(prevState: CreateEventState, formData: FormData): Promise<CreateEventState> {
     let bannerUrl = null;
 
+    const supabase = await createClient();
+
     // Handle Banner Upload
     const bannerFile = formData.get('bannerFile') as File;
     if (bannerFile && bannerFile.size > 0) {
         try {
             console.log('Uploading banner for new event...');
-            bannerUrl = await uploadFileToStorage(bannerFile);
+            bannerUrl = await uploadFileToStorage(supabase, bannerFile);
         } catch (e) {
             console.error('Failed to upload banner during create:', e);
             // We continue creating the event even if banner fails, or we could return error.
@@ -119,6 +121,8 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
 }
 
 export async function getEvents() {
+    const supabase = await createClient();
+
     try {
         const { data, error } = await supabase
             .from('Event')
@@ -152,6 +156,8 @@ export async function getEvents() {
 
 export async function getEventById(id: number) {
     console.log('SERVER ACTION: getEventById called with ID:', id);
+    const supabase = await createClient();
+
     try {
         const query = supabase
             .from('Event')
@@ -194,6 +200,8 @@ export async function getEventById(id: number) {
 }
 
 export async function updateEvent(id: number, data: Partial<any>) {
+    const supabase = await createClient();
+
     try {
         const { error } = await supabase
             .from('Event')
@@ -215,13 +223,15 @@ export async function updateEvent(id: number, data: Partial<any>) {
 }
 
 export async function uploadEventBanner(formData: FormData) {
+    const supabase = await createClient();
+
     try {
         const file = formData.get('file') as File
         if (!file) {
             return { success: false, error: 'No file provided' }
         }
 
-        const publicUrl = await uploadFileToStorage(file)
+        const publicUrl = await uploadFileToStorage(supabase, file)
         return { success: true, url: publicUrl }
     } catch (e: any) {
         console.error('Unexpected error uploading banner:', e)
@@ -230,6 +240,8 @@ export async function uploadEventBanner(formData: FormData) {
 }
 
 export async function saveAgendaSlot(event_id: number, slot: { id?: string, title: string, description?: string, speaker?: string, startTime: string, endTime: string }) {
+    const supabase = await createClient();
+
     try {
         const payload: any = {
             event_id,
@@ -287,6 +299,8 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
 }
 
 export async function deleteAgendaSlot(id: string) {
+    const supabase = await createClient();
+
     try {
         if (!id || isNaN(parseInt(id))) return { success: true }; // Local only item
 
@@ -305,6 +319,8 @@ export async function deleteAgendaSlot(id: string) {
 }
 
 export async function getEventAnalytics(eventId: number) {
+    const supabase = await createClient();
+
     // Run all independent queries in parallel, each with its own error handling
     const [
         registrationCountResult,
@@ -537,6 +553,8 @@ function formatRelativeTime(isoString: string): string {
 // ─── General (All-Events) Analytics ──────────────────────────────────────────
 
 export async function getGeneralAnalytics() {
+    const supabase = await createClient();
+
     try {
         // 1. Total events (published or not)
         const { count: totalEvents } = await supabase
@@ -737,6 +755,8 @@ export interface EventReportsData {
 }
 
 export async function getEventReports(eventId: number): Promise<EventReportsData> {
+    const supabase = await createClient();
+
     const empty: EventReportsData = {
         registrants: [],
         stats: {
@@ -878,6 +898,7 @@ export interface DemographicsData {
 }
 
 export async function getEventDemographics(eventId: number): Promise<DemographicsData> {
+    const supabase = await createClient();
     const empty: DemographicsData = { totalResponses: 0, fields: [] };
 
     try {
@@ -941,6 +962,8 @@ export async function getEventDemographics(eventId: number): Promise<Demographic
 }
 
 export async function deleteEvent(id: number) {
+    const supabase = await createClient();
+
     try {
         // Find forms to delete their answers first
         const { data: forms } = await supabase

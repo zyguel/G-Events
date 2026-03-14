@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-server';
 
 export async function GET() {
     try {
         const now = new Date();
         const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
         const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+        const supabase = await createClient();
 
         const [regsToday, pendingOrders, upcomingEvents, waitlistEntries, updatedEvents] = await Promise.allSettled([
             // 1. Registrations created today

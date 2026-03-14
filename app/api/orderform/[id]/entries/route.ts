@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-server';
 
 /**
  * POST /api/orderform/[id]/entries
@@ -21,6 +21,7 @@ export async function POST(
             );
         }
 
+        const supabase = await createClient();
         const { data, error } = await supabase
             .from('OrderFormEntries')
             .insert([

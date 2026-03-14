@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-server';
 
 /**
  * GET /api/orderform/[id]
@@ -12,6 +12,7 @@ export async function GET(
     try {
         const { id } = await params;
 
+        const supabase = await createClient();
         const { data, error } = await supabase
             .from('OrderForm')
             .select('*')
@@ -56,6 +57,7 @@ export async function PUT(
         const body = await request.json();
         const { title, description, form_data } = body;
 
+        const supabase = await createClient();
         const { data, error } = await supabase
             .from('OrderForm')
             .update({
@@ -99,6 +101,7 @@ export async function DELETE(
     try {
         const { id } = await params;
 
+        const supabase = await createClient();
         const { error } = await supabase
             .from('OrderForm')
             .delete()

@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAddOns, createAddOn } from '@/lib/db';
-import { supabase } from '@/lib/supabase';
+import { createClient } from '@/lib/supabase-server';
 
 async function uploadAddOnImage(file: File, eventId: number): Promise<string> {
     const fileName = `addons/${eventId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
+
+    const supabase = await createClient();
+
     const { error } = await supabase.storage
         .from('events')
         .upload(fileName, file, { cacheControl: '3600', upsert: false });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 
 type UiStatus = "Invited" | "Waiting";
 
@@ -25,6 +25,7 @@ export async function GET(
             );
         }
 
+        const supabase = await createClient();
         const { data, error } = await supabase
             .from("WaitlistEntry")
             .select("id, email, status, created_at, ticket_id, Ticket(name)")

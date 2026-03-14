@@ -1,9 +1,17 @@
-import { supabase, UserWithRole, OrganizationRole, OrganizationPermission } from './supabase';
+import { createClient } from '@/lib/supabase-server';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { UserWithRole, OrganizationRole, OrganizationPermission } from './supabase';
 
 const DEFAULT_ORG_ID = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '1');
 
+async function getSupabase(): Promise<SupabaseClient> {
+    return await createClient();
+}
+
 // Users
 export async function getOrganizationUsers(organizationId: number = DEFAULT_ORG_ID): Promise<UserWithRole[]> {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('OrganizationUserRole')
         .select(`
@@ -42,6 +50,8 @@ export async function inviteUser(
 ): Promise<UserWithRole> {
     // Normalize email to avoid case-mismatch between auth session and stored value
     const normalizedEmail = email.trim().toLowerCase();
+
+    const supabase = await getSupabase();
 
     // Check if user already exists (case-insensitive)
     const { data: existingUser } = await supabase
@@ -103,6 +113,8 @@ export async function updateUser(
     roleId: number,
     organizationId: number = DEFAULT_ORG_ID
 ): Promise<void> {
+    const supabase = await getSupabase();
+
     // Update user email
     const { error: userError } = await supabase
         .from('User')
@@ -125,6 +137,8 @@ export async function removeUserFromOrganization(
     userId: number,
     organizationId: number = DEFAULT_ORG_ID
 ): Promise<void> {
+    const supabase = await getSupabase();
+
     const { error } = await supabase
         .from('OrganizationUserRole')
         .delete()
@@ -136,6 +150,8 @@ export async function removeUserFromOrganization(
 
 // Roles
 export async function getOrganizationRoles(organizationId: number = DEFAULT_ORG_ID): Promise<OrganizationRole[]> {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('OrganizationRole')
         .select('*')
@@ -152,6 +168,8 @@ export async function createRole(
     permissionIds: number[],
     organizationId: number = DEFAULT_ORG_ID
 ): Promise<OrganizationRole> {
+    const supabase = await getSupabase();
+
     // Create role
     const { data: newRole, error: roleError } = await supabase
         .from('OrganizationRole')
@@ -184,6 +202,8 @@ export async function updateRole(
     description: string,
     permissionIds: number[]
 ): Promise<void> {
+    const supabase = await getSupabase();
+
     // Update role name
     const { error: roleError } = await supabase
         .from('OrganizationRole')
@@ -214,6 +234,8 @@ export async function updateRole(
 }
 
 export async function deleteRole(roleId: number): Promise<void> {
+    const supabase = await getSupabase();
+
     // Delete role permissions first
     await supabase
         .from('OrganizationRolePermission')
@@ -231,6 +253,8 @@ export async function deleteRole(roleId: number): Promise<void> {
 
 // Permissions
 export async function getAllPermissions(): Promise<OrganizationPermission[]> {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('OrganizationPermission')
         .select('*')
@@ -243,6 +267,8 @@ export async function getAllPermissions(): Promise<OrganizationPermission[]> {
 }
 
 export async function getRolePermissions(roleId: number): Promise<number[]> {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('OrganizationRolePermission')
         .select('organization_permission_id')
@@ -256,6 +282,8 @@ export async function getRolePermissions(roleId: number): Promise<number[]> {
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 export async function getEvents(organizationId: number = DEFAULT_ORG_ID) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Event')
         .select('*')
@@ -267,6 +295,8 @@ export async function getEvents(organizationId: number = DEFAULT_ORG_ID) {
 }
 
 export async function getEvent(eventId: number) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Event')
         .select('*')
@@ -301,6 +331,8 @@ export async function createEvent(
         theme?: string;
     }
 ) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Event')
         .insert([{ organization_id: organizationId, ...fields }])
@@ -335,6 +367,8 @@ export async function updateEvent(
         theme: string;
     }>
 ) {
+    const supabase = await getSupabase();
+
     const { error } = await supabase
         .from('Event')
         .update(fields)
@@ -344,6 +378,8 @@ export async function updateEvent(
 }
 
 export async function deleteEvent(eventId: number) {
+    const supabase = await getSupabase();
+
     const { error } = await supabase
         .from('Event')
         .delete()
@@ -355,6 +391,8 @@ export async function deleteEvent(eventId: number) {
 // ─── Tickets ──────────────────────────────────────────────────────────────────
 
 export async function getTickets(eventId: number) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Ticket')
         .select('*')
@@ -366,6 +404,8 @@ export async function getTickets(eventId: number) {
 }
 
 export async function getTicket(ticketId: number) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Ticket')
         .select('*')
@@ -391,6 +431,8 @@ export async function createTicket(
         selling_end_time?: string;
     }
 ) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Ticket')
         .insert([{ event_id: eventId, ...fields }])
@@ -416,6 +458,8 @@ export async function updateTicket(
         selling_end_time: string;
     }>
 ) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Ticket')
         .update(fields)
@@ -428,6 +472,8 @@ export async function updateTicket(
 }
 
 export async function deleteTicket(ticketId: number) {
+    const supabase = await getSupabase();
+
     const { error } = await supabase
         .from('Ticket')
         .delete()
@@ -439,6 +485,8 @@ export async function deleteTicket(ticketId: number) {
 // ─── Add-Ons ──────────────────────────────────────────────────────────────────
 
 export async function getAddOns(eventId: number) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('AddOn')
         .select(`
@@ -453,6 +501,8 @@ export async function getAddOns(eventId: number) {
 }
 
 export async function getAddOn(addOnId: number) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('AddOn')
         .select(`
@@ -476,6 +526,8 @@ export async function createAddOn(
     },
     variants?: { code: string; label: string; stock_total: number }[]
 ) {
+    const supabase = await getSupabase();
+
     const { data: addOn, error: addOnError } = await supabase
         .from('AddOn')
         .insert([{ event_id: eventId, ...fields }])
@@ -513,6 +565,8 @@ export async function updateAddOn(
     }>,
     variants?: { id?: number; code: string; label: string; stock_total: number }[]
 ) {
+    const supabase = await getSupabase();
+
     const { error: addOnError } = await supabase
         .from('AddOn')
         .update(fields)
@@ -549,6 +603,8 @@ export async function updateAddOn(
 }
 
 export async function deleteAddOn(addOnId: number) {
+    const supabase = await getSupabase();
+
     // Delete variants first (FK constraint)
     await supabase
         .from('AddOnVariant')
@@ -566,6 +622,8 @@ export async function deleteAddOn(addOnId: number) {
 // ─── Promotions ───────────────────────────────────────────────────────────────
 
 export async function getPromotions(eventId: number) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Promotion')
         .select(`
@@ -582,6 +640,8 @@ export async function getPromotions(eventId: number) {
 }
 
 export async function getPromotion(promotionId: number) {
+    const supabase = await getSupabase();
+
     const { data, error } = await supabase
         .from('Promotion')
         .select(`
@@ -612,6 +672,8 @@ export async function createPromotion(
     },
     ticketIds?: number[]
 ) {
+    const supabase = await getSupabase();
+
     const { data: promo, error: promoError } = await supabase
         .from('Promotion')
         .insert([{ event_id: eventId, ...fields }])
@@ -651,6 +713,8 @@ export async function updatePromotion(
     }>,
     ticketIds?: number[]
 ) {
+    const supabase = await getSupabase();
+
     const { error: promoError } = await supabase
         .from('Promotion')
         .update(fields)
@@ -684,6 +748,8 @@ export async function updatePromotion(
 }
 
 export async function deletePromotion(promotionId: number) {
+    const supabase = await getSupabase();
+
     // Delete ticket associations first (FK constraint)
     await supabase
         .from('PromotionTicket')

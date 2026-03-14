@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
 
 type Action = "confirm" | "reject";
@@ -32,6 +32,7 @@ export async function PATCH(
 
         const newStatus = action === "confirm" ? "confirmed" : "rejected";
 
+        const supabase = await createClient();
         const { error } = await supabase
             .from("Registration")
             .update({ status: newStatus })

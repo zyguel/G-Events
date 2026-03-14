@@ -1,6 +1,6 @@
 "use server";
 
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@/lib/supabase-server";
 
 export interface EmailTemplate {
     subject: string;
@@ -21,6 +21,7 @@ export async function getOrderConfirmationSettings(eventId: number): Promise<Ord
     try {
 
 
+        const supabase = await createClient();
         const { data, error } = await supabase
             .from('OrderConfirmationSettings')
             .select('settings')
@@ -50,6 +51,8 @@ export async function saveOrderConfirmationSettings(eventId: number, settings: O
 
 
         // Use an upsert since event_id is unique. This updates the existing row or inserts a new one.
+        const supabase = await createClient();
+
         const { error } = await supabase
             .from('OrderConfirmationSettings')
             .upsert({
