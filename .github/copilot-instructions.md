@@ -140,5 +140,10 @@ if (data.is_published) {
 - [components/admin/Sidebar.tsx](components/admin/Sidebar.tsx) - Navigation sidebar with active state indicator
 - [components/admin/EventsSidebar.tsx](components/admin/EventsSidebar.tsx) - Event-specific navigation sidebar
 - [lib/exportUtils.ts](lib/exportUtils.ts) - Export to CSV/XLSX/PDF patterns
-- [contexts/NotificationContext.tsx](contexts/NotificationContext.tsx) - Global notification context usage</content>
+- [contexts/NotificationContext.tsx](contexts/NotificationContext.tsx) - Global notification context usage
+
+## Common Build / TypeScript Gotchas
+- In API routes and server actions, ensure you instantiate the Supabase server client with `await createClient()` before using it (e.g., in both GET/POST handlers). This prevents errors like “Cannot find name 'supabase'”.
+- When adding new server-only code, keep it in `app/api/` or `lib/actions/` so the Next.js bundler doesn’t include it in client bundles.
+</content>
 <parameter name="filePath">x:/projects/g-events/G-Events/.github/copilot-instructions.md
