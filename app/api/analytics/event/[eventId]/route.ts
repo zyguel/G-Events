@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEvent } from '@/lib/db';
 import { EventData } from '@/lib/types';
+import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/analytics/event/[eventId] - Analytics for a specific event
 export async function GET(
@@ -8,6 +9,7 @@ export async function GET(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
 
         if (!eventId) {

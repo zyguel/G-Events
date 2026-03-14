@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
+import { requireUser } from '@/lib/apiAuth';
 
 type Action = "confirm" | "reject";
 
@@ -9,6 +10,7 @@ export async function PATCH(
     { params }: { params: Promise<{ eventId: string; registrationId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId, registrationId } = await params;
         const id = parseInt(eventId, 10);
         const regId = parseInt(registrationId, 10);

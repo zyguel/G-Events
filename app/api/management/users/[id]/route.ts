@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateUser, removeUserFromOrganization } from '@/lib/db';
+import { requireUser } from '@/lib/apiAuth';
 
 // PATCH /api/management/users/[id] - Update user
 export async function PATCH(
@@ -7,6 +8,7 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await requireUser();
         const { id } = await params;
         const userId = parseInt(id);
         const body = await request.json();
@@ -49,6 +51,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await requireUser();
         const { id } = await params;
         const userId = parseInt(id);
 

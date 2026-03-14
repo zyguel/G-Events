@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAddOn, updateAddOn, deleteAddOn } from '@/lib/db';
 import { createClient } from '@/lib/supabase-server';
+import { requireUser } from '@/lib/apiAuth';
 
 async function uploadAddOnImage(file: File, eventId: number): Promise<string> {
     const fileName = `addons/${eventId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
@@ -26,6 +27,7 @@ export async function GET(
     { params }: { params: Promise<{ eventId: string; addOnId: string }> }
 ) {
     try {
+        await requireUser();
         const { addOnId } = await params;
         const id = parseInt(addOnId);
 
@@ -59,6 +61,7 @@ export async function PATCH(
     { params }: { params: Promise<{ eventId: string; addOnId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId, addOnId } = await params;
         const id = parseInt(addOnId);
         const numericEventId = parseInt(eventId);
@@ -112,6 +115,7 @@ export async function DELETE(
     { params }: { params: Promise<{ eventId: string; addOnId: string }> }
 ) {
     try {
+        await requireUser();
         const { addOnId } = await params;
         const id = parseInt(addOnId);
 

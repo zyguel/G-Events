@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTickets, createTicket } from '@/lib/db';
+import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/events/[eventId]/tickets - List all tickets for an event
 export async function GET(
@@ -7,6 +8,7 @@ export async function GET(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
 
@@ -34,6 +36,7 @@ export async function POST(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
         const body = await request.json();

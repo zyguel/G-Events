@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrganizationRoles, createRole } from '@/lib/db';
+import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/management/roles - List all roles in organization
 export async function GET(request: NextRequest) {
     try {
+        await requireUser();
         const searchParams = request.nextUrl.searchParams;
         const orgId = searchParams.get('organizationId');
 
@@ -24,6 +26,7 @@ export async function GET(request: NextRequest) {
 // POST /api/management/roles - Create new role
 export async function POST(request: NextRequest) {
     try {
+        await requireUser();
         const body = await request.json();
         const { name, description, permissionIds, organizationId } = body;
 

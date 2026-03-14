@@ -9,6 +9,16 @@ import TimeInput from '@/components/admin/TimeInput';
 import DateInput from '@/components/admin/DateInput';
 import { EventSummary } from '@/lib/types';
 
+function sanitizeHtml(input: string) {
+    return input
+        // Remove <script> blocks to prevent XSS
+        .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '')
+        // Remove inline event handlers (e.g., onclick="...")
+        .replace(/on\w+=(?:"[^"]*"|'[^']*')/gi, '')
+        // Remove javascript: URIs
+        .replace(/javascript:/gi, '');
+}
+
 // Toast notification component
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
     useEffect(() => {
@@ -950,7 +960,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
             >
                 <div className="space-y-6">
                     <div className="prose dark:prose-invert max-w-none">
-                        <div dangerouslySetInnerHTML={{ __html: selectedEmail?.body || '' }} />
+                        <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(selectedEmail?.body || '') }} />
                     </div>
 
                     <div className="border-t border-gray-200 dark:border-gray-700 pt-6 flex justify-end gap-3">

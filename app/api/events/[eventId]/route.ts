@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEvent, updateEvent, deleteEvent } from '@/lib/db';
+import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/events/[eventId] - Get a single event by ID
 export async function GET(
@@ -7,6 +8,7 @@ export async function GET(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
 
@@ -41,6 +43,7 @@ export async function PATCH(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
         const body = await request.json();
@@ -76,6 +79,7 @@ export async function DELETE(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
 

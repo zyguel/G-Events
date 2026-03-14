@@ -7,6 +7,12 @@ import { createClient } from '@/lib/supabase-server';
  */
 export async function GET(request: NextRequest) {
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const eventId = request.nextUrl.searchParams.get('eventId');
 
         if (!eventId) {
@@ -16,7 +22,6 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const supabase = await createClient();
         const { data, error } = await supabase
             .from('OrderForm')
             .select('*')
@@ -47,6 +52,12 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { eventId, title, description, form_data } = body;
 
@@ -59,8 +70,6 @@ export async function POST(request: NextRequest) {
 
         // Enforce a single OrderForm per event:
         // if a form already exists for this event, update it instead of creating a new one
-        const supabase = await createClient();
-
         const { data: existingForms, error: existingError } = await supabase
             .from('OrderForm')
             .select('*')
