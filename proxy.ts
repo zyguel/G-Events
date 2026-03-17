@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/auth/callback']);
-const PUBLIC_API_PREFIXES = ['/api/orderform'];
+const PUBLIC_API_PREFIXES = ['/api/orderform', '/api/translate', '/api/regions'];
 
 function isPublicRoute(pathname: string) {
   return PUBLIC_ROUTES.has(pathname);
