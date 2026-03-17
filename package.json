@@ -29,7 +29,7 @@
     "dotenv": "^17.3.1",
     "exceljs": "^4.4.0",
     "framer-motion": "^12.29.2",
-    "jspdf": "^4.0.0",
+    "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
     "lucide-react": "^0.562.0",
     "next": "latest",
