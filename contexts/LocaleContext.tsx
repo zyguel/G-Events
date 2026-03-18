@@ -7,7 +7,9 @@ import {
   normalizeLanguageCode,
   normalizeLocale,
   TranslationLanguage,
+  TRANSLATION_LANGUAGES,
 } from '@/lib/i18n';
+import { getStaticTranslation } from '@/lib/staticTranslations';
 
 const LOCALE_STORAGE_KEY = 'g_events_locale_settings';
 
@@ -43,18 +45,14 @@ function wrapText(source: string, translated: string): string {
 }
 
 async function fetchBatchTranslations(payload: { texts: string[]; source?: string; target: string }) {
-  const response = await fetch('/api/translate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  const result: Record<string, string> = {};
 
-  if (!response.ok) {
-    return {} as Record<string, string>;
+  for (const text of payload.texts) {
+    const staticTranslation = getStaticTranslation(text, payload.target);
+    result[text] = staticTranslation ?? text;
   }
 
-  const data = await response.json();
-  return (data?.data ?? {}) as Record<string, string>;
+  return result;
 }
 
 async function applyTranslations(
@@ -129,11 +127,7 @@ async function applyTranslations(
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocale] = useState<LocaleSettings>(DEFAULT_LOCALE);
   const [isLoadingLocale, setIsLoadingLocale] = useState(true);
-  const [availableLanguages, setAvailableLanguages] = useState<TranslationLanguage[]>([
-    { code: 'en', name: 'English' },
-    { code: 'es', name: 'Español' },
-    { code: 'fil', name: 'Filipino' },
-  ]);
+  const [availableLanguages, setAvailableLanguages] = useState<TranslationLanguage[]>(TRANSLATION_LANGUAGES);
   const observerRef = useRef<MutationObserver | null>(null);
   const translationCacheRef = useRef<Map<string, Map<string, string>>>(new Map());
 
@@ -181,7 +175,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
             });
 
           if (!normalized.find((lang: TranslationLanguage) => lang.code === 'en')) {
-            normalized.unshift({ code: 'en', name: 'English' });
+            normalized.unshift({ code: 'en', name: 'English', targets: undefined });
           }
 
           setAvailableLanguages(normalized);

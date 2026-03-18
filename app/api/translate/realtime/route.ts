@@ -14,7 +14,6 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as RealtimeTranslateBody;
     const target = normalizeLanguageCode(body.target ?? 'en');
-    const source = normalizeLanguageCode(body.source ?? 'auto');
     const payload = body.payload;
     const skipKeys = Array.isArray(body.skipKeys)
       ? body.skipKeys.filter((key): key is string => typeof key === 'string')
@@ -28,7 +27,6 @@ export async function POST(request: Request) {
 
     const translatedMap = await translateBatchWithTsEngine({
       texts: strings,
-      source,
       target,
     });
 

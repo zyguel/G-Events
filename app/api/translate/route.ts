@@ -12,14 +12,13 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as TranslateRequestBody;
     const texts = Array.isArray(body.texts) ? body.texts : [];
-    const source = normalizeLanguageCode(body.source ?? 'auto');
     const target = normalizeLanguageCode(body.target ?? 'en');
 
     if (!texts.length) {
       return NextResponse.json({ success: true, data: {} });
     }
 
-    const translated = await translateBatchWithTsEngine({ texts, source, target });
+    const translated = await translateBatchWithTsEngine({ texts, target });
 
     return NextResponse.json({ success: true, data: translated });
   } catch {

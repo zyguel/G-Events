@@ -14,6 +14,19 @@ export interface TranslationLanguage {
   targets?: string[];
 }
 
+export const TRANSLATION_LANGUAGES: TranslationLanguage[] = [
+  { code: 'en', name: 'English' },
+  { code: 'zh', name: 'Chinese' },
+  { code: 'es', name: 'Spanish' },
+  { code: 'fr', name: 'French' },
+  { code: 'de', name: 'German' },
+  { code: 'ja', name: 'Japanese' },
+  { code: 'ko', name: 'Korean' },
+  { code: 'pt', name: 'Portuguese' },
+  { code: 'hi', name: 'Hindi' },
+  { code: 'ar', name: 'Arabic' },
+];
+
 export function normalizeLanguageCode(value: unknown): string {
   if (typeof value !== 'string') {
     return DEFAULT_LOCALE.language;
