@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
+import { logAuditEntry } from '@/lib/actions/audit'
 
 export interface CreateEventState {
     success?: boolean
@@ -80,6 +81,15 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
         }
 
         const eventId = eventData.id
+
+        try {
+            await logAuditEntry('Event', eventId, 'create', {
+                before: null,
+                after: eventData
+            })
+        } catch (e) {
+            console.warn('Event audit log failed (create):', e)
+        }
 
         // Serialize agenda and objectives
         // Handle Agenda Items
@@ -203,14 +213,36 @@ export async function updateEvent(id: number, data: Partial<any>) {
     const supabase = await createClient();
 
     try {
-        const { error } = await supabase
+        const { data: beforeData, error: beforeError } = await supabase
+            .from('Event')
+            .select('*')
+            .eq('id', id)
+            .single()
+
+        if (beforeError) {
+            console.error('Error fetching event before update:', beforeError)
+            return { success: false, error: beforeError.message }
+        }
+
+        const { data: updatedEvent, error } = await supabase
             .from('Event')
             .update(data)
             .eq('id', id)
+            .select()
+            .single()
 
         if (error) {
             console.error('Error updating event:', error)
             return { success: false, error: error.message }
+        }
+
+        try {
+            await logAuditEntry('Event', id, 'update', {
+                before: beforeData,
+                after: updatedEvent
+            })
+        } catch (e) {
+            console.warn('Event audit log failed (update):', e)
         }
 
         revalidatePath('/events')
@@ -965,6 +997,17 @@ export async function deleteEvent(id: number) {
     const supabase = await createClient();
 
     try {
+        const { data: eventBefore, error: beforeError } = await supabase
+            .from('Event')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+        if (beforeError) {
+            console.error('Error fetching event before delete:', beforeError);
+            return { success: false, error: beforeError.message };
+        }
+
         // Find forms to delete their answers first
         const { data: forms } = await supabase
             .from('FeedbackForm')
@@ -1014,6 +1057,15 @@ export async function deleteEvent(id: number) {
             console.error('Error deleting event:', error);
             // It might fail if there are still constraints we missed, but we try to supply a better error.
             return { success: false, error: error.details || error.message };
+        }
+
+        try {
+            await logAuditEntry('Event', id, 'delete', {
+                before: eventBefore,
+                after: null
+            });
+        } catch (e) {
+            console.warn('Event audit log failed (delete):', e);
         }
 
         revalidatePath('/events');

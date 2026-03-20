@@ -1,6 +1,4 @@
 import ExcelJS from 'exceljs';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 
 // Type for the dashboard data that will be exported
 interface ExportData {
@@ -195,7 +193,14 @@ export async function exportToXLSX(data: ExportData) {
 /**
  * Export data as PDF
  */
-export function exportToPDF(data: ExportData) {
+export async function exportToPDF(data: ExportData) {
+    const [{ jsPDF }, autoTable] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable')
+    ]);
+
+    const autoTableFn = (autoTable as any).default || autoTable;
+
     const timestamp = getTimestamp();
     const filename = `${data.name.replace(/\s+/g, '_')}_Report_${timestamp}.pdf`;
 
@@ -219,7 +224,7 @@ export function exportToPDF(data: ExportData) {
     doc.text('Stats Summary', 14, yPosition);
     yPosition += 6;
 
-    autoTable(doc, {
+    autoTableFn(doc, {
         startY: yPosition,
         head: [['Metric', 'Value']],
         body: [
@@ -243,7 +248,7 @@ export function exportToPDF(data: ExportData) {
     doc.text('Revenue Breakdown', 14, yPosition);
     yPosition += 6;
 
-    autoTable(doc, {
+    autoTableFn(doc, {
         startY: yPosition,
         head: [['Source', 'Amount', 'Percentage']],
         body: data.revenueBreakdown.map(item => [
@@ -270,7 +275,7 @@ export function exportToPDF(data: ExportData) {
     doc.text('Recent Transactions', 14, yPosition);
     yPosition += 6;
 
-    autoTable(doc, {
+    autoTableFn(doc, {
         startY: yPosition,
         head: [['ID', 'User', 'Type', 'Amount', 'Status']],
         body: data.recentTransactions.map(tx => [
@@ -315,7 +320,7 @@ export function exportToPDF(data: ExportData) {
                 doc.addPage();
                 yPosition = 20;
             }
-            autoTable(doc, {
+            autoTableFn(doc, {
                 startY: yPosition,
                 head: [[field.label, 'Count', '%']],
                 body: field.distribution.map(item => [

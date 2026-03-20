@@ -67,7 +67,7 @@ export default function ExportButton({ data }: ExportButtonProps) {
                     await exportToXLSX(data);
                     break;
                 case 'pdf':
-                    exportToPDF(data);
+                    await exportToPDF(data);
                     break;
             }
             setExportedFormat(format);

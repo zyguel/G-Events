@@ -7,8 +7,6 @@ import {
     FileSpreadsheet, FileType, Table2, Check
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { usePermissions } from '@/contexts/PermissionContext';
 
 // Types
@@ -538,6 +536,12 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 downloadFile(blob, `${filename}.xlsx`);
             } else if (format === 'pdf') {
+                const [{ jsPDF }, autoTable] = await Promise.all([
+                    import('jspdf'),
+                    import('jspdf-autotable')
+                ]);
+
+                const autoTableFn = (autoTable as any).default || autoTable;
                 const doc = new jsPDF();
                 const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -549,7 +553,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                 doc.text(`Generated on ${new Date().toLocaleDateString()}`, pageWidth / 2, 28, { align: 'center' });
 
                 if (activeTab === 'registration') {
-                    autoTable(doc, {
+                    autoTableFn(doc, {
                         startY: 40,
                         head: [['Name', 'Email', 'Gender', 'Ticket', 'Status']],
                         body: registrants.map(r => [r.name, r.email, r.gender, r.ticketType, r.status]),
@@ -557,7 +561,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                         headStyles: { fillColor: [61, 81, 140] },
                     });
                 } else if (activeTab === 'attendance') {
-                    autoTable(doc, {
+                    autoTableFn(doc, {
                         startY: 40,
                         head: [['Name', 'Email', 'Ticket', 'Status']],
                         body: registrants.map(r => [r.name, r.email, r.ticketType, r.checkedIn ? 'Checked-In' : 'No-show']),
@@ -565,7 +569,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                         headStyles: { fillColor: [61, 81, 140] },
                     });
                 } else {
-                    autoTable(doc, {
+                    autoTableFn(doc, {
                         startY: 40,
                         head: [['Session', 'Speaker', 'Room', 'Capacity', 'Registered', 'Checked-in', 'Rate']],
                         body: breakoutSessions.map(s => [s.name, s.speaker, s.room, s.capacity, s.registered, s.checkedIn, `${s.attendanceRate}%`]),
