@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrganizationUsers, inviteUser } from '@/lib/db';
+import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/management/users - List all users in organization
 export async function GET(request: NextRequest) {
     try {
+        await requireUser();
         const searchParams = request.nextUrl.searchParams;
         const orgId = searchParams.get('organizationId');
 
@@ -24,6 +26,7 @@ export async function GET(request: NextRequest) {
 // POST /api/management/users - Invite new user
 export async function POST(request: NextRequest) {
     try {
+        await requireUser();
         const body = await request.json();
         const { name, email, roleId, organizationId } = body;
 

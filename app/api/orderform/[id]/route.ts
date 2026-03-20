@@ -11,12 +11,16 @@ export async function GET(
 ) {
     try {
         const { id } = await params;
+        const numericId = parseInt(id);
+        if (isNaN(numericId)) {
+            return NextResponse.json({ error: 'Invalid form ID' }, { status: 400 });
+        }
 
         const supabase = await createClient();
         const { data, error } = await supabase
             .from('OrderForm')
             .select('*')
-            .eq('id', parseInt(id))
+            .eq('id', numericId)
             .single();
 
         if (error) {
@@ -53,11 +57,21 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const { id } = await params;
         const body = await request.json();
         const { title, description, form_data } = body;
 
-        const supabase = await createClient();
+        const numericId = parseInt(id);
+        if (isNaN(numericId)) {
+            return NextResponse.json({ error: 'Invalid form ID' }, { status: 400 });
+        }
+
         const { data, error } = await supabase
             .from('OrderForm')
             .update({
@@ -66,7 +80,7 @@ export async function PUT(
                 form_data,
                 updated_at: new Date().toISOString()
             })
-            .eq('id', parseInt(id))
+            .eq('id', numericId)
             .select()
             .single();
 
@@ -99,13 +113,22 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        const { id } = await params;
-
         const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { id } = await params;
+        const numericId = parseInt(id);
+        if (isNaN(numericId)) {
+            return NextResponse.json({ error: 'Invalid form ID' }, { status: 400 });
+        }
+
         const { error } = await supabase
             .from('OrderForm')
             .delete()
-            .eq('id', parseInt(id));
+            .eq('id', numericId);
 
         if (error) {
             console.error('Supabase Error:', error);

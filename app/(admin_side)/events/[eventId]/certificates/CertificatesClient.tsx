@@ -2,7 +2,6 @@
 
 import React, { useState, useRef } from 'react';
 import { Award, Upload, Download, X, RefreshCw } from 'lucide-react';
-import jsPDF from 'jspdf';
 import { EventSummary } from '@/lib/types';
 
 interface Certificate {
@@ -118,6 +117,9 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
         }
         setIsLoading(true);
         try {
+            const jsPDFModule = await import('jspdf/dist/jspdf.es.min.js');
+            const jsPDF = (jsPDFModule as any).jsPDF || (jsPDFModule as any).default;
+
             for (const participant of participants) {
                 const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [800, 600] });
                 const img = new Image();

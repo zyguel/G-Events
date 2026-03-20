@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getAllPermissions } from '@/lib/db';
+import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/management/permissions - List all available permissions
 export async function GET() {
     try {
+        await requireUser();
         const permissions = await getAllPermissions();
 
         return NextResponse.json({ success: true, data: permissions });

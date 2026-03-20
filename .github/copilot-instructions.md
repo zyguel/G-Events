@@ -26,14 +26,12 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
   - [lib/supabase-server.ts](lib/supabase-server.ts) - Server-only Supabase wrapper used in API routes, server actions, and middleware.
   - [lib/supabase-browser.ts](lib/supabase-browser.ts) - Browser Supabase instance used in client-side pages and hooks.
   - [lib/supabase-middleware.ts](lib/supabase-middleware.ts) - Edge middleware for auth/session handling.
-- **Server actions** ([lib/actions/events.ts](lib/actions/events.ts)): Use `'use server'` directive
-  - `getEvents()` - Fetch all events for org
-  - `getEventById(id)` - Fetch single event (used in layouts)
-  - `createEvent(prevState, formData)` - Server-side form processing with banner upload
-  - `updateEvent()`, `deleteEvent()` - Modify events
-  - `uploadFileToStorage()` - Upload to Supabase storage bucket
+- **Server actions** (`lib/actions/`): Use `'use server'` directive
+  - `lib/actions/events.ts` — Event CRUD, analytics, reports, and related business logic
+  - `lib/actions/permissions.ts` — User role + permission lookup (`getCurrentUserPermissions(email)`)
+  - `lib/actions/orderForm.ts` — Order form builder, entries, exports, and form submissions
+  - `lib/actions/orderConfirmation.ts` — Email templates for order confirmation workflows
 - **Client helper layer**: [lib/eventManagement.ts](lib/eventManagement.ts) and [lib/hooks/useOrderFormSubmit.ts](lib/hooks/useOrderFormSubmit.ts) provide client-side APIs for tickets, add-ons, promo codes, settings, and order form submission flows.
-- **Additional server actions**: [lib/actions/orderForm.ts](lib/actions/orderForm.ts), [lib/actions/orderConfirmation.ts](lib/actions/orderConfirmation.ts)
 - **API routes** ([app/api/](app/api/)): REST endpoints for analytics, events, management, notifications, and order forms (e.g., `/api/events`, `/api/management/users`, `/api/orderform`, `/api/orderform/[id]`)
 - **Database utilities** ([lib/db.ts](lib/db.ts)): Low-level Supabase queries (user management, roles, permissions)
 

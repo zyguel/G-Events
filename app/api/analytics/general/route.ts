@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { getEvents } from '@/lib/db';
 import { EventSummary } from '@/lib/types';
+import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/analytics/general - List all events data
 export async function GET() {
     try {
+        await requireUser();
         const events = await getEvents();
         
         // Transform Event objects to EventSummary format

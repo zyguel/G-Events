@@ -86,6 +86,7 @@ We utilize a strict branching workflow to ensure stability while allowing for ra
     NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
     NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
     NEXT_PUBLIC_DEFAULT_ORG_ID=1
+    TS_TRANSLATION_MODEL=Xenova/m2m100_418M
     ```
 5.  **Run the development server:**
     ```bash
@@ -101,6 +102,45 @@ We utilize a strict branching workflow to ensure stability while allowing for ra
 | `npm run build` | Compile production build |
 | `npm run start` | Serve production build locally |
 | `npm run lint` | Run ESLint checks |
+
+### Self-hosted Translation (TypeScript Engine)
+
+This project exposes internal translation APIs powered by a TypeScript runtime model:
+
+- `GET /api/translate/languages` - returns the fixed 10 supported languages from the TypeScript engine
+- `POST /api/translate` - batch text translation
+- `POST /api/translate/realtime` - translates nested payloads (objects/arrays), useful for DB/API responses
+- `GET /api/translate/health` - reports model status and cache state
+
+The TypeScript engine is currently limited to 10 languages:
+
+- `en` English
+- `zh` Chinese
+- `es` Spanish
+- `fr` French
+- `de` German
+- `ja` Japanese
+- `ko` Korean
+- `pt` Portuguese
+- `hi` Hindi
+- `ar` Arabic
+
+Example realtime payload translation request:
+
+```json
+{
+    "target": "es",
+    "source": "en",
+    "skipKeys": ["id", "email", "slug"],
+    "payload": {
+        "title": "Welcome",
+        "description": "Manage your account settings",
+        "items": [
+            { "name": "Create Event" }
+        ]
+    }
+}
+```
 
 ---
 

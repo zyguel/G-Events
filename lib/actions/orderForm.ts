@@ -3,6 +3,22 @@
 import { createClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 import { OrderFormData, OrderFormEntry } from "@/lib/types"
+import { logAuditEntry } from '@/lib/actions/audit'
+
+interface OrderFormSectionInput {
+    fieldIdentifier?: string
+    answer?: string | number | boolean | string[] | null
+}
+
+interface OrderFormSection {
+    inputs?: OrderFormSectionInput[]
+}
+
+interface OrderFormEntryRow {
+    form_data?: { sections?: OrderFormSection[] }
+    submitted_at: string
+    user_email?: string
+}
 
 export interface SaveOrderFormEntryState {
     success?: boolean
@@ -38,6 +54,12 @@ export async function saveOrderForm(
     try {
         if (formId) {
             // Update existing form
+            const { data: beforeData } = await supabase
+                .from('OrderForm')
+                .select('*')
+                .eq('id', formId)
+                .single()
+
             const { data, error } = await supabase
                 .from('OrderForm')
                 .update({
@@ -53,6 +75,15 @@ export async function saveOrderForm(
             if (error) {
                 console.error('Supabase Error:', error)
                 return { error: error.message, success: false }
+            }
+
+            try {
+                await logAuditEntry('OrderForm', formId, 'update', {
+                    before: beforeData || null,
+                    after: data
+                })
+            } catch (e) {
+                console.warn('OrderForm audit log failed (update):', e)
             }
 
             revalidatePath(`/events/${eventId}/orderform`)
@@ -80,6 +111,17 @@ export async function saveOrderForm(
             if (error) {
                 console.error('Supabase Error:', error)
                 return { error: error.message, success: false }
+            }
+
+            revalidatePath(`/events/${eventId}/orderform`)
+
+            try {
+                await logAuditEntry('OrderForm', data.id, 'create', {
+                    before: null,
+                    after: data
+                })
+            } catch (e) {
+                console.warn('OrderForm audit log failed (create):', e)
             }
 
             revalidatePath(`/events/${eventId}/orderform`)
@@ -162,6 +204,17 @@ export async function deleteOrderForm(formId: number, eventId: number) {
     const supabase = await createClient();
 
     try {
+        const { data: beforeData, error: beforeError } = await supabase
+            .from('OrderForm')
+            .select('*')
+            .eq('id', formId)
+            .single()
+
+        if (beforeError) {
+            console.error('Supabase Error:', beforeError)
+            return { error: beforeError.message, success: false }
+        }
+
         const { error } = await supabase
             .from('OrderForm')
             .delete()
@@ -170,6 +223,15 @@ export async function deleteOrderForm(formId: number, eventId: number) {
         if (error) {
             console.error('Supabase Error:', error)
             return { error: error.message, success: false }
+        }
+
+        try {
+            await logAuditEntry('OrderForm', formId, 'delete', {
+                before: beforeData || null,
+                after: null
+            })
+        } catch (e) {
+            console.warn('OrderForm audit log failed (delete):', e)
         }
 
         revalidatePath(`/events/${eventId}/orderform`)
@@ -223,6 +285,15 @@ export async function saveOrderFormEntry(
         if (error) {
             console.error('Supabase Error:', error)
             return { error: error.message, success: false }
+        }
+
+        try {
+            await logAuditEntry('OrderFormEntry', data.id, 'create', {
+                before: null,
+                after: data
+            })
+        } catch (e) {
+            console.warn('OrderFormEntry audit log failed:', e)
         }
 
         revalidatePath(`/events/${eventId}/orders`)
@@ -381,11 +452,15 @@ export async function generateOrderFormEntriesCSV(orderFormId: number) {
 
         // Extract all field identifiers from form data
         const fieldIdentifiers = new Set<string>()
-        data.forEach(entry => {
-            if (entry.form_data?.sections) {
-                entry.form_data.sections.forEach((section: any) => {
-                    section.inputs?.forEach((input: any) => {
-                        fieldIdentifiers.add(input.fieldIdentifier)
+        data.forEach((entry: OrderFormEntryRow) => {
+            const formData = entry.form_data
+            if (formData?.sections) {
+                formData.sections.forEach((section) => {
+                    section.inputs?.forEach((input) => {
+                        const id = input.fieldIdentifier
+                        if (id) {
+                            fieldIdentifiers.add(id)
+                        }
                     })
                 })
             }
@@ -401,16 +476,17 @@ export async function generateOrderFormEntriesCSV(orderFormId: number) {
                     entry.user_email || ''
                 ]
 
-                fieldIdentifiers.forEach(fieldId => {
+                fieldIdentifiers.forEach((fieldId) => {
                     let value = ''
-                    if (entry.form_data?.sections) {
-                        entry.form_data.sections.forEach((section: any) => {
-                            section.inputs?.forEach((input: any) => {
+                    const sections = entry.form_data?.sections
+                    if (sections) {
+                        sections.forEach((section: OrderFormSection) => {
+                            section.inputs?.forEach((input) => {
                                 if (input.fieldIdentifier === fieldId) {
                                     if (Array.isArray(input.answer)) {
                                         value = input.answer.join('; ')
                                     } else {
-                                        value = String(input.answer || '')
+                                        value = input.answer !== undefined && input.answer !== null ? String(input.answer) : ''
                                     }
                                 }
                             })

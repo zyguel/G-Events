@@ -3,6 +3,7 @@ import { Figtree } from "next/font/google";
 import "./globals.css";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { PermissionProvider } from "@/contexts/PermissionContext";
+import { LocaleProvider } from "@/contexts/LocaleContext";
 import { Analytics } from "@vercel/analytics/next";
 
 const figtree = Figtree({
@@ -24,11 +25,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${figtree.variable} font-sans antialiased`} suppressHydrationWarning={true}>
-        <NotificationProvider>
-          <PermissionProvider>
-            {children}
-          </PermissionProvider>
-        </NotificationProvider>
+        <LocaleProvider>
+          <NotificationProvider>
+            <PermissionProvider>
+              {children}
+            </PermissionProvider>
+          </NotificationProvider>
+        </LocaleProvider>
         <Analytics />
       </body>
     </html>

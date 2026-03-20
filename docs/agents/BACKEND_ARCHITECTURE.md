@@ -31,11 +31,21 @@ The backend has been **refactored** from a monolithic `app/(admin_side)/backend/
 | `getEvents()` | Fetch all events | None | Event array |
 | `getEventById()` | Fetch single event with agenda | `id: number` | Event object or null |
 | `updateEvent()` | Update event fields | `id, data` | `{ success, error }` |
+| `deleteEvent()` | Delete an event | `id: number` | `{ success, error }` |
 | `uploadEventBanner()` | Upload banner to storage | `FormData` | `{ success, url, error }` |
 | `saveAgendaSlot()` | Create/update agenda item | `event_id, slot` | `{ success, error }` |
 | `deleteAgendaSlot()` | Delete agenda item | `id: string` | `{ success, error }` |
 | `getEventAnalytics()` | Fetch event stats & trends | `eventId: number` | Analytics object |
+| `getEventReports()` | Fetch detailed event reports (registrants, attendance, breakout sessions) | `eventId: number` | Reports object |
+| `getEventDemographics()` | Get attendee demographics | `eventId: number` | Demographics object |
 | `getGeneralAnalytics()` | Fetch all-events analytics | None | General analytics object |
+
+### **Other Server Action Modules**
+
+- `lib/actions/permissions.ts` — `getCurrentUserPermissions(email)` for role/permission lookups.
+- `lib/actions/orderForm.ts` — Order form CRUD, entries, exports, and related utilities.
+- `lib/actions/orderConfirmation.ts` — Order confirmation / email template settings.
+
 
 ### **API Routes** (`app/api/`)
 
@@ -55,6 +65,9 @@ The backend has been **refactored** from a monolithic `app/(admin_side)/backend/
 /api/management/roles/[id]      → GET, PATCH, DELETE
 /api/management/users           → GET (list), POST (invite)
 /api/management/users/[id]      → PATCH (update), DELETE (remove)
+/api/notifications              → GET (dashboard notifications)
+/api/orderform                  → GET (list), POST (create/update)
+/api/orderform/[id]             → GET, PUT, DELETE
 ```
 
 ---
@@ -108,8 +121,10 @@ x:\projects\g-events\G-Events\
 │
 ├── lib/
 │   ├── actions/
-│   │   └── events.ts                    ← Server Actions (business logic)
-│   ├── api.ts
+│   │   ├── events.ts                    ← Server Actions (business logic)
+│   │   ├── permissions.ts               ← Permissions/roles lookup
+│   │   ├── orderForm.ts                 ← Order form configuration & entries
+│   │   └── orderConfirmation.ts         ← Order confirmation email templates
 │   ├── db.ts
 │   ├── supabase.ts
 │   └── types.ts

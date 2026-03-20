@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { requireUser } from '@/lib/apiAuth';
 
 type UiType = "Online" | "In-Person";
 type UiStatus = "Not Started" | "Ongoing" | "Completed" | "Cancelled";
@@ -84,6 +85,7 @@ export async function GET(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId, 10);
 
@@ -130,6 +132,7 @@ export async function POST(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId, 10);
 

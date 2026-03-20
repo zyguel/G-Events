@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase-server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { UserWithRole, OrganizationRole, OrganizationPermission } from './supabase';
+import { logAuditEntry } from '@/lib/actions/audit';
 
 const DEFAULT_ORG_ID = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '1');
 
@@ -32,14 +33,26 @@ export async function getOrganizationUsers(organizationId: number = DEFAULT_ORG_
 
     if (error) throw error;
 
-    return (data || []).map((item: any) => ({
-        id: item.User.id,
-        name: item.User.name,
-        email: item.User.email,
-        role: item.OrganizationRole.name,
-        roleId: item.OrganizationRole.id,
-        avatar: '/icons/' + (Math.random() > 0.5 ? 'woman.png' : 'man.png'), // Random avatar for now
-    }));
+    interface OrganizationUserRoleRow {
+        User?: { id: number; name: string; email: string } | { id: number; name: string; email: string }[];
+        OrganizationRole?: { id: number; name: string } | { id: number; name: string }[];
+    }
+
+    const rows = (data || []) as OrganizationUserRoleRow[];
+
+    return rows.map((item) => {
+        const user = Array.isArray(item.User) ? item.User[0] : item.User;
+        const orgRole = Array.isArray(item.OrganizationRole) ? item.OrganizationRole[0] : item.OrganizationRole;
+
+        return {
+            id: user?.id ?? 0,
+            name: user?.name ?? 'Unknown',
+            email: user?.email ?? '',
+            role: orgRole?.name ?? 'Unknown',
+            roleId: orgRole?.id ?? 0,
+            avatar: '/icons/' + (Math.random() > 0.5 ? 'woman.png' : 'man.png'), // Random avatar for now
+        }
+    });
 }
 
 export async function inviteUser(
@@ -276,7 +289,7 @@ export async function getRolePermissions(roleId: number): Promise<number[]> {
 
     if (error) throw error;
 
-    return (data || []).map((item: any) => item.organization_permission_id);
+    return (data || []).map((item: { organization_permission_id: number }) => item.organization_permission_id);
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────
@@ -327,7 +340,7 @@ export async function createEvent(
         confirmation_page_message?: string;
         confirmation_email_subject?: string;
         confirmation_email_body?: string;
-        objectives?: any[];
+        objectives?: unknown[];
         theme?: string;
     }
 ) {
@@ -340,6 +353,13 @@ export async function createEvent(
         .single();
 
     if (error) throw error;
+
+    try {
+      await logAuditEntry('Event', data.id, 'create', { before: null, after: data });
+    } catch (e) {
+      console.warn('Event audit log failed:', e);
+    }
+
     return data;
 }
 
@@ -363,11 +383,19 @@ export async function updateEvent(
         confirmation_page_message: string;
         confirmation_email_subject: string;
         confirmation_email_body: string;
-        objectives: any[];
+        objectives: unknown[];
         theme: string;
     }>
 ) {
     const supabase = await getSupabase();
+
+    const { data: beforeData, error: beforeError } = await supabase
+      .from('Event')
+      .select('*')
+      .eq('id', eventId)
+      .single();
+
+    if (beforeError) throw beforeError;
 
     const { error } = await supabase
         .from('Event')
@@ -375,10 +403,24 @@ export async function updateEvent(
         .eq('id', eventId);
 
     if (error) throw error;
+
+    try {
+      await logAuditEntry('Event', eventId, 'update', { before: beforeData, after: fields });
+    } catch (e) {
+      console.warn('Event audit log failed:', e);
+    }
 }
 
 export async function deleteEvent(eventId: number) {
     const supabase = await getSupabase();
+
+    const { data: beforeData, error: beforeError } = await supabase
+        .from('Event')
+        .select('*')
+        .eq('id', eventId)
+        .single();
+
+    if (beforeError) throw beforeError;
 
     const { error } = await supabase
         .from('Event')
@@ -386,6 +428,12 @@ export async function deleteEvent(eventId: number) {
         .eq('id', eventId);
 
     if (error) throw error;
+
+    try {
+      await logAuditEntry('Event', eventId, 'delete', { before: beforeData, after: null });
+    } catch (e) {
+      console.warn('Event audit log failed:', e);
+    }
 }
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
@@ -440,6 +488,13 @@ export async function createTicket(
         .single();
 
     if (error) throw error;
+
+    try {
+      await logAuditEntry('Ticket', data.id, 'create', { before: null, after: data });
+    } catch (e) {
+      console.warn('Ticket audit log failed:', e);
+    }
+
     return data;
 }
 
@@ -460,6 +515,14 @@ export async function updateTicket(
 ) {
     const supabase = await getSupabase();
 
+    const { data: beforeData, error: beforeError } = await supabase
+        .from('Ticket')
+        .select('*')
+        .eq('id', ticketId)
+        .single();
+
+    if (beforeError) throw beforeError;
+
     const { data, error } = await supabase
         .from('Ticket')
         .update(fields)
@@ -468,11 +531,26 @@ export async function updateTicket(
         .single();
 
     if (error) throw error;
+
+    try {
+      await logAuditEntry('Ticket', ticketId, 'update', { before: beforeData, after: data });
+    } catch (e) {
+      console.warn('Ticket audit log failed:', e);
+    }
+
     return data;
 }
 
 export async function deleteTicket(ticketId: number) {
     const supabase = await getSupabase();
+
+    const { data: beforeData, error: beforeError } = await supabase
+        .from('Ticket')
+        .select('*')
+        .eq('id', ticketId)
+        .single();
+
+    if (beforeError) throw beforeError;
 
     const { error } = await supabase
         .from('Ticket')
@@ -480,6 +558,12 @@ export async function deleteTicket(ticketId: number) {
         .eq('id', ticketId);
 
     if (error) throw error;
+
+    try {
+      await logAuditEntry('Ticket', ticketId, 'delete', { before: beforeData, after: null });
+    } catch (e) {
+      console.warn('Ticket audit log failed:', e);
+    }
 }
 
 // ─── Add-Ons ──────────────────────────────────────────────────────────────────
@@ -536,6 +620,12 @@ export async function createAddOn(
 
     if (addOnError) throw addOnError;
 
+    try {
+      await logAuditEntry('AddOn', addOn.id, 'create', { before: null, after: addOn });
+    } catch (e) {
+      console.warn('AddOn audit log failed:', e);
+    }
+
     if (variants && variants.length > 0) {
         const variantRows = variants.map((v) => ({
             add_on_id: addOn.id,
@@ -567,12 +657,26 @@ export async function updateAddOn(
 ) {
     const supabase = await getSupabase();
 
+    const { data: beforeData, error: beforeError } = await supabase
+        .from('AddOn')
+        .select('*')
+        .eq('id', addOnId)
+        .single();
+    if (beforeError) throw beforeError;
+
     const { error: addOnError } = await supabase
         .from('AddOn')
         .update(fields)
         .eq('id', addOnId);
 
     if (addOnError) throw addOnError;
+
+    const updatedAddOn = await getAddOn(addOnId);
+    try {
+      await logAuditEntry('AddOn', addOnId, 'update', { before: beforeData, after: updatedAddOn });
+    } catch (e) {
+      console.warn('AddOn audit log failed:', e);
+    }
 
     // If variants are provided, replace them
     if (variants !== undefined) {
@@ -605,6 +709,13 @@ export async function updateAddOn(
 export async function deleteAddOn(addOnId: number) {
     const supabase = await getSupabase();
 
+    const { data: beforeData, error: beforeError } = await supabase
+        .from('AddOn')
+        .select('*')
+        .eq('id', addOnId)
+        .single();
+    if (beforeError) throw beforeError;
+
     // Delete variants first (FK constraint)
     await supabase
         .from('AddOnVariant')
@@ -617,6 +728,12 @@ export async function deleteAddOn(addOnId: number) {
         .eq('id', addOnId);
 
     if (error) throw error;
+
+    try {
+      await logAuditEntry('AddOn', addOnId, 'delete', { before: beforeData, after: null });
+    } catch (e) {
+      console.warn('AddOn audit log failed:', e);
+    }
 }
 
 // ─── Promotions ───────────────────────────────────────────────────────────────
@@ -695,6 +812,12 @@ export async function createPromotion(
         if (ptError) throw ptError;
     }
 
+    try {
+      await logAuditEntry('Promotion', promo.id, 'create', { before: null, after: promo });
+    } catch (e) {
+      console.warn('Promotion audit log failed:', e);
+    }
+
     return getPromotion(promo.id);
 }
 
@@ -722,6 +845,8 @@ export async function updatePromotion(
 
     if (promoError) throw promoError;
 
+    const beforePromotion = await getPromotion(promotionId);
+
     if (ticketIds !== undefined) {
         // Delete existing ticket associations
         await supabase
@@ -744,11 +869,21 @@ export async function updatePromotion(
         }
     }
 
-    return getPromotion(promotionId);
+    const updatedPromotion = await getPromotion(promotionId);
+
+    try {
+      await logAuditEntry('Promotion', promotionId, 'update', { before: beforePromotion, after: updatedPromotion });
+    } catch (e) {
+      console.warn('Promotion audit log failed:', e);
+    }
+
+    return updatedPromotion;
 }
 
 export async function deletePromotion(promotionId: number) {
     const supabase = await getSupabase();
+
+    const beforePromotion = await getPromotion(promotionId);
 
     // Delete ticket associations first (FK constraint)
     await supabase
@@ -762,5 +897,11 @@ export async function deletePromotion(promotionId: number) {
         .eq('id', promotionId);
 
     if (error) throw error;
+
+    try {
+      await logAuditEntry('Promotion', promotionId, 'delete', { before: beforePromotion, after: null });
+    } catch (e) {
+      console.warn('Promotion audit log failed:', e);
+    }
 }
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase-server';
 import { getEvents, createEvent } from '@/lib/db';
 
 const DEFAULT_ORG_ID = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '1');
@@ -6,6 +7,12 @@ const DEFAULT_ORG_ID = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '1');
 // GET /api/events - List all events for the organization
 export async function GET(request: NextRequest) {
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const searchParams = request.nextUrl.searchParams;
         const orgId = searchParams.get('organizationId');
 
@@ -23,6 +30,12 @@ export async function GET(request: NextRequest) {
 // POST /api/events - Create a new event
 export async function POST(request: NextRequest) {
     try {
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
         const body = await request.json();
         const { organizationId, ...fields } = body;
 
@@ -47,3 +60,4 @@ export async function POST(request: NextRequest) {
         );
     }
 }
+

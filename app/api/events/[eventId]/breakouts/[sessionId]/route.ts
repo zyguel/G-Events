@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
+import { requireUser } from '@/lib/apiAuth';
 
 type UiType = "Online" | "In-Person";
 type UiStatus = "Not Started" | "Ongoing" | "Completed" | "Cancelled";
@@ -85,6 +86,7 @@ export async function PATCH(
     { params }: { params: Promise<{ eventId: string; sessionId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId, sessionId } = await params;
         const eventNumericId = parseInt(eventId, 10);
         const breakoutId = parseInt(sessionId, 10);
@@ -154,6 +156,7 @@ export async function DELETE(
     { params }: { params: Promise<{ eventId: string; sessionId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId, sessionId } = await params;
         const eventNumericId = parseInt(eventId, 10);
         const breakoutId = parseInt(sessionId, 10);

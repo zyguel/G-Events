@@ -4,7 +4,18 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import EventOverview from "@/components/admin/EventOverview";
+import AuditLogViewer from "@/components/admin/AuditLogViewer";
 import { getEventById } from "@/lib/actions/events";
+
+interface AgendaSlot {
+    id: number;
+    title: string;
+    description?: string;
+    speaker_name?: string;
+    start_time?: string;
+    end_time?: string;
+    order?: number;
+}
 
 export default function EventOverviewPage() {
     const params = useParams();
@@ -18,7 +29,14 @@ export default function EventOverviewPage() {
         name: string;
         date: string;
         status: "Draft" | "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled";
-        [key: string]: any;
+        location?: string;
+        description?: string;
+        agenda?: Array<{ id: number; title: string; description?: string; startTime?: string; endTime?: string; speaker?: string }>;
+        objectives?: string[];
+        theme?: string;
+        startTime?: string;
+        endTime?: string;
+        bannerUrl?: string;
     };
 
     const [eventData, setEventData] = useState<EventDataType | null>(null);
@@ -68,7 +86,7 @@ export default function EventOverviewPage() {
                             status: status,
                             location: apiData.location,
                             description: apiData.description,
-                            agenda: apiData.AgendaSlot?.map((slot: any) => ({
+                            agenda: apiData.AgendaSlot?.map((slot: AgendaSlot) => ({
                                 id: slot.id,
                                 title: slot.title,
                                 description: slot.description,
@@ -134,6 +152,9 @@ export default function EventOverviewPage() {
             {/* Main Content Area */}
             <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth">
                 <EventOverview initialData={eventData} />
+                <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+                    <AuditLogViewer entityType="Event" entityId={parseInt(eventData.id, 10)} />
+                </div>
             </main>
         </div>
     );

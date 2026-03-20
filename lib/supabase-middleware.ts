@@ -1,3 +1,8 @@
+// NOTE: This helper was previously used to enable a global auth-aware request interceptor.
+// The project now uses `proxy.ts` (Next.js Proxy middleware pattern) as the canonical entry point.
+// Keep this helper in place for backwards compatibility / reuse, but do not rely on it as the
+// primary access control mechanism.
+
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 

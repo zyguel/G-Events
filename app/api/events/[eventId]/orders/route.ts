@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
+import { requireUser } from '@/lib/apiAuth';
 
 type UiStatus = "Confirmed" | "Pending" | "Rejected";
 
@@ -14,6 +15,7 @@ export async function GET(
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
+        await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId, 10);
 

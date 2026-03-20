@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateRole, deleteRole, getRolePermissions } from '@/lib/db';
+import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/management/roles/[id] - Get role details (permissions)
 export async function GET(
@@ -7,6 +8,7 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> } // params is a Promise in Next.js 15+
 ) {
     try {
+        await requireUser();
         const { id } = await params;
         const roleId = parseInt(id);
 
@@ -41,6 +43,7 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await requireUser();
         const { id } = await params;
         const roleId = parseInt(id);
         const body = await request.json();
@@ -83,6 +86,7 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        await requireUser();
         const { id } = await params;
         const roleId = parseInt(id);
 
