@@ -194,11 +194,12 @@ export async function exportToXLSX(data: ExportData) {
  * Export data as PDF
  */
 export async function exportToPDF(data: ExportData) {
-    const [{ jsPDF }, autoTable] = await Promise.all([
-        import('jspdf'),
+    const [jsPDFModule, autoTable] = await Promise.all([
+        import('jspdf/dist/jspdf.es.min.js'),
         import('jspdf-autotable')
     ]);
 
+    const jsPDF = (jsPDFModule as any).jsPDF || (jsPDFModule as any).default;
     const autoTableFn = (autoTable as any).default || autoTable;
 
     const timestamp = getTimestamp();

@@ -180,7 +180,6 @@ export const STATIC_TRANSLATIONS: Record<string, Record<string, string>> = {
     // Tabs & Sections
     Overview: '概览',
     Details: '详情',
-    Settings: '设置',
     'Add-ons': '附加项',
     'Promo Codes': '促销代码',
     Orders: '订单',
@@ -220,7 +219,6 @@ export const STATIC_TRANSLATIONS: Record<string, Record<string, string>> = {
     Location: '位置',
     Theme: '主题',
     Capacity: '容量',
-    Registrations: '注册',
     'View Details': '查看详情',
     'View All': '查看全部',
     'Edit Details': '编辑详情',

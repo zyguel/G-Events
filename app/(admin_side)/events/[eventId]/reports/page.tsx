@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { getEventById, getEventReports } from "@/lib/actions/events";
 import ReportsClient from "./ReportsClient";
+import { getEventById, getEventReports } from "@/lib/actions/events";
 import PermissionGate from "@/components/admin/PermissionGate";
 
 export default async function ReportsPage({ params }: { params: Promise<{ eventId: string }> }) {

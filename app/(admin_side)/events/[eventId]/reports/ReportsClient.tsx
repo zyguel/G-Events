@@ -536,11 +536,12 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                 const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
                 downloadFile(blob, `${filename}.xlsx`);
             } else if (format === 'pdf') {
-                const [{ jsPDF }, autoTable] = await Promise.all([
-                    import('jspdf'),
+                const [jsPDFModule, autoTable] = await Promise.all([
+                    import('jspdf/dist/jspdf.es.min.js'),
                     import('jspdf-autotable')
                 ]);
 
+                const jsPDF = (jsPDFModule as any).jsPDF || (jsPDFModule as any).default;
                 const autoTableFn = (autoTable as any).default || autoTable;
                 const doc = new jsPDF();
                 const pageWidth = doc.internal.pageSize.getWidth();
