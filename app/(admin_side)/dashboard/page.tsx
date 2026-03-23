@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
@@ -47,6 +48,7 @@ export default function DashboardPage() {
                         date: e.event_start_at ? new Date(e.event_start_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : 'TBD',
                         registrations: 0, // Mock
                         status: status,
+                        image: e.banner_image,
                         // Helper for sorting/filtering
                         rawDate: e.event_start_at
                     };
@@ -256,8 +258,17 @@ export default function DashboardPage() {
                                                 >
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-4">
-                                                            <div className="w-12 h-12 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
-                                                                {event.name.charAt(0)}
+                                                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold text-lg relative overflow-hidden bg-linear-to-br from-indigo-500 to-purple-600 shrink-0">
+                                                                {event.image ? (
+                                                                    <Image
+                                                                        src={event.image}
+                                                                        alt={event.name}
+                                                                        fill
+                                                                        className="object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    event.name.charAt(0)
+                                                                )}
                                                             </div>
                                                             <div>
                                                                 <h3 className="font-medium text-gray-900 dark:text-white">{event.name}</h3>

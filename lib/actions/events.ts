@@ -1,7 +1,11 @@
 'use server'
 
+<<<<<<< Updated upstream
 import { createClient } from "@/lib/supabase-server"
 import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js'
+=======
+import { createClient, createAdminClient } from "@/lib/supabase-server"
+>>>>>>> Stashed changes
 import { revalidatePath } from "next/cache"
 import { logAuditEntry } from '@/lib/actions/audit'
 
@@ -62,7 +66,8 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
     if (bannerFile && bannerFile.size > 0) {
         try {
             console.log('Uploading banner for new event...');
-            bannerUrl = await uploadFileToStorage(supabase, bannerFile);
+            const adminSupabase = await createAdminClient();
+            bannerUrl = await uploadFileToStorage(adminSupabase, bannerFile);
         } catch (e) {
             console.error('Failed to upload banner during create:', e);
             // We continue creating the event even if banner fails, or we could return error.
@@ -285,6 +290,7 @@ export async function uploadEventBanner(formData: FormData) {
             return { success: false, error: 'No file provided' }
         }
 
+<<<<<<< Updated upstream
         const eventIdStr = formData.get('event_id') as string | null
         if (eventIdStr) {
             const eventId = parseInt(eventIdStr, 10)
@@ -296,6 +302,10 @@ export async function uploadEventBanner(formData: FormData) {
         const storageClient = await getStorageClient()
         const publicUrl = await uploadFileToStorage(storageClient, file)
 
+=======
+        const adminSupabase = await createAdminClient();
+        const publicUrl = await uploadFileToStorage(adminSupabase, file)
+>>>>>>> Stashed changes
         return { success: true, url: publicUrl }
     } catch (e: any) {
         console.error('Unexpected error uploading banner:', e)

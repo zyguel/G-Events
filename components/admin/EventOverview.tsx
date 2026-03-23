@@ -7,8 +7,14 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import DateTimeInput from "./DateTimeInput";
 import TimeInput from "./TimeInput";
+import dynamic from "next/dynamic";
 import { createEvent, saveAgendaSlot, deleteAgendaSlot } from '@/lib/actions/events';
 import DateInput from "./DateInput";
+
+const LocationMapPicker = dynamic(() => import('./LocationMapPicker'), {
+    ssr: false,
+    loading: () => <div className="h-64 bg-gray-100 dark:bg-gray-800 animate-pulse rounded-xl w-full flex items-center justify-center text-gray-400">Loading Map...</div>
+});
 import { usePermissions } from "@/contexts/PermissionContext";
 
 // Toast Component
@@ -76,6 +82,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     const [tempEventDate, setTempEventDate] = useState<Date | null>(null);
     const [tempStartTime, setTempStartTime] = useState<string>('');
     const [tempEndTime, setTempEndTime] = useState<string>('');
+    const [tempLocation, setTempLocation] = useState<string>('');
 
     const [activeModal, setActiveModal] = useState<null | 'banner' | 'title' | 'dateLocation' | 'overview' | 'agenda' | 'deleteBanner'>(null);
 
@@ -137,8 +144,9 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             setTempEventDate(eventDate);
             setTempStartTime(event.startTime || '');
             setTempEndTime(event.endTime || '');
+            setTempLocation(event.location || '');
         }
-    }, [activeModal, event.date, event.startTime, event.endTime]);
+    }, [activeModal, event.date, event.startTime, event.endTime, event.location]);
 
 
     const handleSaveDateLocation = (e: React.FormEvent) => {
@@ -147,7 +155,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
         // Format date from Date object to YYYY-MM-DD
         const formattedDate = tempEventDate ? tempEventDate.toISOString().split('T')[0] : event.date;
-        const location = formData.get('location') as string;
+        const location = tempLocation;
 
         const updatedEvent = {
             ...event,
@@ -1069,8 +1077,11 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Location</label>
-                        <ModalInput name="location" defaultValue={event.location} placeholder="Enter venue or address" icon={<MapPin size={18} />} />
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Location via Map</label>
+                        <LocationMapPicker
+                            value={tempLocation}
+                            onChange={(val) => setTempLocation(val)}
+                        />
                     </div>
                     <ModalFooter onCancel={() => setActiveModal(null)} />
                 </form>

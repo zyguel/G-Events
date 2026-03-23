@@ -53,7 +53,7 @@ export default function ClientDashboardPage() {
                                 '2:00 PM - 8:00 PM PST',
                             status: statusText,
                             statusColor: statusColor,
-                            imageUrl: e.settings?.banner_url || '/placeholder-event.png'
+                            imageUrl: e.banner_image || e.settings?.banner_url || '/placeholder-event.png'
                         };
                     });
 
@@ -126,11 +126,11 @@ export default function ClientDashboardPage() {
                                         className="group relative bg-white/95 dark:bg-[#1a1c23]/95 backdrop-blur-sm rounded-4xl p-5 md:p-6 flex flex-col md:flex-row gap-6 lg:gap-8 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100/80 dark:border-gray-800/80 transition-all duration-300"
                                     >
                                         {/* Event Image Banner (Mockup Style) */}
-                                        <div className="w-full md:w-70 h-45 bg-[#161a2b] rounded-2xl overflow-hidden relative shrink-0 shadow-sm transition-shadow duration-300 flex items-center justify-center">
+                                        <div className="w-full md:w-70 h-45 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl overflow-hidden relative shrink-0 shadow-sm transition-shadow duration-300 flex items-center justify-center">
                                             {event.imageUrl !== '/placeholder-event.png' ? (
                                                 <Image src={event.imageUrl} alt={event.title} fill className="object-cover" />
                                             ) : (
-                                                <div className="text-6xl font-black text-gray-300 opacity-90">{event.title.substring(0, 1)}</div>
+                                                <div className="text-6xl font-black text-white text-opacity-90">{event.title.substring(0, 1)}</div>
                                             )}
                                         </div>
 

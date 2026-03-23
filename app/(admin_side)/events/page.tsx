@@ -323,8 +323,17 @@ export default function EventsPage() {
                                                 <div className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
                                                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                                         <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg md:text-xl flex-shrink-0">
-                                                                {event.name.charAt(0)}
+                                                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-xl flex-shrink-0 relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600">
+                                                                {event.image ? (
+                                                                    <Image
+                                                                        src={event.image}
+                                                                        alt={event.name}
+                                                                        fill
+                                                                        className="object-cover"
+                                                                    />
+                                                                ) : (
+                                                                    event.name.charAt(0)
+                                                                )}
                                                             </div>
                                                             <div className="min-w-0 flex-1">
                                                                 <div className="flex items-center gap-2">
