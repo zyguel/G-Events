@@ -2,11 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAddOns, createAddOn } from '@/lib/db';
 import { createClient } from '@/lib/supabase-server';
 import { requireUser } from '@/lib/apiAuth';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+
+async function getStorageClient() {
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+    }
+
+    return await createClient();
+}
 
 async function uploadAddOnImage(file: File, eventId: number): Promise<string> {
     const fileName = `addons/${eventId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`;
 
-    const supabase = await createClient();
+    const supabase = await getStorageClient();
 
     const { error } = await supabase.storage
         .from('events')

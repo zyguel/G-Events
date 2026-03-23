@@ -459,6 +459,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     // To be safe, we might need to check how next.js handles this. 
                     // Usually safe if "use server" is at top of the file being imported.
                     const { uploadEventBanner, updateEvent } = await import('@/lib/actions/events');
+                    formData.append('event_id', event.id.toString());
 
                     const uploadRes = await uploadEventBanner(formData);
                     if (uploadRes.success && uploadRes.url) {

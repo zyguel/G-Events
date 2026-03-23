@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from "@/lib/supabase-server"
+import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js'
 import { revalidatePath } from "next/cache"
 import { logAuditEntry } from '@/lib/actions/audit'
 
@@ -11,8 +12,29 @@ export interface CreateEventState {
     eventId?: number
 }
 
+async function getStorageClient(): Promise<SupabaseClient> {
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+    }
+
+    return await createClient()
+}
+
+async function ensureEventEditable(eventId: number) {
+    const authSupabase = await createClient()
+    const { data, error } = await authSupabase.from('Event').select('id').eq('id', eventId).single()
+    if (error || !data) {
+        throw new Error('Event not found or access denied')
+    }
+
+    return true
+}
+
 // Helper for uploading
-async function uploadFileToStorage(supabase: Awaited<ReturnType<typeof createClient>>, file: File, bucket: string = 'events') {
+async function uploadFileToStorage(supabase: SupabaseClient, file: File, bucket: string = 'events') {
     const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`
     const { data, error } = await supabase.storage
         .from(bucket)
@@ -263,7 +285,17 @@ export async function uploadEventBanner(formData: FormData) {
             return { success: false, error: 'No file provided' }
         }
 
-        const publicUrl = await uploadFileToStorage(supabase, file)
+        const eventIdStr = formData.get('event_id') as string | null
+        if (eventIdStr) {
+            const eventId = parseInt(eventIdStr, 10)
+            if (!Number.isNaN(eventId)) {
+                await ensureEventEditable(eventId)
+            }
+        }
+
+        const storageClient = await getStorageClient()
+        const publicUrl = await uploadFileToStorage(storageClient, file)
+
         return { success: true, url: publicUrl }
     } catch (e: any) {
         console.error('Unexpected error uploading banner:', e)
