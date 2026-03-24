@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useMemo, useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -18,7 +18,6 @@ export default function LoginPage() {
 function LoginContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const supabase = useMemo(() => createClient(), []);
 
     const [showPassword, setShowPassword] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
@@ -79,13 +78,14 @@ function LoginContent() {
 
     React.useEffect(() => {
         const checkSession = async () => {
+            const supabase = createClient();
             const { data } = await supabase.auth.getUser();
             if (data.user) {
                 router.replace(nextPath);
             }
         };
         checkSession();
-    }, [supabase, router, nextPath]);
+    }, [router, nextPath]);
 
     const handleSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -109,6 +109,7 @@ function LoginContent() {
 
         setIsSubmitting(true);
 
+        const supabase = createClient();
         const { error } = await supabase.auth.signInWithPassword({ email, password });
 
         if (error) {
@@ -131,6 +132,7 @@ function LoginContent() {
         setGeneralError('');
         setEmailError('');
         setPasswordError('');
+        const supabase = createClient();
         let redirectTo = '';
         if (typeof window !== 'undefined') {
             redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,6 @@ type Step = 'email' | 'sent';
 
 export default function ForgotPasswordPage() {
     const router = useRouter();
-    const supabase = useMemo(() => createClient(), []);
     const [step, setStep] = useState<Step>('email');
     const [email, setEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,6 +67,7 @@ export default function ForgotPasswordPage() {
         setError('');
         if (!email) return;
 
+        const supabase = createClient();
         setIsSubmitting(true);
 
         const redirectTo = typeof window !== 'undefined'

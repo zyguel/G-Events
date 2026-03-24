@@ -30,7 +30,7 @@ export default function OrderFormDisplay({
     const [answers, setAnswers] = useState<FormAnswers>({});
     const [touched, setTouched] = useState<Set<string>>(new Set());
 
-    const { isSubmitting, error, success, submit } = useOrderFormSubmit({
+    const { isSubmitting, error, success, successMessage, submit } = useOrderFormSubmit({
         eventId,
         orderFormId,
         userEmail,
@@ -292,7 +292,7 @@ export default function OrderFormDisplay({
                     Form Submitted Successfully!
                 </h3>
                 <p className="text-sm text-green-700 dark:text-green-200">
-                    Thank you for completing the form.
+                    {successMessage || 'Thank you for completing the form.'}
                 </p>
             </div>
         );

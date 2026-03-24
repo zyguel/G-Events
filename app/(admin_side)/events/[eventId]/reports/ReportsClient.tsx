@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
 import {
     FileText, Download, Search, ChevronDown, Filter, X, Info,
     FileSpreadsheet, FileType, Table2, Check
@@ -317,6 +316,21 @@ const ExportDropdown = ({ onExport, exportedFormat }: { onExport: (format: strin
         { format: 'csv', label: 'CSV File', desc: 'Simple comma-separated values', icon: Table2, color: 'blue' },
     ];
 
+    const colorClasses: Record<string, { bg: string; icon: string }> = {
+        emerald: {
+            bg: 'bg-emerald-100 dark:bg-emerald-900/30',
+            icon: 'text-emerald-600 dark:text-emerald-400',
+        },
+        red: {
+            bg: 'bg-red-100 dark:bg-red-900/30',
+            icon: 'text-red-600 dark:text-red-400',
+        },
+        blue: {
+            bg: 'bg-blue-100 dark:bg-blue-900/30',
+            icon: 'text-blue-600 dark:text-blue-400',
+        },
+    };
+
     return (
         <div ref={dropdownRef} className="relative">
             <button
@@ -335,6 +349,7 @@ const ExportDropdown = ({ onExport, exportedFormat }: { onExport: (format: strin
                         {exportOptions.map((opt) => {
                             const Icon = opt.icon;
                             const isExported = exportedFormat === opt.format;
+                            const classes = colorClasses[opt.color] || colorClasses.blue;
                             return (
                                 <button
                                     key={opt.format}
@@ -343,12 +358,12 @@ const ExportDropdown = ({ onExport, exportedFormat }: { onExport: (format: strin
                                 >
                                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isExported
                                         ? 'bg-green-100 dark:bg-green-900/30'
-                                        : `bg-${opt.color}-100 dark:bg-${opt.color}-900/30`
+                                        : classes.bg
                                         }`}>
                                         {isExported ? (
                                             <Check size={16} className="text-green-600 dark:text-green-400" />
                                         ) : (
-                                            <Icon size={16} className={`text-${opt.color}-600 dark:text-${opt.color}-400`} />
+                                            <Icon size={16} className={classes.icon} />
                                         )}
                                     </div>
                                     <div className="text-left">
@@ -412,6 +427,12 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
 
     // Use real data from server
     const { registrants, stats, breakoutSessions } = reports;
+    const generalAttendancePct = stats.attendance.generalTotal > 0
+        ? Math.round((stats.attendance.generalAttended / stats.attendance.generalTotal) * 100)
+        : 0;
+    const premiumAttendancePct = stats.attendance.premiumTotal > 0
+        ? Math.round((stats.attendance.premiumAttended / stats.attendance.premiumTotal) * 100)
+        : 0;
 
     const [activeTab, setActiveTab] = useState<'registration' | 'attendance' | 'breakout'>('registration');
     const [searchQuery, setSearchQuery] = useState('');
@@ -429,7 +450,12 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
         const matchesStatus = !filters.status || r.status === filters.status;
         const matchesRegistrationType = !filters.registrationType || r.registrationType === filters.registrationType;
         const matchesPaymentStatus = !filters.paymentStatus || r.paymentStatus === filters.paymentStatus;
-        return matchesSearch && matchesTicketType && matchesStatus && matchesRegistrationType && matchesPaymentStatus;
+        const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : null;
+        const dateTo = filters.dateTo ? new Date(filters.dateTo) : null;
+        const registrationDate = r.registrationDate ? new Date(r.registrationDate) : null;
+        const matchesDateFrom = !dateFrom || !registrationDate || registrationDate >= dateFrom;
+        const matchesDateTo = !dateTo || !registrationDate || registrationDate <= dateTo;
+        return matchesSearch && matchesTicketType && matchesStatus && matchesRegistrationType && matchesPaymentStatus && matchesDateFrom && matchesDateTo;
     });
 
     // Filter for attendance tab
@@ -439,7 +465,12 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
         const matchesTicketType = !filters.ticketType || r.ticketType === filters.ticketType;
         const matchesStatus = !filters.status ||
             (filters.status === 'Checked-In' ? r.checkedIn : !r.checkedIn);
-        return matchesSearch && matchesTicketType && matchesStatus;
+        const dateFrom = filters.dateFrom ? new Date(filters.dateFrom) : null;
+        const dateTo = filters.dateTo ? new Date(filters.dateTo) : null;
+        const registrationDate = r.registrationDate ? new Date(r.registrationDate) : null;
+        const matchesDateFrom = !dateFrom || !registrationDate || registrationDate >= dateFrom;
+        const matchesDateTo = !dateTo || !registrationDate || registrationDate <= dateTo;
+        return matchesSearch && matchesTicketType && matchesStatus && matchesDateFrom && matchesDateTo;
     });
 
     const [exportedFormat, setExportedFormat] = useState<string | null>(null);
@@ -755,13 +786,13 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                     <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                                         <p className="text-sm font-medium text-gray-900 dark:text-white">General Admission</p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Attended: {stats.attendance.generalAttended}/{stats.attendance.generalTotal} ({stats.attendance.generalAttended}%)
+                                            Attended: {stats.attendance.generalAttended}/{stats.attendance.generalTotal} ({generalAttendancePct}%)
                                         </p>
                                     </div>
                                     <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                                         <p className="text-sm font-medium text-gray-900 dark:text-white">Premium Admission</p>
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                                            Attended: {stats.attendance.premiumAttended}/{stats.attendance.premiumTotal} ({stats.attendance.premiumAttended}%)
+                                            Attended: {stats.attendance.premiumAttended}/{stats.attendance.premiumTotal} ({premiumAttendancePct}%)
                                         </p>
                                     </div>
                                 </div>

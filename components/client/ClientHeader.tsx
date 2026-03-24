@@ -16,7 +16,6 @@ interface UserProfile {
 
 const ClientHeader = () => {
     const router = useRouter();
-    const supabase = React.useMemo(() => createClient(), []);
 
     const [user, setUser] = useState<UserProfile | null>(null);
     const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -26,6 +25,7 @@ const ClientHeader = () => {
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        const supabase = createClient();
         const fetchUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
@@ -53,7 +53,7 @@ const ClientHeader = () => {
         });
 
         return () => subscription.unsubscribe();
-    }, [supabase]);
+    }, []);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -68,6 +68,7 @@ const ClientHeader = () => {
 
     const handleLogoutConfirm = async () => {
         setIsLoggingOut(true);
+        const supabase = createClient();
         await supabase.auth.signOut();
         router.replace('/login');
     };

@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEvent } from '@/lib/db';
-import { EventData } from '@/lib/types';
-import { requireUser } from '@/lib/apiAuth';
+import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
+import { getEventById, getEventAnalytics } from '@/lib/actions/events';
 
 // GET /api/analytics/event/[eventId] - Analytics for a specific event
 export async function GET(
-    request: NextRequest,
+    _request: NextRequest,
     { params }: { params: Promise<{ eventId: string }> }
 ) {
     try {
@@ -27,7 +26,10 @@ export async function GET(
             );
         }
 
-        const event = await getEvent(eventNum);
+        const [event, analytics] = await Promise.all([
+            getEventById(eventNum),
+            getEventAnalytics(eventNum),
+        ]);
 
         if (!event) {
             return NextResponse.json(
@@ -36,41 +38,26 @@ export async function GET(
             );
         }
 
-        // Transform Database Event to EventData format
-        const eventData: EventData = {
+        const eventData = {
             id: event.id.toString(),
-            name: event.title,
+            name: event.title || 'Untitled Event',
             date: event.event_start_at || 'Date TBD',
             status: event.is_published ? 'Published' : 'Draft',
-            stats: {
-                totalEvents: 1,
-                registrations: 0,
-                revenue: 0,
-                satisfaction: 0,
-                expenses: 0,
-                netProfit: 0
-            },
-            comments: [],
-            trends: {
-                registrations: {
-                    weekly: [],
-                    weekLabels: []
-                },
-                attendance: {
-                    checkedIn: 0,
-                    noShow: 0,
-                    waitlisted: 0
-                }
-            },
-            revenueBreakdown: [],
-            recentTransactions: []
+            stats: analytics.stats,
+            comments: analytics.comments || [],
+            trends: analytics.trends,
+            revenueBreakdown: analytics.revenueBreakdown,
+            recentTransactions: analytics.recentTransactions,
         };
 
         return NextResponse.json({ success: true, data: eventData });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const authError = getAuthErrorResponse(error);
+        if (authError) return authError;
+
         console.error('Error fetching event analytics:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to fetch event analytics' },
+            { success: false, error: 'Failed to fetch event analytics' },
             { status: 500 }
         );
     }

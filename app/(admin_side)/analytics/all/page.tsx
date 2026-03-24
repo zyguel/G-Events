@@ -49,8 +49,8 @@ export default async function AggregatedAnalyticsPage() {
         },
         trends: analytics.trends,
         revenueBreakdown: analytics.revenueBreakdown,
-        recentTransactions: [],
-        comments: [],
+        recentTransactions: analytics.recentTransactions || [],
+        comments: analytics.comments || [],
         topEvents: analytics.topEvents,
     };
 

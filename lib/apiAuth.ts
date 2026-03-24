@@ -17,3 +17,20 @@ export async function requireUser() {
 
   return user;
 }
+
+/**
+ * Convert thrown auth responses into route return values.
+ * `requireUser()` throws a NextResponse on auth failure.
+ */
+export function getAuthErrorResponse(error: unknown): NextResponse | null {
+  if (error instanceof NextResponse) {
+    return error;
+  }
+
+  if (error instanceof Response) {
+    const message = error.statusText || 'Unauthorized';
+    return NextResponse.json({ error: message }, { status: error.status || 401 });
+  }
+
+  return null;
+}

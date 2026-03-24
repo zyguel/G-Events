@@ -59,7 +59,7 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
         trends: analytics.trends,
         revenueBreakdown: analytics.revenueBreakdown,
         recentTransactions: analytics.recentTransactions,
-        comments: []
+        comments: analytics.comments || []
     };
 
     // Map all events to simple list for the selector dropdown

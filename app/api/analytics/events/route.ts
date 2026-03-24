@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getEvents } from '@/lib/db';
 import { EventSummary } from '@/lib/types';
-import { requireUser } from '@/lib/apiAuth';
+import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 
 // GET /api/analytics/events - List of all events (for dropdowns and selectors)
 export async function GET() {
@@ -18,10 +18,13 @@ export async function GET() {
         }));
         
         return NextResponse.json({ success: true, data: eventSummaries });
-    } catch (error: any) {
+    } catch (error: unknown) {
+        const authError = getAuthErrorResponse(error);
+        if (authError) return authError;
+
         console.error('Error fetching events list:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to fetch events list' },
+            { success: false, error: 'Failed to fetch events list' },
             { status: 500 }
         );
     }

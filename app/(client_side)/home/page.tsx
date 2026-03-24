@@ -10,13 +10,13 @@ import { Calendar, MapPin, ChevronRight, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 
 export default function ClientDashboardPage() {
-    const supabase = React.useMemo(() => createClient(), []);
     const [events, setEvents] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [userName, setUserName] = useState<string>('Guest');
 
     useEffect(() => {
         const fetchUser = async () => {
+            const supabase = createClient();
             const { data } = await supabase.auth.getUser();
             const metadataName = data.user?.user_metadata?.name as string | undefined;
             setUserName(metadataName || data.user?.email || 'Guest');
@@ -40,6 +40,17 @@ export default function ClientDashboardPage() {
                         let statusText = "Upcoming";
                         let statusColor = "bg-gray-400";
 
+                        if (endDate && endDate < now) {
+                            statusText = "Completed";
+                            statusColor = "bg-gray-400";
+                        } else if (startDate && endDate && startDate <= now && endDate >= now) {
+                            statusText = "Ongoing";
+                            statusColor = "bg-[#00D05C]";
+                        } else if (e.registration_open_at && new Date(e.registration_open_at) <= now) {
+                            statusText = "Registration Open";
+                            statusColor = "bg-[#00D05C]";
+                        }
+
                         // Using logic to mock the visual "green dot" or "gray dot"
                         // as requested in the screenshot
 
@@ -53,6 +64,7 @@ export default function ClientDashboardPage() {
                                 '2:00 PM - 8:00 PM PST',
                             status: statusText,
                             statusColor: statusColor,
+<<<<<<< HEAD
                             imageUrl: e.banner_image || e.settings?.banner_url || '/placeholder-event.png'
                         };
                     });
@@ -66,7 +78,7 @@ export default function ClientDashboardPage() {
         };
 
         loadEvents();
-    }, [supabase]);
+    }, []);
 
     // Get first name for greeting
     const firstName = userName.split(' ')[0];
@@ -120,7 +132,7 @@ export default function ClientDashboardPage() {
                             </div>
                         ) : (
                             <div className="space-y-6 animate-fade-in-up" style={{ animationDelay: '100ms' }}>
-                                {events.map((event, index) => (
+                                {events.map((event) => (
                                     <div
                                         key={event.id}
                                         className="group relative bg-white/95 dark:bg-[#1a1c23]/95 backdrop-blur-sm rounded-4xl p-5 md:p-6 flex flex-col md:flex-row gap-6 lg:gap-8 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100/80 dark:border-gray-800/80 transition-all duration-300"
@@ -165,9 +177,9 @@ export default function ClientDashboardPage() {
                                             <div className="mt-4 flex flex-col md:flex-row md:items-end justify-between gap-5 relative z-10 w-full">
                                                 {/* Status Indicator */}
                                                 <div className="flex items-center gap-2.5 bg-white dark:bg-gray-800 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm w-fit h-fit">
-                                                    <span className={`inline-flex rounded-full h-2.5 w-2.5 ${index % 2 === 0 ? 'bg-[#00D05C]' : 'bg-gray-400'}`}></span>
+                                                    <span className={`inline-flex rounded-full h-2.5 w-2.5 ${event.statusColor}`}></span>
                                                     <span className="text-[13px] font-bold text-[#475569] dark:text-gray-300">
-                                                        {index % 2 === 0 ? 'Pre-registration has started' : 'Full - Waitlist Available'}
+                                                        {event.status}
                                                     </span>
                                                 </div>
 
