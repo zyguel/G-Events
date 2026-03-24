@@ -17,8 +17,17 @@ NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_DEFAULT_ORG_ID=1
 TS_TRANSLATION_MODEL=Xenova/m2m100_418M
-RESEND_API_KEY=your_resend_api_key
-RESEND_FROM_EMAIL=noreply@your-domain.com
+EMAIL_PROVIDER=smtp
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=your_smtp_username
+SMTP_PASS=your_smtp_password_or_app_password
+SMTP_FROM_EMAIL=noreply@your-domain.com
+# Optional alternatives
+# SMTP_URL=smtps://username:password@smtp.gmail.com:465
+# RESEND_API_KEY=your_resend_api_key
+# RESEND_FROM_EMAIL=noreply@your-domain.com
 CRON_SECRET=your_cron_secret
 ```
 

@@ -88,8 +88,17 @@ We utilize a strict branching workflow to ensure stability while allowing for ra
     NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
     NEXT_PUBLIC_DEFAULT_ORG_ID=1
     TS_TRANSLATION_MODEL=Xenova/m2m100_418M
-    RESEND_API_KEY=your_resend_api_key
-    RESEND_FROM_EMAIL=noreply@your-domain.com
+    EMAIL_PROVIDER=smtp
+    SMTP_HOST=smtp.gmail.com
+    SMTP_PORT=465
+    SMTP_SECURE=true
+    SMTP_USER=your_smtp_username
+    SMTP_PASS=your_smtp_password_or_app_password
+    SMTP_FROM_EMAIL=noreply@your-domain.com
+    # Optional alternatives
+    # SMTP_URL=smtps://username:password@smtp.gmail.com:465
+    # RESEND_API_KEY=your_resend_api_key
+    # RESEND_FROM_EMAIL=noreply@your-domain.com
     CRON_SECRET=your_cron_secret
     ```
 > Generate cron secret key `openssl rand -base64 32`
@@ -117,8 +126,16 @@ Use this section when handing the project to a new maintainer.
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase public anon key |
 | `NEXT_PUBLIC_DEFAULT_ORG_ID` | Yes | Default organization id used by app context |
 | `TS_TRANSLATION_MODEL` | Yes | Local translation model identifier |
-| `RESEND_API_KEY` | Yes (if email features enabled) | API key for sending attendee/certificate emails |
-| `RESEND_FROM_EMAIL` | Yes (if email features enabled) | Sender email/domain configured in Resend |
+| `EMAIL_PROVIDER` | Optional (`auto` default) | Select `smtp`, `resend`, or `auto` |
+| `SMTP_HOST` | Yes (for SMTP host mode) | SMTP server hostname (e.g., `smtp.gmail.com`) |
+| `SMTP_PORT` | Optional (for SMTP host mode) | SMTP port (defaults to `587`) |
+| `SMTP_SECURE` | Optional (for SMTP host mode) | Use TLS (`true`/`false`), default inferred from port |
+| `SMTP_USER` | Yes (for SMTP host mode) | SMTP auth username |
+| `SMTP_PASS` | Yes (for SMTP host mode) | SMTP auth password/app password |
+| `SMTP_FROM_EMAIL` | Yes (for SMTP mode) | Sender email address |
+| `SMTP_URL` | Optional (for SMTP URL mode) | Full SMTP connection URL instead of host/user/pass |
+| `RESEND_API_KEY` | Yes (if using Resend mode) | API key for sending attendee/certificate emails |
+| `RESEND_FROM_EMAIL` | Yes (if using Resend mode) | Sender email/domain configured in Resend |
 | `CRON_SECRET` | Yes (if cron routes are enabled) | Shared secret for protected cron endpoints |
 
 #### 2) DB Migrations Required for Current Features
@@ -148,7 +165,7 @@ Header required for both:
 - Order form submission -> registration/waitlist decision + confirmation email
 - Waitlist settings persisted in DB (`EventWaitlistSettings`)
 - Admin check-in uses real registration data + API updates
-- Email campaigns use DB queue + scheduled processing + Resend provider
+- Email campaigns use DB queue + scheduled processing + configurable SMTP/Resend provider
 - Certificates use template storage + issue queue + secure token download route
 - Certificates are anchored to a blockchain-style hash chain (`CertificateLedger`) with public verification route
 - Analytics pages wired to real registrations/revenue/attendance/demographics data
