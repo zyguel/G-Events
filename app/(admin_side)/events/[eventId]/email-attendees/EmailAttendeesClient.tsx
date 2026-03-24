@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
-import { useParams } from 'next/navigation';
 import { Mail, Filter, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import Modal from '@/components/admin/Modal';
@@ -49,8 +48,19 @@ interface SentEmail {
     body: string;
     recipientCount: number;
     sentAt: Date;
-    status: 'sent' | 'scheduled' | 'draft';
+    status: 'sent' | 'scheduled' | 'draft' | 'failed';
     scheduledFor?: Date;
+}
+
+interface CampaignApiRow {
+    id: number;
+    subject: string;
+    body_html: string;
+    recipient_count: number;
+    status: 'draft' | 'scheduled' | 'sending' | 'sent' | 'failed';
+    created_at: string;
+    sent_at?: string | null;
+    schedule_at?: string | null;
 }
 
 // Checkbox component with modern styling
@@ -273,6 +283,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     const [activeTab, setActiveTab] = useState<'create' | 'emails' | 'drafts'>('create');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(!event.id.startsWith('evt-'));
 
     // Initial event prop is used instead of hardcoded data
 
@@ -311,28 +322,50 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     const [selectedEmail, setSelectedEmail] = useState<SentEmail | null>(null);
     const [emailToDelete, setEmailToDelete] = useState<SentEmail | null>(null);
 
-    const [sentEmails, setSentEmails] = useState<SentEmail[]>(
-        event.id.startsWith('evt-')
-            ? []
-            : [
-                {
-                    id: '1',
-                    subject: 'Welcome to DevFest Cebu 2025!',
-                    body: 'We are excited to have you join us...',
-                    recipientCount: 350,
-                    sentAt: new Date(Date.now() - 86400000 * 2),
-                    status: 'sent'
-                },
-                {
-                    id: '2',
-                    subject: 'Event Reminder - DevFest Cebu 2025',
-                    body: 'Just a friendly reminder that the event is coming up...',
-                    recipientCount: 320,
-                    sentAt: new Date(Date.now() - 86400000),
-                    status: 'sent'
-                }
-            ]
-    );
+    const [sentEmails, setSentEmails] = useState<SentEmail[]>([]);
+
+    const mapCampaignToUi = (row: CampaignApiRow): SentEmail => {
+        const uiStatus: SentEmail['status'] =
+            row.status === 'draft' ? 'draft'
+                : row.status === 'scheduled' ? 'scheduled'
+                    : row.status === 'sending' ? 'scheduled'
+                    : row.status === 'failed' ? 'failed'
+                        : 'sent';
+
+        return {
+            id: String(row.id),
+            subject: row.subject,
+            body: row.body_html,
+            recipientCount: row.recipient_count || 0,
+            sentAt: new Date(row.sent_at || row.created_at),
+            status: uiStatus,
+            scheduledFor: row.schedule_at ? new Date(row.schedule_at) : undefined
+        };
+    };
+
+    const loadCampaigns = async () => {
+        if (event.id.startsWith('evt-')) return;
+        try {
+            setIsLoadingCampaigns(true);
+            const res = await fetch(`/api/events/${event.id}/email-attendees`);
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to load campaigns (${res.status})`);
+            }
+            const rows: CampaignApiRow[] = Array.isArray(json.data) ? json.data : [];
+            setSentEmails(rows.map(mapCampaignToUi));
+        } catch (e) {
+            console.error('Error loading email campaigns:', e);
+            setToast({ message: e instanceof Error ? e.message : 'Failed to load email campaigns', type: 'error' });
+        } finally {
+            setIsLoadingCampaigns(false);
+        }
+    };
+
+    useEffect(() => {
+        loadCampaigns();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [event.id]);
 
 
     // Calculate attendees count based on filters
@@ -405,23 +438,59 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     };
 
     // Save as draft
-    const handleSaveAsDraft = () => {
+    const buildFiltersPayload = () => ({
+        ticketTypes,
+        statuses,
+        attendanceTypes,
+    });
+
+    const handleSaveAsDraft = async () => {
         if (!emailSubject.trim()) {
             setToast({ message: 'Please enter at least a subject to save as draft', type: 'error' });
             return;
         }
 
-        const draft: SentEmail = {
-            id: Date.now().toString(),
-            subject: emailSubject,
-            body: emailBody,
-            recipientCount: getAttendeesCount(),
-            sentAt: new Date(),
-            status: 'draft'
-        };
+        if (event.id.startsWith('evt-')) {
+            const draft: SentEmail = {
+                id: Date.now().toString(),
+                subject: emailSubject,
+                body: emailBody,
+                recipientCount: getAttendeesCount(),
+                sentAt: new Date(),
+                status: 'draft'
+            };
+            setSentEmails(prev => [draft, ...prev]);
+            setToast({ message: 'Draft saved locally (draft event).', type: 'success' });
+            return;
+        }
 
-        setSentEmails(prev => [draft, ...prev]);
-        setToast({ message: 'Draft saved successfully!', type: 'success' });
+        try {
+            setIsLoading(true);
+            const res = await fetch(`/api/events/${event.id}/email-attendees`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'draft',
+                    subject: emailSubject,
+                    body: emailBody,
+                    filters: buildFiltersPayload(),
+                    sendOption,
+                    scheduleOption,
+                }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to save draft (${res.status})`);
+            }
+
+            setToast({ message: 'Draft saved successfully!', type: 'success' });
+            await loadCampaigns();
+        } catch (e) {
+            console.error('Error saving draft:', e);
+            setToast({ message: e instanceof Error ? e.message : 'Failed to save draft', type: 'error' });
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     // Send email
@@ -429,36 +498,69 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
         if (!validateForm()) return;
 
         setIsLoading(true);
+        try {
+            if (event.id.startsWith('evt-')) {
+                const newEmail: SentEmail = {
+                    id: Date.now().toString(),
+                    subject: emailSubject,
+                    body: emailBody,
+                    recipientCount: getAttendeesCount(),
+                    sentAt: new Date(),
+                    status: scheduleOption === 'later' ? 'scheduled' : 'sent',
+                    scheduledFor: scheduleOption === 'later' ? new Date(`${scheduledDate}T${scheduledTime}`) : undefined
+                };
+                setSentEmails(prev => [newEmail, ...prev]);
+                setToast({ message: 'Email simulated for draft event.', type: 'info' });
+            } else {
+                const scheduledFor =
+                    scheduleOption === 'later' && scheduledDate && scheduledTime
+                        ? new Date(`${scheduledDate}T${scheduledTime}`).toISOString()
+                        : null;
 
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
+                const res = await fetch(`/api/events/${event.id}/email-attendees`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'send',
+                        subject: emailSubject,
+                        body: emailBody,
+                        sendOption,
+                        scheduleOption,
+                        scheduledFor,
+                        filters: buildFiltersPayload(),
+                    }),
+                });
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || `Failed to send email (${res.status})`);
+                }
 
-        const newEmail: SentEmail = {
-            id: Date.now().toString(),
-            subject: emailSubject,
-            body: emailBody,
-            recipientCount: getAttendeesCount(),
-            sentAt: new Date(),
-            status: scheduleOption === 'later' ? 'scheduled' : 'sent',
-            scheduledFor: scheduleOption === 'later' ? new Date(`${scheduledDate}T${scheduledTime}`) : undefined
-        };
+                const delivery = json?.delivery as { total?: number; sent?: number; failed?: number } | undefined;
+                if (sendOption === 'preview') {
+                    setToast({ message: 'Preview email sent to your inbox!', type: 'success' });
+                } else if (scheduleOption === 'later') {
+                    setToast({ message: `Email scheduled for ${new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString()}`, type: 'success' });
+                } else {
+                    setToast({
+                        message: `Campaign processed: ${delivery?.sent ?? 0} sent, ${delivery?.failed ?? 0} failed.`,
+                        type: delivery?.failed ? 'info' : 'success'
+                    });
+                }
 
-        setSentEmails(prev => [newEmail, ...prev]);
+                await loadCampaigns();
+            }
 
-        if (sendOption === 'preview') {
-            setToast({ message: 'Preview email sent to your inbox!', type: 'success' });
-        } else if (scheduleOption === 'later') {
-            setToast({ message: `Email scheduled for ${new Date(`${scheduledDate}T${scheduledTime}`).toLocaleString()}`, type: 'success' });
-        } else {
-            setToast({ message: `Email sent to ${getAttendeesCount()} attendees!`, type: 'success' });
+            // Reset form
+            setEmailSubject('');
+            setEmailBody('');
+            setScheduledDate('');
+            setScheduledTime('');
+        } catch (e) {
+            console.error('Error sending email campaign:', e);
+            setToast({ message: e instanceof Error ? e.message : 'Failed to send email', type: 'error' });
+        } finally {
+            setIsLoading(false);
         }
-
-        // Reset form
-        setEmailSubject('');
-        setEmailBody('');
-        setScheduledDate('');
-        setScheduledTime('');
-        setIsLoading(false);
     };
 
 
@@ -471,11 +573,30 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     };
 
     // Confirm delete
-    const confirmDelete = () => {
-        if (emailToDelete) {
+    const confirmDelete = async () => {
+        if (!emailToDelete) return;
+
+        if (event.id.startsWith('evt-')) {
             setSentEmails(prev => prev.filter(email => email.id !== emailToDelete.id));
             setToast({ message: 'Email deleted', type: 'info' });
             setEmailToDelete(null);
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/events/${event.id}/email-attendees/${emailToDelete.id}`, {
+                method: 'DELETE',
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to delete email (${res.status})`);
+            }
+            setSentEmails(prev => prev.filter(email => email.id !== emailToDelete.id));
+            setToast({ message: 'Email deleted', type: 'info' });
+            setEmailToDelete(null);
+        } catch (e) {
+            console.error('Error deleting campaign:', e);
+            setToast({ message: e instanceof Error ? e.message : 'Failed to delete email', type: 'error' });
         }
     };
 
@@ -818,6 +939,11 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                     ) : activeTab === 'emails' ? (
                         /* Emails Tab - List of sent emails */
                         <div className="space-y-4">
+                            {isLoadingCampaigns && (
+                                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    Loading email campaigns...
+                                </div>
+                            )}
                             {sentEmails.filter(e => e.status !== 'draft').length === 0 ? (
                                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-12 text-center shadow-sm">
                                     <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -842,8 +968,12 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-3 mb-2">
                                                     <h3 className="font-semibold text-gray-900 dark:text-white truncate">{email.subject}</h3>
-                                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${email.status === 'sent' ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
-                                                        {email.status === 'sent' ? 'Sent' : 'Scheduled'}
+                                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${email.status === 'sent'
+                                                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                                        : email.status === 'failed'
+                                                            ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'
+                                                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'}`}>
+                                                        {email.status === 'sent' ? 'Sent' : email.status === 'failed' ? 'Failed' : 'Scheduled'}
                                                     </span>
                                                 </div>
                                                 <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />

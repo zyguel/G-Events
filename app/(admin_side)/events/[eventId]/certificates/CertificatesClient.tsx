@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
-import { Award, Upload, Download, X, RefreshCw } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Award, Upload, Download, X, RefreshCw, Mail } from 'lucide-react';
 import { EventSummary } from '@/lib/types';
 
-interface Certificate {
+interface CertificateTemplate {
     id: string;
     name: string;
     backgroundImage: string;
@@ -15,12 +15,19 @@ interface Certificate {
     createdAt: Date;
 }
 
+interface CertificateRecipient {
+    registrationId: number | null;
+    name: string;
+    email: string;
+}
+
 interface CertificatesClientProps {
     event: EventSummary;
 }
 
 export default function CertificatesClient({ event }: CertificatesClientProps) {
-    const [certificates, setCertificates] = useState<Certificate[]>([]);
+    const [certificates, setCertificates] = useState<CertificateTemplate[]>([]);
+    const [recipients, setRecipients] = useState<CertificateRecipient[]>([]);
     const [templateName, setTemplateName] = useState('');
     const [backgroundImage, setBackgroundImage] = useState<string>('');
     const [nameX, setNameX] = useState(150);
@@ -30,17 +37,10 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     const [isDragging, setIsDragging] = useState(false);
     const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
     const previewRef = useRef<HTMLDivElement>(null);
-    const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
+    const [selectedCert, setSelectedCert] = useState<CertificateTemplate | null>(null);
     const [isLoading, setIsLoading] = useState(false);
+    const [isInitialLoading, setIsInitialLoading] = useState(!event.id.startsWith('evt-'));
     const [toast, setToast] = useState<string>('');
-
-    const participants = [
-        { id: '1', name: 'John Smith', email: 'john@example.com' },
-        { id: '2', name: 'Sarah Johnson', email: 'sarah@example.com' },
-        { id: '3', name: 'Michael Brown', email: 'michael@example.com' },
-        { id: '4', name: 'Emily Davis', email: 'emily@example.com' },
-        { id: '5', name: 'Robert Wilson', email: 'robert@example.com' },
-    ];
 
     const showToast = (message: string) => {
         setToast(message);
@@ -84,7 +84,55 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
         setIsDragging(false);
     };
 
-    const createCertificate = () => {
+    const loadData = async () => {
+        if (event.id.startsWith('evt-')) {
+            setIsInitialLoading(false);
+            return;
+        }
+        try {
+            setIsInitialLoading(true);
+            const [templatesRes, recipientsRes] = await Promise.all([
+                fetch(`/api/events/${event.id}/certificates/templates`),
+                fetch(`/api/events/${event.id}/certificates/recipients`),
+            ]);
+
+            const templatesJson = await templatesRes.json().catch(() => ({}));
+            const recipientsJson = await recipientsRes.json().catch(() => ({}));
+
+            if (!templatesRes.ok || !templatesJson?.success) {
+                throw new Error(templatesJson?.error || `Failed loading templates (${templatesRes.status})`);
+            }
+            if (!recipientsRes.ok || !recipientsJson?.success) {
+                throw new Error(recipientsJson?.error || `Failed loading recipients (${recipientsRes.status})`);
+            }
+
+            const mappedTemplates: CertificateTemplate[] = (templatesJson.data || []).map((row: any) => ({
+                id: String(row.id),
+                name: row.name,
+                backgroundImage: row.background_image,
+                nameX: row.name_x,
+                nameY: row.name_y,
+                fontSize: row.font_size,
+                fontColor: row.font_color,
+                createdAt: new Date(row.created_at),
+            }));
+
+            setCertificates(mappedTemplates);
+            setRecipients(recipientsJson.data || []);
+        } catch (e) {
+            console.error("Failed loading certificate data:", e);
+            showToast(e instanceof Error ? e.message : "Failed loading certificate data");
+        } finally {
+            setIsInitialLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [event.id]);
+
+    const createCertificate = async () => {
         if (!templateName.trim()) {
             showToast('Enter template name');
             return;
@@ -93,63 +141,131 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
             showToast('Upload background');
             return;
         }
-        setCertificates([...certificates, {
-            id: `cert-${Date.now()}`,
-            name: templateName,
-            backgroundImage,
-            nameX,
-            nameY,
-            fontSize,
-            fontColor,
-            createdAt: new Date(),
-        }]);
-        setTemplateName('');
-        setBackgroundImage('');
-        setNameX(150);
-        setNameY(150);
-        showToast('Template created!');
+
+        if (event.id.startsWith('evt-')) {
+            setCertificates([...certificates, {
+                id: `cert-${Date.now()}`,
+                name: templateName,
+                backgroundImage,
+                nameX,
+                nameY,
+                fontSize,
+                fontColor,
+                createdAt: new Date(),
+            }]);
+            setTemplateName('');
+            setBackgroundImage('');
+            setNameX(150);
+            setNameY(150);
+            showToast('Template created (local draft event).');
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const res = await fetch(`/api/events/${event.id}/certificates/templates`, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    name: templateName,
+                    backgroundImage,
+                    nameX,
+                    nameY,
+                    fontSize,
+                    fontColor,
+                }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed creating template (${res.status})`);
+            }
+            setTemplateName('');
+            setBackgroundImage('');
+            setNameX(150);
+            setNameY(150);
+            showToast('Template created!');
+            await loadData();
+        } catch (e) {
+            console.error("Create template error:", e);
+            showToast(e instanceof Error ? e.message : "Error creating template");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const generatePDFs = async () => {
+    const issueCertificates = async (queueEmail: boolean) => {
         if (!selectedCert) {
             showToast('Select template');
             return;
         }
+        if (recipients.length === 0 && !event.id.startsWith('evt-')) {
+            showToast('No eligible recipients for certificates');
+            return;
+        }
+
         setIsLoading(true);
         try {
-            const jsPDFModule = await import('jspdf/dist/jspdf.es.min.js');
-            const jsPDF = (jsPDFModule as any).jsPDF || (jsPDFModule as any).default;
-
-            for (const participant of participants) {
-                const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [800, 600] });
-                const img = new Image();
-                img.onload = () => {
-                    pdf.addImage(img, 'PNG', 0, 0, 800, 600);
-                    pdf.setFont('Arial');
-                    pdf.setFontSize(selectedCert.fontSize);
-                    pdf.setTextColor(
-                        parseInt(selectedCert.fontColor.slice(1, 3), 16),
-                        parseInt(selectedCert.fontColor.slice(3, 5), 16),
-                        parseInt(selectedCert.fontColor.slice(5, 7), 16)
-                    );
-                    pdf.text(participant.name, selectedCert.nameX, selectedCert.nameY);
-                    pdf.save(`${selectedCert.name}_${participant.name}.pdf`);
-                };
-                img.src = selectedCert.backgroundImage;
+            if (event.id.startsWith('evt-')) {
+                showToast(queueEmail ? 'Queued certificate emails (simulated).' : 'Certificates issued (simulated).');
+                return;
             }
-            showToast(`Generated ${participants.length} certificates!`);
+
+            const recipientIds = recipients
+                .map((r) => r.registrationId)
+                .filter((id): id is number => typeof id === "number");
+
+            const res = await fetch(`/api/events/${event.id}/certificates/issue`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    templateId: Number(selectedCert.id),
+                    recipientIds,
+                    queueEmail,
+                }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed issuing certificates (${res.status})`);
+            }
+
+            if (queueEmail) {
+                const sent = json?.emailProcessing?.sent ?? 0;
+                const failed = json?.emailProcessing?.failed ?? 0;
+                showToast(`Issued ${json?.issuedCount ?? 0}. Email sent: ${sent}, failed: ${failed}.`);
+            } else {
+                showToast(`Issued ${json?.issuedCount ?? 0} certificates.`);
+            }
         } catch (error) {
-            showToast('Error generating');
+            showToast('Error issuing certificates');
             console.error(error);
         } finally {
             setIsLoading(false);
         }
     };
 
-    const deleteCertificate = (id: string) => {
-        setCertificates(certificates.filter(c => c.id !== id));
-        if (selectedCert?.id === id) setSelectedCert(null);
-        showToast('Deleted');
+    const deleteCertificate = async (id: string) => {
+        if (event.id.startsWith('evt-')) {
+            setCertificates(certificates.filter(c => c.id !== id));
+            if (selectedCert?.id === id) setSelectedCert(null);
+            showToast('Deleted');
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/events/${event.id}/certificates/templates/${id}`, {
+                method: "DELETE",
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed deleting template (${res.status})`);
+            }
+            if (selectedCert?.id === id) setSelectedCert(null);
+            showToast('Template deleted');
+            await loadData();
+        } catch (e) {
+            console.error("Delete template error:", e);
+            showToast(e instanceof Error ? e.message : "Failed deleting template");
+        }
     };
 
     return (
@@ -161,7 +277,7 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                     </div>
                     <div>
                         <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Certificates</h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{participants.length} attendees</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{recipients.length} eligible recipients</p>
                     </div>
                 </div>
 
@@ -225,13 +341,29 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                 <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6">
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Templates ({certificates.length})</h2>
-                        <button onClick={() => generatePDFs()} disabled={!selectedCert || isLoading || certificates.length === 0} className="px-4 py-2 bg-emerald-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2 font-medium hover:bg-emerald-600">
-                            {isLoading ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
-                            Generate ({participants.length})
-                        </button>
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => issueCertificates(false)}
+                                disabled={!selectedCert || isLoading || certificates.length === 0 || isInitialLoading}
+                                className="px-4 py-2 bg-emerald-500 text-white rounded-lg disabled:opacity-50 flex items-center gap-2 font-medium hover:bg-emerald-600"
+                            >
+                                {isLoading ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
+                                Issue ({recipients.length})
+                            </button>
+                            <button
+                                onClick={() => issueCertificates(true)}
+                                disabled={!selectedCert || isLoading || certificates.length === 0 || isInitialLoading}
+                                className="px-4 py-2 bg-[#3D518C] text-white rounded-lg disabled:opacity-50 flex items-center gap-2 font-medium hover:bg-[#324373]"
+                            >
+                                <Mail size={16} />
+                                Issue + Email
+                            </button>
+                        </div>
                     </div>
 
-                    {certificates.length === 0 ? (
+                    {isInitialLoading ? (
+                        <div className="text-center py-12 text-gray-500">Loading certificate data...</div>
+                    ) : certificates.length === 0 ? (
                         <div className="text-center py-12 text-gray-500">
                             <Award className="w-12 h-12 mx-auto mb-3 opacity-30" />
                             <p>Create a template above</p>
@@ -252,8 +384,11 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                                     {selectedCert?.id === cert.id && (
                                         <div className="pt-3 border-t border-gray-200 dark:border-gray-600">
                                             <p className="text-xs text-gray-600 dark:text-gray-400 mb-2">Position: X: {cert.nameX}, Y: {cert.nameY}</p>
-                                            <button onClick={(e) => { e.stopPropagation(); generatePDFs(); }} className="w-full px-3 py-2 bg-[#3D518C] text-white text-xs font-medium rounded hover:bg-[#3D518C]/90">
-                                                Generate & Download
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); issueCertificates(false); }}
+                                                className="w-full px-3 py-2 bg-[#3D518C] text-white text-xs font-medium rounded hover:bg-[#3D518C]/90"
+                                            >
+                                                Issue Certificates
                                             </button>
                                         </div>
                                     )}

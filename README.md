@@ -8,6 +8,7 @@
 * [About the Project](#-about-the-project)
 * [Branching Strategy](#-branching-strategy)
 * [Getting Started](#-getting-started)
+* [Handoff One-Pager](#-handoff-one-pager)
 * [Contribution Guidelines](#-contribution-guidelines)
 * [Commit Standards](#-commit-standards)
 * [Pull Request Process](#-pull-request-process)
@@ -27,7 +28,7 @@ G-Events provides a robust solution for **managing the full lifecycle of events*
 * **Breakout Sessions:** Optional breakout session management per event.
 * **Email Attendees:** Compose and send targeted emails to registered attendees directly from the dashboard.
 * **Analytics & Reports:** Per-event and cross-event analytics (registrations, revenue, attendance trends, demographics) with export to CSV, Excel (XLSX), and PDF.
-* **Certificates:** Certificate generation and distribution for attendees.
+* **Certificates:** Certificate generation/distribution with blockchain-style hash-chain verification.
 * **Team Management:** Role-based organisation user management with granular permissions.
 * **Dark / Light Mode:** Full theme support across the entire admin dashboard.
 
@@ -87,12 +88,130 @@ We utilize a strict branching workflow to ensure stability while allowing for ra
     NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
     NEXT_PUBLIC_DEFAULT_ORG_ID=1
     TS_TRANSLATION_MODEL=Xenova/m2m100_418M
+    EMAIL_PROVIDER=smtp
+    SMTP_HOST=smtp.gmail.com
+    SMTP_PORT=465
+    SMTP_SECURE=true
+    SMTP_USER=your_smtp_username
+    SMTP_PASS=your_smtp_password_or_app_password
+    SMTP_FROM_EMAIL=noreply@your-domain.com
+    # Optional alternatives
+    # SMTP_URL=smtps://username:password@smtp.gmail.com:465
+    # RESEND_API_KEY=your_resend_api_key
+    # RESEND_FROM_EMAIL=noreply@your-domain.com
+    CRON_SECRET=your_cron_secret
     ```
+> Generate cron secret key `openssl rand -base64 32`
 5.  **Run the development server:**
     ```bash
     npm run dev
     ```
     Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+> For email campaigns, run the SQL migration in `database/add_event_email_campaigns_table.sql` in your Supabase SQL editor.
+> Scheduled campaigns can be processed through `POST /api/cron/process-email-campaigns` with header `x-cron-secret: <CRON_SECRET>`.
+> For certificates, run `database/add_event_certificates_tables.sql` and optionally schedule `POST /api/cron/process-certificate-emails` with the same `x-cron-secret` header.
+> For certificate blockchain verification, run `database/add_certificate_blockchain_ledger.sql`.
+> For backend waitlist preferences, run `database/add_event_waitlist_settings_table.sql`.
+
+### Project Handoff Checklist
+
+Use this section when handing the project to a new maintainer.
+
+#### 1) Required Environment Variables
+
+| Key | Required | Purpose |
+| :--- | :--- | :--- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase public anon key |
+| `NEXT_PUBLIC_DEFAULT_ORG_ID` | Yes | Default organization id used by app context |
+| `TS_TRANSLATION_MODEL` | Yes | Local translation model identifier |
+| `EMAIL_PROVIDER` | Optional (`auto` default) | Select `smtp`, `resend`, or `auto` |
+| `SMTP_HOST` | Yes (for SMTP host mode) | SMTP server hostname (e.g., `smtp.gmail.com`) |
+| `SMTP_PORT` | Optional (for SMTP host mode) | SMTP port (defaults to `587`) |
+| `SMTP_SECURE` | Optional (for SMTP host mode) | Use TLS (`true`/`false`), default inferred from port |
+| `SMTP_USER` | Yes (for SMTP host mode) | SMTP auth username |
+| `SMTP_PASS` | Yes (for SMTP host mode) | SMTP auth password/app password |
+| `SMTP_FROM_EMAIL` | Yes (for SMTP mode) | Sender email address |
+| `SMTP_URL` | Optional (for SMTP URL mode) | Full SMTP connection URL instead of host/user/pass |
+| `RESEND_API_KEY` | Yes (if using Resend mode) | API key for sending attendee/certificate emails |
+| `RESEND_FROM_EMAIL` | Yes (if using Resend mode) | Sender email/domain configured in Resend |
+| `CRON_SECRET` | Yes (if cron routes are enabled) | Shared secret for protected cron endpoints |
+
+#### 2) DB Migrations Required for Current Features
+
+Run these in Supabase SQL editor before production use:
+
+- `database/add_order_form_entries_table.sql`
+- `database/add_event_waitlist_settings_table.sql`
+- `database/add_event_email_campaigns_table.sql`
+- `database/add_event_certificates_tables.sql`
+- `database/add_certificate_blockchain_ledger.sql`
+
+#### 3) Cron Endpoints (Optional but Recommended)
+
+Set scheduler jobs to call:
+
+- `POST /api/cron/process-email-campaigns`
+- `POST /api/cron/process-certificate-emails`
+
+Header required for both:
+
+- `x-cron-secret: <CRON_SECRET>`
+
+#### 4) Features Wired End-to-End (Current)
+
+- Admin + public order form flow connected (`/events/[eventId]/register`)
+- Order form submission -> registration/waitlist decision + confirmation email
+- Waitlist settings persisted in DB (`EventWaitlistSettings`)
+- Admin check-in uses real registration data + API updates
+- Email campaigns use DB queue + scheduled processing + configurable SMTP/Resend provider
+- Certificates use template storage + issue queue + secure token download route
+- Certificates are anchored to a blockchain-style hash chain (`CertificateLedger`) with public verification route
+- Analytics pages wired to real registrations/revenue/attendance/demographics data
+- Reports use real registrants + breakout stats + CSV/XLSX/PDF export
+
+#### 5) Known Product Scope Decision
+
+- Payment gateway/webhook lifecycle is intentionally excluded for thesis deployment.
+  Registration and waitlist are active without payment integration.
+
+#### 6) Certificate Verification (Blockchain-Style)
+
+Each issued certificate can be cryptographically verified via:
+
+- `GET /api/certificates/[token]/verify`
+
+The response includes:
+
+- `verified` flag
+- certificate hash
+- block hash
+- previous hash
+- block index and timestamp
+
+This is an application-level blockchain pattern (hash chain in PostgreSQL), suitable for capstone/thesis demonstration without external chain fees.
+
+#### 7) Final QA Before Handoff
+
+Run this exact smoke test flow once on a clean environment:
+
+1. Create + publish an event with at least one ticket.
+2. Create an order form and submit through public `/events/[eventId]/register`.
+3. Confirm one registrant and force one waitlist case.
+4. Test admin check-in toggle and verify reflected status in reports.
+5. Send one preview attendee email and one scheduled email; trigger cron processor.
+6. Create certificate template, issue certificates, and verify:
+   - download endpoint works
+   - `/api/certificates/[token]/verify` returns `verified: true`
+7. Open analytics and reports pages and export CSV/XLSX/PDF.
+8. Run `npm run build -- --webpack` and ensure it succeeds.
+
+### 📦 Handoff One-Pager
+
+For adviser/panel/new-maintainer quick review, see:
+
+- `docs/HANDOFF.md`
 
 ### Available Scripts
 

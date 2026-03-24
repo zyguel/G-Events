@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
-import { requireUser } from '@/lib/apiAuth';
+import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 
 type UiStatus = "Confirmed" | "Pending" | "Rejected";
 
@@ -119,6 +119,9 @@ export async function GET(
 
         return NextResponse.json({ success: true, data: orders });
     } catch (e: any) {
+        const authError = getAuthErrorResponse(e);
+        if (authError) return authError;
+
         console.error("ManageOrders GET error:", e);
         return NextResponse.json(
             { success: false, error: e?.message || "Unexpected error" },

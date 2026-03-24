@@ -86,6 +86,20 @@ export default function DashboardTabs({
     demographics?: DemographicsData;
 }) {
     const [activeTab, setActiveTab] = useState("registrations");
+    const attendanceTotal =
+        data.trends.attendance.checkedIn +
+        data.trends.attendance.waitlisted +
+        data.trends.attendance.noShow;
+    const checkedInPct = attendanceTotal > 0
+        ? Math.round((data.trends.attendance.checkedIn / attendanceTotal) * 100)
+        : 0;
+    const waitlistedPct = attendanceTotal > 0
+        ? Math.round((data.trends.attendance.waitlisted / attendanceTotal) * 100)
+        : 0;
+    const noShowPct = Math.max(0, 100 - checkedInPct - waitlistedPct);
+    const profitMarginPct = data.stats.revenue > 0
+        ? Math.round((data.stats.netProfit / data.stats.revenue) * 100)
+        : 0;
 
     return (
         <div className="space-y-6">
@@ -143,7 +157,7 @@ export default function DashboardTabs({
                             {/* Attendance Breakdown */}
                             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center justify-center">
                                 <h3 className="w-full font-semibold text-gray-900 dark:text-white mb-2 text-left">Attendance Breakdown</h3>
-                                <p className="w-full text-xs text-gray-500 dark:text-gray-400 mb-4 text-left">Current attendance status for all events</p>
+                                <p className="w-full text-xs text-gray-500 dark:text-gray-400 mb-4 text-left">Checked-in, waitlisted, and no-show split</p>
 
                                 {/* Donut Chart with labels */}
                                 <div className="relative w-48 h-48 flex items-center justify-center">
@@ -152,17 +166,17 @@ export default function DashboardTabs({
                                         style={{
                                             background: `conic-gradient(
                         rgb(99, 102, 241) 0deg,
-                        rgb(99, 102, 241) ${data.trends.attendance.checkedIn * 3.6}deg,
-                        rgb(251, 191, 36) ${data.trends.attendance.checkedIn * 3.6}deg,
-                        rgb(251, 191, 36) ${(data.trends.attendance.checkedIn + data.trends.attendance.waitlisted) * 3.6}deg,
-                        rgb(156, 163, 175) ${(data.trends.attendance.checkedIn + data.trends.attendance.waitlisted) * 3.6}deg,
+                        rgb(99, 102, 241) ${checkedInPct * 3.6}deg,
+                        rgb(251, 191, 36) ${checkedInPct * 3.6}deg,
+                        rgb(251, 191, 36) ${(checkedInPct + waitlistedPct) * 3.6}deg,
+                        rgb(156, 163, 175) ${(checkedInPct + waitlistedPct) * 3.6}deg,
                         rgb(156, 163, 175) 360deg
                       )`
                                         }}
                                     ></div>
                                     <div className="absolute w-28 h-28 rounded-full bg-white dark:bg-gray-800 flex flex-col items-center justify-center">
                                         <span className="text-sm text-gray-500 dark:text-gray-400">Checked In</span>
-                                        <span className="text-xl font-bold text-gray-900 dark:text-white">{data.trends.attendance.checkedIn}%</span>
+                                        <span className="text-xl font-bold text-gray-900 dark:text-white">{checkedInPct}%</span>
                                     </div>
                                 </div>
 
@@ -170,11 +184,11 @@ export default function DashboardTabs({
                                 <div className="mt-4 w-full grid grid-cols-2 gap-2 text-xs">
                                     <div className="text-right pr-2">
                                         <span className="text-gray-500 dark:text-gray-400">Waitlisted: </span>
-                                        <span className="font-semibold text-gray-700 dark:text-gray-200">{data.trends.attendance.waitlisted}%</span>
+                                        <span className="font-semibold text-gray-700 dark:text-gray-200">{waitlistedPct}%</span>
                                     </div>
                                     <div className="text-left pl-2">
                                         <span className="text-gray-500 dark:text-gray-400">No Show: </span>
-                                        <span className="font-semibold text-gray-700 dark:text-gray-200">{data.trends.attendance.noShow}%</span>
+                                        <span className="font-semibold text-gray-700 dark:text-gray-200">{noShowPct}%</span>
                                     </div>
                                 </div>
 
@@ -208,8 +222,8 @@ export default function DashboardTabs({
                                 <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                                     ${data.stats.revenue.toLocaleString()}
                                 </h3>
-                                <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400">
-                                    +15% vs last event
+                                <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400">
+                                    Based on confirmed registrations
                                 </span>
                             </div>
 
@@ -229,9 +243,9 @@ export default function DashboardTabs({
                                     ${data.stats.netProfit.toLocaleString()}
                                 </h3>
                                 <div className="w-full bg-indigo-200 dark:bg-indigo-900/50 rounded-full h-1.5 mt-3">
-                                    <div className="bg-indigo-600 dark:bg-indigo-400 h-1.5 rounded-full" style={{ width: '65%' }}></div>
+                                    <div className="bg-indigo-600 dark:bg-indigo-400 h-1.5 rounded-full" style={{ width: `${profitMarginPct}%` }}></div>
                                 </div>
-                                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-2">65% Profit Margin</p>
+                                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-2">{profitMarginPct}% Profit Margin</p>
                             </div>
                         </div>
 
@@ -267,36 +281,42 @@ export default function DashboardTabs({
                                 </div>
 
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">
-                                                <th className="pb-3 font-medium">User</th>
-                                                <th className="pb-3 font-medium">Type</th>
-                                                <th className="pb-3 font-medium">Amount</th>
-                                                <th className="pb-3 font-medium">Status</th>
-                                                <th className="pb-3 font-medium text-right">Time</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="text-sm">
-                                            {data.recentTransactions.map((tx, i) => (
-                                                <tr key={i} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                                                    <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-medium">
-                                                        {tx.user} <span className="block text-xs text-gray-400 dark:text-gray-500 font-normal">{tx.id}</span>
-                                                    </td>
-                                                    <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-600 dark:text-gray-300">{tx.type}</td>
-                                                    <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-bold">${tx.amount.toLocaleString()}</td>
-                                                    <td className="py-4 border-b border-gray-50 dark:border-gray-700">
-                                                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${tx.status === "Success" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" :
-                                                            tx.status === "Pending" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                                                            }`}>
-                                                            {tx.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-400 dark:text-gray-500 text-right">{tx.date}</td>
+                                    {data.recentTransactions.length === 0 ? (
+                                        <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                                            No transactions yet for the selected scope.
+                                        </div>
+                                    ) : (
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-gray-100 dark:border-gray-700 text-xs text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                                    <th className="pb-3 font-medium">User</th>
+                                                    <th className="pb-3 font-medium">Type</th>
+                                                    <th className="pb-3 font-medium">Amount</th>
+                                                    <th className="pb-3 font-medium">Status</th>
+                                                    <th className="pb-3 font-medium text-right">Time</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
+                                            </thead>
+                                            <tbody className="text-sm">
+                                                {data.recentTransactions.map((tx, i) => (
+                                                    <tr key={i} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-medium">
+                                                            {tx.user} <span className="block text-xs text-gray-400 dark:text-gray-500 font-normal">{tx.id}</span>
+                                                        </td>
+                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-600 dark:text-gray-300">{tx.type}</td>
+                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-bold">${tx.amount.toLocaleString()}</td>
+                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700">
+                                                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${tx.status === "Success" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" :
+                                                                tx.status === "Pending" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                                                }`}>
+                                                                {tx.status}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-400 dark:text-gray-500 text-right">{tx.date}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -311,7 +331,7 @@ export default function DashboardTabs({
                         <div className="md:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm h-fit">
                             <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Overall Satisfaction</h3>
                             <div className="text-5xl font-bold text-gray-900 dark:text-white mb-2">
-                                {data.stats.satisfaction} <span className="text-lg text-gray-400 dark:text-gray-500 font-normal">/ 5.0</span>
+                                {data.stats.satisfaction > 0 ? data.stats.satisfaction : 'N/A'} <span className="text-lg text-gray-400 dark:text-gray-500 font-normal">/ 5.0</span>
                             </div>
                             <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 mb-2">
                                 <div
@@ -326,23 +346,31 @@ export default function DashboardTabs({
                         <div className="md:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                             <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Recent Feedback</h3>
                             <div className="space-y-4">
-                                {data.comments.map((comment, i) => (
-                                    <div key={i} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-semibold text-sm text-gray-900 dark:text-white">{comment.user}</span>
-                                                <span className="text-xs text-yellow-500">{"★".repeat(comment.rating)}</span>
-                                                {comment.eventName && (
-                                                    <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded font-medium">
-                                                        {comment.eventName}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="text-xs text-gray-400 dark:text-gray-500">{comment.time}</span>
-                                        </div>
-                                        <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">"{comment.text}"</p>
+                                {data.comments.length === 0 ? (
+                                    <div className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                                        No feedback comments yet.
                                     </div>
-                                ))}
+                                ) : (
+                                    data.comments.map((comment, i) => (
+                                        <div key={i} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
+                                            <div className="flex justify-between items-start mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-semibold text-sm text-gray-900 dark:text-white">{comment.user}</span>
+                                                    {comment.rating > 0 && (
+                                                        <span className="text-xs text-yellow-500">{"★".repeat(comment.rating)}</span>
+                                                    )}
+                                                    {comment.eventName && (
+                                                        <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded font-medium">
+                                                            {comment.eventName}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <span className="text-xs text-gray-400 dark:text-gray-500">{comment.time}</span>
+                                            </div>
+                                            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">"{comment.text}"</p>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     </div>

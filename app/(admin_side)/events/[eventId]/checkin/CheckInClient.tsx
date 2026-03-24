@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Search, Filter, MoreVertical, CheckCircle, Clock, ChevronDown, UserCheck, UserX, Eye } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -34,25 +34,92 @@ const INITIAL_ATTENDEES: Attendee[] = [
 
 export default function CheckInClient({ event }: CheckInClientProps) {
     const [searchQuery, setSearchQuery] = useState('');
-    // Initialize with mock data only if not a local draft event
-    const [attendees, setAttendees] = useState<Attendee[]>(event.id.startsWith('evt-') ? [] : INITIAL_ATTENDEES);
+    // Use mock attendees only for local draft events.
+    const [attendees, setAttendees] = useState<Attendee[]>(event.id.startsWith('evt-') ? INITIAL_ATTENDEES : []);
+    const [isLoading, setIsLoading] = useState(!event.id.startsWith('evt-'));
+    const [error, setError] = useState<string | null>(null);
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<'All' | 'Checked-In' | 'Not Yet Checked-In'>('All');
+    const [updatingId, setUpdatingId] = useState<string | null>(null);
 
     // Action Menu State
     const [openActionId, setOpenActionId] = useState<string | null>(null);
 
-    // --- Actions ---
-    const handleCheckInToggle = (registrationId: string) => {
-        setAttendees(prev => prev.map(att => {
-            if (att.registrationId === registrationId) {
-                const newStatus = att.status === 'Checked-In' ? 'Not Yet Checked-In' : 'Checked-In';
-                const newTime = newStatus === 'Checked-In' ? new Date().toLocaleString() : undefined;
-                return { ...att, status: newStatus, checkInTime: newTime };
+    useEffect(() => {
+        if (event.id.startsWith('evt-')) {
+            setIsLoading(false);
+            return;
+        }
+
+        const controller = new AbortController();
+
+        const loadAttendees = async () => {
+            try {
+                setIsLoading(true);
+                setError(null);
+                const res = await fetch(`/api/events/${event.id}/checkin`, { signal: controller.signal });
+                if (!res.ok) {
+                    throw new Error(`Failed to load attendees (${res.status})`);
+                }
+                const json = await res.json();
+                if (json?.success && Array.isArray(json.data)) {
+                    setAttendees(json.data);
+                } else {
+                    throw new Error(json?.error || "Unexpected response format");
+                }
+            } catch (e) {
+                if (e instanceof DOMException && e.name === 'AbortError') return;
+                console.error("Error loading check-in attendees:", e);
+                setError(e instanceof Error ? e.message : "Failed to load attendees");
+            } finally {
+                setIsLoading(false);
             }
-            return att;
-        }));
+        };
+
+        loadAttendees();
+        return () => controller.abort();
+    }, [event.id]);
+
+    // --- Actions ---
+    const handleCheckInToggle = async (registrationId: string) => {
+        const target = attendees.find(att => att.registrationId === registrationId);
+        if (!target) return;
+
+        const nextStatus = target.status === 'Checked-In' ? 'Not Yet Checked-In' : 'Checked-In';
+        const nextTime = nextStatus === 'Checked-In' ? new Date().toLocaleString() : undefined;
+
+        setAttendees(prev => prev.map(att =>
+            att.registrationId === registrationId
+                ? { ...att, status: nextStatus, checkInTime: nextTime }
+                : att
+        ));
         setOpenActionId(null);
+
+        if (event.id.startsWith('evt-')) return;
+
+        try {
+            setUpdatingId(registrationId);
+            const res = await fetch(`/api/events/${event.id}/checkin/${registrationId}`, {
+                method: 'PATCH',
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ checkedIn: nextStatus === 'Checked-In' }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to update check-in (${res.status})`);
+            }
+        } catch (e) {
+            console.error("Error updating check-in:", e);
+            // Roll back optimistic update
+            setAttendees(prev => prev.map(att =>
+                att.registrationId === registrationId
+                    ? { ...att, status: target.status, checkInTime: target.checkInTime }
+                    : att
+            ));
+            setError(e instanceof Error ? e.message : "Failed to update check-in");
+        } finally {
+            setUpdatingId(null);
+        }
     };
 
     // --- Filtering ---
@@ -187,6 +254,9 @@ export default function CheckInClient({ event }: CheckInClientProps) {
 
                     {/* Data Table */}
                     <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-800/80 backdrop-blur-sm overflow-hidden shadow-sm transition-colors duration-300">
+                        {error && (
+                            <div className="px-6 pt-6 text-sm text-red-600 dark:text-red-300">{error}</div>
+                        )}
                         <div className="overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-gray-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-gray-500 transition-colors">
                             <table className="w-full text-sm text-left">
                                 <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 transition-colors duration-300">
@@ -201,7 +271,13 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {filteredAttendees.length > 0 ? (
+                                    {isLoading ? (
+                                        <tr>
+                                            <td colSpan={7} className="px-6 py-20 text-center text-gray-500 dark:text-gray-400">
+                                                Loading attendees...
+                                            </td>
+                                        </tr>
+                                    ) : filteredAttendees.length > 0 ? (
                                         filteredAttendees.map((attendee) => (
                                             <tr
                                                 key={attendee.registrationId}
@@ -256,6 +332,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                                     >
                                                                         <button
                                                                             onClick={() => handleCheckInToggle(attendee.registrationId)}
+                                                                            disabled={updatingId === attendee.registrationId}
                                                                             className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 transition-colors"
                                                                         >
                                                                             {attendee.status === 'Checked-In' ? (

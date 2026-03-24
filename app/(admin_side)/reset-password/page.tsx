@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
@@ -11,7 +11,6 @@ type Step = 'reset' | 'success';
 
 export default function ResetPasswordPage() {
     const router = useRouter();
-    const supabase = useMemo(() => createClient(), []);
 
     const [step, setStep] = useState<Step>('reset');
     const [newPassword, setNewPassword] = useState('');
@@ -81,6 +80,7 @@ export default function ResetPasswordPage() {
 
         setIsSubmitting(true);
 
+        const supabase = createClient();
         const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
 
         setIsSubmitting(false);

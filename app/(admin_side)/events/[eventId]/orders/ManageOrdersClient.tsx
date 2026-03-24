@@ -125,7 +125,7 @@ interface ManageOrdersClientProps {
 
 export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
     const [activeTab, setActiveTab] = useState<"all" | "review">("all");
-    const [orders, setOrders] = useState<Order[]>(event.id.startsWith("evt-") ? [] : initialMockOrders);
+    const [orders, setOrders] = useState<Order[]>(event.id.startsWith("evt-") ? initialMockOrders : []);
     const [searchQuery, setSearchQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [isLoading, setIsLoading] = useState(!event.id.startsWith("evt-"));

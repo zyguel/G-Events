@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { OrderFormData, FormInputField } from '@/lib/types';
-import { saveOrderFormEntry } from '@/lib/actions/orderForm';
 
 interface FormAnswers {
     [inputId: string]: string | string[] | null;
@@ -19,6 +18,7 @@ interface UseOrderFormSubmitReturn {
     isSubmitting: boolean;
     error: string | null;
     success: boolean;
+    successMessage: string | null;
     submit: (formData: OrderFormData, answers: FormAnswers) => Promise<void>;
 }
 
@@ -31,6 +31,7 @@ export function useOrderFormSubmit({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     const submit = useCallback(async (
         formData: OrderFormData,
@@ -39,6 +40,7 @@ export function useOrderFormSubmit({
         setIsSubmitting(true);
         setError(null);
         setSuccess(false);
+        setSuccessMessage(null);
 
         try {
             // Enrich form data with answers
@@ -52,20 +54,25 @@ export function useOrderFormSubmit({
                 }))
             };
 
-            const result = await saveOrderFormEntry(
-                eventId,
-                orderFormId,
-                enrichedFormData,
-                userEmail,
-                registrationId
-            );
+            const response = await fetch(`/api/orderform/${orderFormId}/entries`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    eventId,
+                    formData: enrichedFormData,
+                    userEmail,
+                    registrationId,
+                }),
+            });
+            const result = await response.json().catch(() => ({}));
 
-            if (!result.success) {
-                setError(result.error || 'Failed to submit form');
+            if (!response.ok || !result?.success) {
+                setError(result?.error || 'Failed to submit form');
                 return;
             }
 
             setSuccess(true);
+            setSuccessMessage(result?.message || 'Form submitted successfully.');
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unexpected error occurred');
         } finally {
@@ -77,6 +84,7 @@ export function useOrderFormSubmit({
         isSubmitting,
         error,
         success,
+        successMessage,
         submit
     };
 }

@@ -107,7 +107,9 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     }
 
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoadingEntries, setIsLoadingEntries] = useState(false);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
+    const [invitingEntryId, setInvitingEntryId] = useState<string | null>(null);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Collapsed by default
 
     // Waitlist settings state
@@ -128,7 +130,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
 
         const loadEntries = async () => {
             try {
-                setIsLoading(true);
+                setIsLoadingEntries(true);
                 const res = await fetch(`/api/events/${eventId}/waitlist`, {
                     signal: controller.signal,
                 });
@@ -138,6 +140,15 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                 const json = await res.json();
                 if (json?.success && Array.isArray(json.data)) {
                     setEntries(json.data);
+                    if (json.settings) {
+                        if (typeof json.settings.expiryDays === 'string') setExpiryDays(json.settings.expiryDays);
+                        if (json.settings.inviteType === 'auto' || json.settings.inviteType === 'manual') {
+                            setInviteType(json.settings.inviteType);
+                        }
+                        if (typeof json.settings.showPosition === 'boolean') {
+                            setShowPosition(json.settings.showPosition);
+                        }
+                    }
                 } else {
                     throw new Error(json?.error || 'Unexpected response format');
                 }
@@ -146,7 +157,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                 console.error('Error loading waitlist:', e);
                 setToast({ message: e instanceof Error ? e.message : 'Failed to load waitlist', type: 'error' });
             } finally {
-                setIsLoading(false);
+                setIsLoadingEntries(false);
             }
         };
 
@@ -184,16 +195,71 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
 
 
     const handleSaveSettings = async () => {
-        setIsLoading(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsLoading(false);
-        setToast({ message: 'Waitlist settings saved successfully!', type: 'success' });
+        if (eventId.startsWith('evt-')) {
+            setToast({ message: 'Settings saved locally for draft event.', type: 'success' });
+            return;
+        }
+
+        try {
+            setIsSavingSettings(true);
+            const res = await fetch(`/api/events/${eventId}/waitlist`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'save_settings',
+                    expiryDays,
+                    inviteType,
+                    showPosition,
+                }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to save waitlist settings (${res.status})`);
+            }
+            setToast({ message: 'Waitlist settings saved successfully!', type: 'success' });
+        } catch (e) {
+            console.error('Failed to save waitlist settings:', e);
+            setToast({ message: e instanceof Error ? e.message : 'Failed to save settings.', type: 'error' });
+        } finally {
+            setIsSavingSettings(false);
+        }
     };
 
     const handleInvite = async (entryId: string) => {
-        // TODO: Wire up invite API when email workflow is implemented
-        setToast({ message: `Invitation sent to waitlist entry #${entryId}`, type: 'success' });
+        if (eventId.startsWith('evt-')) {
+            setEntries(prev =>
+                prev.map(entry =>
+                    entry.id === entryId ? { ...entry, status: 'Invited' } : entry
+                )
+            );
+            setToast({ message: `Invitation marked for entry #${entryId}.`, type: 'success' });
+            return;
+        }
+
+        try {
+            setInvitingEntryId(entryId);
+            const res = await fetch(`/api/events/${eventId}/waitlist`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'invite', entryId }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to invite waitlist entry (${res.status})`);
+            }
+
+            setEntries(prev =>
+                prev.map(entry =>
+                    entry.id === entryId ? { ...entry, status: 'Invited' } : entry
+                )
+            );
+            setToast({ message: `Invitation sent to ${entries.find(e => e.id === entryId)?.email || 'waitlist attendee'}.`, type: 'success' });
+        } catch (e) {
+            console.error('Error sending invite:', e);
+            setToast({ message: e instanceof Error ? e.message : 'Failed to send invite', type: 'error' });
+        } finally {
+            setInvitingEntryId(null);
+        }
     };
 
     const getStatusBadge = (status: 'Invited' | 'Waiting') => {
@@ -335,10 +401,10 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                                 <div className="pt-4">
                                     <button
                                         onClick={handleSaveSettings}
-                                        disabled={isLoading}
+                                        disabled={isSavingSettings}
                                         className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
-                                        {isLoading ? (
+                                        {isSavingSettings ? (
                                             <>
                                                 <RefreshCw size={16} className="animate-spin" />
                                                 Saving...
@@ -416,7 +482,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {isLoading ? (
+                                    {isLoadingEntries ? (
                                         <tr>
                                             <td colSpan={6} className="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                                                 Loading waitlist...
@@ -451,10 +517,20 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                                                 {entry.status === 'Waiting' && (
                                                     <button
                                                         onClick={() => handleInvite(entry.id)}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-xs font-medium rounded-lg hover:shadow-md transition-all"
+                                                        disabled={invitingEntryId === entry.id}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-xs font-medium rounded-lg hover:shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed"
                                                     >
-                                                        <Mail size={12} />
-                                                        Send Invite
+                                                        {invitingEntryId === entry.id ? (
+                                                            <>
+                                                                <RefreshCw size={12} className="animate-spin" />
+                                                                Sending...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Mail size={12} />
+                                                                Send Invite
+                                                            </>
+                                                        )}
                                                     </button>
                                                 )}
                                             </td>
@@ -464,7 +540,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                             </table>
                         </div>
 
-                        {filteredEntries.length === 0 && !isLoading && (
+                        {filteredEntries.length === 0 && !isLoadingEntries && (
                             <div className="p-12 text-center">
                                 <div className="w-16 h-16 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
                                     <Users className="w-8 h-8 text-gray-400" />

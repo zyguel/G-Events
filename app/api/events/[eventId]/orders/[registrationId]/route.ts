@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
-import { requireUser } from '@/lib/apiAuth';
+import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 
 type Action = "confirm" | "reject";
 
@@ -55,6 +55,9 @@ export async function PATCH(
 
         return NextResponse.json({ success: true });
     } catch (e: any) {
+        const authError = getAuthErrorResponse(e);
+        if (authError) return authError;
+
         console.error("ManageOrders PATCH error:", e);
         return NextResponse.json(
             { success: false, error: e?.message || "Unexpected error" },

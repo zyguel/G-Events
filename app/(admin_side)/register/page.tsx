@@ -1,14 +1,12 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Eye, EyeOff, Mail, Lock, User, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 
 export default function RegisterPage() {
-    const supabase = useMemo(() => createClient(), []);
-
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [agreeTerms, setAgreeTerms] = useState(false);
@@ -81,6 +79,7 @@ export default function RegisterPage() {
             ? `${window.location.origin}/auth/callback?next=/dashboard`
             : '/auth/callback?next=/dashboard';
 
+        const supabase = createClient();
         const { error } = await supabase.auth.signUp({
             email,
             password,
@@ -105,6 +104,7 @@ export default function RegisterPage() {
         const redirectTo = typeof window !== 'undefined'
             ? `${window.location.origin}/auth/callback?next=/dashboard`
             : '/auth/callback?next=/dashboard';
+        const supabase = createClient();
         const { error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: { redirectTo },

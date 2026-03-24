@@ -534,6 +534,37 @@ export async function getEventAnalytics(eventId: number) {
                 : 'Cancelled'
     }));
 
+    // Build feedback comments from non-rating answers.
+    let comments: { user: string; rating: number; text: string; time: string }[] = [];
+    try {
+        const { data: feedbackForms } = await supabase
+            .from('FeedbackForm')
+            .select('id')
+            .eq('event_id', eventId);
+
+        const formIds = (feedbackForms || []).map((f: any) => f.id);
+        if (formIds.length > 0) {
+            const { data: feedbackAnswers } = await supabase
+                .from('FeedbackAnswer')
+                .select('answer, FeedbackQuestion(input_format)')
+                .in('feedback_form_id', formIds)
+                .limit(50);
+
+            comments = (feedbackAnswers || [])
+                .filter((row: any) => row?.FeedbackQuestion?.input_format !== 'rating')
+                .map((row: any) => ({
+                    user: 'Anonymous',
+                    rating: 0,
+                    text: String(row.answer || '').trim(),
+                    time: 'Recent',
+                }))
+                .filter((row: any) => row.text.length > 0)
+                .slice(0, 20);
+        }
+    } catch (e) {
+        console.warn('Could not fetch feedback comments:', e);
+    }
+
     return {
         stats: {
             registrations: registrationCount,
@@ -548,6 +579,7 @@ export async function getEventAnalytics(eventId: number) {
         },
         revenueBreakdown,
         recentTransactions,
+        comments,
     };
 }
 
@@ -723,6 +755,43 @@ export async function getGeneralAnalytics() {
             .sort((a, b) => b.registrations - a.registrations)
             .slice(0, 5);
 
+        // 9. Recent transactions across all events
+        const { data: recentRows } = await supabase
+            .from('Registration')
+            .select('id, status, final_price_paid, created_at, Event(title), User(name)')
+            .neq('status', 'cancelled')
+            .order('created_at', { ascending: false })
+            .limit(20);
+
+        const recentTransactions = (recentRows || []).map((r: any) => ({
+            id: `REG-${r.id}`,
+            user: r.User?.name || 'Attendee',
+            type: r.Event?.title || 'Event Registration',
+            amount: parseFloat(r.final_price_paid) || 0,
+            date: formatRelativeTime(r.created_at),
+            status: r.status === 'confirmed' ? 'Success'
+                : r.status === 'pending' ? 'Pending'
+                    : 'Cancelled',
+        }));
+
+        // 10. Feedback comments across events
+        const { data: commentRows } = await supabase
+            .from('FeedbackAnswer')
+            .select('answer, FeedbackQuestion(input_format), FeedbackForm(Event(title))')
+            .limit(60);
+
+        const comments = (commentRows || [])
+            .filter((row: any) => row?.FeedbackQuestion?.input_format !== 'rating')
+            .map((row: any) => ({
+                user: 'Anonymous',
+                rating: 0,
+                text: String(row.answer || '').trim(),
+                time: 'Recent',
+                eventName: row?.FeedbackForm?.Event?.title || undefined,
+            }))
+            .filter((row: any) => row.text.length > 0)
+            .slice(0, 30);
+
         return {
             stats: {
                 totalEvents: totalEvents || 0,
@@ -736,6 +805,8 @@ export async function getGeneralAnalytics() {
             },
             revenueBreakdown,
             topEvents,
+            recentTransactions,
+            comments,
         };
     } catch (e: any) {
         console.error('Error fetching general analytics:', e);
@@ -747,6 +818,8 @@ export async function getGeneralAnalytics() {
             },
             revenueBreakdown: [],
             topEvents: [],
+            recentTransactions: [],
+            comments: [],
         };
     }
 }
@@ -831,6 +904,39 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
     };
 
     try {
+        const normalizeAnswer = (value: unknown): string => {
+            if (Array.isArray(value)) {
+                return value
+                    .map((item) => String(item ?? '').trim())
+                    .filter(Boolean)
+                    .join(', ');
+            }
+            return String(value ?? '').trim();
+        };
+
+        const extractFieldMap = (formData: any): Record<string, string> => {
+            const result: Record<string, string> = {};
+            const sections = formData?.sections;
+            if (!Array.isArray(sections)) return result;
+
+            for (const section of sections) {
+                const inputs = section?.inputs;
+                if (!Array.isArray(inputs)) continue;
+
+                for (const input of inputs) {
+                    const identifier = String(input?.fieldIdentifier || input?.field_identifier || '').trim();
+                    if (!identifier) continue;
+
+                    const answer = input?.answer ?? input?.answers;
+                    const normalized = normalizeAnswer(answer);
+                    if (!normalized) continue;
+                    result[identifier] = normalized;
+                }
+            }
+
+            return result;
+        };
+
         // ── 1. Registrations with User + Ticket ──────────────────────────────
         const { data: regRows, error: regErr } = await supabase
             .from('Registration')
@@ -845,6 +951,30 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
 
         const rows = regRows || [];
 
+        // ── 2. Order form entries for demographics enrichment ────────────────
+        const { data: formEntries } = await supabase
+            .from('OrderFormEntries')
+            .select('registration_id, user_email, form_data')
+            .eq('event_id', eventId)
+            .order('submitted_at', { ascending: false });
+
+        const entryByRegistrationId = new Map<number, Record<string, string>>();
+        const entryByEmail = new Map<string, Record<string, string>>();
+        for (const entry of (formEntries || []) as any[]) {
+            const mapped = extractFieldMap(entry.form_data);
+            if (Object.keys(mapped).length === 0) continue;
+
+            const registrationId = Number(entry.registration_id);
+            if (!Number.isNaN(registrationId) && !entryByRegistrationId.has(registrationId)) {
+                entryByRegistrationId.set(registrationId, mapped);
+            }
+
+            const email = String(entry.user_email || '').toLowerCase().trim();
+            if (email && !entryByEmail.has(email)) {
+                entryByEmail.set(email, mapped);
+            }
+        }
+
         // Map status strings to UI labels
         const mapStatus = (s: string): 'Confirmed' | 'Pending' | 'Rejected' => {
             if (s === 'confirmed') return 'Confirmed';
@@ -858,22 +988,46 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
             return 'Pending';
         };
 
-        const registrants: ReportRegistrant[] = rows.map((r: any) => ({
-            id: r.id.toString(),
-            name: r.User?.name || 'Unknown',
-            email: r.User?.email || '—',
-            gender: 'N/A',     // not in schema yet
-            age: 0,            // not in schema yet
-            birthdate: 'N/A',  // not in schema yet
-            ticketType: r.Ticket?.name || 'General Admission',
-            registrationType: r.registration_group_id ? 'Group' : 'Individual',
-            status: mapStatus(r.status || ''),
-            paymentStatus: mapPayment(r.status || ''),
-            registrationDate: r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '',
-            checkedIn: !!r.has_checked_in,
-        }));
+        const deriveAge = (birthdateRaw: string | undefined): number => {
+            if (!birthdateRaw) return 0;
+            const birthDate = new Date(birthdateRaw);
+            if (Number.isNaN(birthDate.getTime())) return 0;
 
-        // ── 2. Aggregate stats ───────────────────────────────────────────────
+            const now = new Date();
+            let age = now.getFullYear() - birthDate.getFullYear();
+            const monthDiff = now.getMonth() - birthDate.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
+                age -= 1;
+            }
+            return age > 0 ? age : 0;
+        };
+
+        const registrants: ReportRegistrant[] = rows.map((r: any) => {
+            const rowEmail = String(r.User?.email || '').toLowerCase().trim();
+            const fields = entryByRegistrationId.get(Number(r.id)) || entryByEmail.get(rowEmail) || {};
+            const birthdate = fields.birthdate || 'N/A';
+            const parsedAge = fields.age ? parseInt(fields.age, 10) : 0;
+            const age = !Number.isNaN(parsedAge) && parsedAge > 0
+                ? parsedAge
+                : deriveAge(fields.birthdate);
+
+            return {
+                id: r.id.toString(),
+                name: r.User?.name || 'Unknown',
+                email: r.User?.email || '—',
+                gender: fields.gender || 'N/A',
+                age,
+                birthdate,
+                ticketType: r.Ticket?.name || 'General Admission',
+                registrationType: r.registration_group_id ? 'Group' : 'Individual',
+                status: mapStatus(r.status || ''),
+                paymentStatus: mapPayment(r.status || ''),
+                registrationDate: r.created_at ? new Date(r.created_at).toISOString().slice(0, 10) : '',
+                checkedIn: !!r.has_checked_in,
+            };
+        });
+
+        // ── 3. Aggregate stats ───────────────────────────────────────────────
         const nonCancelled = rows.filter((r: any) => r.status !== 'cancelled');
         const total = nonCancelled.length;
         const confirmed = nonCancelled.filter((r: any) => r.status === 'confirmed').length;
@@ -896,7 +1050,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
         const premiumAttended = premiumRows.filter((r: any) => r.has_checked_in).length;
         const premiumTotal = premiumRows.length;
 
-        // ── 3. Breakout Sessions ─────────────────────────────────────────────
+        // ── 4. Breakout Sessions ─────────────────────────────────────────────
         const { data: bsRows } = await supabase
             .from('BreakoutSession')
             .select('id, name, speaker_name, room_name, room_capacity, BreakoutSessionRegistration(id, check_in_time, status)')

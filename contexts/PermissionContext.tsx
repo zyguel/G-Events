@@ -21,7 +21,7 @@ const PermissionContext = createContext<PermissionContextValue>({
     permissions: [],
     isAdmin: false,
     loading: true,
-    hasPermission: () => true,
+    hasPermission: () => false,
 });
 
 export function PermissionProvider({ children }: { children: ReactNode }) {
@@ -58,15 +58,10 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
         });
     }, []);
 
-    /**
-     * hasPermission:
-     * - While loading → true (fail-open so admins never flash Access Denied)
-     * - After load, role confirmed → check actual permissions
-     * - After load, role empty (lookup failed) → true (fail-open, protect admins)
-     */
+    // Deny by default until permissions are loaded.
     const hasPermission = (name: string): boolean => {
-        if (loading) return true;
-        if (state.role === "") return true;
+        if (loading) return false;
+        if (state.role === "") return false;
         return state.isAdmin || state.permissions.includes(name);
     };
 
