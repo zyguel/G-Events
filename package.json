@@ -7,7 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "push": "node push-nightly.mjs"
+    "push": "node push-nightly.mjs",
+    "debug:supabase": "node scripts/debug/debug_supabase.js",
+    "check:event-schema": "node scripts/debug/check_event_schema.js",
+    "check:objectives": "node scripts/debug/check_objectives.js",
+    "check:theme": "node scripts/debug/check_theme.js",
+    "debug:login-layout-diff": "node scripts/debug/diff.js",
+    "translations:split-static": "node scripts/maintenance/split-translations.js"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.18",

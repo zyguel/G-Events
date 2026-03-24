@@ -221,6 +221,23 @@ For adviser/panel/new-maintainer quick review, see:
 | `npm run build` | Compile production build |
 | `npm run start` | Serve production build locally |
 | `npm run lint` | Run ESLint checks |
+| `npm run debug:supabase` | Verify Supabase storage access and list buckets |
+| `npm run check:event-schema` | Check `Event` table schema visibility |
+| `npm run check:objectives` | Verify `Event.objectives` column availability |
+| `npm run check:theme` | Verify `Event.theme` column availability |
+| `npm run debug:login-layout-diff` | Compare login branding sections between auth pages |
+| `npm run translations:split-static` | Split monolithic static translation map into per-language modules |
+
+### Maintainability Baseline (Enterprise)
+
+The codebase now includes shared primitives to keep API and server behavior consistent:
+
+- **Shared constants:** use `lib/constants.ts` for defaults and HTTP status codes (avoid repeated env parsing).
+- **Structured logging:** use `lib/logger.ts` with scope-based logging (`debug/info/warn/error`) instead of ad-hoc `console.log`.
+- **Typed API responses:** use `lib/utils/apiResponse.ts` for standardized success/error response shape.
+- **Script organization:** non-production utility scripts live under `scripts/debug/` and `scripts/maintenance/` instead of the repo root.
+
+When adding or updating routes, prefer these shared modules first to keep behavior predictable across the API surface.
 
 ### Self-hosted Translation (TypeScript Engine)
 

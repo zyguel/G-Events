@@ -22,21 +22,25 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 ### Data Layer & Server Actions
 - **Database**: Supabase with PostgreSQL schema (`User`, `Event`, `OrganizationRole`, `OrganizationUserRole`, etc.)
 - **Supabase client**:
-  - [lib/supabase.ts](lib/supabase.ts) - Shared Supabase client + schema types used across server + client.
-  - [lib/supabase-server.ts](lib/supabase-server.ts) - Server-only Supabase wrapper used in API routes, server actions, and middleware.
-  - [lib/supabase-browser.ts](lib/supabase-browser.ts) - Browser Supabase instance used in client-side pages and hooks.
-  - [lib/supabase-middleware.ts](lib/supabase-middleware.ts) - Edge middleware for auth/session handling.
+  - [lib/supabase.ts](../lib/supabase.ts) - Shared Supabase client + schema types used across server + client.
+  - [lib/supabase-server.ts](../lib/supabase-server.ts) - Server-only Supabase wrapper used in API routes, server actions, and middleware.
+  - [lib/supabase-browser.ts](../lib/supabase-browser.ts) - Browser Supabase instance used in client-side pages and hooks.
+  - [lib/supabase-middleware.ts](../lib/supabase-middleware.ts) - Edge middleware for auth/session handling.
 - **Server actions** (`lib/actions/`): Use `'use server'` directive
   - `lib/actions/events.ts` — Event CRUD, analytics, reports, and related business logic
   - `lib/actions/permissions.ts` — User role + permission lookup (`getCurrentUserPermissions(email)`)
   - `lib/actions/orderForm.ts` — Order form builder, entries, exports, and form submissions
   - `lib/actions/orderConfirmation.ts` — Email templates for order confirmation workflows
-- **Client helper layer**: [lib/eventManagement.ts](lib/eventManagement.ts) and [lib/hooks/useOrderFormSubmit.ts](lib/hooks/useOrderFormSubmit.ts) provide client-side APIs for tickets, add-ons, promo codes, settings, and order form submission flows.
-- **API routes** ([app/api/](app/api/)): REST endpoints for analytics, events, management, notifications, and order forms (e.g., `/api/events`, `/api/management/users`, `/api/orderform`, `/api/orderform/[id]`)
-- **Database utilities** ([lib/db.ts](lib/db.ts)): Low-level Supabase queries (user management, roles, permissions)
+- **Client helper layer**: [lib/eventManagement.ts](../lib/eventManagement.ts) and [lib/hooks/useOrderFormSubmit.ts](../lib/hooks/useOrderFormSubmit.ts) provide client-side APIs for tickets, add-ons, promo codes, settings, and order form submission flows.
+- **API routes** ([app/api/](../app/api/)): REST endpoints for analytics, events, management, notifications, and order forms (e.g., `/api/events`, `/api/management/users`, `/api/orderform`, `/api/orderform/[id]`)
+- **Database utilities** ([lib/db.ts](../lib/db.ts)): Low-level Supabase queries (user management, roles, permissions)
+- **Shared backend primitives**:
+  - [lib/constants.ts](../lib/constants.ts) — Shared app constants (e.g., `DEFAULT_ORG_ID`, `HTTP_STATUS`) to avoid repeated env parsing and magic status codes.
+  - [lib/logger.ts](../lib/logger.ts) — Scoped logger wrapper (`debug/info/warn/error`) for consistent server-side diagnostics.
+  - [lib/utils/apiResponse.ts](../lib/utils/apiResponse.ts) — Standardized typed API response helpers (`ok`, `created`, `badRequest`, `unauthorized`, `internalServerError`).
 
 ### Component Architecture
-**Reusable admin components** ([components/admin/](components/admin/)):
+**Reusable admin components** ([components/admin/](../components/admin/)):
 - **Layout**: `Header.tsx` (logo, notifications, theme toggle), `Sidebar.tsx` (active page indicator, collapsible)
 - **Forms & Editors**: `RichTextEditor.tsx` (TipTap-based with formatting toolbar), `DateTimeInput.tsx`, `TimeInput.tsx`, `DateInput.tsx`
 - **Data Display**: `DashboardTabs.tsx`, `RegistrationChart.tsx`, `TopPerformingEvents.tsx`, `StatCard.tsx`
@@ -45,16 +49,16 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **Authorization helpers**: `PermissionGate.tsx` (component guard), `contexts/PermissionContext.tsx` (permission state + helpers), `AccessDenied.tsx` (fallback UI)
 - **Public/client components**: `components/client/ClientHeader.tsx`, `components/client/ClientSidebar.tsx`, `components/public/OrderFormDisplay.tsx` for attendee-facing pages.
 
-**Event-specific client components** ([app/(admin_side)/events/[eventId]/*/](app/%28admin_side%29/events/%5BeventId%5D/)):
+**Event-specific client components** (`app/(admin_side)/events/[eventId]/*/`):
 - Pages like `TicketsClient.tsx`, `CheckInClient.tsx`, `EmailAttendeesClient.tsx` handle user interactions
 - Typically fetch data via server actions, manage local state with `useState`, validate forms
 
 ### Data Models & Types
-- **[lib/types.ts](lib/types.ts)**: Core types
+- **[lib/types.ts](../lib/types.ts)**: Core types
   - `EventStatus` union: "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled" | "Draft"
   - `EventData` interface: Event with stats (registrations, revenue, satisfaction), trends (weekly registrations, attendance), revenueBreakdown, recentTransactions
   - `Comment` interface: User feedback with rating and timestamp
-- **[lib/supabase.ts](lib/supabase.ts)**: Database schema types
+- **[lib/supabase.ts](../lib/supabase.ts)**: Database schema types
   - `Event` - event record with title, description, dates, capacity, publish status
   - `User`, `OrganizationRole`, `OrganizationUserRole` - authentication/authorization
   - `UserWithRole` - joined user data for display
@@ -76,7 +80,7 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 ### Key Dependencies & Patterns
 - **Rich text editor**: TipTap v3.17+ (StarterKit, Underline, Link, Image, TextAlign, Color, FontFamily extensions)
   - Usage: Import `useEditor`, `EditorContent`, configure extensions, render toolbar with formatting buttons
-- **Export utilities** ([lib/exportUtils.ts](lib/exportUtils.ts)): 
+- **Export utilities** ([lib/exportUtils.ts](../lib/exportUtils.ts)): 
   - `exportToCSV()`, `exportToXLSX()`, `exportToPDF()` - Client-side export functions
   - Format data with stats sections, tables, timestamps
 - **Date/time handling**: date-fns v4, react-datepicker, react-time-picker
@@ -92,7 +96,7 @@ Event status is derived from:
 - `data.event_start_at`, `data.event_end_at` (ISO dates)
 - Current date/time comparison
 
-Pattern (from [app/(admin_side)/events/[eventId]/layout.tsx](app/%28admin_side%29/events/%5BeventId%5D/layout.tsx)):
+Pattern (from `app/(admin_side)/events/[eventId]/layout.tsx`):
 ```typescript
 const idPart = eventId.split("-").pop() ?? "";
 const numericId = parseInt(idPart, 10);
@@ -113,6 +117,9 @@ if (data.is_published) {
 - **Linting**: `npm run lint` (ESLint + Next.js config)
 - **Environment**: Supabase URL and anon key in `.env.local` as `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - **Default org**: `NEXT_PUBLIC_DEFAULT_ORG_ID` (defaults to 1 if not set)
+- **Utility scripts**:
+  - Debug scripts live under `scripts/debug/` and are exposed via npm scripts (`debug:supabase`, `check:event-schema`, `check:objectives`, `check:theme`, `debug:login-layout-diff`).
+  - Maintenance scripts live under `scripts/maintenance/` (`translations:split-static`).
 
 ## Code Conventions
 - **Path alias**: Always use `@/` for imports (e.g., `@/lib/api`, `@/components/admin/Header`)
@@ -124,21 +131,27 @@ if (data.is_published) {
 - **Form handling**: Use `FormData` in server actions, `formData.get()` for field values
 - **File uploads**: Use `uploadFileToStorage()` helper for Supabase storage (bucket defaults to 'events')
 - **Revalidation**: Call `revalidatePath()` after mutations to update cached data
+- **API consistency**:
+  - Prefer `@/lib/utils/apiResponse` helpers for Route Handlers instead of ad-hoc `NextResponse.json` payload shapes.
+  - Prefer `@/lib/constants` for status/default constants and `@/lib/logger` for server logs.
 - **Commits**: Follow Conventional Commits (`feat(events): add checkin feature`, `fix(auth): resolve layout crash`, not generic titles)
 
 ## Key Files to Reference
-- [app/layout.tsx](app/layout.tsx) - Root layout, font setup via `figtree.variable`, NotificationProvider wrapper
-- [app/(admin_side)/events/[eventId]/layout.tsx](app/%28admin_side%29/events/%5BeventId%5D/layout.tsx) - Server-side event data fetching, status derivation
-- [lib/actions/events.ts](lib/actions/events.ts) - Server actions for CRUD, file uploads, data transformations
-- [lib/actions/orderForm.ts](lib/actions/orderForm.ts) - Order form creation and persistence actions
-- [lib/actions/orderConfirmation.ts](lib/actions/orderConfirmation.ts) - Confirmation page actions
-- [lib/supabase.ts](lib/supabase.ts) - Supabase client init, database schema types
-- [lib/types.ts](lib/types.ts) - EventData, EventStatus, Comment types
-- [components/admin/RichTextEditor.tsx](components/admin/RichTextEditor.tsx) - TipTap editor pattern for content editing
-- [components/admin/Sidebar.tsx](components/admin/Sidebar.tsx) - Navigation sidebar with active state indicator
-- [components/admin/EventsSidebar.tsx](components/admin/EventsSidebar.tsx) - Event-specific navigation sidebar
-- [lib/exportUtils.ts](lib/exportUtils.ts) - Export to CSV/XLSX/PDF patterns
-- [contexts/NotificationContext.tsx](contexts/NotificationContext.tsx) - Global notification context usage
+- [app/layout.tsx](../app/layout.tsx) - Root layout, font setup via `figtree.variable`, NotificationProvider wrapper
+- `app/(admin_side)/events/[eventId]/layout.tsx` - Server-side event data fetching, status derivation
+- [lib/actions/events.ts](../lib/actions/events.ts) - Server actions for CRUD, file uploads, data transformations
+- [lib/actions/orderForm.ts](../lib/actions/orderForm.ts) - Order form creation and persistence actions
+- [lib/actions/orderConfirmation.ts](../lib/actions/orderConfirmation.ts) - Confirmation page actions
+- [lib/supabase.ts](../lib/supabase.ts) - Supabase client init, database schema types
+- [lib/types.ts](../lib/types.ts) - EventData, EventStatus, Comment types
+- [lib/constants.ts](../lib/constants.ts) - Shared app constants such as `DEFAULT_ORG_ID` and `HTTP_STATUS`
+- [lib/logger.ts](../lib/logger.ts) - Scoped logger utility for consistent server logs
+- [lib/utils/apiResponse.ts](../lib/utils/apiResponse.ts) - Typed Route Handler response helpers
+- [components/admin/RichTextEditor.tsx](../components/admin/RichTextEditor.tsx) - TipTap editor pattern for content editing
+- [components/admin/Sidebar.tsx](../components/admin/Sidebar.tsx) - Navigation sidebar with active state indicator
+- [components/admin/EventsSidebar.tsx](../components/admin/EventsSidebar.tsx) - Event-specific navigation sidebar
+- [lib/exportUtils.ts](../lib/exportUtils.ts) - Export to CSV/XLSX/PDF patterns
+- [contexts/NotificationContext.tsx](../contexts/NotificationContext.tsx) - Global notification context usage
 
 ## Common Build / TypeScript Gotchas
 - In API routes and server actions, ensure you instantiate the Supabase server client with `await createClient()` before using it (e.g., in both GET/POST handlers). This prevents errors like “Cannot find name 'supabase'”.

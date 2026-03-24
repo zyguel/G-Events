@@ -2,8 +2,7 @@ import { createClient } from '@/lib/supabase-server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { UserWithRole, OrganizationRole, OrganizationPermission } from './supabase';
 import { logAuditEntry } from '@/lib/actions/audit';
-
-const DEFAULT_ORG_ID = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '1');
+import { DEFAULT_ORG_ID } from '@/lib/constants';
 
 async function getSupabase(): Promise<SupabaseClient> {
     return await createClient();

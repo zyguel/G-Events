@@ -1,6 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getOrganizationUsers, inviteUser } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
+import { logger } from '@/lib/logger';
+import { badRequest, created, internalServerError, ok } from '@/lib/utils/apiResponse';
 
 // GET /api/management/users - List all users in organization
 export async function GET(request: NextRequest) {
@@ -13,13 +15,10 @@ export async function GET(request: NextRequest) {
             orgId ? parseInt(orgId) : undefined
         );
 
-        return NextResponse.json({ success: true, data: users });
-    } catch (error: any) {
-        console.error('Error fetching users:', error);
-        return NextResponse.json(
-            { success: false, error: error.message || 'Failed to fetch users' },
-            { status: 500 }
-        );
+        return ok(users);
+    } catch (error: unknown) {
+        logger.error('api/management/users', 'Error fetching users', error);
+        return internalServerError(error instanceof Error ? error.message : 'Failed to fetch users');
     }
 }
 
@@ -31,25 +30,19 @@ export async function POST(request: NextRequest) {
         const { name, email, roleId, organizationId } = body;
 
         if (!name || !email || !roleId) {
-            return NextResponse.json(
-                { success: false, error: 'Missing required fields: name, email, roleId' },
-                { status: 400 }
-            );
+            return badRequest('Missing required fields: name, email, roleId');
         }
 
         const newUser = await inviteUser(
             name,
             email,
-            parseInt(roleId),
-            organizationId ? parseInt(organizationId) : undefined
+            Number.parseInt(roleId, 10),
+            organizationId ? Number.parseInt(organizationId, 10) : undefined
         );
 
-        return NextResponse.json({ success: true, data: newUser }, { status: 201 });
-    } catch (error: any) {
-        console.error('Error inviting user:', error);
-        return NextResponse.json(
-            { success: false, error: error.message || 'Failed to invite user' },
-            { status: 500 }
-        );
+        return created(newUser);
+    } catch (error: unknown) {
+        logger.error('api/management/users', 'Error inviting user', error);
+        return internalServerError(error instanceof Error ? error.message : 'Failed to invite user');
     }
 }

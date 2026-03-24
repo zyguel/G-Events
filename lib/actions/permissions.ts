@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase-server'
+import { logger } from '@/lib/logger'
 
 export interface UserPermissions {
     role: string
@@ -24,8 +25,8 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
     if (!email) return EMPTY
 
     try {
-        const supabase = await createClient();
-        console.log('[Permissions] Looking up permissions for:', email)
+        const supabase = await createClient()
+        logger.debug('permissions', 'Looking up permissions', { email })
 
         // ── Step 1: Find the User row ─────────────────────────────────────────
         const { data: users, error: userError } = await supabase
@@ -35,17 +36,17 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
             .limit(1)
 
         if (userError) {
-            console.error('[Permissions] Error querying User table:', userError.message)
+            logger.error('permissions', 'Error querying User table', userError.message)
             return EMPTY
         }
 
         if (!users || users.length === 0) {
-            console.error('[Permissions] No User row found for email:', email)
+            logger.warn('permissions', 'No User row found for email', { email })
             return EMPTY
         }
 
         const appUser = users[0]
-        console.log('[Permissions] Found User id:', appUser.id)
+        logger.debug('permissions', 'Found user record', { userId: appUser.id })
 
         // ── Step 2: Find their OrganizationUserRole ───────────────────────────
         const { data: orgRoles, error: roleError } = await supabase
@@ -61,23 +62,23 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
             .limit(1)
 
         if (roleError) {
-            console.error('[Permissions] Error querying OrganizationUserRole:', roleError.message)
+            logger.error('permissions', 'Error querying OrganizationUserRole', roleError.message)
             return EMPTY
         }
 
         if (!orgRoles || orgRoles.length === 0) {
-            console.error('[Permissions] No OrganizationUserRole row found for user_id:', appUser.id)
+            logger.warn('permissions', 'No OrganizationUserRole row found', { userId: appUser.id })
             return EMPTY
         }
 
         const roleRaw = (orgRoles[0] as any).OrganizationRole
         if (!roleRaw) {
-            console.error('[Permissions] OrganizationRole join returned null for user_id:', appUser.id)
+            logger.warn('permissions', 'OrganizationRole join returned null', { userId: appUser.id })
             return EMPTY
         }
 
         const role = { id: roleRaw.id as number, name: roleRaw.name as string }
-        console.log('[Permissions] Found role:', role.name, '(id:', role.id + ')')
+        logger.debug('permissions', 'Found role', { roleName: role.name, roleId: role.id })
 
         // ── Step 3: Get all permissions for this role ─────────────────────────
         const { data: rolePerms, error: permsError } = await supabase
@@ -90,7 +91,7 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
             .eq('organization_role_id', role.id)
 
         if (permsError) {
-            console.error('[Permissions] Error querying permissions:', permsError.message)
+            logger.error('permissions', 'Error querying permissions', permsError.message)
             // Still return the role even if permissions query fails
         }
 
@@ -98,7 +99,7 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
             .map((r: any) => r.OrganizationPermission?.name)
             .filter(Boolean) as string[]
 
-        console.log('[Permissions] Role:', role.name, '| Permissions:', permissions)
+        logger.debug('permissions', 'Resolved role permissions', { roleName: role.name, permissions })
 
         return {
             role: role.name,
@@ -107,7 +108,7 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
             isAdmin: role.name.toLowerCase() === 'admin',
         }
     } catch (e) {
-        console.error('[Permissions] Unexpected error:', e)
+        logger.error('permissions', 'Unexpected error', e)
         return EMPTY
     }
 }

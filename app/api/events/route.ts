@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { getEvents, createEvent } from '@/lib/db';
-
-const DEFAULT_ORG_ID = parseInt(process.env.NEXT_PUBLIC_DEFAULT_ORG_ID || '1');
+import { DEFAULT_ORG_ID } from '@/lib/constants';
+import { logger } from '@/lib/logger';
+import { badRequest, created, internalServerError, ok, unauthorized } from '@/lib/utils/apiResponse';
 
 // GET /api/events - List all events for the organization
 export async function GET(request: NextRequest) {
@@ -10,20 +11,17 @@ export async function GET(request: NextRequest) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return unauthorized();
         }
 
         const searchParams = request.nextUrl.searchParams;
         const orgId = searchParams.get('organizationId');
 
-        const events = await getEvents(orgId ? parseInt(orgId) : DEFAULT_ORG_ID);
-        return NextResponse.json({ success: true, data: events });
-    } catch (error: any) {
-        console.error('Error fetching events:', error);
-        return NextResponse.json(
-            { success: false, error: error.message || 'Failed to fetch events' },
-            { status: 500 }
-        );
+        const events = await getEvents(orgId ? Number.parseInt(orgId, 10) : DEFAULT_ORG_ID);
+        return ok(events);
+    } catch (error: unknown) {
+        logger.error('api/events', 'Error fetching events', error);
+        return internalServerError(error instanceof Error ? error.message : 'Failed to fetch events');
     }
 }
 
@@ -33,31 +31,25 @@ export async function POST(request: NextRequest) {
         const supabase = await createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            return unauthorized();
         }
 
         const body = await request.json();
         const { organizationId, ...fields } = body;
 
         if (!fields.title) {
-            return NextResponse.json(
-                { success: false, error: 'Missing required field: title' },
-                { status: 400 }
-            );
+            return badRequest('Missing required field: title');
         }
 
         const newEvent = await createEvent(
-            organizationId ? parseInt(organizationId) : DEFAULT_ORG_ID,
+            organizationId ? Number.parseInt(organizationId, 10) : DEFAULT_ORG_ID,
             fields
         );
 
-        return NextResponse.json({ success: true, data: newEvent }, { status: 201 });
-    } catch (error: any) {
-        console.error('Error creating event:', error);
-        return NextResponse.json(
-            { success: false, error: error.message || 'Failed to create event' },
-            { status: 500 }
-        );
+        return created(newEvent);
+    } catch (error: unknown) {
+        logger.error('api/events', 'Error creating event', error);
+        return internalServerError(error instanceof Error ? error.message : 'Failed to create event');
     }
 }
 
