@@ -64,7 +64,6 @@ export default function ClientDashboardPage() {
                                 '2:00 PM - 8:00 PM PST',
                             status: statusText,
                             statusColor: statusColor,
-<<<<<<< HEAD
                             imageUrl: e.banner_image || e.settings?.banner_url || '/placeholder-event.png'
                         };
                     });
