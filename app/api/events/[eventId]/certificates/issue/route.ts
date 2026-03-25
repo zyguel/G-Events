@@ -7,6 +7,7 @@ import {
   getEventCertificateRecipients,
   processQueuedCertificateEmails,
 } from "@/lib/certificates";
+import { resolveTrustedAppOrigin } from "@/lib/security";
 
 export async function POST(
   request: NextRequest,
@@ -60,7 +61,8 @@ export async function POST(
 
     let emailProcessing: { processed: number; sent: number; failed: number } | null = null;
     if (queueEmail) {
-      emailProcessing = await processQueuedCertificateEmails(supabase, request.nextUrl.origin, {
+      const appOrigin = resolveTrustedAppOrigin(request.nextUrl.origin)
+      emailProcessing = await processQueuedCertificateEmails(supabase, appOrigin, {
         eventId: id,
         limit: 50,
       });
@@ -77,7 +79,7 @@ export async function POST(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
     return NextResponse.json(
-      { success: false, error: e instanceof Error ? e.message : "Unexpected error" },
+      { success: false, error: "Unexpected error" },
       { status: 500 }
     );
   }

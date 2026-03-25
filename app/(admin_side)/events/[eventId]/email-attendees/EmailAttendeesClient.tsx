@@ -7,6 +7,7 @@ import Modal from '@/components/admin/Modal';
 import TimeInput from '@/components/admin/TimeInput';
 import DateInput from '@/components/admin/DateInput';
 import { EventSummary } from '@/lib/types';
+import { htmlToPlainText } from '@/lib/security';
 
 function sanitizeHtml(input: string) {
     return input
@@ -976,7 +977,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                                         {email.status === 'sent' ? 'Sent' : email.status === 'failed' ? 'Failed' : 'Scheduled'}
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">{htmlToPlainText(email.body, 150)}</p>
                                                 <div className="flex items-center gap-4 text-xs text-gray-400">
                                                     <span className="flex items-center gap-1">
                                                         <Users size={12} />
@@ -1039,7 +1040,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                                         Draft
                                                     </span>
                                                 </div>
-                                                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors" dangerouslySetInnerHTML={{ __html: email.body.replace(/<[^>]*>/g, ' ').substring(0, 150) + '...' }} />
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3 group-hover:text-gray-700 dark:group-hover:text-gray-300 transition-colors">{htmlToPlainText(email.body, 150)}</p>
                                                 <div className="flex items-center gap-4 text-xs text-gray-400">
                                                     <span className="flex items-center gap-1">
                                                         <Users size={12} />

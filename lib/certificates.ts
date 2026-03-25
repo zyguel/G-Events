@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/emailProvider";
+import { escapeHtml } from "@/lib/security";
 
 export interface CertificateRecipient {
   registrationId: number | null;
@@ -420,17 +421,21 @@ export async function processQueuedCertificateEmails(
     try {
       const downloadUrl = `${origin}/api/certificates/${issue.access_token}/download`;
       const verifyUrl = `${origin}/api/certificates/${issue.access_token}/verify`;
+      const safeRecipientName = escapeHtml(issue.recipient_name || 'Attendee')
+      const safeDownloadUrl = escapeHtml(downloadUrl)
+      const safeVerifyUrl = escapeHtml(verifyUrl)
+
       await sendEmail({
         to: issue.recipient_email,
         subject: "Your event certificate is ready",
         html: `
-          <p>Hi ${issue.recipient_name},</p>
+          <p>Hi ${safeRecipientName},</p>
           <p>Your certificate is ready. You can download it using the link below:</p>
-          <p><a href="${downloadUrl}">Download Certificate</a></p>
+          <p><a href="${safeDownloadUrl}">Download Certificate</a></p>
           <p>Verification endpoint:</p>
-          <p><a href="${verifyUrl}">${verifyUrl}</a></p>
+          <p><a href="${safeVerifyUrl}">${safeVerifyUrl}</a></p>
           <p>If the link does not open, copy this URL into your browser:</p>
-          <p>${downloadUrl}</p>
+          <p>${safeDownloadUrl}</p>
         `,
       });
 

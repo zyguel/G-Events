@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 import { processQueuedCertificateEmails } from "@/lib/certificates";
+import { resolveTrustedAppOrigin } from "@/lib/security";
 
 export async function POST(
   request: NextRequest,
@@ -16,7 +17,8 @@ export async function POST(
     }
 
     const supabase = await createClient();
-    const result = await processQueuedCertificateEmails(supabase, request.nextUrl.origin, {
+    const appOrigin = resolveTrustedAppOrigin(request.nextUrl.origin)
+    const result = await processQueuedCertificateEmails(supabase, appOrigin, {
       eventId: id,
       limit: 100,
     });
@@ -30,7 +32,7 @@ export async function POST(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
     return NextResponse.json(
-      { success: false, error: e instanceof Error ? e.message : "Unexpected error" },
+      { success: false, error: "Unexpected error" },
       { status: 500 }
     );
   }

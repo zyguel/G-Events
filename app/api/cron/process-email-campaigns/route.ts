@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { processDueCampaigns } from "@/lib/emailCampaigns";
+import { safeCompareSecrets } from "@/lib/security";
 
 export async function POST(request: NextRequest) {
-  const expectedSecret = process.env.CRON_SECRET;
-  const providedSecret = request.headers.get("x-cron-secret");
+  const expectedSecret = process.env.CRON_SECRET
+  const providedSecret = request.headers.get("x-cron-secret")
 
-  if (!expectedSecret || providedSecret !== expectedSecret) {
+  if (!safeCompareSecrets(expectedSecret, providedSecret)) {
     return NextResponse.json({ success: false, error: "Unauthorized cron request" }, { status: 401 });
   }
 
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: e instanceof Error ? e.message : "Unexpected cron processing error",
+        error: "Unexpected cron processing error",
       },
       { status: 500 }
     );
