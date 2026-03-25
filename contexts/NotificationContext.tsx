@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
 export interface Notification {
     id: string;
@@ -52,6 +52,9 @@ const saveDismissedId = (id: string) => {
 
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
+    const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const inFlightRef = useRef(false);
+    const hadFetchErrorRef = useRef(false);
     const [preferences, setPreferences] = useState<NotificationPreferences>({
         email: true,
         push: true,
@@ -82,31 +85,72 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
     // Fetch notifications from the API and poll every 30 seconds
     useEffect(() => {
-        const fetchNotifications = () => {
-            fetch('/api/notifications')
-                .then(res => res.json())
-                .then(({ data }) => {
-                    if (Array.isArray(data)) {
-                        const dismissed = getDismissedIds();
-                        const parsed: Notification[] = data
-                            .filter((n: any) => !dismissed.has(n.id))
-                            .map((n: any) => ({
-                                ...n,
-                                timestamp: new Date(n.timestamp),
-                            }));
-                        setNotifications(parsed);
-                    }
-                })
-                .catch(err => console.warn('Could not load notifications:', err));
+        const SUCCESS_POLL_MS = 30000;
+        const ERROR_RETRY_MS = 15000;
+        let isActive = true;
+
+        const clearScheduledPoll = () => {
+            if (pollTimeoutRef.current) {
+                clearTimeout(pollTimeoutRef.current);
+                pollTimeoutRef.current = null;
+            }
         };
 
-        // Fetch immediately on mount
-        fetchNotifications();
+        const schedulePoll = (delayMs: number) => {
+            clearScheduledPoll();
+            pollTimeoutRef.current = setTimeout(() => {
+                void fetchNotifications();
+            }, delayMs);
+        };
 
-        // Poll every 30 seconds
-        const intervalId = setInterval(fetchNotifications, 5000);
+        const fetchNotifications = async () => {
+            if (!isActive || inFlightRef.current) {
+                return;
+            }
 
-        return () => clearInterval(intervalId);
+            inFlightRef.current = true;
+            try {
+                const res = await fetch('/api/notifications', {
+                    cache: 'no-store',
+                    credentials: 'same-origin',
+                });
+
+                if (!res.ok) {
+                    throw new Error(`Notifications request failed: ${res.status}`);
+                }
+
+                const body = await res.json();
+                const data = body?.data;
+                if (Array.isArray(data)) {
+                    const dismissed = getDismissedIds();
+                    const parsed: Notification[] = data
+                        .filter((n: any) => !dismissed.has(n.id))
+                        .map((n: any) => ({
+                            ...n,
+                            timestamp: new Date(n.timestamp),
+                        }));
+                    setNotifications(parsed);
+                }
+
+                hadFetchErrorRef.current = false;
+                schedulePoll(SUCCESS_POLL_MS);
+            } catch (err) {
+                if (!hadFetchErrorRef.current) {
+                    console.warn('Could not load notifications:', err);
+                    hadFetchErrorRef.current = true;
+                }
+                schedulePoll(ERROR_RETRY_MS);
+            } finally {
+                inFlightRef.current = false;
+            }
+        };
+
+        void fetchNotifications();
+
+        return () => {
+            isActive = false;
+            clearScheduledPoll();
+        };
     }, []);
 
     const filteredNotifications = notifications.filter(n => {

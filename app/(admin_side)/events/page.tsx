@@ -329,6 +329,7 @@ export default function EventsPage() {
                                                                         src={event.image}
                                                                         alt={event.name}
                                                                         fill
+                                                                        sizes="(max-width: 768px) 48px, 56px"
                                                                         className="object-cover"
                                                                     />
                                                                 ) : (
@@ -397,6 +398,7 @@ export default function EventsPage() {
                                                             src={event.image}
                                                             alt={event.name}
                                                             fill
+                                                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                                                             className="object-cover"
                                                         />
                                                     ) : (

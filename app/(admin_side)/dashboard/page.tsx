@@ -264,6 +264,7 @@ export default function DashboardPage() {
                                                                         src={event.image}
                                                                         alt={event.name}
                                                                         fill
+                                                                        sizes="48px"
                                                                         className="object-cover"
                                                                     />
                                                                 ) : (

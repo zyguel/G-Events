@@ -116,6 +116,7 @@ export default function ClientEventDetailPage() {
                             src={event.banner_image}
                             alt={event.title}
                             fill
+                            sizes="100vw"
                             className="object-cover opacity-80"
                             priority
                         />

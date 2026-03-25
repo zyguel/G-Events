@@ -139,7 +139,7 @@ export default function ClientDashboardPage() {
                                         {/* Event Image Banner (Mockup Style) */}
                                         <div className="w-full md:w-70 h-45 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl overflow-hidden relative shrink-0 shadow-sm transition-shadow duration-300 flex items-center justify-center">
                                             {event.imageUrl !== '/placeholder-event.png' ? (
-                                                <Image src={event.imageUrl} alt={event.title} fill className="object-cover" />
+                                                <Image src={event.imageUrl} alt={event.title} fill sizes="(max-width: 768px) 100vw, 280px" className="object-cover" />
                                             ) : (
                                                 <div className="text-6xl font-black text-white text-opacity-90">{event.title.substring(0, 1)}</div>
                                             )}
