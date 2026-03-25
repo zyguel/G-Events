@@ -12,6 +12,11 @@ import {
 import { getStaticTranslation } from '@/lib/staticTranslations';
 
 const LOCALE_STORAGE_KEY = 'g_events_locale_settings';
+const ADMIN_ROOTS = ['/dashboard', '/events', '/management', '/profile', '/settings'];
+
+function isAdminAppRoute(pathname: string) {
+  return ADMIN_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));
+}
 
 interface LocaleContextType {
   locale: LocaleSettings;
@@ -132,6 +137,9 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const translationCacheRef = useRef<Map<string, Map<string, string>>>(new Map());
 
   useEffect(() => {
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    const shouldLoadServerLocale = isAdminAppRoute(pathname);
+
     try {
       const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
       if (raw) {
@@ -142,6 +150,11 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     }
 
     const loadServerLocale = async () => {
+      if (!shouldLoadServerLocale) {
+        setIsLoadingLocale(false);
+        return;
+      }
+
       try {
         const localeResponse = await fetch('/api/user/locale', { cache: 'no-store' });
 
@@ -197,6 +210,16 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
   const saveLocale = async (next: { language: string; region: string }) => {
     const normalized = normalizeLocale(next);
+
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    const shouldPersistServerLocale = isAdminAppRoute(pathname);
+
+    if (!shouldPersistServerLocale) {
+      setLocale(normalized);
+      localStorage.setItem(LOCALE_STORAGE_KEY, JSON.stringify(normalized));
+      return true;
+    }
+
     try {
       const response = await fetch('/api/user/locale', {
         method: 'POST',

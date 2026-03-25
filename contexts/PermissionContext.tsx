@@ -10,6 +10,12 @@ import {
 import { getCurrentUserPermissions, UserPermissions } from "@/lib/actions/permissions";
 import { createClient } from "@/lib/supabase-browser";
 
+const ADMIN_ROOTS = ['/dashboard', '/events', '/management', '/profile', '/settings'];
+
+function isAdminAppRoute(pathname: string) {
+    return ADMIN_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));
+}
+
 interface PermissionContextValue extends UserPermissions {
     loading: boolean;
     hasPermission: (name: string) => boolean;
@@ -34,6 +40,12 @@ export function PermissionProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (!isAdminAppRoute(pathname)) {
+            setLoading(false);
+            return;
+        }
+
         // createBrowserClient is a singleton that shares the session with the login page
         const supabase = createClient();
 

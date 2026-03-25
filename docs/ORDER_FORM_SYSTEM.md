@@ -245,13 +245,15 @@ interface OrderFormEntry {
 
 ## Database Migration
 
-To add the OrderFormEntries table to your database, run:
+To add required event feature tables (including OrderFormEntries), run:
 
 ```bash
-psql -h your-host -U your-user -d your-db -f database/add_order_form_entries_table.sql
+psql -h your-host -U your-user -d your-db -f database/add_combined_event_feature_tables.sql
 ```
 
-Or in Supabase SQL editor, copy the contents of `database/add_order_form_entries_table.sql` and execute.
+Or in Supabase SQL editor, copy the contents of `database/add_combined_event_feature_tables.sql` and execute.
+
+Superseded script (kept for reference): `database/add_order_form_entries_table.sql`.
 
 ## Input Rendering Examples
 

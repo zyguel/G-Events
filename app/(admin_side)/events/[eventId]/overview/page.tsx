@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
 
 import EventOverview from "@/components/admin/EventOverview";
 import AuditLogViewer from "@/components/admin/AuditLogViewer";
-import { getEventById } from "@/lib/actions/events";
+import { useEventData } from "../EventDataContext";
 
 interface AgendaSlot {
     id: number;
@@ -18,10 +17,7 @@ interface AgendaSlot {
 }
 
 export default function EventOverviewPage() {
-    const params = useParams();
-    const slug = params.eventId as string; // useParams returns string | string[]
-    const idPart = slug?.split("-").pop() ?? "";
-    const eventId = idPart; // numeric ID as string
+    const initialEvent = useEventData();
 
     // Define the type for event data
     type EventDataType = {
@@ -43,90 +39,56 @@ export default function EventOverviewPage() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        const loadEvent = async () => {
-            if (!eventId) return;
+        const mapEvent = (apiData: any): EventDataType => {
+            const now = new Date();
+            const startDate = apiData.event_start_at ? new Date(apiData.event_start_at) : null;
+            const endDate = apiData.event_end_at ? new Date(apiData.event_end_at) : null;
 
-            // 1. Fetch from Supabase
-            try {
-                // Ensure eventId is a number if your DB uses number IDs
-                console.log('Overview Page: eventId slug:', slug);
-                const id = parseInt(eventId);
-                console.log('Overview Page: parsed id:', id);
+            let status: "Draft" | "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled" = 'Draft';
 
-                if (!isNaN(id)) {
-                    console.log('Overview Page: Calling getEventById with', id);
-                    const apiData = await getEventById(id);
-                    console.log('Overview Page: API Data:', apiData);
-
-                    if (apiData) {
-                        const now = new Date();
-                        const startDate = apiData.event_start_at ? new Date(apiData.event_start_at) : null;
-                        const endDate = apiData.event_end_at ? new Date(apiData.event_end_at) : null;
-
-                        let status: "Draft" | "Ongoing" | "Completed" | "Not Yet Published" | "Published" | "Not Started" | "Cancelled" = 'Draft';
-
-                        if (apiData.is_published) {
-                            if (endDate && endDate < now) {
-                                status = 'Completed';
-                            } else if (startDate && startDate <= now && endDate && endDate >= now) {
-                                status = 'Ongoing'; // or Live
-                            } else {
-                                status = 'Published'; // or Upcoming
-                            }
-                        }
-
-                        const formatTime = (date: Date) => {
-                            return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-                        };
-
-                        setEventData({
-                            id: apiData.id.toString(),
-                            name: apiData.title,
-                            date: apiData.event_start_at ? new Date(apiData.event_start_at).toISOString().split('T')[0] : '',
-                            status: status,
-                            location: apiData.location,
-                            description: apiData.description,
-                            agenda: apiData.AgendaSlot?.map((slot: AgendaSlot) => ({
-                                id: slot.id,
-                                title: slot.title,
-                                description: slot.description,
-                                startTime: slot.start_time ? formatTime(new Date(slot.start_time)) : '',
-                                endTime: slot.end_time ? formatTime(new Date(slot.end_time)) : '',
-                                speaker: slot.speaker_name
-                            })) || [],
-                            // Map other fields as necessary
-                            objectives: apiData.objectives || [],
-                            theme: apiData.theme || '',
-                            startTime: startDate ? formatTime(startDate) : '',
-                            endTime: endDate ? formatTime(endDate) : '',
-                            bannerUrl: apiData.banner_image
-                        });
-                        setLoading(false);
-                        return;
-                    }
+            if (apiData.is_published) {
+                if (endDate && endDate < now) {
+                    status = 'Completed';
+                } else if (startDate && startDate <= now && endDate && endDate >= now) {
+                    status = 'Ongoing';
+                } else {
+                    status = 'Published';
                 }
-            } catch (e) {
-                console.error("Error loading from API", e);
             }
 
-            // 2. Fallback to Local Storage (keep for backward compatibility or drafts)
-            try {
-                const localDetail = localStorage.getItem(`event_detail_${eventId}`);
-                if (localDetail) {
-                    setEventData(JSON.parse(localDetail));
-                    setLoading(false);
-                    return;
-                }
-            } catch (e) {
-                // console.error("Error loading from local storage", e);
-            }
+            const formatTime = (date: Date) => {
+                return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+            };
 
-            // 3. Not found
-            setLoading(false);
+            return {
+                id: apiData.id.toString(),
+                name: apiData.title,
+                date: apiData.event_start_at ? new Date(apiData.event_start_at).toISOString().split('T')[0] : '',
+                status: status,
+                location: apiData.location,
+                description: apiData.description,
+                agenda: apiData.AgendaSlot?.map((slot: AgendaSlot) => ({
+                    id: slot.id,
+                    title: slot.title,
+                    description: slot.description,
+                    startTime: slot.start_time ? formatTime(new Date(slot.start_time)) : '',
+                    endTime: slot.end_time ? formatTime(new Date(slot.end_time)) : '',
+                    speaker: slot.speaker_name
+                })) || [],
+                objectives: apiData.objectives || [],
+                theme: apiData.theme || '',
+                startTime: startDate ? formatTime(startDate) : '',
+                endTime: endDate ? formatTime(endDate) : '',
+                bannerUrl: apiData.banner_image
+            };
         };
 
-        loadEvent();
-    }, [eventId]);
+        if (initialEvent) {
+            setEventData(mapEvent(initialEvent));
+        }
+
+        setLoading(false);
+    }, [initialEvent]);
 
     if (loading) {
         return (

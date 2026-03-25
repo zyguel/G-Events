@@ -34,6 +34,11 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const DISMISSED_KEY = 'g_events_dismissed_notifications';
 const PREFS_KEY = 'g_events_notification_prefs';
+const ADMIN_ROOTS = ['/dashboard', '/events', '/management', '/profile', '/settings'];
+
+function isAdminAppRoute(pathname: string) {
+    return ADMIN_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));
+}
 
 const getDismissedIds = (): Set<string> => {
     try {
@@ -85,6 +90,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
     // Fetch notifications from the API and poll every 30 seconds
     useEffect(() => {
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+        if (!isAdminAppRoute(pathname)) {
+            return;
+        }
+
         const SUCCESS_POLL_MS = 30000;
         const ERROR_RETRY_MS = 15000;
         let isActive = true;
@@ -116,6 +126,11 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 });
 
                 if (!res.ok) {
+                    if (res.status === 401 || res.status === 403) {
+                        hadFetchErrorRef.current = false;
+                        schedulePoll(SUCCESS_POLL_MS);
+                        return;
+                    }
                     throw new Error(`Notifications request failed: ${res.status}`);
                 }
 

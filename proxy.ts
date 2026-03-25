@@ -2,14 +2,9 @@ import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
 
 const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/auth/callback']);
-const PUBLIC_API_PREFIXES = ['/api/orderform', '/api/regions'];
 
 function isPublicRoute(pathname: string) {
   return PUBLIC_ROUTES.has(pathname);
-}
-
-function isPublicApiRoute(pathname: string) {
-  return PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
 function isAdminRoute(pathname: string) {
@@ -39,7 +34,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const needsAuth = isAdminRoute(pathname) || (pathname.startsWith('/api/') && !isPublicApiRoute(pathname));
+  // API routes enforce auth at the route-handler level (requireUser), so avoid
+  // duplicate Supabase auth round-trips here.
+  const needsAuth = isAdminRoute(pathname);
   if (!needsAuth || isPublicRoute(pathname)) {
     return NextResponse.next();
   }

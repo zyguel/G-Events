@@ -41,6 +41,10 @@ openssl rand -base64 32
 
 Run these in Supabase SQL Editor:
 
+- `database/add_combined_event_feature_tables.sql`
+
+Superseded migration scripts (kept for reference):
+
 - `database/add_order_form_entries_table.sql`
 - `database/add_event_waitlist_settings_table.sql`
 - `database/add_event_email_campaigns_table.sql`

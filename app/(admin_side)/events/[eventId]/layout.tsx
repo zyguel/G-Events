@@ -4,6 +4,7 @@ import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
 import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
+import { EventDataProvider } from "./EventDataContext";
 
 export default async function EventLayout({
     children,
@@ -58,13 +59,15 @@ export default async function EventLayout({
                 <Sidebar activePage="events" disableExpand={true} />
 
                 {/* Event Specific Sidebar */}
-                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
+                <div className="ml-20 hidden lg:block h-full shrink-0">
                     <EventsSidebar event={sidebarEvent} />
                 </div>
 
                 {/* Main Content Area */}
                 <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable]">
-                    {children}
+                    <EventDataProvider initialEvent={data}>
+                        {children}
+                    </EventDataProvider>
                 </main>
             </div>
         </div>
