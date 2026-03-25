@@ -127,7 +127,7 @@ async function applyTranslations(
 export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [locale, setLocale] = useState<LocaleSettings>(DEFAULT_LOCALE);
   const [isLoadingLocale, setIsLoadingLocale] = useState(true);
-  const [availableLanguages, setAvailableLanguages] = useState<TranslationLanguage[]>(TRANSLATION_LANGUAGES);
+  const availableLanguages = TRANSLATION_LANGUAGES;
   const observerRef = useRef<MutationObserver | null>(null);
   const translationCacheRef = useRef<Map<string, Map<string, string>>>(new Map());
 
@@ -143,42 +143,13 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
 
     const loadServerLocale = async () => {
       try {
-        const [localeResponse, languagesResponse] = await Promise.all([
-          fetch('/api/user/locale', { cache: 'no-store' }),
-          fetch('/api/translate/languages', { cache: 'no-store' }),
-        ]);
+        const localeResponse = await fetch('/api/user/locale', { cache: 'no-store' });
 
         if (localeResponse.ok) {
           const localePayload = await localeResponse.json();
           const nextLocale = normalizeLocale(localePayload?.data);
           setLocale(nextLocale);
           localStorage.setItem(LOCALE_STORAGE_KEY, JSON.stringify(nextLocale));
-        }
-
-        if (languagesResponse.ok) {
-          const languagesPayload = await languagesResponse.json();
-          const list = Array.isArray(languagesPayload?.data)
-            ? (languagesPayload.data as Array<{ code?: unknown; name?: unknown; targets?: unknown }>)
-            : [];
-          const normalized = list
-            .filter((item) => typeof item?.code === 'string' && typeof item?.name === 'string')
-            .map((item) => {
-              const targets = Array.isArray(item.targets)
-                ? item.targets.filter((target): target is string => typeof target === 'string').map((target) => normalizeLanguageCode(target))
-                : undefined;
-
-              return {
-                code: normalizeLanguageCode(item.code),
-                name: String(item.name),
-                targets,
-              };
-            });
-
-          if (!normalized.find((lang: TranslationLanguage) => lang.code === 'en')) {
-            normalized.unshift({ code: 'en', name: 'English', targets: undefined });
-          }
-
-          setAvailableLanguages(normalized);
         }
       } catch {
       } finally {
@@ -255,7 +226,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       saveLocale,
       t: (text: string) => text,
     }),
-    [availableLanguages, isLoadingLocale, locale]
+    [isLoadingLocale, locale]
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;

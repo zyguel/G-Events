@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
-import { User, Globe, ChevronRight, Cpu, RefreshCw, Search } from 'lucide-react';
+import { User, Globe, ChevronRight, Search } from 'lucide-react';
 import { useNotifications } from '@/contexts/NotificationContext';
 import Modal, { ModalFooter } from '@/components/admin/Modal';
 import { useLocale } from '@/contexts/LocaleContext';
@@ -25,14 +25,6 @@ export default function SettingsPage() {
     const [regionSearch, setRegionSearch] = useState('');
     const [regionOptions, setRegionOptions] = useState<Array<{ code: string; label: string }>>([]);
     const [isSavingLocale, setIsSavingLocale] = useState(false);
-    const [isLoadingEngineHealth, setIsLoadingEngineHealth] = useState(true);
-    const [engineHealth, setEngineHealth] = useState<{
-        loaded: boolean;
-        initializing: boolean;
-        cacheEntries: number;
-        model: string;
-        supportedLanguages: Array<{ code: string; name: string }>;
-    } | null>(null);
 
     const getRegionLabel = (code: string) => regionOptions.find((item) => item.code === code)?.label ?? code;
     const languageDisplayOptions = availableLanguages.map((item) => ({
@@ -94,26 +86,6 @@ export default function SettingsPage() {
         });
     };
 
-    const fetchEngineHealth = useCallback(async () => {
-        setIsLoadingEngineHealth(true);
-
-        try {
-            const response = await fetch('/api/translate/health', {
-                cache: 'no-store',
-            });
-            const payload = await response.json();
-
-            if (!response.ok || !payload?.data) {
-                throw new Error('Health request failed');
-            }
-
-            setEngineHealth(payload.data);
-        } catch {
-        } finally {
-            setIsLoadingEngineHealth(false);
-        }
-    }, []);
-
     const loadRegions = useCallback(async () => {
         try {
             const response = await fetch('/api/regions', { cache: 'no-store' });
@@ -161,9 +133,8 @@ export default function SettingsPage() {
     };
 
     useEffect(() => {
-        fetchEngineHealth();
         loadRegions();
-    }, [fetchEngineHealth, loadRegions]);
+    }, [loadRegions]);
 
     return (
         <>
@@ -222,65 +193,6 @@ export default function SettingsPage() {
                                     </div>
                                 );
                             })}
-                        </div>
-
-                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-lg">
-                            <div className="p-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
-                                        <Cpu size={18} className="text-indigo-600 dark:text-indigo-300" />
-                                    </div>
-                                    <div>
-                                        <h2 className="font-semibold text-gray-900 dark:text-white">Translation Engine Status</h2>
-                                        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Model readiness and cache health</p>
-                                    </div>
-                                </div>
-                                <div className={`px-3 py-1 rounded-full text-xs font-semibold ${engineHealth?.loaded ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : engineHealth?.initializing ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'}`}>
-                                    {engineHealth?.loaded ? 'Ready' : engineHealth?.initializing ? 'Initializing' : 'Idle'}
-                                </div>
-                            </div>
-
-                            <div className="p-6 space-y-4">
-                                {isLoadingEngineHealth && !engineHealth ? (
-                                    <div className="text-sm text-gray-500 dark:text-gray-400">Loading engine status...</div>
-                                ) : (
-                                    <>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                            <div className="rounded-lg border border-gray-100 dark:border-gray-700 p-3">
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Model</p>
-                                                <p className="text-sm font-medium text-gray-900 dark:text-white break-all">{engineHealth?.model ?? '—'}</p>
-                                            </div>
-                                            <div className="rounded-lg border border-gray-100 dark:border-gray-700 p-3">
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Cache Entries</p>
-                                                <p className="text-sm font-medium text-gray-900 dark:text-white">{engineHealth?.cacheEntries ?? 0}</p>
-                                            </div>
-                                            <div className="rounded-lg border border-gray-100 dark:border-gray-700 p-3">
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Supported Languages</p>
-                                                <p className="text-sm font-medium text-gray-900 dark:text-white">{engineHealth?.supportedLanguages?.length ?? 0}</p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2">
-                                            {(engineHealth?.supportedLanguages ?? []).map((lang) => (
-                                                <span key={lang.code} className="px-2 py-1 text-xs rounded-md bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
-                                                    {lang.code.toUpperCase()}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </>
-                                )}
-
-                                <div className="flex items-center gap-3 pt-2">
-                                    <button
-                                        onClick={() => fetchEngineHealth()}
-                                        disabled={isLoadingEngineHealth}
-                                        className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-60"
-                                    >
-                                        <RefreshCw size={14} className={isLoadingEngineHealth ? 'animate-spin' : ''} />
-                                        Refresh
-                                    </button>
-                                </div>
-                            </div>
                         </div>
 
                         {/* Notification Preferences */}
