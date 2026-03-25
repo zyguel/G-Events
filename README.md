@@ -137,6 +137,7 @@ Use this section when handing the project to a new maintainer.
 | `RESEND_API_KEY` | Yes (if using Resend mode) | API key for sending attendee/certificate emails |
 | `RESEND_FROM_EMAIL` | Yes (if using Resend mode) | Sender email/domain configured in Resend |
 | `CRON_SECRET` | Yes (if cron routes are enabled) | Shared secret for protected cron endpoints |
+| `APP_URL` | Yes  | dev: http://localhost:3000 |
 
 #### 2) DB Migrations Required for Current Features
 
