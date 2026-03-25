@@ -6,6 +6,7 @@ import {
     Edit2, Trash2, X, ChevronDown, List, BarChart3,
     CheckCircle, AlertCircle, PlayCircle, XCircle, User
 } from 'lucide-react';
+import { useLocale } from '@/contexts/LocaleContext';
 
 // Types
 import { EventSummary } from '@/lib/types';
@@ -457,6 +458,7 @@ interface BreakoutsClientProps {
 
 // Main Page Component
 export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
+    const { t } = useLocale();
     const eventId = event.id;
 
     // Add validation for eventId
@@ -466,7 +468,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
             <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 items-center justify-center">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
-                    <p className="text-gray-600 dark:text-gray-400">Unable to load breakout sessions. Event ID is invalid.</p>
+                    <p className="text-gray-600 dark:text-gray-400">{t('Unable to load breakout sessions. Event ID is invalid.')}</p>
                 </div>
             </div>
         );
@@ -659,10 +661,10 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    Manage Breakout Sessions
+                                    {t('Manage Breakout Sessions')}
                                 </h1>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                    Create and manage breakout sessions for your event
+                                    {t('Create and manage breakout sessions for your event')}
                                 </p>
                             </div>
                         </div>
@@ -671,7 +673,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                             className="px-5 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all flex items-center gap-2"
                         >
                             <Plus size={18} />
-                            Add Session
+                            {t('Add Session')}
                         </button>
                     </div>
 
@@ -692,7 +694,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                                 }`}
                         >
                             <BarChart3 size={16} />
-                            Dashboard
+                            {t('Dashboard')}
                         </button>
                         <button
                             onClick={() => setActiveView('list')}
@@ -702,7 +704,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                                 }`}
                         >
                             <List size={16} />
-                            List
+                            {t('List')}
                         </button>
                     </div>
 
@@ -717,7 +719,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                                             <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Total Sessions</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('Total Sessions')}</p>
                                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
                                         </div>
                                     </div>
@@ -728,7 +730,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                                             <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                                         </div>
                                         <div>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400">Total Attendees</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400">{t('Total Attendees')}</p>
                                             <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalAttendees} / {stats.totalCapacity}</p>
                                         </div>
                                     </div>

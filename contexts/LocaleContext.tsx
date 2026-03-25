@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_LOCALE,
   LocaleSettings,
@@ -218,15 +218,26 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const translateText = useCallback(
+    (text: string) => {
+      if (!text || locale.language === 'en') {
+        return text;
+      }
+
+      return getStaticTranslation(text, locale.language) ?? text;
+    },
+    [locale.language]
+  );
+
   const value = useMemo<LocaleContextType>(
     () => ({
       locale,
       isLoadingLocale,
       availableLanguages,
       saveLocale,
-      t: (text: string) => text,
+      t: translateText,
     }),
-    [isLoadingLocale, locale]
+    [availableLanguages, isLoadingLocale, locale, translateText]
   );
 
   return <LocaleContext.Provider value={value}>{children}</LocaleContext.Provider>;

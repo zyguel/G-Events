@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import { User, Globe, ChevronRight, Search } from 'lucide-react';
@@ -22,16 +22,96 @@ export default function SettingsPage() {
     const [language, setLanguage] = useState<string>(locale.language);
     const [region, setRegion] = useState<string>(locale.region);
     const [languageSearch, setLanguageSearch] = useState('');
+    const [isLanguageDropdownOpen, setIsLanguageDropdownOpen] = useState(false);
     const [regionSearch, setRegionSearch] = useState('');
     const [regionOptions, setRegionOptions] = useState<Array<{ code: string; label: string }>>([]);
     const [isSavingLocale, setIsSavingLocale] = useState(false);
+    const languageInputRef = useRef<HTMLInputElement | null>(null);
 
     const getRegionLabel = (code: string) => regionOptions.find((item) => item.code === code)?.label ?? code;
-    const languageDisplayOptions = availableLanguages.map((item) => ({
-        code: item.code,
-        label: `${item.name} (${item.code.toUpperCase()})`,
-        name: item.name,
-    }));
+    const languageDisplayOptions = useMemo(() => availableLanguages.map((item) => {
+        const label = item.nativeName ? `${item.name} • ${item.nativeName} (${item.code.toUpperCase()})` : `${item.name} (${item.code.toUpperCase()})`;
+        const searchTerms = [
+            item.code,
+            item.name,
+            item.nativeName,
+            label,
+            ...(item.aliases ?? []),
+        ].filter((term): term is string => typeof term === 'string' && term.trim().length > 0);
+
+        return {
+            code: item.code,
+            name: item.name,
+            nativeName: item.nativeName,
+            label,
+            searchTerms,
+        };
+    }), [availableLanguages]);
+
+    const rankLanguage = (query: string, option: { code: string; name: string; nativeName?: string; searchTerms: string[] }) => {
+        const normalizedQuery = query.trim().toLowerCase();
+        if (!normalizedQuery) {
+            return 0;
+        }
+
+        const code = option.code.toLowerCase();
+        const name = option.name.toLowerCase();
+        const nativeName = option.nativeName?.toLowerCase() ?? '';
+        const aliases = option.searchTerms.map((term) => term.toLowerCase());
+
+        if (code === normalizedQuery || name === normalizedQuery || nativeName === normalizedQuery || aliases.some((term) => term === normalizedQuery)) {
+            return 1000;
+        }
+
+        if (code.startsWith(normalizedQuery)) {
+            return 850;
+        }
+
+        if (name.startsWith(normalizedQuery) || nativeName.startsWith(normalizedQuery) || aliases.some((term) => term.startsWith(normalizedQuery))) {
+            return 700;
+        }
+
+        const containsInName = name.includes(normalizedQuery) || nativeName.includes(normalizedQuery) || aliases.some((term) => term.includes(normalizedQuery));
+        if (containsInName) {
+            return 500;
+        }
+
+        return -1;
+    };
+
+    const filteredLanguageOptions = useMemo(() => {
+        const query = languageSearch.trim();
+        const selectedOption = languageDisplayOptions.find((option) => option.code === language);
+
+        const prioritizeSelected = (options: typeof languageDisplayOptions) => {
+            if (!selectedOption) {
+                return options;
+            }
+
+            return [selectedOption, ...options.filter((option) => option.code !== selectedOption.code)];
+        };
+
+        if (!query) {
+            return prioritizeSelected(languageDisplayOptions).slice(0, 8);
+        }
+
+        const ranked = languageDisplayOptions
+            .map((option) => ({ option, score: rankLanguage(query, option) }))
+            .filter((entry) => entry.score >= 0)
+            .sort((left, right) => {
+                if (right.score !== left.score) {
+                    return right.score - left.score;
+                }
+                return left.option.name.localeCompare(right.option.name);
+            })
+            .map((entry) => entry.option);
+
+        if (!ranked.length) {
+            return prioritizeSelected(languageDisplayOptions).slice(0, 8);
+        }
+
+        return prioritizeSelected(ranked).slice(0, 8);
+    }, [languageDisplayOptions, languageSearch, language]);
 
     const currentSelection = `${getLanguageLabel(locale.language, availableLanguages)} • ${getRegionLabel(locale.region)}`;
 
@@ -61,8 +141,20 @@ export default function SettingsPage() {
         const regionMatch = regionOptions.find((item) => item.code === locale.region);
         setLanguageSearch(languageMatch?.label ?? locale.language);
         setRegionSearch(regionMatch?.label ?? locale.region);
+        setIsLanguageDropdownOpen(false);
         setIsLocaleModalOpen(true);
     };
+
+    const selectLanguage = useCallback((code: string) => {
+        const match = languageDisplayOptions.find((item) => item.code === code);
+        if (!match) {
+            return;
+        }
+
+        setLanguage(match.code);
+        setLanguageSearch(match.label);
+        setIsLanguageDropdownOpen(false);
+    }, [languageDisplayOptions]);
 
     const handleSaveLocale = async () => {
         setIsSavingLocale(true);
@@ -99,6 +191,7 @@ export default function SettingsPage() {
 
     const handleLanguageSearchChange = (value: string) => {
         setLanguageSearch(value);
+        setIsLanguageDropdownOpen(true);
         const codeMatch = value.match(/\(([A-Za-z]{2,8})\)\s*$/);
         if (codeMatch?.[1]) {
             setLanguage(codeMatch[1].toLowerCase());
@@ -109,7 +202,9 @@ export default function SettingsPage() {
             (item) =>
                 item.label.toLowerCase() === normalized
                 || item.name.toLowerCase() === normalized
+                || (item.nativeName?.toLowerCase() ?? '') === normalized
                 || item.code.toLowerCase() === normalized
+                || item.searchTerms.some((term) => term.toLowerCase() === normalized)
         );
         if (match) {
             setLanguage(match.code);
@@ -279,19 +374,46 @@ export default function SettingsPage() {
                         <div className="relative">
                             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                             <input
+                                ref={languageInputRef}
                                 type="text"
-                                list="language-options"
                                 value={languageSearch}
                                 onChange={(event) => handleLanguageSearchChange(event.target.value)}
-                                placeholder="Search language"
+                                onFocus={() => setIsLanguageDropdownOpen(true)}
+                                onBlur={() => {
+                                    window.setTimeout(() => {
+                                        if (document.activeElement !== languageInputRef.current) {
+                                            setIsLanguageDropdownOpen(false);
+                                        }
+                                    }, 120);
+                                }}
+                                placeholder={t('Search language')}
+                                autoComplete="off"
                                 className="w-full pl-9 pr-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                             />
+                            {isLanguageDropdownOpen && (
+                                <div className="absolute z-20 mt-1 w-full max-h-64 overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 shadow-lg">
+                                    {filteredLanguageOptions.length > 0 ? (
+                                        filteredLanguageOptions.map((lang) => (
+                                            <button
+                                                key={lang.code}
+                                                type="button"
+                                                onMouseDown={(event) => {
+                                                    event.preventDefault();
+                                                    selectLanguage(lang.code);
+                                                }}
+                                                className={`w-full text-left px-3 py-2.5 text-sm transition-colors ${lang.code === language ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300' : 'text-gray-800 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                                            >
+                                                <span className="font-medium">{lang.name}</span>
+                                                {lang.nativeName && <span className="ml-2 text-gray-500 dark:text-gray-400">{lang.nativeName}</span>}
+                                                <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">{lang.code.toUpperCase()}</span>
+                                            </button>
+                                        ))
+                                    ) : (
+                                        <div className="px-3 py-2.5 text-sm text-gray-500 dark:text-gray-400">{t('No languages found')}</div>
+                                    )}
+                                </div>
+                            )}
                         </div>
-                        <datalist id="language-options">
-                            {languageDisplayOptions.map((lang) => (
-                                <option key={lang.code} value={lang.label} />
-                            ))}
-                        </datalist>
                     </div>
 
                     <div>
@@ -305,7 +427,7 @@ export default function SettingsPage() {
                                 list="region-options"
                                 value={regionSearch}
                                 onChange={(event) => handleRegionSearchChange(event.target.value)}
-                                placeholder="Search country"
+                                placeholder={t('Search country')}
                                 className="w-full pl-9 pr-3 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                             />
                         </div>

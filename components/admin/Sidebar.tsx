@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePermissions } from '@/contexts/PermissionContext';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface SidebarItemProps {
     iconSrc: string;
@@ -23,7 +24,7 @@ const SidebarItem = ({ iconSrc, active = false, alt = "icon", href, label, isExp
                 alt={alt}
                 width={18}
                 height={18}
-                className={`flex-shrink-0 transition-all duration-300 ${active ? 'brightness-0 invert' : 'opacity-60 hover:opacity-100 dark:invert dark:opacity-70'}`}
+                className={`shrink-0 transition-all duration-300 ${active ? 'brightness-0 invert' : 'opacity-60 hover:opacity-100 dark:invert dark:opacity-70'}`}
             />
             <span
                 className={`whitespace-nowrap text-sm font-medium transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 w-0'
@@ -42,6 +43,7 @@ interface SidebarProps {
 
 const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
+        const { t } = useLocale();
 
     // Calculate the position of the sliding indicator based on active page
     const getIndicatorPosition = () => {
@@ -84,19 +86,19 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
                 {/* Sliding indicator for main items */}
                 {!indicatorPos.isBottom && (
                     <div
-                        className="absolute left-3 right-3 h-[34px] bg-[#3D518C] rounded-xl shadow-lg transition-all duration-300 ease-in-out z-0"
+                        className="absolute left-3 right-3 h-8.5 bg-[#3D518C] rounded-xl shadow-lg transition-all duration-300 ease-in-out z-0"
                         style={{ top: `${indicatorPos.top - 24}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/home.png" alt="Dashboard" href="/dashboard" active={activePage === 'dashboard'} label="Dashboard" isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/home.png" alt={t('Dashboard')} href="/dashboard" active={activePage === 'dashboard'} label={t('Dashboard')} isExpanded={isExpanded} />
                 {canViewEvents && (
-                    <SidebarItem iconSrc="/icons/calendar.png" alt="Events" href="/events" active={activePage === 'events'} label="Events" isExpanded={isExpanded} />
+                    <SidebarItem iconSrc="/icons/calendar.png" alt={t('Events')} href="/events" active={activePage === 'events'} label={t('Events')} isExpanded={isExpanded} />
                 )}
                 {canViewAnalytics && (
-                    <SidebarItem iconSrc="/icons/bar-chart.png" alt="Analytics" href="/analytics/all" active={activePage === 'analytics'} label="Analytics" isExpanded={isExpanded} />
+                    <SidebarItem iconSrc="/icons/bar-chart.png" alt={t('Analytics')} href="/analytics/all" active={activePage === 'analytics'} label={t('Analytics')} isExpanded={isExpanded} />
                 )}
                 {canViewManagement && (
-                    <SidebarItem iconSrc="/icons/team.png" alt="Management" href="/management" active={activePage === 'management'} label="Management" isExpanded={isExpanded} />
+                    <SidebarItem iconSrc="/icons/team.png" alt={t('Management')} href="/management" active={activePage === 'management'} label={t('Management')} isExpanded={isExpanded} />
                 )}
             </div>
 
@@ -105,12 +107,12 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
                 {/* Sliding indicator for bottom items */}
                 {indicatorPos.isBottom && (
                     <div
-                        className="absolute left-3 right-3 h-[34px] bg-[#3D518C] rounded-xl shadow-lg transition-all duration-300 ease-in-out z-0"
+                        className="absolute left-3 right-3 h-8.5 bg-[#3D518C] rounded-xl shadow-lg transition-all duration-300 ease-in-out z-0"
                         style={{ top: `${indicatorPos.top}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/settings.svg" alt="Settings" href="/settings" active={activePage === 'settings'} label="Settings" isExpanded={isExpanded} />
-                <SidebarItem iconSrc="/icons/profile.svg" alt="Profile" href="/profile" active={activePage === 'profile'} label="Profile" isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/settings.svg" alt={t('Settings')} href="/settings" active={activePage === 'settings'} label={t('Settings')} isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/profile.svg" alt={t('Profile')} href="/profile" active={activePage === 'profile'} label={t('Profile')} isExpanded={isExpanded} />
             </div>
         </aside>
     );

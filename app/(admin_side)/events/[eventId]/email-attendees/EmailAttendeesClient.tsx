@@ -8,6 +8,7 @@ import TimeInput from '@/components/admin/TimeInput';
 import DateInput from '@/components/admin/DateInput';
 import { EventSummary } from '@/lib/types';
 import { htmlToPlainText } from '@/lib/security';
+import { useLocale } from '@/contexts/LocaleContext';
 
 function sanitizeHtml(input: string) {
     return input
@@ -280,6 +281,7 @@ interface EmailAttendeesProps {
 
 export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     // const editorRef = useRef<HTMLDivElement>(null); // Removed ref
+    const { t } = useLocale();
 
     const [activeTab, setActiveTab] = useState<'create' | 'emails' | 'drafts'>('create');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
@@ -661,17 +663,17 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    Email to Attendees
+                                    {t('Email to Attendees')}
                                 </h1>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                    Send targeted emails to your event attendees
+                                    {t('Send targeted emails to your event attendees')}
                                 </p>
                             </div>
                         </div>
                         <div className="flex items-center gap-2 bg-white dark:bg-gray-800 px-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                             <Users size={18} className="text-[#3D518C]" />
                             <span className="text-sm text-gray-600 dark:text-gray-300">
-                                <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> attendees selected
+                                <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> {t('attendees selected')}
                             </span>
                         </div>
                     </div>
@@ -685,7 +687,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                                 }`}
                         >
-                            Create Email
+                            {t('Create Email')}
                         </button>
                         <button
                             onClick={() => setActiveTab('emails')}
@@ -694,7 +696,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                                 }`}
                         >
-                            Sent Emails
+                            {t('Sent Emails')}
                             {sentEmails.filter(e => e.status !== 'draft').length > 0 && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'emails' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
                                     {sentEmails.filter(e => e.status !== 'draft').length}
@@ -708,7 +710,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                 : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700'
                                 }`}
                         >
-                            Drafts
+                            {t('Drafts')}
                             {sentEmails.filter(e => e.status === 'draft').length > 0 && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs ${activeTab === 'drafts' ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>
                                     {sentEmails.filter(e => e.status === 'draft').length}

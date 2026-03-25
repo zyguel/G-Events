@@ -6,6 +6,7 @@ import { LogOut, UserCircle, AlertTriangle } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import NotificationDropdown from './NotificationDropdown';
 import { createClient } from '@/lib/supabase-browser';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface UserProfile {
     name: string;
@@ -15,6 +16,7 @@ interface UserProfile {
 
 const Header = () => {
     const router = useRouter();
+    const { t } = useLocale();
     const [user, setUser] = useState<UserProfile | null>(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -84,7 +86,7 @@ const Header = () => {
                             G Events
                         </span>
                         <span className="hidden md:block text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wider uppercase">
-                            Event Registration
+                            {t('Event Registration')}
                         </span>
                     </div>
                 </div>
@@ -103,10 +105,10 @@ const Header = () => {
                     {/* User Profile — clickable → /profile */}
                     <button
                         onClick={() => router.push('/profile')}
-                        title="View profile"
+                        title={t('View profile')}
                         className="flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all duration-200 group"
                     >
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
+                        <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
                             {user ? (
                                 <img
                                     src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`}
@@ -136,18 +138,18 @@ const Header = () => {
                     {/* Sign Out Button */}
                     <button
                         onClick={() => setShowLogoutModal(true)}
-                        title="Sign out"
+                        title={t('Sign out')}
                         className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
                     >
                         <LogOut size={17} />
-                        <span className="hidden md:block text-sm font-medium">Sign out</span>
+                        <span className="hidden md:block text-sm font-medium">{t('Sign out')}</span>
                     </button>
                 </div>
             </header>
 
             {/* Sign Out Confirmation Modal */}
             {showLogoutModal && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center">
+                <div className="fixed inset-0 z-200 flex items-center justify-center">
                     {/* Backdrop */}
                     <div
                         className="absolute inset-0 bg-black/40 backdrop-blur-sm"
@@ -163,9 +165,9 @@ const Header = () => {
 
                         {/* Text */}
                         <div className="text-center">
-                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">Sign out?</h3>
+                            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-1">{t('Sign out?')}</h3>
                             <p className="text-sm text-gray-500 dark:text-gray-400">
-                                You'll be logged out of your G Events session. Any unsaved changes will be lost.
+                                {t("You'll be logged out of your G Events session. Any unsaved changes will be lost.")}
                             </p>
                         </div>
 
@@ -191,7 +193,7 @@ const Header = () => {
                                 disabled={isLoggingOut}
                                 className="flex-1 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 disabled:opacity-50"
                             >
-                                Cancel
+                                {t('Cancel')}
                             </button>
                             <button
                                 onClick={handleLogoutConfirm}
@@ -201,12 +203,12 @@ const Header = () => {
                                 {isLoggingOut ? (
                                     <>
                                         <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                                        Signing out...
+                                        {t('Signing out...')}
                                     </>
                                 ) : (
                                     <>
                                         <LogOut size={15} />
-                                        Yes, sign out
+                                        {t('Yes, sign out')}
                                     </>
                                 )}
                             </button>

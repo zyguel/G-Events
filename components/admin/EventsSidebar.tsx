@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { EventSummary } from "@/lib/types";
 import { buildEventSlug } from "@/lib/slug";
 import { usePermissions } from "@/contexts/PermissionContext";
+import { useLocale } from "@/contexts/LocaleContext";
 
 interface EventsSidebarProps {
     event: EventSummary;
@@ -14,6 +15,7 @@ interface EventsSidebarProps {
 
 export default function EventsSidebar({ event }: EventsSidebarProps) {
     const pathname = usePathname();
+    const { t } = useLocale();
     const { hasPermission, isAdmin, role, loading } = usePermissions();
     const permResolved = !loading && role !== '';
     const [eventName, setEventName] = useState(event?.name || '');
@@ -48,7 +50,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
             <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col transition-colors duration-300">
                 <div className="p-4 flex items-center justify-center h-full">
                     <div className="text-center">
-                        <p className="text-sm text-gray-600 dark:text-gray-400">Invalid event data</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{t('Invalid event data')}</p>
                     </div>
                 </div>
             </aside>
@@ -91,8 +93,8 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
         <aside className="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 h-full flex flex-col transition-colors duration-300">
 
             {/* 1. Event Context Card - Fixed height with truncation */}
-            <div className="p-4 flex-shrink-0">
-                <div className="bg-gradient-to-br from-[#3D518C] to-[#091540] rounded-lg p-4 text-white shadow-lg relative overflow-hidden h-[120px]">
+            <div className="p-4 shrink-0">
+                <div className="bg-linear-to-br from-[#3D518C] to-[#091540] rounded-lg p-4 text-white shadow-lg relative overflow-hidden h-30">
                     <div className="relative z-10">
                         <h2 className="font-bold text-lg leading-tight line-clamp-2" title={eventName}>{eventName}</h2>
                         <p className="text-xs text-indigo-100 mt-1">{formatDate(eventDate)}</p>
@@ -100,7 +102,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                             ? "bg-green-500/30 text-green-100"
                             : "bg-gray-500/30 text-gray-100"
                             }`}>
-                            ● {eventStatus === "Ongoing" ? "Live" : eventStatus}
+                            ● {eventStatus === "Ongoing" ? t('Live') : eventStatus}
                         </div>
                     </div>
                     {/* Decorative circle */}
@@ -114,7 +116,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
 
                     {/* Section: Event Page */}
                     <div>
-                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Event Page</h3>
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('Event Page')}</h3>
                         <ul className="space-y-1">
                             <li>
                                 <Link
@@ -125,7 +127,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                         }`}
                                 >
                                     <LayoutDashboard size={16} />
-                                    Overview
+                                    {t('Overview')}
                                 </Link>
                             </li>
                         </ul>
@@ -135,7 +137,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
 
                     {/* Section: Order Options */}
                     <div>
-                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Order Options</h3>
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('Order Options')}</h3>
                         <ul className="space-y-1">
                             {['tickets', 'orderform', 'orderconfirmation', 'publish'].map((page) => (
                                 <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
@@ -149,10 +151,10 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                         {page === 'orderform' && <ClipboardList size={16} />}
                                         {page === 'orderconfirmation' && <CheckCircle size={16} />}
                                         {page === 'publish' && <Send size={16} />}
-                                        {page === 'tickets' && 'Tickets'}
-                                        {page === 'orderform' && 'Order Form'}
-                                        {page === 'orderconfirmation' && 'Order Confirmation'}
-                                        {page === 'publish' && 'Publish Event'}
+                                        {page === 'tickets' && t('Tickets')}
+                                        {page === 'orderform' && t('Order Form')}
+                                        {page === 'orderconfirmation' && t('Order Confirmation')}
+                                        {page === 'publish' && t('Publish Event')}
                                     </Link>
                                 </li>
                             ))}
@@ -163,15 +165,15 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
 
                     {/* Section: Manage Attendees */}
                     <div>
-                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Manage Attendees</h3>
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('Manage Attendees')}</h3>
                         <ul className="space-y-1">
                             {[
-                                { page: 'orders', icon: <Users size={16} />, label: 'Manage Orders', perm: 'View List of Attendees' },
-                                { page: 'email-attendees', icon: <Mail size={16} />, label: 'Email to Attendees', perm: 'Send Emails' },
-                                { page: 'checkin', icon: <UserCheck size={16} />, label: 'Check-In', perm: 'Check In Attendees' },
-                                { page: 'certificates', icon: <Award size={16} />, label: 'Certificates', perm: 'View E-Certificates' },
-                                { page: 'waitlist', icon: <Clock size={16} />, label: 'Manage Waitlist', perm: 'Manage Waitlist' },
-                                { page: 'breakouts', icon: <Presentation size={16} />, label: 'Manage Breakout Sessions', perm: 'Create Breakout Sessions' },
+                                { page: 'orders', icon: <Users size={16} />, label: t('Manage Orders'), perm: 'View List of Attendees' },
+                                { page: 'email-attendees', icon: <Mail size={16} />, label: t('Email to Attendees'), perm: 'Send Emails' },
+                                { page: 'checkin', icon: <UserCheck size={16} />, label: t('Check In'), perm: 'Check In Attendees' },
+                                { page: 'certificates', icon: <Award size={16} />, label: t('Certificates'), perm: 'View E-Certificates' },
+                                { page: 'waitlist', icon: <Clock size={16} />, label: t('Manage Waitlist'), perm: 'Manage Waitlist' },
+                                { page: 'breakouts', icon: <Presentation size={16} />, label: t('Manage Breakout Sessions'), perm: 'Create Breakout Sessions' },
                             ].map(({ page, icon, label, perm }) => {
                                 // While loading, show all (fail-open). After load, check permission.
                                 if (permResolved && !isAdmin && !hasPermission(perm)) return null;
@@ -193,11 +195,11 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
 
                     {/* Section: Reporting */}
                     <div>
-                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Reporting</h3>
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('Reporting')}</h3>
                         <ul className="space-y-1">
                             {[
-                                { page: 'reports', icon: <FileText size={16} />, label: 'Event Reports', perm: 'View Reports' },
-                                { page: 'analytics', icon: <BarChart3 size={16} />, label: 'Analytics', perm: 'View Reports' },
+                                { page: 'reports', icon: <FileText size={16} />, label: t('Event Reports'), perm: 'View Reports' },
+                                { page: 'analytics', icon: <BarChart3 size={16} />, label: t('Analytics'), perm: 'View Reports' },
                             ].map(({ page, icon, label, perm }) => {
                                 if (permResolved && !isAdmin && !hasPermission(perm)) return null;
                                 return (

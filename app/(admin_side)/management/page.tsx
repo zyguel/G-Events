@@ -5,6 +5,7 @@ import Sidebar from '@/components/admin/Sidebar';
 import Image from 'next/image';
 import { ToastContainer, useToast } from '@/components/admin/Toast';
 import { usePermissions } from '@/contexts/PermissionContext';
+import { useLocale } from '@/contexts/LocaleContext';
 import AccessDenied from '@/components/admin/AccessDenied';
 
 interface TeamMember {
@@ -24,6 +25,7 @@ interface Role {
 // Thin guard wrapper — keeps all useState/useEffect hooks inside ManagementPageInner
 // to avoid React Rules of Hooks violations from conditional returns
 export default function ManagementPage() {
+    const { t } = useLocale();
     const { isAdmin, loading } = usePermissions();
     if (loading) return null;
     if (!isAdmin) {
@@ -33,7 +35,7 @@ export default function ManagementPage() {
                 <div className="flex flex-1 overflow-hidden">
                     <Sidebar activePage="management" />
                     <main className="flex-1 ml-20 overflow-y-auto">
-                        <AccessDenied message="Only administrators can access the Management page." />
+                        <AccessDenied message={t('Only administrators can access the Management page.')} />
                     </main>
                 </div>
             </div>
@@ -43,6 +45,7 @@ export default function ManagementPage() {
 }
 
 function ManagementPageInner() {
+    const { t } = useLocale();
     // Toast notifications
     const { toasts, showToast, removeToast } = useToast();
 
@@ -656,8 +659,8 @@ function ManagementPageInner() {
                     <div className="space-y-6 max-w-7xl mx-auto">
                         {/* Page Title */}
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Management</h1>
-                            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Manage your team members and roles</p>
+                            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{t('Management')}</h1>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">{t('Manage your team members and roles')}</p>
                         </div>
 
                         {/* Filters and Search Bar */}
@@ -675,7 +678,7 @@ function ManagementPageInner() {
                                         />
                                         <input
                                             type="text"
-                                            placeholder="Search members or roles..."
+                                            placeholder={t('Search members or roles...')}
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             className="w-full pl-10 pr-4 py-2.5 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
@@ -699,7 +702,7 @@ function ManagementPageInner() {
                                                     height={16}
                                                     className={`brightness-0 dark:invert ${activeFilter === 'Team' ? '' : 'opacity-60'}`}
                                                 />
-                                                Team
+                                                {t('Team')}
                                             </button>
                                             <button
                                                 onClick={() => setActiveFilter('Role')}
@@ -715,7 +718,7 @@ function ManagementPageInner() {
                                                     height={16}
                                                     className={`dark:invert ${activeFilter === 'Role' ? '' : 'opacity-60'}`}
                                                 />
-                                                Roles
+                                                {t('Roles')}
                                             </button>
                                         </div>
                                     </div>
@@ -732,7 +735,7 @@ function ManagementPageInner() {
                                             height={16}
                                             className="brightness-0 invert"
                                         />
-                                        {activeFilter === 'Team' ? 'Invite User' : 'Create Role'}
+                                        {activeFilter === 'Team' ? t('Invite User') : t('Create Role')}
                                     </button>
                                 </div>
                             </div>
@@ -764,14 +767,14 @@ function ManagementPageInner() {
                                                     )}
                                                 </div>
                                                 <div>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Name</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('Name')}</p>
                                                     <p className="text-sm font-medium text-[#3A3B49] dark:text-white">{member.name}</p>
                                                 </div>
                                             </div>
 
                                             {/* Email Address */}
                                             <div className="w-full md:w-1/3 pl-14 md:pl-0">
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">Email Address</p>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">{t('Email Address')}</p>
                                                 <p className="text-sm text-[#3A3B49] dark:text-gray-200 break-all">{member.email}</p>
                                             </div>
 
@@ -779,7 +782,7 @@ function ManagementPageInner() {
                                             <div className="flex items-center justify-between w-full md:w-auto md:gap-8 pl-14 md:pl-0">
                                                 {/* Role */}
                                                 <div className="md:w-32">
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('Role')}</p>
                                                     <p className="text-sm font-medium text-[#3A3B49] dark:text-white">{member.role}</p>
                                                 </div>
 
@@ -843,13 +846,13 @@ function ManagementPageInner() {
                                                                 onClick={() => handleEditRolePermissions(role)}
                                                                 className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg"
                                                             >
-                                                                Edit Permissions
+                                                                {t('Edit Permissions')}
                                                             </button>
                                                             <button
                                                                 onClick={() => handleDeleteRoleClick(role)}
                                                                 className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-b-lg"
                                                             >
-                                                                Delete Role
+                                                                {t('Delete Role')}
                                                             </button>
                                                         </div>
                                                     )}
@@ -871,17 +874,17 @@ function ManagementPageInner() {
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[480px]">
                             {/* Modern Header */}
                             <div className="bg-gradient-to-r from-[#3D518C] to-indigo-600 px-8 py-6 rounded-t-2xl">
-                                <h2 className="text-xl font-bold text-white">Invite Team Member</h2>
-                                <p className="text-indigo-200 text-sm mt-1">Add a new member to your team</p>
+                                <h2 className="text-xl font-bold text-white">{t('Invite Team Member')}</h2>
+                                <p className="text-indigo-200 text-sm mt-1">{t('Add a new member to your team')}</p>
                             </div>
 
                             <div className="p-8">
                                 {/* Name Input */}
                                 <div className="mb-5">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Full Name</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('Full Name')}</label>
                                     <input
                                         type="text"
-                                        placeholder="Enter full name..."
+                                        placeholder={t('Enter full name...')}
                                         value={inviteName}
                                         onChange={(e) => setInviteName(e.target.value)}
                                         className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm text-gray-700 dark:text-white dark:bg-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
@@ -890,10 +893,10 @@ function ManagementPageInner() {
 
                                 {/* Email Input */}
                                 <div className="mb-5">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('Email Address')}</label>
                                     <input
                                         type="email"
-                                        placeholder="Enter email address..."
+                                        placeholder={t('Enter email address...')}
                                         value={inviteEmail}
                                         onChange={(e) => setInviteEmail(e.target.value)}
                                         className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm text-gray-700 dark:text-white dark:bg-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
@@ -902,14 +905,14 @@ function ManagementPageInner() {
 
                                 {/* Role Dropdown */}
                                 <div className="mb-6 relative">
-                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assign Role</label>
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('Assign Role')}</label>
                                     <button
                                         type="button"
                                         onClick={() => setIsRoleDropdownOpen(!isRoleDropdownOpen)}
                                         className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm text-left flex items-center justify-between outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all dark:bg-gray-700"
                                     >
                                         <span className={selectedRole ? 'text-gray-700 dark:text-white' : 'text-gray-400 dark:text-gray-500'}>
-                                            {selectedRole || 'Select a role...'}
+                                            {selectedRole || t('Select a role...')}
                                         </span>
                                         <svg
                                             className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isRoleDropdownOpen ? 'rotate-180' : ''}`}
@@ -938,9 +941,9 @@ function ManagementPageInner() {
                                                         <div>
                                                             <p className="font-medium">{role.name}</p>
                                                             <p className="text-xs text-gray-500 dark:text-gray-400">
-                                                                {role.name === 'Admin' ? 'Full system access' :
-                                                                    role.name === 'Volunteer' ? 'Limited access for volunteers' :
-                                                                        'Full access to team features'}
+                                                                {role.name === 'Admin' ? t('Full system access') :
+                                                                    role.name === 'Volunteer' ? t('Limited access for volunteers') :
+                                                                        t('Full access to team features')}
                                                             </p>
                                                         </div>
                                                     </button>
@@ -956,13 +959,13 @@ function ManagementPageInner() {
                                         onClick={handleCloseModal}
                                         className="px-6 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
                                     >
-                                        Cancel
+                                        {t('Cancel')}
                                     </button>
                                     <button
                                         onClick={handleAddUser}
                                         className="px-8 py-3 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:from-[#2d3d6b] hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30"
                                     >
-                                        Send Invite
+                                        {t('Send Invite')}
                                     </button>
                                 </div>
                             </div>
@@ -977,13 +980,13 @@ function ManagementPageInner() {
                     <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-[450px]">
                             {/* Modal Title */}
-                            <h2 className="text-lg text-gray-600 dark:text-gray-300 mb-6">Edit User</h2>
+                            <h2 className="text-lg text-gray-600 dark:text-gray-300 mb-6">{t('Edit User')}</h2>
 
                             {/* Email Input */}
                             <div className="mb-4">
                                 <input
                                     type="email"
-                                    placeholder="E-mail"
+                                    placeholder={t('E-mail')}
                                     value={editEmail}
                                     onChange={(e) => setEditEmail(e.target.value)}
                                     className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-4 py-3 text-sm text-gray-700 dark:text-white dark:bg-gray-700 outline-none focus:border-[#3D518C] dark:focus:border-indigo-500 transition-colors"
@@ -1037,7 +1040,7 @@ function ManagementPageInner() {
                                 onClick={handleRemoveUser}
                                 className="text-[#F87171] text-sm underline hover:text-red-600 transition-colors mb-6"
                             >
-                                Remove User
+                                {t('Remove User')}
                             </button>
 
                             {/* Action Buttons */}
@@ -1046,13 +1049,13 @@ function ManagementPageInner() {
                                     onClick={handleCloseEditModal}
                                     className="px-8 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                 >
-                                    Cancel
+                                    {t('Cancel')}
                                 </button>
                                 <button
                                     onClick={handleSaveEdit}
                                     className="px-10 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white text-sm font-medium rounded-lg hover:from-[#2d3d6b] hover:to-indigo-700 transition-colors shadow-md"
                                 >
-                                    Save
+                                    {t('Save')}
                                 </button>
                             </div>
                         </div>
@@ -1066,7 +1069,7 @@ function ManagementPageInner() {
                     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
                         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl px-12 py-8 text-center w-full max-w-md">
                             {/* Confirmation Text */}
-                            <p className="text-gray-500 dark:text-gray-300 text-lg mb-8">Remove User?</p>
+                            <p className="text-gray-500 dark:text-gray-300 text-lg mb-8">{t('Remove User?')}</p>
 
                             {/* Action Buttons */}
                             <div className="flex justify-center gap-4">
@@ -1074,13 +1077,13 @@ function ManagementPageInner() {
                                     onClick={handleCancelRemove}
                                     className="px-8 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                 >
-                                    Cancel
+                                    {t('Cancel')}
                                 </button>
                                 <button
                                     onClick={handleConfirmRemove}
                                     className="px-10 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors shadow-md"
                                 >
-                                    Remove
+                                    {t('Remove')}
                                 </button>
                             </div>
                         </div>
@@ -1095,8 +1098,8 @@ function ManagementPageInner() {
                         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-[700px] max-h-[90vh] flex flex-col">
                             {/* Modern Header */}
                             <div className="bg-gradient-to-r from-[#3D518C] to-indigo-600 rounded-t-2xl px-8 py-6">
-                                <h2 className="text-xl font-bold text-white">{editingRole ? 'Edit Role' : 'Create New Role'}</h2>
-                                <p className="text-indigo-200 text-sm mt-1">Configure role permissions and access levels</p>
+                                <h2 className="text-xl font-bold text-white">{editingRole ? t('Edit Role') : t('Create New Role')}</h2>
+                                <p className="text-indigo-200 text-sm mt-1">{t('Configure role permissions and access levels')}</p>
                             </div>
 
                             {/* Scrollable Content */}
@@ -1109,11 +1112,11 @@ function ManagementPageInner() {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                             </svg>
                                         </div>
-                                        Role Information
+                                        {t('Role Information')}
                                     </h3>
                                     <input
                                         type="text"
-                                        placeholder="Enter role name..."
+                                        placeholder={t('Enter role name...')}
                                         value={newRoleName}
                                         onChange={(e) => setNewRoleName(e.target.value)}
                                         className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm text-gray-700 dark:text-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
@@ -1128,7 +1131,7 @@ function ManagementPageInner() {
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                                             </svg>
                                         </div>
-                                        Permissions
+                                        {t('Permissions')}
                                     </h3>
                                 </div>
 
@@ -1396,13 +1399,13 @@ function ManagementPageInner() {
                                     onClick={handleCloseCreateRole}
                                     className="px-8 py-3 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
                                 >
-                                    Cancel
+                                    {t('Cancel')}
                                 </button>
                                 <button
                                     onClick={handleSaveRole}
                                     className="px-10 py-3 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:from-[#2d3d6b] hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30"
                                 >
-                                    {editingRole ? 'Update Role' : 'Create Role'}
+                                    {editingRole ? t('Update Role') : t('Create Role')}
                                 </button>
                             </div>
                         </div>
@@ -1415,19 +1418,19 @@ function ManagementPageInner() {
                 isDeleteRoleModalOpen && roleToDelete && (
                     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60]">
                         <div className="bg-white rounded-xl shadow-2xl px-12 py-8 text-center">
-                            <p className="text-gray-500 text-lg mb-8">Delete "{roleToDelete.name}" role?</p>
+                            <p className="text-gray-500 text-lg mb-8">{t('Delete role confirmation').replace('{role}', roleToDelete.name)}</p>
                             <div className="flex justify-center gap-4">
                                 <button
                                     onClick={handleCancelDeleteRole}
                                     className="px-8 py-2.5 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-200 text-sm font-medium rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
                                 >
-                                    Cancel
+                                    {t('Cancel')}
                                 </button>
                                 <button
                                     onClick={handleConfirmDeleteRole}
                                     className="px-10 py-2.5 bg-[#F87171] text-white text-sm font-medium rounded-lg hover:bg-[#EF4444] transition-colors shadow-md"
                                 >
-                                    Delete
+                                    {t('Delete')}
                                 </button>
                             </div>
                         </div>

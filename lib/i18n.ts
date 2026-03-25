@@ -11,20 +11,22 @@ export const DEFAULT_LOCALE: LocaleSettings = {
 export interface TranslationLanguage {
   code: string;
   name: string;
+  nativeName?: string;
+  aliases?: string[];
   targets?: string[];
 }
 
 export const TRANSLATION_LANGUAGES: TranslationLanguage[] = [
-  { code: 'en', name: 'English' },
-  { code: 'zh', name: 'Chinese' },
-  { code: 'es', name: 'Spanish' },
-  { code: 'fr', name: 'French' },
-  { code: 'de', name: 'German' },
-  { code: 'ja', name: 'Japanese' },
-  { code: 'ko', name: 'Korean' },
-  { code: 'pt', name: 'Portuguese' },
-  { code: 'hi', name: 'Hindi' },
-  { code: 'ar', name: 'Arabic' },
+  { code: 'en', name: 'English', nativeName: 'English', aliases: ['ingilizce'] },
+  { code: 'zh', name: 'Chinese', nativeName: '中文', aliases: ['mandarin', '汉语', '漢語'] },
+  { code: 'es', name: 'Spanish', nativeName: 'Español', aliases: ['castellano'] },
+  { code: 'fr', name: 'French', nativeName: 'Français' },
+  { code: 'de', name: 'German', nativeName: 'Deutsch' },
+  { code: 'ja', name: 'Japanese', nativeName: '日本語', aliases: ['にほんご', 'nihongo'] },
+  { code: 'ko', name: 'Korean', nativeName: '한국어', aliases: ['조선말', 'hangul'] },
+  { code: 'pt', name: 'Portuguese', nativeName: 'Português' },
+  { code: 'hi', name: 'Hindi', nativeName: 'हिन्दी' },
+  { code: 'ar', name: 'Arabic', nativeName: 'العربية' },
 ];
 
 export function normalizeLanguageCode(value: unknown): string {

@@ -1,0 +1,41 @@
+{
+  "totalKeys": 26,
+  "report": {
+    "es": {
+      "missingCount": 0,
+      "missing": []
+    },
+    "fr": {
+      "missingCount": 0,
+      "missing": []
+    },
+    "de": {
+      "missingCount": 0,
+      "missing": []
+    },
+    "ja": {
+      "missingCount": 0,
+      "missing": []
+    },
+    "ko": {
+      "missingCount": 0,
+      "missing": []
+    },
+    "pt": {
+      "missingCount": 0,
+      "missing": []
+    },
+    "hi": {
+      "missingCount": 0,
+      "missing": []
+    },
+    "ar": {
+      "missingCount": 0,
+      "missing": []
+    },
+    "zh": {
+      "missingCount": 0,
+      "missing": []
+    }
+  }
+}

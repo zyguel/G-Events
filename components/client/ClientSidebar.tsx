@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useLocale } from '@/contexts/LocaleContext';
 
 interface SidebarItemProps {
     iconSrc: string;
@@ -22,7 +23,7 @@ const SidebarItem = ({ iconSrc, active = false, alt = "icon", href, label, isExp
                 alt={alt}
                 width={24}
                 height={24}
-                className={`flex-shrink-0 transition-all duration-300 ${active ? 'brightness-0 invert' : 'opacity-60 hover:opacity-100 dark:invert dark:opacity-70'}`}
+                className={`shrink-0 transition-all duration-300 ${active ? 'brightness-0 invert' : 'opacity-60 hover:opacity-100 dark:invert dark:opacity-70'}`}
             />
             <span
                 className={`whitespace-nowrap text-sm font-medium transition-all duration-300 ${isExpanded ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-2 w-0'
@@ -41,6 +42,7 @@ interface ClientSidebarProps {
 
 const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: ClientSidebarProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const { t } = useLocale();
 
     // Calculate the position of the sliding indicator based on active page
     const getIndicatorPosition = () => {
@@ -79,8 +81,8 @@ const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: Clie
                         style={{ top: `${indicatorPos.top - 24}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/home.png" alt="Dashboard" href="/home" active={activePage === 'dashboard'} label="Dashboard" isExpanded={isExpanded} />
-                <SidebarItem iconSrc="/icons/tickets.svg" alt="Tickets" href="/tickets" active={activePage === 'tickets'} label="Tickets" isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/home.png" alt={t('Dashboard')} href="/home" active={activePage === 'dashboard'} label={t('Dashboard')} isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/tickets.svg" alt={t('Tickets')} href="/tickets" active={activePage === 'tickets'} label={t('Tickets')} isExpanded={isExpanded} />
             </div>
 
             {/* Bottom navigation items */}
@@ -92,7 +94,7 @@ const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: Clie
                         style={{ top: `${indicatorPos.top}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/settings.svg" alt="Settings" href="/settings" active={activePage === 'settings'} label="Settings" isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/settings.svg" alt={t('Settings')} href="/settings" active={activePage === 'settings'} label={t('Settings')} isExpanded={isExpanded} />
             </div>
         </aside>
     );

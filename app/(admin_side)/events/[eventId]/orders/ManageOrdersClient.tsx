@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Search, Filter, Plus, MoreVertical, Users } from "lucide-react";
 import ForReviewTab from "./tabs/ForReviewTab";
 import { EventSummary } from "@/lib/types";
+import { useLocale } from "@/contexts/LocaleContext";
 
 // Type for orders coming from the backend
 export interface Order {
@@ -124,6 +125,7 @@ interface ManageOrdersClientProps {
 }
 
 export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
+    const { t } = useLocale();
     const [activeTab, setActiveTab] = useState<"all" | "review">("all");
     const [orders, setOrders] = useState<Order[]>(event.id.startsWith("evt-") ? initialMockOrders : []);
     const [searchQuery, setSearchQuery] = useState("");
@@ -258,10 +260,10 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    Manage Orders
+                                    {t('Manage Orders')}
                                 </h1>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                    View and manage event registrations
+                                    {t('View and manage event registrations')}
                                 </p>
                             </div>
                         </div>
@@ -275,7 +277,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                 }`}
                         >
-                            For Review
+                            {t('For Review')}
                             {activeTab === "review" && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
                             )}
@@ -287,7 +289,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                 : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                                 }`}
                         >
-                            All Orders
+                            {t('All Orders')}
                             {activeTab === "all" && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
                             )}
@@ -312,7 +314,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                                         <input
                                             type="text"
-                                            placeholder="Search by Order ID, Name, or Email"
+                                            placeholder={t('Search by Order ID, Name, or Email')}
                                             value={searchQuery}
                                             onChange={(e) => setSearchQuery(e.target.value)}
                                             className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all"
@@ -326,13 +328,13 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                             className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                                         >
                                             <Filter size={16} />
-                                            Apply Filter
+                                            {t('Apply Filter')}
                                         </button>
                                         <button
                                             onClick={handleClearFilters}
                                             className="px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                                         >
-                                            Clear Filters
+                                            {t('Clear Filters')}
                                         </button>
                                     </div>
                                 </div>
@@ -340,7 +342,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                 {/* Add Order Button */}
                                 <button className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all">
                                     <Plus size={18} />
-                                    Add Order
+                                    {t('Add Order')}
                                 </button>
                             </div>
 
@@ -348,7 +350,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
                                 {isLoading ? (
                                     <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                                        Loading orders...
+                                        {t('Loading orders...')}
                                     </div>
                                 ) : (
                                     <>
