@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { LogOut, Home, Ticket, Settings, ChevronDown, AlertTriangle } from 'lucide-react';
+import { LogOut, Home, Ticket, Settings, ChevronDown, AlertTriangle, ShieldCheck } from 'lucide-react';
 import ThemeToggle from '../admin/ThemeToggle';
 import NotificationDropdown from '../admin/NotificationDropdown';
 import { createClient } from '@/lib/supabase-browser';
@@ -165,6 +165,18 @@ const ClientHeader = () => {
                                         {label}
                                     </Link>
                                 ))}
+                                <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+                                <form action="/auth/session-role/choose" method="post" className="mx-1">
+                                    <input type="hidden" name="role" value="organizer" />
+                                    <input type="hidden" name="next" value="/dashboard" />
+                                    <button
+                                        type="submit"
+                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#3D518C] dark:hover:text-indigo-300 transition-colors duration-150 rounded-xl"
+                                    >
+                                        <ShieldCheck size={16} className="shrink-0 text-gray-400" />
+                                        {t('Switch to organizer')}
+                                    </button>
+                                </form>
                             </div>
                         )}
                     </div>

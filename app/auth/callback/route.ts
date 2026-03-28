@@ -18,6 +18,14 @@ export async function GET(request: Request) {
   }
 
   const redirectTo = next.startsWith('/') ? next : '/dashboard';
-  const url = new URL(redirectTo, requestUrl.origin);
+
+  // Keep password recovery flow intact.
+  if (type === 'recovery' || redirectTo === '/reset-password') {
+    const recoveryUrl = new URL(redirectTo, requestUrl.origin);
+    return NextResponse.redirect(recoveryUrl);
+  }
+
+  const url = new URL('/auth/session-role', requestUrl.origin);
+  url.searchParams.set('next', redirectTo);
   return NextResponse.redirect(url);
 }

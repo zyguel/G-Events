@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { LogOut, UserCircle, AlertTriangle } from 'lucide-react';
+import { LogOut, UserCircle, AlertTriangle, Users } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import NotificationDropdown from './NotificationDropdown';
 import { createClient } from '@/lib/supabase-browser';
@@ -134,6 +134,20 @@ const Header = () => {
                         </div>
                         <UserCircle size={14} className="hidden md:block text-gray-400 group-hover:text-[#3D518C] dark:group-hover:text-indigo-300 transition-colors shrink-0" />
                     </button>
+
+                    {/* Switch Session Mode */}
+                    <form action="/auth/session-role/choose" method="post">
+                        <input type="hidden" name="role" value="attendee" />
+                        <input type="hidden" name="next" value="/dashboard" />
+                        <button
+                            type="submit"
+                            title={t('Switch to attendee mode')}
+                            className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all duration-200"
+                        >
+                            <Users size={17} />
+                            <span className="hidden md:block text-sm font-medium">{t('Attend mode')}</span>
+                        </button>
+                    </form>
 
                     {/* Sign Out Button */}
                     <button

@@ -32,6 +32,7 @@ function LoginContent() {
     const [currentSlide, setCurrentSlide] = useState(0);
 
     const nextPath = searchParams.get('next')?.startsWith('/') ? searchParams.get('next')! : '/dashboard';
+    const roleSelectionPath = `/auth/session-role?next=${encodeURIComponent(nextPath)}`;
 
     const slides: { title: React.ReactNode; description: string }[] = [
         {
@@ -81,11 +82,11 @@ function LoginContent() {
             const supabase = createClient();
             const { data } = await supabase.auth.getUser();
             if (data.user) {
-                router.replace(nextPath);
+                router.replace(roleSelectionPath);
             }
         };
         checkSession();
-    }, [router, nextPath]);
+    }, [router, roleSelectionPath]);
 
     const handleSignIn = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -124,7 +125,7 @@ function LoginContent() {
             return;
         }
 
-        router.replace(nextPath);
+        router.replace(roleSelectionPath);
         router.refresh();
     };
 

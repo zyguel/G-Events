@@ -1,10 +1,15 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
+import { SESSION_ROLE, SESSION_ROLE_COOKIE_NAME } from '@/lib/constants';
 
 const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/auth/callback']);
+const PUBLIC_ROUTE_PREFIXES = ['/auth/session-role'];
 
 function isPublicRoute(pathname: string) {
-  return PUBLIC_ROUTES.has(pathname);
+  return (
+    PUBLIC_ROUTES.has(pathname) ||
+    PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+  );
 }
 
 function isAdminRoute(pathname: string) {
@@ -72,6 +77,22 @@ export async function proxy(request: NextRequest) {
     loginUrl.pathname = '/login';
     loginUrl.searchParams.set('next', pathname + search);
     return NextResponse.redirect(loginUrl);
+  }
+
+  const sessionRole = request.cookies.get(SESSION_ROLE_COOKIE_NAME)?.value;
+
+  if (sessionRole === SESSION_ROLE.ATTENDEE) {
+    const homeUrl = request.nextUrl.clone();
+    homeUrl.pathname = '/home';
+    homeUrl.search = '';
+    return NextResponse.redirect(homeUrl);
+  }
+
+  if (sessionRole !== SESSION_ROLE.ORGANIZER) {
+    const selectRoleUrl = request.nextUrl.clone();
+    selectRoleUrl.pathname = '/auth/session-role';
+    selectRoleUrl.searchParams.set('next', pathname + search);
+    return NextResponse.redirect(selectRoleUrl);
   }
 
   return response;

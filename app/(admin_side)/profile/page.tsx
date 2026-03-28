@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
-import { Camera, Mail, Phone, MapPin, Calendar, Briefcase, Edit3, Shield, Award, Check, X } from 'lucide-react';
+import { Camera, Mail, Phone, MapPin, Calendar, Briefcase, Edit3, Shield, Award, Check, X, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 import { format } from 'date-fns';
 
@@ -65,7 +65,8 @@ export default function ProfilePage() {
                     .select('id, title, event_start_at')
                     .order('event_start_at', { ascending: false });
 
-                const events = (!eventsError && eventsData) ? eventsData : [];
+                const events: Array<{ id: number; title: string; event_start_at: string | null }> =
+                    (!eventsError && eventsData) ? eventsData : [];
                 const eventsManaged = events.length;
 
                 // 3. Fetch total registrations across all events (non-cancelled)
@@ -75,7 +76,7 @@ export default function ProfilePage() {
                     .neq('status', 'cancelled');
 
                 // 4. Build recent events list (latest 3)
-                const mapped = events.slice(0, 3).map((e: any) => ({
+                const mapped = events.slice(0, 3).map((e) => ({
                     id: e.id,
                     name: e.title,
                     date: e.event_start_at
@@ -221,13 +222,26 @@ export default function ProfilePage() {
                                                 </button>
                                             </div>
                                         ) : (
-                                            <button
-                                                onClick={() => setIsEditing(true)}
-                                                className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-all shadow-sm"
-                                            >
-                                                <Edit3 size={16} />
-                                                Edit Profile
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <form action="/auth/session-role/choose" method="post">
+                                                    <input type="hidden" name="role" value="attendee" />
+                                                    <input type="hidden" name="next" value="/dashboard" />
+                                                    <button
+                                                        type="submit"
+                                                        className="flex items-center gap-2 px-4 py-2.5 border border-cyan-200 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300 rounded-xl text-sm font-medium hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all"
+                                                    >
+                                                        <Users size={16} />
+                                                        Switch to Attend Mode
+                                                    </button>
+                                                </form>
+                                                <button
+                                                    onClick={() => setIsEditing(true)}
+                                                    className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 text-white rounded-xl text-sm font-medium hover:bg-indigo-700 transition-all shadow-sm"
+                                                >
+                                                    <Edit3 size={16} />
+                                                    Edit Profile
+                                                </button>
+                                            </div>
                                         )
                                     )}
                                 </div>
