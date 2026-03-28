@@ -42,7 +42,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^0.562.0",
     "next": "latest",
-    "nodemailer": "^8.0.3",
+    "nodemailer": "^8.0.4",
     "pdfjs-dist": "^5.4.624",
     "react": "19.2.3",
     "react-colorful": "^5.6.1",
@@ -51,6 +51,13 @@
     "react-leaflet": "^5.0.0",
     "react-pdf": "^10.3.0",
     "react-time-picker": "^8.0.2"
+  },
+  "overrides": {
+    "brace-expansion@^1.1.7": "1.1.13",
+    "brace-expansion@^2.0.1": "2.0.3",
+    "brace-expansion@^5.0.1": "5.0.5",
+    "picomatch@^2.3.1": "2.3.2",
+    "picomatch@^4.0.0": "4.0.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
