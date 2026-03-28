@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { LogOut, UserCircle, AlertTriangle, Users } from 'lucide-react';
+import { LogOut, AlertTriangle, Users } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import NotificationDropdown from './NotificationDropdown';
 import { createClient } from '@/lib/supabase-browser';
@@ -132,7 +132,6 @@ const Header = () => {
                                 </>
                             )}
                         </div>
-                        <UserCircle size={14} className="hidden md:block text-gray-400 group-hover:text-[#3D518C] dark:group-hover:text-indigo-300 transition-colors shrink-0" />
                     </button>
 
                     {/* Switch Session Mode */}
