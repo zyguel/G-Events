@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase-server"
 import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js'
+import { cache } from 'react'
 import { revalidatePath } from "next/cache"
 import { logAuditEntry } from '@/lib/actions/audit'
 
@@ -10,6 +11,15 @@ export interface CreateEventState {
     error?: string
     message?: string
     eventId?: number
+}
+
+function isDynamicServerUsageError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') {
+        return false
+    }
+
+    const maybeError = error as { digest?: string }
+    return maybeError.digest === 'DYNAMIC_SERVER_USAGE'
 }
 
 async function getStorageClient(): Promise<SupabaseClient> {
@@ -153,81 +163,86 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
     }
 }
 
-export async function getEvents() {
+const fetchEvents = cache(async () => {
     const supabase = await createClient();
+    const { data, error } = await supabase
+        .from('Event')
+        .select(`
+            id,
+            title,
+            location,
+            event_start_at,
+            event_end_at,
+            is_published,
+            capacity,
+            banner_image,
+            objectives,
+            theme
+        `)
+        .order('event_start_at', { ascending: false })
 
+    if (error) {
+        throw error
+    }
+
+    return data || []
+})
+
+export async function getEvents() {
     try {
-        const { data, error } = await supabase
-            .from('Event')
-            .select(`
-                id,
-                title,
-                location,
-                event_start_at,
-                event_end_at,
-                is_published,
-                capacity,
-                banner_image,
-                objectives,
-                theme
-            `)
-            .order('event_start_at', { ascending: false })
-
-        if (error) {
-            console.error('Error fetching events:', error)
-            return []
-        }
-
-        // Map to frontend friendly format if needed, or return raw
-        // For now returning raw, frontend will handle mapping
-        return data || []
+        return await fetchEvents()
     } catch (e) {
+        if (isDynamicServerUsageError(e)) {
+            throw e
+        }
         console.error('Unexpected error fetching events:', e)
         return []
     }
 }
 
-export async function getEventById(id: number) {
-    console.log('SERVER ACTION: getEventById called with ID:', id);
+const fetchEventById = cache(async (id: number) => {
     const supabase = await createClient();
 
-    try {
-        const query = supabase
-            .from('Event')
-            .select(`
-                *,
-                objectives,
-                theme,
-                AgendaSlot (
-                    id,
-                    title,
-                    description,
-                    speaker_name,
-                    start_time,
-                    end_time,
-                    order
-                )
-            `)
-            .eq('id', id)
-            .single();
+    const { data, error } = await supabase
+        .from('Event')
+        .select(`
+            *,
+            AgendaSlot (
+                id,
+                title,
+                description,
+                speaker_name,
+                start_time,
+                end_time,
+                order
+            )
+        `)
+        .eq('id', id)
+        .single();
 
-        const { data, error } = await query;
-
-        if (error) {
-            console.error('SERVER ACTION: Error fetching event by ID:', error);
-            // Fallback: try fetching without the join in case that's the issue
-            if (error.code === 'PGRST200') { // excessive/ambiguous? No, likely column or relation
-                console.log('SERVER ACTION: Retrying without AgendaSlot...');
-                const retry = await supabase.from('Event').select('*, objectives, theme').eq('id', id).single();
-                return retry.data;
-            }
-            return null;
+    if (error) {
+        if (error.code === 'PGRST200') {
+            const retry = await supabase
+                .from('Event')
+                .select('*')
+                .eq('id', id)
+                .single();
+            return retry.data
         }
+        return null
+    }
 
-        console.log('SERVER ACTION: Success, found event:', data?.title);
-        return data
+    return data
+})
+
+export async function getEventById(id: number) {
+    try {
+        return await fetchEventById(id)
     } catch (e) {
-        console.error('SERVER ACTION: Unexpected error fetching event:', e)
+        if (isDynamicServerUsageError(e)) {
+            throw e
+        }
+        console.error('Unexpected error fetching event:', e)
         return null
     }
 }
