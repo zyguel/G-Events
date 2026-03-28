@@ -15,6 +15,8 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **`management/`**, **`profile/`**, **`settings/`** - Admin configuration pages
 - **`login/`** - Authentication entry point
 - **`auth/`** - OAuth callback and auth-related routes
+  - **`auth/session-role/`** - Post-auth mode selection (attendee vs organizer)
+  - **`auth/session-role/organization/`** - Organizer organization selector for multi-org users
 - **`(client_side)/`** - Public-facing pages (event landing pages, order forms, attendee flows)
 
 **Key pattern**: Layouts are server components (can use async data fetching and route guards), while feature pages are typically client components for interactive UX.
@@ -31,6 +33,19 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
   - `lib/actions/permissions.ts` — User role + permission lookup (`getCurrentUserPermissions(email)`)
   - `lib/actions/orderForm.ts` — Order form builder, entries, exports, and form submissions
   - `lib/actions/orderConfirmation.ts` — Email templates for order confirmation workflows
+- **Session mode + organization context**:
+  - `lib/auth/sessionRole.ts` — Membership lookup and active organization resolution (`getCurrentUserActiveOrganization`, `parseOrganizationId`)
+  - `lib/constants.ts` — Session/org cookies: `SESSION_ROLE_COOKIE_NAME`, `ACTIVE_ORGANIZATION_COOKIE_NAME`, `SESSION_ROLE`
+- **Localization (i18n + persistence)**:
+  - `contexts/LocaleContext.tsx` — Runtime translation and locale state for admin/client routes.
+  - `app/api/user/locale/route.ts` — Persist and fetch `preferred_language` / `preferred_region` for authenticated users.
+  - `lib/i18n.ts` + `lib/staticTranslations/*` — Locale normalization and translation catalog.
+- **Audit trail (tamper-evident logging)**:
+  - `lib/actions/audit.ts` — Hash-chained audit entries (`audit_hash`, `prev_hash`) for sensitive entity operations.
+  - `app/api/audit/route.ts` — Audit retrieval endpoint.
+  - `components/admin/AuditLogViewer.tsx` — Admin-side audit viewer component.
+- **Security helpers**:
+  - `lib/security.ts` — safe secret comparison (`safeCompareSecrets`), trusted origin resolution, and HTML escaping helpers.
 - **Client helper layer**: [lib/eventManagement.ts](../lib/eventManagement.ts) and [lib/hooks/useOrderFormSubmit.ts](../lib/hooks/useOrderFormSubmit.ts) provide client-side APIs for tickets, add-ons, promo codes, settings, and order form submission flows.
 - **API routes** ([app/api/](../app/api/)): REST endpoints for analytics, events, management, notifications, and order forms (e.g., `/api/events`, `/api/management/users`, `/api/orderform`, `/api/orderform/[id]`)
 - **Database utilities** ([lib/db.ts](../lib/db.ts)): Low-level Supabase queries (user management, roles, permissions)
@@ -48,6 +63,7 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **Utilities**: `ExportButton.tsx` (CSV/PDF/Excel export), `NotificationDropdown.tsx`, `EventSelector.tsx`
 - **Authorization helpers**: `PermissionGate.tsx` (component guard), `contexts/PermissionContext.tsx` (permission state + helpers), `AccessDenied.tsx` (fallback UI)
 - **Public/client components**: `components/client/ClientHeader.tsx`, `components/client/ClientSidebar.tsx`, `components/public/OrderFormDisplay.tsx` for attendee-facing pages.
+- **Global providers**: `LocaleProvider`, `NotificationProvider`, and `PermissionProvider` are composed in `app/layout.tsx`.
 
 **Event-specific client components** (`app/(admin_side)/events/[eventId]/*/`):
 - Pages like `TicketsClient.tsx`, `CheckInClient.tsx`, `EmailAttendeesClient.tsx` handle user interactions
@@ -89,6 +105,8 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **PDF generation**: jsPDF + jspdf-autotable
 - **Excel generation**: ExcelJS v4.4.0 (sole Excel library; the `xlsx`/SheetJS package was removed due to unresolved security vulnerabilities — do NOT re-add it)
 - **Global state**: `NotificationContext.tsx` - Provides `addNotification()`, `dismissNotification()` for toast-like alerts
+- **Notifications in organizer mode**: `app/api/notifications/route.ts` scopes notification queries to the active organization cookie context.
+- **Audit data model**: `AuditLog` and `CertificateLedger` tables are maintained via migrations in `database/` and consumed by server actions/routes.
 
 ### Event Status Logic (Important)
 Event status is derived from:
@@ -109,6 +127,19 @@ if (data.is_published) {
   else status = 'Published';
 }
 ```
+
+### Session Role + Active Organization (Important)
+Organizer-mode access is gated by middleware and cookie state:
+- `proxy.ts` checks `SESSION_ROLE_COOKIE_NAME`:
+  - `attendee` is redirected away from admin routes to `/home`
+  - missing/unknown role is redirected to `/auth/session-role`
+- Role choice is set via `app/auth/session-role/choose/route.ts`.
+- For organizer mode, `ACTIVE_ORGANIZATION_COOKIE_NAME` is set to the selected org.
+- When switching to attendee mode, the active org cookie is cleared.
+
+For multi-org users:
+- If only one membership exists, organizer switch auto-selects it.
+- If multiple memberships exist, users are routed to `app/auth/session-role/organization/page.tsx` to choose one.
 
 ## Development Workflow
 - **Start dev**: `npm run dev` → http://localhost:3000
@@ -134,27 +165,51 @@ if (data.is_published) {
 - **API consistency**:
   - Prefer `@/lib/utils/apiResponse` helpers for Route Handlers instead of ad-hoc `NextResponse.json` payload shapes.
   - Prefer `@/lib/constants` for status/default constants and `@/lib/logger` for server logs.
+- **Organization scoping (critical)**:
+  - In organizer mode, do not trust `organizationId` from query/body for protected admin APIs.
+  - Resolve active org from cookies + memberships via `getCurrentUserActiveOrganization(parseOrganizationId(...))`.
+  - Scope event/management/notification queries to the active organization to prevent cross-org data leakage.
+- **Localization conventions**:
+  - Use `useLocale()` and `t()` in client components that render user-facing text.
+  - Prefer locale persistence through `/api/user/locale` instead of ad-hoc local storage writes outside `LocaleContext`.
+- **Audit conventions**:
+  - For sensitive entity mutations, prefer appending audit records via `logAuditEntry(...)` from `lib/actions/audit.ts`.
 - **Commits**: Follow Conventional Commits (`feat(events): add checkin feature`, `fix(auth): resolve layout crash`, not generic titles)
 
 ## Key Files to Reference
-- [app/layout.tsx](../app/layout.tsx) - Root layout, font setup via `figtree.variable`, NotificationProvider wrapper
+- [app/layout.tsx](../app/layout.tsx) - Root layout, font setup via `figtree.variable`, Locale/Notification/Permission providers and Vercel Analytics
 - `app/(admin_side)/events/[eventId]/layout.tsx` - Server-side event data fetching, status derivation
 - [lib/actions/events.ts](../lib/actions/events.ts) - Server actions for CRUD, file uploads, data transformations
 - [lib/actions/orderForm.ts](../lib/actions/orderForm.ts) - Order form creation and persistence actions
 - [lib/actions/orderConfirmation.ts](../lib/actions/orderConfirmation.ts) - Confirmation page actions
+- [lib/actions/audit.ts](../lib/actions/audit.ts) - Hash-chained audit log writer/reader
 - [lib/supabase.ts](../lib/supabase.ts) - Supabase client init, database schema types
 - [lib/types.ts](../lib/types.ts) - EventData, EventStatus, Comment types
 - [lib/constants.ts](../lib/constants.ts) - Shared app constants such as `DEFAULT_ORG_ID` and `HTTP_STATUS`
+- [lib/auth/sessionRole.ts](../lib/auth/sessionRole.ts) - Active organization + memberships resolution for session context
+- [lib/i18n.ts](../lib/i18n.ts) - Locale settings normalization and supported translation languages
+- [lib/security.ts](../lib/security.ts) - Trusted origin, secret comparison, and HTML escaping helpers
 - [lib/logger.ts](../lib/logger.ts) - Scoped logger utility for consistent server logs
 - [lib/utils/apiResponse.ts](../lib/utils/apiResponse.ts) - Typed Route Handler response helpers
 - [components/admin/RichTextEditor.tsx](../components/admin/RichTextEditor.tsx) - TipTap editor pattern for content editing
 - [components/admin/Sidebar.tsx](../components/admin/Sidebar.tsx) - Navigation sidebar with active state indicator
 - [components/admin/EventsSidebar.tsx](../components/admin/EventsSidebar.tsx) - Event-specific navigation sidebar
+- [components/admin/AuditLogViewer.tsx](../components/admin/AuditLogViewer.tsx) - Audit trail viewer for entity activity
 - [lib/exportUtils.ts](../lib/exportUtils.ts) - Export to CSV/XLSX/PDF patterns
 - [contexts/NotificationContext.tsx](../contexts/NotificationContext.tsx) - Global notification context usage
+- [contexts/LocaleContext.tsx](../contexts/LocaleContext.tsx) - Locale state, translation behavior, and persistence integration
+- `app/auth/session-role/page.tsx` - Mode selection entry after auth
+- `app/auth/session-role/choose/route.ts` - Role/org switch handler that sets session cookies
+- `app/auth/session-role/organization/page.tsx` - Org picker for multi-org organizer users
+- `proxy.ts` - Admin route guarding using session role cookie
+- `app/api/user/locale/route.ts` - Locale persistence endpoint for authenticated users
+- `app/api/audit/route.ts` - Audit trail query endpoint
+- `app/api/notifications/route.ts` - Notification aggregation route with organizer org scoping
 
 ## Common Build / TypeScript Gotchas
 - In API routes and server actions, ensure you instantiate the Supabase server client with `await createClient()` before using it (e.g., in both GET/POST handlers). This prevents errors like “Cannot find name 'supabase'”.
 - When adding new server-only code, keep it in `app/api/` or `lib/actions/` so the Next.js bundler doesn’t include it in client bundles.
+- For organizer admin APIs, always enforce active organization context server-side; UI-level org selection alone is insufficient for security.
+- For locale-aware UI changes, wire text through `LocaleContext` (`t()`) and keep locale persistence in `/api/user/locale`.
 </content>
 <parameter name="filePath">x:/projects/g-events/G-Events/.github/copilot-instructions.md
