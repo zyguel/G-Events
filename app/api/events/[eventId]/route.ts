@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEvent, updateEvent, deleteEvent } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
+import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
+import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
+
+async function getScopedOrganizationId(request: NextRequest) {
+    const preferredOrganizationId = parseOrganizationId(
+        request.cookies.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
+    );
+    const orgContext = await getCurrentUserActiveOrganization(preferredOrganizationId);
+
+    return orgContext.activeOrganizationId;
+}
+
+function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : 'Unexpected error';
+}
 
 // GET /api/events/[eventId] - Get a single event by ID
 export async function GET(
@@ -11,27 +26,33 @@ export async function GET(
         await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
+        const activeOrganizationId = await getScopedOrganizationId(request);
 
-        if (isNaN(id)) {
+        if (isNaN(id) || !activeOrganizationId) {
             return NextResponse.json(
-                { success: false, error: 'Invalid event ID' },
+                { success: false, error: 'Invalid event ID or organization context' },
                 { status: 400 }
             );
         }
 
-        const event = await getEvent(id);
+        const event = await getEvent(id, activeOrganizationId);
         return NextResponse.json({ success: true, data: event });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching event:', error);
         // Supabase throws when .single() finds no rows
-        if (error.code === 'PGRST116') {
+        if (
+            typeof error === 'object' &&
+            error !== null &&
+            'code' in error &&
+            (error as { code?: string }).code === 'PGRST116'
+        ) {
             return NextResponse.json(
                 { success: false, error: 'Event not found' },
                 { status: 404 }
             );
         }
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to fetch event' },
+            { success: false, error: getErrorMessage(error) || 'Failed to fetch event' },
             { status: 500 }
         );
     }
@@ -46,11 +67,12 @@ export async function PATCH(
         await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
+        const activeOrganizationId = await getScopedOrganizationId(request);
         const body = await request.json();
 
-        if (isNaN(id)) {
+        if (isNaN(id) || !activeOrganizationId) {
             return NextResponse.json(
-                { success: false, error: 'Invalid event ID' },
+                { success: false, error: 'Invalid event ID or organization context' },
                 { status: 400 }
             );
         }
@@ -62,12 +84,12 @@ export async function PATCH(
             );
         }
 
-        await updateEvent(id, body);
+        await updateEvent(id, body, activeOrganizationId);
         return NextResponse.json({ success: true, message: 'Event updated successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating event:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to update event' },
+            { success: false, error: getErrorMessage(error) || 'Failed to update event' },
             { status: 500 }
         );
     }
@@ -82,20 +104,21 @@ export async function DELETE(
         await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
+        const activeOrganizationId = await getScopedOrganizationId(request);
 
-        if (isNaN(id)) {
+        if (isNaN(id) || !activeOrganizationId) {
             return NextResponse.json(
-                { success: false, error: 'Invalid event ID' },
+                { success: false, error: 'Invalid event ID or organization context' },
                 { status: 400 }
             );
         }
 
-        await deleteEvent(id);
+        await deleteEvent(id, activeOrganizationId);
         return NextResponse.json({ success: true, message: 'Event deleted successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting event:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to delete event' },
+            { success: false, error: getErrorMessage(error) || 'Failed to delete event' },
             { status: 500 }
         );
     }

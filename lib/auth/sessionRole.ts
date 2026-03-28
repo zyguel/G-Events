@@ -13,6 +13,10 @@ export interface SessionRoleContext {
   memberships: OrganizationMembership[];
 }
 
+export interface ActiveOrganizationContext extends SessionRoleContext {
+  activeOrganizationId: number | null;
+}
+
 interface UserRow {
   id: number;
 }
@@ -40,6 +44,33 @@ function firstOrNull<T>(value: T | T[] | null | undefined): T | null {
   }
 
   return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+export function parseOrganizationId(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
+export function resolveActiveOrganizationId(
+  memberships: OrganizationMembership[],
+  preferredOrganizationId: number | null
+): number | null {
+  if (
+    typeof preferredOrganizationId === 'number' &&
+    memberships.some((membership) => membership.organizationId === preferredOrganizationId)
+  ) {
+    return preferredOrganizationId;
+  }
+
+  if (memberships.length > 0) {
+    return memberships[0].organizationId;
+  }
+
+  return null;
 }
 
 export async function getCurrentUserOrganizationMemberships(): Promise<SessionRoleContext> {
@@ -129,5 +160,17 @@ export async function getCurrentUserOrganizationMemberships(): Promise<SessionRo
     isAuthenticated: true,
     email,
     memberships,
+  };
+}
+
+export async function getCurrentUserActiveOrganization(
+  preferredOrganizationId: number | null
+): Promise<ActiveOrganizationContext> {
+  const context = await getCurrentUserOrganizationMemberships();
+  const activeOrganizationId = resolveActiveOrganizationId(context.memberships, preferredOrganizationId);
+
+  return {
+    ...context,
+    activeOrganizationId,
   };
 }

@@ -212,15 +212,22 @@ export async function updateRole(
     roleId: number,
     name: string,
     description: string,
-    permissionIds: number[]
+    permissionIds: number[],
+    organizationId?: number
 ): Promise<void> {
     const supabase = await getSupabase();
 
     // Update role name
-    const { error: roleError } = await supabase
+    let roleQuery = supabase
         .from('OrganizationRole')
         .update({ name, description })
         .eq('id', roleId);
+
+    if (typeof organizationId === 'number') {
+        roleQuery = roleQuery.eq('organization_id', organizationId);
+    }
+
+    const { error: roleError } = await roleQuery;
 
     if (roleError) throw roleError;
 
@@ -245,8 +252,20 @@ export async function updateRole(
     }
 }
 
-export async function deleteRole(roleId: number): Promise<void> {
+export async function deleteRole(roleId: number, organizationId?: number): Promise<void> {
     const supabase = await getSupabase();
+
+    let orgScopedRoleIdsQuery = supabase
+        .from('OrganizationRole')
+        .select('id')
+        .eq('id', roleId);
+
+    if (typeof organizationId === 'number') {
+        orgScopedRoleIdsQuery = orgScopedRoleIdsQuery.eq('organization_id', organizationId);
+    }
+
+    const { data: roleData, error: roleLookupError } = await orgScopedRoleIdsQuery.limit(1).single();
+    if (roleLookupError || !roleData) throw roleLookupError ?? new Error('Role not found');
 
     // Delete role permissions first
     await supabase
@@ -281,6 +300,38 @@ export async function getAllPermissions(): Promise<OrganizationPermission[]> {
 export async function getRolePermissions(roleId: number): Promise<number[]> {
     const supabase = await getSupabase();
 
+    const { data: roleData, error: roleLookupError } = await supabase
+        .from('OrganizationRole')
+        .select('id')
+        .eq('id', roleId)
+        .limit(1)
+        .single();
+
+    if (roleLookupError || !roleData) throw roleLookupError ?? new Error('Role not found');
+
+    const { data, error } = await supabase
+        .from('OrganizationRolePermission')
+        .select('organization_permission_id')
+        .eq('organization_role_id', roleId);
+
+    if (error) throw error;
+
+    return (data || []).map((item: { organization_permission_id: number }) => item.organization_permission_id);
+}
+
+export async function getRolePermissionsByOrganization(roleId: number, organizationId: number): Promise<number[]> {
+    const supabase = await getSupabase();
+
+    const { data: roleData, error: roleLookupError } = await supabase
+        .from('OrganizationRole')
+        .select('id')
+        .eq('id', roleId)
+        .eq('organization_id', organizationId)
+        .limit(1)
+        .single();
+
+    if (roleLookupError || !roleData) throw roleLookupError ?? new Error('Role not found');
+
     const { data, error } = await supabase
         .from('OrganizationRolePermission')
         .select('organization_permission_id')
@@ -306,14 +357,19 @@ export async function getEvents(organizationId: number = DEFAULT_ORG_ID) {
     return data || [];
 }
 
-export async function getEvent(eventId: number) {
+export async function getEvent(eventId: number, organizationId?: number) {
     const supabase = await getSupabase();
 
-    const { data, error } = await supabase
+    let query = supabase
         .from('Event')
         .select('*')
-        .eq('id', eventId)
-        .single();
+        .eq('id', eventId);
+
+    if (typeof organizationId === 'number') {
+        query = query.eq('organization_id', organizationId);
+    }
+
+    const { data, error } = await query.single();
 
     if (error) throw error;
     return data;
@@ -382,24 +438,36 @@ export async function updateEvent(
         confirmation_page_message: string;
         confirmation_email_subject: string;
         confirmation_email_body: string;
-        objectives: unknown[];
-        theme: string;
-    }>
+                objectives: unknown[];
+                theme: string;
+        }>,
+        organizationId?: number
 ) {
     const supabase = await getSupabase();
 
-    const { data: beforeData, error: beforeError } = await supabase
-      .from('Event')
-      .select('*')
-      .eq('id', eventId)
-      .single();
+        let beforeQuery = supabase
+            .from('Event')
+            .select('*')
+            .eq('id', eventId);
+
+        if (typeof organizationId === 'number') {
+            beforeQuery = beforeQuery.eq('organization_id', organizationId);
+        }
+
+        const { data: beforeData, error: beforeError } = await beforeQuery.single();
 
     if (beforeError) throw beforeError;
 
-    const { error } = await supabase
+    let updateQuery = supabase
         .from('Event')
         .update(fields)
         .eq('id', eventId);
+
+    if (typeof organizationId === 'number') {
+        updateQuery = updateQuery.eq('organization_id', organizationId);
+    }
+
+    const { error } = await updateQuery;
 
     if (error) throw error;
 
@@ -410,21 +478,32 @@ export async function updateEvent(
     }
 }
 
-export async function deleteEvent(eventId: number) {
+export async function deleteEvent(eventId: number, organizationId?: number) {
     const supabase = await getSupabase();
 
-    const { data: beforeData, error: beforeError } = await supabase
+    let beforeQuery = supabase
         .from('Event')
         .select('*')
-        .eq('id', eventId)
-        .single();
+        .eq('id', eventId);
+
+    if (typeof organizationId === 'number') {
+        beforeQuery = beforeQuery.eq('organization_id', organizationId);
+    }
+
+    const { data: beforeData, error: beforeError } = await beforeQuery.single();
 
     if (beforeError) throw beforeError;
 
-    const { error } = await supabase
+    let deleteQuery = supabase
         .from('Event')
         .delete()
         .eq('id', eventId);
+
+    if (typeof organizationId === 'number') {
+        deleteQuery = deleteQuery.eq('organization_id', organizationId);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) throw error;
 

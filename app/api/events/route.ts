@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
 import { getEvents, createEvent } from '@/lib/db';
-import { DEFAULT_ORG_ID } from '@/lib/constants';
+import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
+import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
 import { logger } from '@/lib/logger';
 import { badRequest, created, internalServerError, ok, unauthorized } from '@/lib/utils/apiResponse';
 
@@ -14,10 +15,15 @@ export async function GET(request: NextRequest) {
             return unauthorized();
         }
 
-        const searchParams = request.nextUrl.searchParams;
-        const orgId = searchParams.get('organizationId');
+        const preferredOrganizationId = parseOrganizationId(
+            request.cookies.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
+        );
+        const orgContext = await getCurrentUserActiveOrganization(preferredOrganizationId);
+        if (!orgContext.activeOrganizationId) {
+            return badRequest('No active organization selected');
+        }
 
-        const events = await getEvents(orgId ? Number.parseInt(orgId, 10) : DEFAULT_ORG_ID);
+        const events = await getEvents(orgContext.activeOrganizationId);
         return ok(events);
     } catch (error: unknown) {
         logger.error('api/events', 'Error fetching events', error);
@@ -35,14 +41,22 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { organizationId, ...fields } = body;
+        const { ...fields } = body;
 
         if (!fields.title) {
             return badRequest('Missing required field: title');
         }
 
+        const preferredOrganizationId = parseOrganizationId(
+            request.cookies.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
+        );
+        const orgContext = await getCurrentUserActiveOrganization(preferredOrganizationId);
+        if (!orgContext.activeOrganizationId) {
+            return badRequest('No active organization selected');
+        }
+
         const newEvent = await createEvent(
-            organizationId ? Number.parseInt(organizationId, 10) : DEFAULT_ORG_ID,
+            orgContext.activeOrganizationId,
             fields
         );
 

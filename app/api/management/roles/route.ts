@@ -1,23 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrganizationRoles, createRole } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
+import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
+import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
+
+async function getActiveOrganizationId(request: NextRequest): Promise<number | null> {
+    const preferredOrganizationId = parseOrganizationId(
+        request.cookies.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
+    );
+    const context = await getCurrentUserActiveOrganization(preferredOrganizationId);
+    return context.activeOrganizationId;
+}
+
+function getErrorMessage(error: unknown) {
+    return error instanceof Error ? error.message : 'Unexpected error';
+}
 
 // GET /api/management/roles - List all roles in organization
 export async function GET(request: NextRequest) {
     try {
         await requireUser();
-        const searchParams = request.nextUrl.searchParams;
-        const orgId = searchParams.get('organizationId');
+        const activeOrganizationId = await getActiveOrganizationId(request);
+        if (!activeOrganizationId) {
+            return NextResponse.json(
+                { success: false, error: 'No active organization selected' },
+                { status: 400 }
+            );
+        }
 
-        const roles = await getOrganizationRoles(
-            orgId ? parseInt(orgId) : undefined
-        );
+        const roles = await getOrganizationRoles(activeOrganizationId);
 
         return NextResponse.json({ success: true, data: roles });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching roles:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to fetch roles' },
+            { success: false, error: getErrorMessage(error) || 'Failed to fetch roles' },
             { status: 500 }
         );
     }
@@ -27,8 +44,16 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
     try {
         await requireUser();
+        const activeOrganizationId = await getActiveOrganizationId(request);
+        if (!activeOrganizationId) {
+            return NextResponse.json(
+                { success: false, error: 'No active organization selected' },
+                { status: 400 }
+            );
+        }
+
         const body = await request.json();
-        const { name, description, permissionIds, organizationId } = body;
+        const { name, description, permissionIds } = body;
 
         if (!name) {
             return NextResponse.json(
@@ -41,14 +66,14 @@ export async function POST(request: NextRequest) {
             name,
             description || '',
             permissionIds || [],
-            organizationId ? parseInt(organizationId) : undefined
+            activeOrganizationId
         );
 
         return NextResponse.json({ success: true, data: newRole }, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating role:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to create role' },
+            { success: false, error: getErrorMessage(error) || 'Failed to create role' },
             { status: 500 }
         );
     }

@@ -4,7 +4,13 @@ import { createClient } from "@/lib/supabase-server"
 import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js'
 import { cache } from 'react'
 import { revalidatePath } from "next/cache"
+import { cookies } from 'next/headers'
 import { logAuditEntry } from '@/lib/actions/audit'
+import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants'
+import {
+    getCurrentUserActiveOrganization,
+    parseOrganizationId,
+} from '@/lib/auth/sessionRole'
 
 export interface CreateEventState {
     success?: boolean
@@ -34,13 +40,35 @@ async function getStorageClient(): Promise<SupabaseClient> {
 }
 
 async function ensureEventEditable(eventId: number) {
+    const activeOrganizationId = await getActiveOrganizationIdOrThrow()
     const authSupabase = await createClient()
-    const { data, error } = await authSupabase.from('Event').select('id').eq('id', eventId).single()
+    const { data, error } = await authSupabase
+        .from('Event')
+        .select('id')
+        .eq('id', eventId)
+        .eq('organization_id', activeOrganizationId)
+        .single()
     if (error || !data) {
         throw new Error('Event not found or access denied')
     }
 
     return true
+}
+
+async function getActiveOrganizationIdOrThrow() {
+    const cookieStore = await cookies()
+    const preferredOrganizationId = parseOrganizationId(cookieStore.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value)
+    const context = await getCurrentUserActiveOrganization(preferredOrganizationId)
+
+    if (!context.isAuthenticated) {
+        throw new Error('Not authenticated')
+    }
+
+    if (!context.activeOrganizationId) {
+        throw new Error('No active organization selected')
+    }
+
+    return context.activeOrganizationId
 }
 
 // Helper for uploading
@@ -81,26 +109,27 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
         }
     }
 
-    const rawData = {
-        title: formData.get('name') as string, // Schema uses 'title' not 'name'
-        description: formData.get('description') as string,
-        organization_id: 1, // Placeholder
-        event_start_at: formData.get('date') ? new Date(`${formData.get('date')}T${formData.get('startTime') || '00:00'}:00`).toISOString() : null,
-        event_end_at: formData.get('date') ? new Date(`${formData.get('date')}T${formData.get('endTime') || '23:59'}:00`).toISOString() : null,
-        location: formData.get('location') as string,
-        banner_image: bannerUrl, // Add banner URL
-        // Default values for required fields
-        capacity: 100, // Default capacity
-        is_published: false, // Default to draft
-        is_visible: true,
-        allow_group_registration: true,
-        allow_waitlist: true,
-        allow_breakout_sessions: false,
-        objectives: formData.get('objectives') ? JSON.parse(formData.get('objectives') as string) : [],
-        theme: formData.get('theme') as string,
-    }
-
     try {
+        const activeOrganizationId = await getActiveOrganizationIdOrThrow();
+        const rawData = {
+            title: formData.get('name') as string, // Schema uses 'title' not 'name'
+            description: formData.get('description') as string,
+            organization_id: activeOrganizationId,
+            event_start_at: formData.get('date') ? new Date(`${formData.get('date')}T${formData.get('startTime') || '00:00'}:00`).toISOString() : null,
+            event_end_at: formData.get('date') ? new Date(`${formData.get('date')}T${formData.get('endTime') || '23:59'}:00`).toISOString() : null,
+            location: formData.get('location') as string,
+            banner_image: bannerUrl, // Add banner URL
+            // Default values for required fields
+            capacity: 100, // Default capacity
+            is_published: false, // Default to draft
+            is_visible: true,
+            allow_group_registration: true,
+            allow_waitlist: true,
+            allow_breakout_sessions: false,
+            objectives: formData.get('objectives') ? JSON.parse(formData.get('objectives') as string) : [],
+            theme: formData.get('theme') as string,
+        }
+
         console.log('Inserting Event:', rawData)
         const { data: eventData, error: eventError } = await supabase
             .from('Event')
@@ -163,7 +192,7 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
     }
 }
 
-const fetchEvents = cache(async () => {
+const fetchEvents = cache(async (organizationId: number) => {
     const supabase = await createClient();
     const { data, error } = await supabase
         .from('Event')
@@ -179,6 +208,7 @@ const fetchEvents = cache(async () => {
             objectives,
             theme
         `)
+        .eq('organization_id', organizationId)
         .order('event_start_at', { ascending: false })
 
     if (error) {
@@ -190,7 +220,8 @@ const fetchEvents = cache(async () => {
 
 export async function getEvents() {
     try {
-        return await fetchEvents()
+        const activeOrganizationId = await getActiveOrganizationIdOrThrow()
+        return await fetchEvents(activeOrganizationId)
     } catch (e) {
         if (isDynamicServerUsageError(e)) {
             throw e
@@ -200,7 +231,7 @@ export async function getEvents() {
     }
 }
 
-const fetchEventById = cache(async (id: number) => {
+const fetchEventById = cache(async (id: number, organizationId: number) => {
     const supabase = await createClient();
 
     const { data, error } = await supabase
@@ -218,6 +249,7 @@ const fetchEventById = cache(async (id: number) => {
             )
         `)
         .eq('id', id)
+        .eq('organization_id', organizationId)
         .single();
 
     if (error) {
@@ -226,6 +258,7 @@ const fetchEventById = cache(async (id: number) => {
                 .from('Event')
                 .select('*')
                 .eq('id', id)
+                .eq('organization_id', organizationId)
                 .single();
             return retry.data
         }
@@ -237,7 +270,8 @@ const fetchEventById = cache(async (id: number) => {
 
 export async function getEventById(id: number) {
     try {
-        return await fetchEventById(id)
+        const activeOrganizationId = await getActiveOrganizationIdOrThrow()
+        return await fetchEventById(id, activeOrganizationId)
     } catch (e) {
         if (isDynamicServerUsageError(e)) {
             throw e
@@ -251,10 +285,12 @@ export async function updateEvent(id: number, data: Partial<any>) {
     const supabase = await createClient();
 
     try {
+        const activeOrganizationId = await getActiveOrganizationIdOrThrow();
         const { data: beforeData, error: beforeError } = await supabase
             .from('Event')
             .select('*')
             .eq('id', id)
+            .eq('organization_id', activeOrganizationId)
             .single()
 
         if (beforeError) {
@@ -266,6 +302,7 @@ export async function updateEvent(id: number, data: Partial<any>) {
             .from('Event')
             .update(data)
             .eq('id', id)
+            .eq('organization_id', activeOrganizationId)
             .select()
             .single()
 
@@ -322,6 +359,7 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
     const supabase = await createClient();
 
     try {
+        const activeOrganizationId = await getActiveOrganizationIdOrThrow();
         const payload: any = {
             event_id,
             title: slot.title,
@@ -330,7 +368,12 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
         };
 
         // Fetch event date to construct timestamp
-        const { data: event } = await supabase.from('Event').select('event_start_at').eq('id', event_id).single();
+        const { data: event } = await supabase
+            .from('Event')
+            .select('event_start_at')
+            .eq('id', event_id)
+            .eq('organization_id', activeOrganizationId)
+            .single();
 
         if (!event) throw new Error("Event not found");
 
