@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import { createClient } from '@/lib/supabase-browser';
 
 export interface Notification {
     id: string;
@@ -60,6 +61,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const inFlightRef = useRef(false);
     const hadFetchErrorRef = useRef(false);
+    const hasSessionRef = useRef(false);
     const [preferences, setPreferences] = useState<NotificationPreferences>({
         email: true,
         push: true,
@@ -95,6 +97,8 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             return;
         }
 
+        const supabase = createClient();
+
         const SUCCESS_POLL_MS = 30000;
         const ERROR_RETRY_MS = 15000;
         let isActive = true;
@@ -107,6 +111,9 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         };
 
         const schedulePoll = (delayMs: number) => {
+            if (!isActive || !hasSessionRef.current) {
+                return;
+            }
             clearScheduledPoll();
             pollTimeoutRef.current = setTimeout(() => {
                 void fetchNotifications();
@@ -114,7 +121,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         };
 
         const fetchNotifications = async () => {
-            if (!isActive || inFlightRef.current) {
+            if (!isActive || inFlightRef.current || !hasSessionRef.current) {
                 return;
             }
 
@@ -127,8 +134,10 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
 
                 if (!res.ok) {
                     if (res.status === 401 || res.status === 403) {
+                        hasSessionRef.current = false;
                         hadFetchErrorRef.current = false;
-                        schedulePoll(SUCCESS_POLL_MS);
+                        clearScheduledPoll();
+                        setNotifications([]);
                         return;
                     }
                     throw new Error(`Notifications request failed: ${res.status}`);
@@ -160,11 +169,38 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             }
         };
 
-        void fetchNotifications();
+        const startPollingIfAuthenticated = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            hasSessionRef.current = Boolean(session);
+
+            if (!hasSessionRef.current) {
+                clearScheduledPoll();
+                setNotifications([]);
+                return;
+            }
+
+            void fetchNotifications();
+        };
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            hasSessionRef.current = Boolean(session);
+
+            if (!session) {
+                clearScheduledPoll();
+                hadFetchErrorRef.current = false;
+                setNotifications([]);
+                return;
+            }
+
+            void fetchNotifications();
+        });
+
+        void startPollingIfAuthenticated();
 
         return () => {
             isActive = false;
             clearScheduledPoll();
+            subscription.unsubscribe();
         };
     }, []);
 
