@@ -133,6 +133,8 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
                 heading: {
                     levels: [1, 2, 3],
                 },
+                link: false,
+                underline: false,
             }),
             Underline,
             Link.configure({
