@@ -1,7 +1,11 @@
 'use server'
 
 import { createClient } from '@/lib/supabase-server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { cookies } from 'next/headers'
 import { logger } from '@/lib/logger'
+import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants'
+import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole'
 
 export interface UserPermissions {
     role: string
@@ -17,41 +21,85 @@ const EMPTY: UserPermissions = {
     isAdmin: false,
 }
 
+async function getPermissionLookupClient() {
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+    }
+
+    return createClient()
+}
+
 /**
  * Looks up a user's role and permissions by their email.
  * Email is provided by the client-side auth session.
  */
 export async function getCurrentUserPermissions(email: string): Promise<UserPermissions> {
-    if (!email) return EMPTY
-
     try {
-        const supabase = await createClient()
-        logger.debug('permissions', 'Looking up permissions', { email })
+        const authSupabase = await createClient()
+        const {
+            data: { user },
+        } = await authSupabase.auth.getUser()
+
+        const authenticatedEmail = user?.email?.trim().toLowerCase()
+        const requestedEmail = email?.trim().toLowerCase()
+
+        if (!authenticatedEmail) {
+            logger.warn('permissions', 'No authenticated user email found')
+            return EMPTY
+        }
+
+        if (requestedEmail && requestedEmail !== authenticatedEmail) {
+            logger.warn('permissions', 'Ignoring mismatched requested email for permissions lookup', {
+                requestedEmail,
+                authenticatedEmail,
+            })
+        }
+
+        const cookieStore = await cookies()
+        const preferredOrganizationId = parseOrganizationId(cookieStore.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value)
+        const orgContext = await getCurrentUserActiveOrganization(preferredOrganizationId)
+
+        if (!orgContext.activeOrganizationId) {
+            logger.warn('permissions', 'No active organization found for authenticated user', {
+                authenticatedEmail,
+            })
+            return EMPTY
+        }
+
+        const supabase = await getPermissionLookupClient()
+        logger.debug('permissions', 'Looking up permissions', {
+            email: authenticatedEmail,
+            organizationId: orgContext.activeOrganizationId,
+        })
 
         // ── Step 1: Find the User row ─────────────────────────────────────────
-        const { data: users, error: userError } = await supabase
+        const { data: appUser, error: userError } = await supabase
             .from('User')
             .select('id')
-            .eq('email', email)
-            .limit(1)
+            .ilike('email', authenticatedEmail)
+            .maybeSingle()
 
         if (userError) {
             logger.error('permissions', 'Error querying User table', userError.message)
             return EMPTY
         }
 
-        if (!users || users.length === 0) {
-            logger.warn('permissions', 'No User row found for email', { email })
+        if (!appUser) {
+            logger.warn('permissions', 'No User row found for email', { email: authenticatedEmail })
             return EMPTY
         }
 
-        const appUser = users[0]
         logger.debug('permissions', 'Found user record', { userId: appUser.id })
 
         // ── Step 2: Find their OrganizationUserRole ───────────────────────────
-        const { data: orgRoles, error: roleError } = await supabase
+        const { data: orgRole, error: roleError } = await supabase
             .from('OrganizationUserRole')
             .select(`
+                id,
+                organization_id,
                 organization_role_id,
                 OrganizationRole (
                     id,
@@ -59,26 +107,42 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
                 )
             `)
             .eq('user_id', appUser.id)
+            .eq('organization_id', orgContext.activeOrganizationId)
+            .order('id', { ascending: false })
             .limit(1)
+            .maybeSingle()
 
         if (roleError) {
             logger.error('permissions', 'Error querying OrganizationUserRole', roleError.message)
             return EMPTY
         }
 
-        if (!orgRoles || orgRoles.length === 0) {
-            logger.warn('permissions', 'No OrganizationUserRole row found', { userId: appUser.id })
+        if (!orgRole) {
+            logger.warn('permissions', 'No OrganizationUserRole row found for active organization', {
+                userId: appUser.id,
+                organizationId: orgContext.activeOrganizationId,
+            })
             return EMPTY
         }
 
-        const roleRaw = (orgRoles[0] as any).OrganizationRole
+        const roleRaw = Array.isArray((orgRole as any).OrganizationRole)
+            ? (orgRole as any).OrganizationRole[0]
+            : (orgRole as any).OrganizationRole
+
         if (!roleRaw) {
-            logger.warn('permissions', 'OrganizationRole join returned null', { userId: appUser.id })
+            logger.warn('permissions', 'OrganizationRole join returned null', {
+                userId: appUser.id,
+                organizationId: orgContext.activeOrganizationId,
+            })
             return EMPTY
         }
 
         const role = { id: roleRaw.id as number, name: roleRaw.name as string }
-        logger.debug('permissions', 'Found role', { roleName: role.name, roleId: role.id })
+        logger.debug('permissions', 'Found role', {
+            roleName: role.name,
+            roleId: role.id,
+            organizationId: orgContext.activeOrganizationId,
+        })
 
         // ── Step 3: Get all permissions for this role ─────────────────────────
         const { data: rolePerms, error: permsError } = await supabase
@@ -95,11 +159,16 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
             // Still return the role even if permissions query fails
         }
 
-        const permissions = (rolePerms ?? [])
+        const permissions = Array.from(new Set((rolePerms ?? [])
             .map((r: any) => r.OrganizationPermission?.name)
-            .filter(Boolean) as string[]
+            .filter(Boolean) as string[]))
 
-        logger.debug('permissions', 'Resolved role permissions', { roleName: role.name, permissions })
+        logger.debug('permissions', 'Resolved role permissions', {
+            roleName: role.name,
+            roleId: role.id,
+            organizationId: orgContext.activeOrganizationId,
+            permissions,
+        })
 
         return {
             role: role.name,
