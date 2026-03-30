@@ -19,13 +19,32 @@ function isAdminRoute(pathname: string) {
   }
 
   // Protect nested admin sections under /events/[eventId]/...
+  // Exclude the client-facing event detail page and attendee registration page
   if (pathname.startsWith('/events/')) {
     const parts = pathname.split('/').filter(Boolean);
-    return parts.length > 2; // e.g., /events/<slug>/overview
+    if (parts.length <= 2) return false; // /events or /events/<slug> — public detail page
+    if (parts.length === 3 && parts[2] === 'register') return false; // /events/<slug>/register — attendee route
+    return parts.length > 2; // e.g., /events/<slug>/overview — admin only
   }
 
   if (pathname.startsWith('/management') || pathname.startsWith('/profile') || pathname.startsWith('/settings')) {
     return true;
+  }
+
+  return false;
+}
+
+/**
+ * Routes that require a logged-in user with the ATTENDEE session role.
+ * Organizers attempting to access these are redirected to /dashboard.
+ */
+function isAttendeeRoute(pathname: string) {
+  if (pathname === '/home') return true;
+
+  // /events/<slug>/register — attendee-only registration
+  if (pathname.startsWith('/events/')) {
+    const parts = pathname.split('/').filter(Boolean);
+    if (parts.length === 3 && parts[2] === 'register') return true;
   }
 
   return false;
@@ -41,8 +60,11 @@ export async function proxy(request: NextRequest) {
 
   // API routes enforce auth at the route-handler level (requireUser), so avoid
   // duplicate Supabase auth round-trips here.
-  const needsAuth = isAdminRoute(pathname);
-  if (!needsAuth || isPublicRoute(pathname)) {
+  const adminRoute = isAdminRoute(pathname);
+  const attendeeRoute = isAttendeeRoute(pathname);
+
+  // Neither an admin nor an attendee restricted route — allow through freely
+  if ((!adminRoute && !attendeeRoute) || isPublicRoute(pathname)) {
     return NextResponse.next();
   }
 
@@ -81,6 +103,30 @@ export async function proxy(request: NextRequest) {
 
   const sessionRole = request.cookies.get(SESSION_ROLE_COOKIE_NAME)?.value;
 
+  // ── Attendee-only routes ──────────────────────────────────────────────────
+  if (attendeeRoute) {
+    // Organizers are not allowed — send them to the admin dashboard
+    if (sessionRole === SESSION_ROLE.ORGANIZER) {
+      const dashboardUrl = request.nextUrl.clone();
+      dashboardUrl.pathname = '/dashboard';
+      dashboardUrl.search = '';
+      return NextResponse.redirect(dashboardUrl);
+    }
+
+    // No role selected yet → pick a role first
+    if (!sessionRole) {
+      const selectRoleUrl = request.nextUrl.clone();
+      selectRoleUrl.pathname = '/auth/session-role';
+      selectRoleUrl.searchParams.set('next', pathname + search);
+      return NextResponse.redirect(selectRoleUrl);
+    }
+
+    // ATTENDEE role confirmed — allow through
+    return response;
+  }
+
+  // ── Admin-only routes ─────────────────────────────────────────────────────
+  // Attendees trying to access admin pages → send to /home
   if (sessionRole === SESSION_ROLE.ATTENDEE) {
     const homeUrl = request.nextUrl.clone();
     homeUrl.pathname = '/home';

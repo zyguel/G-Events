@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from "@/lib/supabase-server"
+import { createClient, createAdminClient } from "@/lib/supabase-server"
 import { revalidatePath } from "next/cache"
 import { OrderFormData, OrderFormEntry } from "@/lib/types"
 import { logAuditEntry } from '@/lib/actions/audit'
@@ -312,9 +312,48 @@ export async function saveOrderFormEntry(
     }
 }
 
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+
 /**
- * Get all order form entries for an event
+ * Get all order forms for an event — uses service role to bypass RLS.
+ * Safe for public/attendee-facing pages (read-only, form structure only).
  */
+export async function getOrderFormsByEventPublic(eventId: number) {
+    // Use the raw Supabase JS client to fully bypass Next.js SSR cookie interference
+    // Add .trim() to prevent invisible newlines from breaking HTTP Authorization headers
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+    
+    if (!supabaseUrl || !supabaseKey) {
+        console.error('Missing Supabase URL or Service Role Key for Admin Client');
+        return { error: "Server Configuration Error", data: null };
+    }
+
+    const supabase = createSupabaseClient(supabaseUrl, supabaseKey);
+
+    try {
+        const { data, error } = await supabase
+            .from('OrderForm')
+            .select('*')
+            .eq('event_id', eventId)
+        if (error) {
+            // Enhanced logging to catch hidden TypeError properties
+            console.error('Supabase Error (public) Name:', (error as any).name);
+            console.error('Supabase Error (public) Message:', (error as any).message);
+            console.error('Supabase Error (public) Full:', error);
+            
+            return { error: (error as any).message || 'Unknown Supabase Error', data: null }
+        }
+
+        return { success: true, data }
+    } catch (e: any) {
+        console.error('Catch Error fetching forms (public):', e?.name, e?.message);
+        return {
+            error: e instanceof Error ? e.message : 'An unexpected error occurred',
+            data: null
+        }
+    }
+}
 export async function getOrderFormEntriesByEvent(eventId: number) {
     const supabase = await createClient();
 

@@ -1,0 +1,811 @@
+'use client';
+
+import { useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+    User, Users, Plus, X, ChevronRight, ChevronLeft,
+    Mail, AlertCircle, CheckCircle, Loader, ArrowRight,
+    Check
+} from 'lucide-react';
+import { OrderFormData } from '@/lib/types';
+import { useOrderFormSubmit } from '@/lib/hooks/useOrderFormSubmit';
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+interface FormAnswers {
+    [inputId: string]: string | string[] | null;
+}
+
+interface RegistrationFlowProps {
+    eventId: number;
+    eventTitle: string;
+    eventSlug: string;
+    orderFormId: number;
+    formData: OrderFormData;
+}
+
+type RegistrationType = 'individual' | 'group';
+type Step = 'choose-type' | 'group-members' | 'fill-form';
+
+// ─── Email validation helper ──────────────────────────────────────────────────
+
+function isValidEmail(email: string) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+// ─── Step Indicator ──────────────────────────────────────────────────────────
+
+function StepIndicator({ currentStep, type }: { currentStep: Step; type: RegistrationType }) {
+    const steps = type === 'group'
+        ? ['Choose Type', 'Add Members', 'Fill Form']
+        : ['Choose Type', 'Fill Form'];
+
+    const stepKeys: Step[] = type === 'group'
+        ? ['choose-type', 'group-members', 'fill-form']
+        : ['choose-type', 'fill-form'];
+
+    const currentIndex = stepKeys.indexOf(currentStep);
+
+    return (
+        <div className="flex items-center justify-center gap-0 mb-10">
+            {steps.map((label, i) => {
+                const isDone = i < currentIndex;
+                const isActive = i === currentIndex;
+                return (
+                    <div key={label} className="flex items-center">
+                        <div className="flex flex-col items-center gap-1.5">
+                            <div className={`
+                                w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300
+                                ${isDone
+                                    ? 'bg-[#3D518C] text-white shadow-md shadow-blue-200 dark:shadow-blue-900/30'
+                                    : isActive
+                                    ? 'bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] text-white shadow-lg shadow-blue-200 dark:shadow-blue-900/40 ring-4 ring-blue-100 dark:ring-blue-900/30'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
+                                }
+                            `}>
+                                {isDone ? <Check size={15} strokeWidth={3} /> : <span>{i + 1}</span>}
+                            </div>
+                            <span className={`text-xs font-semibold whitespace-nowrap ${
+                                isActive ? 'text-[#3D518C] dark:text-blue-400' : isDone ? 'text-[#3D518C]/70 dark:text-blue-500/70' : 'text-gray-400 dark:text-gray-500'
+                            }`}>
+                                {label}
+                            </span>
+                        </div>
+                        {i < steps.length - 1 && (
+                            <div className={`w-16 sm:w-24 h-0.5 mt-[-18px] mx-2 transition-all duration-500 ${
+                                i < currentIndex ? 'bg-[#3D518C]' : 'bg-gray-200 dark:bg-gray-700'
+                            }`} />
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+// ─── Step 1: Choose Registration Type ────────────────────────────────────────
+
+function ChooseTypeStep({
+    onSelect,
+}: {
+    onSelect: (type: RegistrationType) => void;
+}) {
+    const [hovered, setHovered] = useState<RegistrationType | null>(null);
+
+    return (
+        <div className="animate-fade-in">
+            <div className="text-center mb-8">
+                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
+                    How are you registering?
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Choose whether you're signing up alone or with a group.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {/* Individual */}
+                <button
+                    id="reg-type-individual"
+                    onClick={() => onSelect('individual')}
+                    onMouseEnter={() => setHovered('individual')}
+                    onMouseLeave={() => setHovered(null)}
+                    className={`
+                        relative group flex flex-col items-center text-center gap-5 p-8 rounded-3xl border-2 transition-all duration-300 cursor-pointer
+                        ${hovered === 'individual'
+                            ? 'border-[#3D518C] bg-gradient-to-br from-[#3D518C]/5 to-[#5C6BC0]/10 shadow-xl shadow-blue-100 dark:shadow-blue-900/20 scale-[1.02]'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:shadow-lg'}
+                    `}
+                >
+                    <div className={`
+                        w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-300
+                        ${hovered === 'individual'
+                            ? 'bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] shadow-lg shadow-blue-300/40'
+                            : 'bg-blue-50 dark:bg-blue-900/20'}
+                    `}>
+                        <User size={36} className={hovered === 'individual' ? 'text-white' : 'text-[#3D518C] dark:text-blue-400'} />
+                    </div>
+                    <div>
+                        <p className="text-lg font-extrabold text-gray-900 dark:text-white mb-1.5">Individual</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Register just for yourself. Fill out the form with your own details.
+                        </p>
+                    </div>
+                    <div className={`
+                        flex items-center gap-1.5 text-sm font-bold transition-all duration-300
+                        ${hovered === 'individual' ? 'text-[#3D518C] dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}
+                    `}>
+                        Continue <ChevronRight size={16} />
+                    </div>
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                        <div className={`absolute inset-0 bg-gradient-to-br from-white/40 to-transparent transition-opacity duration-300 ${hovered === 'individual' ? 'opacity-100' : 'opacity-0'}`} />
+                    </div>
+                </button>
+
+                {/* Group */}
+                <button
+                    id="reg-type-group"
+                    onClick={() => onSelect('group')}
+                    onMouseEnter={() => setHovered('group')}
+                    onMouseLeave={() => setHovered(null)}
+                    className={`
+                        relative group flex flex-col items-center text-center gap-5 p-8 rounded-3xl border-2 transition-all duration-300 cursor-pointer
+                        ${hovered === 'group'
+                            ? 'border-indigo-500 bg-gradient-to-br from-indigo-500/5 to-purple-500/10 shadow-xl shadow-indigo-100 dark:shadow-indigo-900/20 scale-[1.02]'
+                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:shadow-lg'}
+                    `}
+                >
+                    <div className={`
+                        w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-300
+                        ${hovered === 'group'
+                            ? 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-300/40'
+                            : 'bg-indigo-50 dark:bg-indigo-900/20'}
+                    `}>
+                        <Users size={36} className={hovered === 'group' ? 'text-white' : 'text-indigo-500 dark:text-indigo-400'} />
+                    </div>
+                    <div>
+                        <p className="text-lg font-extrabold text-gray-900 dark:text-white mb-1.5">Group</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                            Register with friends or colleagues. Add their emails to include them.
+                        </p>
+                    </div>
+                    <div className={`
+                        flex items-center gap-1.5 text-sm font-bold transition-all duration-300
+                        ${hovered === 'group' ? 'text-indigo-500 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500'}
+                    `}>
+                        Continue <ChevronRight size={16} />
+                    </div>
+                    {/* Shine effect */}
+                    <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                        <div className={`absolute inset-0 bg-gradient-to-br from-white/40 to-transparent transition-opacity duration-300 ${hovered === 'group' ? 'opacity-100' : 'opacity-0'}`} />
+                    </div>
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Step 2: Group Members ────────────────────────────────────────────────────
+
+function GroupMembersStep({
+    onBack,
+    onContinue,
+}: {
+    onBack: () => void;
+    onContinue: (emails: string[]) => void;
+}) {
+    const [emails, setEmails] = useState<string[]>(['']);
+    const [errors, setErrors] = useState<string[]>(['']);
+
+    const handleEmailChange = (index: number, value: string) => {
+        const updated = [...emails];
+        updated[index] = value;
+        setEmails(updated);
+        const updatedErrors = [...errors];
+        updatedErrors[index] = '';
+        setErrors(updatedErrors);
+    };
+
+    const addEmail = () => {
+        setEmails([...emails, '']);
+        setErrors([...errors, '']);
+    };
+
+    const removeEmail = (index: number) => {
+        if (emails.length <= 1) return;
+        setEmails(emails.filter((_, i) => i !== index));
+        setErrors(errors.filter((_, i) => i !== index));
+    };
+
+    const handleContinue = () => {
+        const newErrors: string[] = emails.map(e => {
+            if (!e.trim()) return 'Email is required';
+            if (!isValidEmail(e.trim())) return 'Please enter a valid email address';
+            return '';
+        });
+
+        // Check for duplicates
+        const seen = new Set<string>();
+        emails.forEach((e, i) => {
+            if (seen.has(e.toLowerCase())) {
+                newErrors[i] = 'Duplicate email address';
+            }
+            seen.add(e.toLowerCase());
+        });
+
+        setErrors(newErrors);
+        if (newErrors.some(e => e !== '')) return;
+
+        onContinue(emails.map(e => e.trim()));
+    };
+
+    return (
+        <div className="animate-fade-in">
+            <div className="text-center mb-8">
+                <div className="w-14 h-14 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-indigo-200 dark:shadow-indigo-900/30">
+                    <Users size={26} className="text-white" />
+                </div>
+                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
+                    Add Group Members
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+                    Enter the email addresses of everyone in your group. Each member will be registered under this submission.
+                </p>
+            </div>
+
+            <div className="space-y-3 mb-6 max-h-72 overflow-y-auto pr-1">
+                {emails.map((email, index) => (
+                    <div key={index} className="group">
+                        <div className={`
+                            flex items-center gap-3 bg-white dark:bg-gray-800 border rounded-2xl px-4 py-3 transition-all duration-200
+                            ${errors[index]
+                                ? 'border-red-300 dark:border-red-700 ring-2 ring-red-100 dark:ring-red-900/30'
+                                : 'border-gray-200 dark:border-gray-700 focus-within:border-[#3D518C] dark:focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 dark:focus-within:ring-blue-900/30 hover:border-gray-300 dark:hover:border-gray-600'}
+                        `}>
+                            <div className="w-8 h-8 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
+                                <Mail size={15} className="text-indigo-500 dark:text-indigo-400" />
+                            </div>
+                            <input
+                                id={`group-email-${index}`}
+                                type="email"
+                                value={email}
+                                onChange={(e) => handleEmailChange(index, e.target.value)}
+                                placeholder={`Member ${index + 1} email address`}
+                                className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none"
+                            />
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full shrink-0">
+                                    #{index + 1}
+                                </span>
+                                {emails.length > 1 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => removeEmail(index)}
+                                        className="p-1 rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                                    >
+                                        <X size={15} />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                        {errors[index] && (
+                            <p className="mt-1 ml-3 text-xs text-red-500 flex items-center gap-1">
+                                <AlertCircle size={11} />
+                                {errors[index]}
+                            </p>
+                        )}
+                    </div>
+                ))}
+            </div>
+
+            {/* Add member button */}
+            <button
+                type="button"
+                id="add-group-member-btn"
+                onClick={addEmail}
+                className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-500 dark:text-gray-400 hover:border-[#3D518C] hover:text-[#3D518C] dark:hover:border-blue-500 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all duration-200 flex items-center justify-center gap-2 mb-6"
+            >
+                <Plus size={16} />
+                Add Another Member
+            </button>
+
+            {/* Summary badge */}
+            <div className="mb-6 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl px-4 py-3 border border-indigo-100 dark:border-indigo-800/40 flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center shrink-0">
+                    <Users size={16} className="text-indigo-500" />
+                </div>
+                <p className="text-sm font-medium text-indigo-700 dark:text-indigo-300">
+                    <span className="font-extrabold">{emails.length}</span> member{emails.length !== 1 ? 's' : ''} will be registered in this group.
+                </p>
+            </div>
+
+            {/* Navigation */}
+            <div className="flex gap-3">
+                <button
+                    type="button"
+                    id="group-back-btn"
+                    onClick={onBack}
+                    className="flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+                >
+                    <ChevronLeft size={16} />
+                    Back
+                </button>
+                <button
+                    type="button"
+                    id="group-continue-btn"
+                    onClick={handleContinue}
+                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:from-[#2e3d6e] hover:to-[#4a57a1] text-white font-bold rounded-2xl transition-all duration-200 shadow-lg shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]"
+                >
+                    Continue to Form
+                    <ArrowRight size={16} />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Step 3: Order Form ──────────────────────────────────────────────────────
+
+function OrderFormStep({
+    formData,
+    eventId,
+    orderFormId,
+    registrationType,
+    groupEmails,
+    onBack,
+    eventSlug,
+}: {
+    formData: OrderFormData;
+    eventId: number;
+    orderFormId: number;
+    registrationType: RegistrationType;
+    groupEmails: string[];
+    onBack: () => void;
+    eventSlug: string;
+}) {
+    const router = useRouter();
+    const [answers, setAnswers] = useState<FormAnswers>({});
+    const [touched, setTouched] = useState<Set<string>>(new Set());
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+
+    const { isSubmitting, error, success, successMessage, submit } = useOrderFormSubmit({
+        eventId,
+        orderFormId,
+    });
+
+    const handleInputChange = useCallback((inputId: string, value: string | string[]) => {
+        setAnswers(prev => ({ ...prev, [inputId]: value }));
+        setValidationErrors(prev => {
+            const next = { ...prev };
+            delete next[inputId];
+            return next;
+        });
+    }, []);
+
+    const handleSubmit = useCallback(async (e: React.FormEvent) => {
+        e.preventDefault();
+
+        // Mark all as touched
+        const allIds = new Set<string>();
+        formData.sections.forEach(s => s.inputs.forEach(i => allIds.add(i.id)));
+        setTouched(allIds);
+
+        // Validate required
+        const newErrors: Record<string, string> = {};
+        formData.sections.forEach(s => {
+            s.inputs.filter(i => i.required).forEach(i => {
+                const val = answers[i.id];
+                const empty = !val || (Array.isArray(val) && val.length === 0);
+                if (empty) newErrors[i.id] = 'This field is required';
+            });
+        });
+        setValidationErrors(newErrors);
+        if (Object.keys(newErrors).length > 0) return;
+
+        await submit(formData, answers);
+    }, [formData, answers, submit]);
+
+    const renderInput = (input: { id: string; question: string; type: string; required: boolean; options?: string[] }) => {
+        const base = "w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3D518C]/30 focus:border-[#3D518C] dark:focus:border-blue-500 transition-all duration-200";
+        const hasError = touched.has(input.id) && !!validationErrors[input.id];
+        const errorClass = hasError ? 'border-red-300 dark:border-red-700 ring-2 ring-red-100 dark:ring-red-900/30 focus:border-red-400' : '';
+        const val = answers[input.id];
+
+        switch (input.type) {
+            case 'short_answer':
+                return (
+                    <input
+                        id={`field-${input.id}`}
+                        type="text"
+                        className={`${base} ${errorClass}`}
+                        placeholder={`Enter your response`}
+                        value={(val as string) || ''}
+                        onChange={e => handleInputChange(input.id, e.target.value)}
+                    />
+                );
+            case 'paragraph':
+                return (
+                    <textarea
+                        id={`field-${input.id}`}
+                        className={`${base} ${errorClass} resize-none`}
+                        rows={4}
+                        placeholder="Enter your response..."
+                        value={(val as string) || ''}
+                        onChange={e => handleInputChange(input.id, e.target.value)}
+                    />
+                );
+            case 'dropdown':
+                return (
+                    <select
+                        id={`field-${input.id}`}
+                        className={`${base} ${errorClass}`}
+                        value={(val as string) || ''}
+                        onChange={e => handleInputChange(input.id, e.target.value)}
+                    >
+                        <option value="">Select an option</option>
+                        {input.options?.map((opt, i) => (
+                            <option key={i} value={opt}>{opt}</option>
+                        ))}
+                    </select>
+                );
+            case 'multiple_choice':
+                return (
+                    <div className="space-y-2.5">
+                        {input.options?.map((opt, i) => (
+                            <label key={i} className={`
+                                flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200
+                                ${val === opt
+                                    ? 'border-[#3D518C] bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500'
+                                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/60'}
+                            `}>
+                                <div className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${val === opt ? 'border-[#3D518C] dark:border-blue-500' : 'border-gray-300 dark:border-gray-600'}`}>
+                                    {val === opt && <div className="w-2 h-2 rounded-full bg-[#3D518C] dark:bg-blue-500" />}
+                                </div>
+                                <input
+                                    type="radio"
+                                    name={input.id}
+                                    value={opt}
+                                    checked={val === opt}
+                                    onChange={e => handleInputChange(input.id, e.target.value)}
+                                    className="sr-only"
+                                />
+                                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{opt}</span>
+                            </label>
+                        ))}
+                    </div>
+                );
+            case 'checkboxes':
+                return (
+                    <div className="space-y-2.5">
+                        {input.options?.map((opt, i) => {
+                            const selected = Array.isArray(val) ? val : [];
+                            const isChecked = selected.includes(opt);
+                            return (
+                                <label key={i} className={`
+                                    flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200
+                                    ${isChecked
+                                        ? 'border-[#3D518C] bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500'
+                                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/60'}
+                                `}>
+                                    <div className={`w-4.5 h-4.5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${isChecked ? 'border-[#3D518C] bg-[#3D518C] dark:border-blue-500 dark:bg-blue-500' : 'border-gray-300 dark:border-gray-600'}`}>
+                                        {isChecked && <Check size={11} className="text-white" strokeWidth={3} />}
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        value={opt}
+                                        checked={isChecked}
+                                        onChange={() => {
+                                            const next = isChecked ? selected.filter(v => v !== opt) : [...selected, opt];
+                                            handleInputChange(input.id, next);
+                                        }}
+                                        className="sr-only"
+                                    />
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{opt}</span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                );
+            case 'file_upload':
+                return (
+                    <label className={`flex items-center justify-center w-full border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 py-8 hover:border-[#3D518C] ${hasError ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'} bg-gray-50 dark:bg-gray-700/30`}>
+                        <div className="flex flex-col items-center gap-2 text-center px-4">
+                            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                            </div>
+                            <div>
+                                {val ? (
+                                    <p className="text-sm font-semibold text-[#3D518C] dark:text-blue-400">{val as string}</p>
+                                ) : (
+                                    <>
+                                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Click to upload</p>
+                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">or drag and drop your file here</p>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                        <input type="file" className="hidden" onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (file) handleInputChange(input.id, file.name);
+                        }} />
+                    </label>
+                );
+            case 'date':
+                return (
+                    <input
+                        id={`field-${input.id}`}
+                        type="date"
+                        className={`${base} ${errorClass}`}
+                        value={(val as string) || ''}
+                        onChange={e => handleInputChange(input.id, e.target.value)}
+                    />
+                );
+            case 'time':
+                return (
+                    <input
+                        id={`field-${input.id}`}
+                        type="time"
+                        className={`${base} ${errorClass}`}
+                        value={(val as string) || ''}
+                        onChange={e => handleInputChange(input.id, e.target.value)}
+                    />
+                );
+            default:
+                return null;
+        }
+    };
+
+    if (success) {
+        return (
+            <div className="text-center py-10 animate-fade-in">
+                <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-200 dark:shadow-green-900/30">
+                    <CheckCircle size={38} className="text-white" />
+                </div>
+                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-3">
+                    You're Registered! 🎉
+                </h2>
+                <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mx-auto mb-2">
+                    {successMessage || 'Your registration has been submitted successfully.'}
+                </p>
+                {registrationType === 'group' && groupEmails.length > 0 && (
+                    <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-left max-w-sm mx-auto border border-indigo-100 dark:border-indigo-800/40">
+                        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">Group Members Registered</p>
+                        <ul className="space-y-1">
+                            {groupEmails.map((email, i) => (
+                                <li key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                    <Check size={13} className="text-green-500 shrink-0" />
+                                    {email}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+                <button
+                    id="back-to-event-btn"
+                    onClick={() => router.push(`/events/${eventSlug}`)}
+                    className="mt-8 px-8 py-3 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white font-bold rounded-2xl shadow-lg shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                >
+                    Back to Event
+                </button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="animate-fade-in">
+            {/* Registration type badge */}
+            <div className="flex items-center gap-3 mb-6">
+                <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${
+                    registrationType === 'group'
+                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/40'
+                        : 'bg-blue-50 dark:bg-blue-900/20 text-[#3D518C] dark:text-blue-400 border-blue-100 dark:border-blue-800/40'
+                }`}>
+                    {registrationType === 'group' ? <Users size={14} /> : <User size={14} />}
+                    {registrationType === 'group' ? `Group Registration · ${groupEmails.length} member${groupEmails.length !== 1 ? 's' : ''}` : 'Individual Registration'}
+                </div>
+                {registrationType === 'group' && (
+                    <button type="button" onClick={onBack} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline transition-colors">
+                        Edit members
+                    </button>
+                )}
+            </div>
+
+            {/* Group members summary */}
+            {registrationType === 'group' && groupEmails.length > 0 && (
+                <div className="mb-6 bg-gray-50 dark:bg-gray-800/60 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/60">
+                    <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Registering these members</p>
+                    <div className="flex flex-wrap gap-2">
+                        {groupEmails.map((email, i) => (
+                            <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-full text-xs font-semibold text-gray-700 dark:text-gray-300 shadow-sm">
+                                <Mail size={10} className="text-gray-400" />
+                                {email}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Error banner */}
+            {error && (
+                <div className="mb-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex gap-3">
+                    <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+                </div>
+            )}
+
+            {/* Validation summary */}
+            {Object.keys(validationErrors).length > 0 && touched.size > 0 && (
+                <div className="mb-5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4 flex gap-3">
+                    <AlertCircle size={18} className="text-amber-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                        Please fill in all required fields before submitting.
+                    </p>
+                </div>
+            )}
+
+            <form id="event-order-form" onSubmit={handleSubmit} className="space-y-6">
+                {formData.sections.map((section, sIdx) => (
+                    <div key={section.id} className="bg-white dark:bg-gray-800/60 rounded-3xl border border-gray-100 dark:border-gray-700/60 overflow-hidden shadow-sm">
+                        {/* Section header */}
+                        <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700/60 bg-gradient-to-r from-gray-50 to-transparent dark:from-gray-800/40 dark:to-transparent">
+                            <div className="flex items-center gap-3">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] flex items-center justify-center shrink-0 shadow-md">
+                                    <span className="text-white text-xs font-bold">{sIdx + 1}</span>
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white text-base">{section.title}</h3>
+                                    {section.description && (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{section.description}</p>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Section inputs */}
+                        <div className="p-6 space-y-6">
+                            {section.inputs.map(input => (
+                                <div key={input.id} className="space-y-2">
+                                    <label htmlFor={`field-${input.id}`} className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-200">
+                                        {input.question}
+                                        {input.required && (
+                                            <span className="text-red-500 text-base leading-none">*</span>
+                                        )}
+                                    </label>
+                                    {renderInput(input)}
+                                    {touched.has(input.id) && validationErrors[input.id] && (
+                                        <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
+                                            <AlertCircle size={11} />
+                                            {validationErrors[input.id]}
+                                        </p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                    <button
+                        type="button"
+                        id="form-back-btn"
+                        onClick={onBack}
+                        className="flex items-center gap-2 px-5 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+                    >
+                        <ChevronLeft size={16} />
+                        Back
+                    </button>
+                    <button
+                        type="submit"
+                        id="submit-registration-btn"
+                        disabled={isSubmitting}
+                        className="flex-1 flex items-center justify-center gap-2.5 py-3.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:from-[#2e3d6e] hover:to-[#4a57a1] disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-2xl transition-all duration-200 shadow-lg shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <Loader size={16} className="animate-spin" />
+                                Submitting...
+                            </>
+                        ) : (
+                            <>
+                                Submit Registration
+                                <ArrowRight size={16} />
+                            </>
+                        )}
+                    </button>
+                </div>
+            </form>
+        </div>
+    );
+}
+
+// ─── Main Registration Flow ──────────────────────────────────────────────────
+
+export default function RegistrationFlow({
+    eventId,
+    eventTitle,
+    eventSlug,
+    orderFormId,
+    formData,
+}: RegistrationFlowProps) {
+    const [step, setStep] = useState<Step>('choose-type');
+    const [registrationType, setRegistrationType] = useState<RegistrationType>('individual');
+    const [groupEmails, setGroupEmails] = useState<string[]>([]);
+
+    const handleTypeSelect = (type: RegistrationType) => {
+        setRegistrationType(type);
+        if (type === 'individual') {
+            setStep('fill-form');
+        } else {
+            setStep('group-members');
+        }
+    };
+
+    const handleGroupContinue = (emails: string[]) => {
+        setGroupEmails(emails);
+        setStep('fill-form');
+    };
+
+    const handleBack = () => {
+        if (step === 'fill-form') {
+            if (registrationType === 'group') {
+                setStep('group-members');
+            } else {
+                setStep('choose-type');
+            }
+        } else if (step === 'group-members') {
+            setStep('choose-type');
+        }
+    };
+
+    return (
+        <div className="min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] relative overflow-x-hidden">
+            {/* Ambient glows */}
+            <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0" />
+            <div className="fixed bottom-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-400/10 dark:bg-purple-600/10 rounded-full blur-[120px] pointer-events-none z-0" />
+
+            <div className="relative z-10 max-w-2xl mx-auto px-4 py-10 sm:py-14">
+
+                {/* Event title header */}
+                <div className="text-center mb-8">
+                    <span className="inline-block px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4 shadow-sm">
+                        Event Registration
+                    </span>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                        {eventTitle}
+                    </h1>
+                </div>
+
+                {/* Step indicator */}
+                <StepIndicator currentStep={step} type={registrationType} />
+
+                {/* Card */}
+                <div className="bg-white dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl dark:shadow-black/20 p-6 sm:p-10">
+                    {step === 'choose-type' && (
+                        <ChooseTypeStep onSelect={handleTypeSelect} />
+                    )}
+                    {step === 'group-members' && (
+                        <GroupMembersStep
+                            onBack={handleBack}
+                            onContinue={handleGroupContinue}
+                        />
+                    )}
+                    {step === 'fill-form' && (
+                        <OrderFormStep
+                            formData={formData}
+                            eventId={eventId}
+                            orderFormId={orderFormId}
+                            registrationType={registrationType}
+                            groupEmails={groupEmails}
+                            onBack={handleBack}
+                            eventSlug={eventSlug}
+                        />
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
