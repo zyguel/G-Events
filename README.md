@@ -12,6 +12,7 @@
 * [Contribution Guidelines](#-contribution-guidelines)
 * [Commit Standards](#-commit-standards)
 * [Pull Request Process](#-pull-request-process)
+* [Security Policy](#-security-policy)
 * [License](#-license)
 
 ---
@@ -345,6 +346,14 @@ The script will:
     * *Note: PRs targeting `main` will be closed.*
 4.  **Description:** Clearly describe the problem you are solving and the solution you implemented.
 5.  **Review:** Wait for code review. Address any comments or requested changes.
+
+---
+
+## 🔐 Security Policy
+
+For vulnerability reporting, disclosure process, response SLAs, and supported-version guidance, see [SECURITY.md](SECURITY.md).
+
+Please use private disclosure channels for security issues and avoid filing public security bug reports.
 
 ---
 
