@@ -23,6 +23,10 @@ export function badRequest(error: string) {
     return NextResponse.json<ErrorPayload>({ success: false, error }, { status: HTTP_STATUS.BAD_REQUEST })
 }
 
+export function conflict(error: string) {
+    return NextResponse.json<ErrorPayload>({ success: false, error }, { status: HTTP_STATUS.CONFLICT })
+}
+
 export function unauthorized(error: string = 'Unauthorized') {
     return NextResponse.json<ErrorPayload>({ success: false, error }, { status: HTTP_STATUS.UNAUTHORIZED })
 }

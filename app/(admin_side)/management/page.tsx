@@ -22,6 +22,24 @@ interface Role {
     name: string;
 }
 
+function getMemberIdentity(member: TeamMember): string {
+    return `${member.id}:${member.email.trim().toLowerCase()}`;
+}
+
+function dedupeMembers(members: TeamMember[]): TeamMember[] {
+    const seen = new Set<string>();
+
+    return members.filter((member) => {
+        const identity = getMemberIdentity(member);
+        if (seen.has(identity)) {
+            return false;
+        }
+
+        seen.add(identity);
+        return true;
+    });
+}
+
 // Thin guard wrapper — keeps all useState/useEffect hooks inside ManagementPageInner
 // to avoid React Rules of Hooks violations from conditional returns
 export default function ManagementPage() {
@@ -88,7 +106,7 @@ function ManagementPageInner() {
                 const result = await response.json();
 
                 if (result.success) {
-                    setMembers(result.data);
+                    setMembers(dedupeMembers(result.data));
                 } else {
                     showToast(result.error || 'Failed to fetch users', 'error');
                 }
@@ -153,7 +171,7 @@ function ManagementPageInner() {
                 const result = await response.json();
 
                 if (result.success) {
-                    setMembers([...members, result.data]);
+                    setMembers((currentMembers) => dedupeMembers([...currentMembers, result.data]));
                     showToast('User invited successfully!', 'success');
                     handleCloseModal();
                 } else {
@@ -634,7 +652,7 @@ function ManagementPageInner() {
         setRoleToDelete(null);
     };
 
-    const filteredMembers = members.filter(member =>
+    const filteredMembers = dedupeMembers(members).filter(member =>
         member.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         member.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -748,7 +766,7 @@ function ManagementPageInner() {
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredMembers.map((member) => (
                                         <div
-                                            key={member.id}
+                                            key={getMemberIdentity(member)}
                                             className="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
                                         >
                                             {/* Avatar and Name */}

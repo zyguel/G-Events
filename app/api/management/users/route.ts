@@ -1,10 +1,10 @@
 import { NextRequest } from 'next/server';
-import { getOrganizationUsers, inviteUser } from '@/lib/db';
+import { getOrganizationUsers, inviteUser, UserAlreadyInOrganizationError } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
 import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
 import { logger } from '@/lib/logger';
-import { badRequest, created, internalServerError, ok } from '@/lib/utils/apiResponse';
+import { badRequest, conflict, created, internalServerError, ok } from '@/lib/utils/apiResponse';
 
 async function getActiveOrganizationId(request: NextRequest): Promise<number | null> {
     const preferredOrganizationId = parseOrganizationId(
@@ -43,20 +43,27 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json();
         const { name, email, roleId } = body;
+        const normalizedName = typeof name === 'string' ? name.trim() : '';
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+        const parsedRoleId = Number.parseInt(String(roleId), 10);
 
-        if (!name || !email || !roleId) {
+        if (!normalizedName || !normalizedEmail || Number.isNaN(parsedRoleId)) {
             return badRequest('Missing required fields: name, email, roleId');
         }
 
         const newUser = await inviteUser(
-            name,
-            email,
-            Number.parseInt(roleId, 10),
+            normalizedName,
+            normalizedEmail,
+            parsedRoleId,
             activeOrganizationId
         );
 
         return created(newUser);
     } catch (error: unknown) {
+        if (error instanceof UserAlreadyInOrganizationError) {
+            return conflict(error.message);
+        }
+
         logger.error('api/management/users', 'Error inviting user', error);
         return internalServerError(error instanceof Error ? error.message : 'Failed to invite user');
     }

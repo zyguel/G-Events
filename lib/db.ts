@@ -8,6 +8,13 @@ async function getSupabase(): Promise<SupabaseClient> {
     return await createClient();
 }
 
+export class UserAlreadyInOrganizationError extends Error {
+    constructor() {
+        super('A user with this email is already a member of this organization.');
+        this.name = 'UserAlreadyInOrganizationError';
+    }
+}
+
 // Users
 export async function getOrganizationUsers(organizationId: number = DEFAULT_ORG_ID): Promise<UserWithRole[]> {
     const supabase = await getSupabase();
@@ -62,26 +69,41 @@ export async function inviteUser(
 ): Promise<UserWithRole> {
     // Normalize email to avoid case-mismatch between auth session and stored value
     const normalizedEmail = email.trim().toLowerCase();
+    const normalizedName = name.trim();
 
     const supabase = await getSupabase();
 
     // Check if user already exists (case-insensitive)
-    const { data: existingUser } = await supabase
+    const { data: existingUser, error: existingUserError } = await supabase
         .from('User')
         .select('id')
         .ilike('email', normalizedEmail)
         .limit(1)
-        .single();
+        .maybeSingle();
+
+    if (existingUserError) throw existingUserError;
 
     let userId: number;
 
     if (existingUser) {
         userId = existingUser.id;
+
+        // Reject duplicate organization membership for the same email.
+        const { data: existingMembership, error: membershipLookupError } = await supabase
+            .from('OrganizationUserRole')
+            .select('id')
+            .eq('organization_id', organizationId)
+            .eq('user_id', userId)
+            .limit(1)
+            .maybeSingle();
+
+        if (membershipLookupError) throw membershipLookupError;
+        if (existingMembership) throw new UserAlreadyInOrganizationError();
     } else {
         // Create new user — always store lowercase email
         const { data: newUser, error: userError } = await supabase
             .from('User')
-            .insert([{ name, email: normalizedEmail }])
+            .insert([{ name: normalizedName, email: normalizedEmail }])
             .select()
             .single();
 
@@ -111,8 +133,8 @@ export async function inviteUser(
 
     return {
         id: userId,
-        name,
-        email,
+        name: normalizedName,
+        email: normalizedEmail,
         role: role?.name || 'Unknown',
         roleId,
         avatar: '/icons/' + (Math.random() > 0.5 ? 'woman.png' : 'man.png'),
