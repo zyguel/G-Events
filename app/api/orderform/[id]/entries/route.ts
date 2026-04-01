@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase-server';
+import { createAdminClient } from '@/lib/supabase-server';
 import { sendEmail } from '@/lib/emailProvider';
 
 type FormInput = {
@@ -27,7 +27,7 @@ function isValidSubmittedFormData(value: unknown): value is SubmittedFormData {
 
 /**
  * POST /api/orderform/[id]/entries
- * Submit a form entry
+ * Submit a form entry — supports both Individual and Group registrations.
  */
 export async function POST(
     request: NextRequest,
@@ -36,11 +36,12 @@ export async function POST(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { eventId, formData, userEmail, registrationId } = body;
+        const { eventId, formData, userEmail, registrationId, ticketId, groupEmails } = body;
 
         const numericFormId = parseInt(id, 10);
         const numericEventId = parseInt(String(eventId), 10);
         const numericRegistrationId = registrationId ? parseInt(String(registrationId), 10) : null;
+        const numericTicketId = ticketId ? parseInt(String(ticketId), 10) : null;
 
         if (isNaN(numericFormId) || isNaN(numericEventId)) {
             return NextResponse.json(
@@ -56,14 +57,7 @@ export async function POST(
             );
         }
 
-        if (registrationId && Number.isNaN(numericRegistrationId)) {
-            return NextResponse.json(
-                { error: 'Invalid registrationId' },
-                { status: 400 }
-            );
-        }
-
-        const supabase = await createClient();
+        const supabase = await createAdminClient();
 
         // Verify order form belongs to the same event.
         const { data: existingForm, error: formError } = await supabase
@@ -94,18 +88,12 @@ export async function POST(
         const requiredInputIds = new Set(
             templateInputs.filter((input) => input.required && input.id).map((input) => input.id as string)
         );
-        const templateInputIds = new Set(
-            templateInputs.filter((input) => input.id).map((input) => input.id as string)
-        );
 
         const submittedSections = formData.sections ?? [];
-        const submittedInputs = submittedSections.flatMap((s) => s.inputs || []);
-        const submittedInputIds = new Set(
-            submittedInputs.filter((input) => input.id).map((input) => input.id as string)
-        );
+        const submittedInputs = submittedSections.flatMap((s: FormSection) => s.inputs || []);
 
         const missingRequired = Array.from(requiredInputIds).filter((inputId) => {
-            const submitted = submittedInputs.find((input) => input.id === inputId);
+            const submitted = submittedInputs.find((input: FormInput) => input.id === inputId);
             if (!submitted) return true;
             if (Array.isArray(submitted.answer)) return submitted.answer.length === 0;
             return submitted.answer === undefined || submitted.answer === null || submitted.answer === '';
@@ -118,17 +106,9 @@ export async function POST(
             );
         }
 
-        const unknownFields = Array.from(submittedInputIds).filter((inputId) => !templateInputIds.has(inputId));
-        if (unknownFields.length > 0) {
-            return NextResponse.json(
-                { error: 'Submitted fields do not match form definition', unknownFieldIds: unknownFields },
-                { status: 400 }
-            );
-        }
-
-        // Pull user identity from submitted form data when not explicitly provided.
+        // Identity Extraction
         const getAnswer = (identifier: string): string | null => {
-            const hit = submittedInputs.find((input) => input.fieldIdentifier === identifier);
+            const hit = submittedInputs.find((input: FormInput) => input.fieldIdentifier === identifier);
             if (!hit) return null;
             if (Array.isArray(hit.answer)) return hit.answer[0] ? String(hit.answer[0]) : null;
             if (hit.answer === undefined || hit.answer === null) return null;
@@ -150,7 +130,7 @@ export async function POST(
             );
         }
 
-        // Load event + ticket context for auto registration/waitlist.
+        // Load event + ticket context
         const { data: eventRow, error: eventError } = await supabase
             .from('Event')
             .select('id, title, allow_waitlist')
@@ -158,24 +138,16 @@ export async function POST(
             .single();
 
         if (eventError || !eventRow) {
-            return NextResponse.json(
-                { error: 'Event not found for this form submission' },
-                { status: 404 }
-            );
+            return NextResponse.json({ error: 'Event not found' }, { status: 404 });
         }
 
         const { data: ticketRows, error: ticketError } = await supabase
             .from('Ticket')
-            .select('id, name, price, available_quantity, created_at')
-            .eq('event_id', numericEventId)
-            .order('price', { ascending: true })
-            .order('created_at', { ascending: true });
+            .select('id, name, price, available_quantity')
+            .eq('event_id', numericEventId);
 
         if (ticketError) {
-            return NextResponse.json(
-                { error: ticketError.message },
-                { status: 500 }
-            );
+            return NextResponse.json({ error: ticketError.message }, { status: 500 });
         }
 
         const tickets = ticketRows || [];
@@ -183,252 +155,264 @@ export async function POST(
         let usageByTicket = new Map<number, number>();
 
         if (ticketIds.length > 0) {
-            const { data: regUsageRows, error: regUsageError } = await supabase
+            const { data: regUsageRows } = await supabase
                 .from('Registration')
                 .select('ticket_id, status')
                 .eq('event_id', numericEventId)
                 .in('ticket_id', ticketIds);
 
-            if (regUsageError) {
-                return NextResponse.json(
-                    { error: regUsageError.message },
-                    { status: 500 }
-                );
-            }
-
             for (const row of regUsageRows || []) {
                 const status = String((row as any).status || '').toLowerCase();
                 if (status === 'rejected' || status === 'cancelled') continue;
                 const tid = Number((row as any).ticket_id);
-                if (Number.isNaN(tid)) continue;
-                usageByTicket.set(tid, (usageByTicket.get(tid) || 0) + 1);
+                if (!Number.isNaN(tid)) {
+                    usageByTicket.set(tid, (usageByTicket.get(tid) || 0) + 1);
+                }
             }
         }
 
-        const firstAvailableTicket = tickets.find((ticket: any) => {
-            const total = Number(ticket.available_quantity ?? 0);
-            if (!total || total <= 0) return false;
-            const used = usageByTicket.get(Number(ticket.id)) || 0;
-            return used < total;
-        }) || null;
+        console.log('[Registration] API Request Body - eventId:', eventId, 'ticketId:', ticketId, 'registrationId:', registrationId);
+        console.log('[Registration] API Request Body - userEmail:', userEmail, 'groupEmails:', groupEmails);
+        
+        const normalizedPrimaryEmail = resolvedEmail.trim().toLowerCase();
+        const groupEmailsList: string[] = Array.isArray(groupEmails)
+            ? groupEmails.map((e: string) => e?.trim().toLowerCase()).filter(Boolean)
+            : [];
 
-        // Resolve/create user row for registration linkage.
+        const uniqueEmails = Array.from(
+            new Set([normalizedPrimaryEmail, ...groupEmailsList])
+        ).filter(Boolean);
+
+        const totalRequested = uniqueEmails.length;
+        const isGroupRegistration = totalRequested > 1;
+
+        console.log('[Registration] Normalized Primary:', normalizedPrimaryEmail);
+        console.log('[Registration] Group Emails List (Cleaned):', groupEmailsList);
+        console.log('[Registration] Final Unique Emails to Register:', uniqueEmails);
+        console.log('[Registration] isGroup:', isGroupRegistration, '| count:', totalRequested);
+
+        // ── Check for Duplicate Registrations ───────────────────────────────
+        // We look for existing active (not cancelled/rejected) registrations for these emails in this event.
         const { data: userRows, error: userLookupError } = await supabase
             .from('User')
-            .select('id')
-            .ilike('email', resolvedEmail)
-            .limit(1);
+            .select('id, email')
+            .in('email', uniqueEmails);
 
         if (userLookupError) {
-            return NextResponse.json(
-                { error: userLookupError.message },
-                { status: 500 }
-            );
+            console.error('[Registration] User lookup failed:', userLookupError);
+            return NextResponse.json({ error: 'Database check failed: ' + userLookupError.message }, { status: 500 });
         }
 
-        let userId: number | null = null;
-        if (userRows && userRows.length > 0) {
-            userId = userRows[0].id;
-        } else {
-            const { data: insertedUser, error: createUserError } = await supabase
-                .from('User')
-                .insert([{ name: resolvedName, email: resolvedEmail }])
-                .select('id')
-                .single();
-            if (createUserError) {
-                return NextResponse.json(
-                    { error: createUserError.message },
-                    { status: 500 }
-                );
-            }
-            userId = insertedUser.id;
-        }
+        const userMap = new Map((userRows || []).map(u => [u.id, u.email]));
+        const userIds = Array.from(userMap.keys());
 
-        let createdRegistrationId: number | null = null;
-        let submissionMode: 'registered' | 'waitlisted' = 'registered';
-        let assignedTicketName = firstAvailableTicket?.name || 'General Admission';
-
-        if (firstAvailableTicket && userId) {
-            // Prevent duplicate active registrations for the same user/event.
-            const { data: existingRegs, error: dupCheckError } = await supabase
+        if (userIds.length > 0) {
+            const { data: existingRegs, error: dupError } = await supabase
                 .from('Registration')
-                .select('id, status')
+                .select('user_id, status')
                 .eq('event_id', numericEventId)
-                .eq('user_id', userId)
-                .limit(1);
+                .in('user_id', userIds);
 
-            if (dupCheckError) {
-                return NextResponse.json(
-                    { error: dupCheckError.message },
-                    { status: 500 }
-                );
+            if (dupError) {
+                console.error('[Registration] Duplicate check failed:', dupError);
+                return NextResponse.json({ error: 'Database check failed: ' + dupError.message }, { status: 500 });
             }
 
-            const hasActiveRegistration = (existingRegs || []).some((row: any) => {
-                const status = String(row.status || '').toLowerCase();
-                return status !== 'rejected' && status !== 'cancelled';
+            const activeDuplicates = (existingRegs || []).filter((reg: any) => {
+                const s = String(reg.status || '').toLowerCase();
+                return s !== 'cancelled' && s !== 'rejected';
             });
 
-            if (hasActiveRegistration) {
-                return NextResponse.json(
-                    { error: 'You already have an active registration for this event.' },
-                    { status: 409 }
-                );
+            if (activeDuplicates.length > 0) {
+                const dupEmails = activeDuplicates.map((reg: any) => userMap.get(reg.user_id));
+                const uniqueDupEmails = Array.from(new Set(dupEmails)).filter(Boolean);
+                if (uniqueDupEmails.length > 0) {
+                    return NextResponse.json({
+                        error: `The following email(s) are already registered for this event: ${uniqueDupEmails.join(', ')}`,
+                        duplicateEmails: uniqueDupEmails
+                    }, { status: 400 });
+                }
             }
+        }
 
-            let registrationInsertError: any = null;
-            let insertedRegistration: any = null;
+        // ── Ticket selection ────────────────────────────────────────────────
+        let selectedTicket = null;
+        if (numericTicketId) {
+            selectedTicket = tickets.find((t: any) => t.id === numericTicketId) || null;
+            if (selectedTicket) {
+                const total = Number(selectedTicket.available_quantity ?? 0);
+                const used = usageByTicket.get(Number(selectedTicket.id)) || 0;
+                if (total > 0 && (used + totalRequested) > total) {
+                    selectedTicket = null; // No space for whole group
+                }
+            }
+        }
 
-            // First attempt: write richer fields.
-            const registrationPayloadRich = {
-                event_id: numericEventId,
-                user_id: userId,
-                ticket_id: firstAvailableTicket.id,
-                status: 'pending',
-                final_price_paid: Number(firstAvailableTicket.price ?? 0),
-                has_checked_in: false,
-                is_waitlisted: false,
-            };
-            const richInsert = await supabase
-                .from('Registration')
-                .insert([registrationPayloadRich])
-                .select('id')
-                .single();
+        if (!selectedTicket && !numericTicketId) {
+            selectedTicket = tickets.find((t: any) => {
+                const total = Number(t.available_quantity ?? 0);
+                const used = usageByTicket.get(Number(t.id)) || 0;
+                return total === 0 || (used + totalRequested) <= total;
+            }) || null;
+        }
 
-            if (richInsert.error) {
-                // Fallback for stricter/older schemas.
-                const registrationPayloadMinimal = {
-                    event_id: numericEventId,
-                    user_id: userId,
-                    ticket_id: firstAvailableTicket.id,
-                    status: 'pending',
-                };
-                const minimalInsert = await supabase
-                    .from('Registration')
-                    .insert([registrationPayloadMinimal])
+        let primaryRegistrationId: number | null = null;
+        let submissionMode: 'registered' | 'waitlisted' = 'registered';
+        let assignedTicketName = selectedTicket?.name || 'General Admission';
+
+        if (selectedTicket) {
+            // ── Step 1: Verify ALL emails exist in the User table ────────────
+            for (const email of uniqueEmails) {
+                const { data: userCheck } = await supabase
+                    .from('User')
                     .select('id')
-                    .single();
-                registrationInsertError = minimalInsert.error;
-                insertedRegistration = minimalInsert.data;
-            } else {
-                registrationInsertError = null;
-                insertedRegistration = richInsert.data;
-            }
+                    .ilike('email', email)
+                    .limit(1);
 
-            if (registrationInsertError || !insertedRegistration) {
-                return NextResponse.json(
-                    { error: registrationInsertError?.message || 'Failed to create registration' },
-                    { status: 500 }
-                );
-            }
-            createdRegistrationId = insertedRegistration.id;
-            submissionMode = 'registered';
-        } else if (eventRow.allow_waitlist) {
-            submissionMode = 'waitlisted';
-
-            const { data: existingWaitlist, error: waitDupError } = await supabase
-                .from('WaitlistEntry')
-                .select('id')
-                .eq('event_id', numericEventId)
-                .eq('email', resolvedEmail)
-                .limit(1);
-
-            if (waitDupError) {
-                return NextResponse.json(
-                    { error: waitDupError.message },
-                    { status: 500 }
-                );
-            }
-
-            if (!existingWaitlist || existingWaitlist.length === 0) {
-                const { error: waitlistInsertError } = await supabase
-                    .from('WaitlistEntry')
-                    .insert([
-                        {
-                            event_id: numericEventId,
-                            email: resolvedEmail,
-                            status: 'pending',
-                            ticket_id: tickets[0]?.id || null,
-                        },
-                    ]);
-                if (waitlistInsertError) {
+                if (!userCheck || userCheck.length === 0) {
                     return NextResponse.json(
-                        { error: waitlistInsertError.message },
-                        { status: 500 }
+                        { error: `The email ${email} is not registered in our system. All registrants must have an account.` },
+                        { status: 400 }
                     );
                 }
             }
+
+            let registrationGroupId: number | null = null;
+            if (isGroupRegistration) {
+                const { data: groupData, error: groupErr } = await supabase
+                    .from('RegistrationGroup')
+                    .insert([{ 
+                        event_id: numericEventId,
+                        ticket_id: selectedTicket.id
+                    }])
+                    .select('id')
+                    .single();
+                
+                if (groupErr) {
+                    console.error('[Registration] Group creation failed:', groupErr);
+                    return NextResponse.json({ error: 'Failed to initialize group: ' + groupErr.message }, { status: 500 });
+                }
+                registrationGroupId = groupData.id;
+                console.log('[Registration] Created RegistrationGroup, id:', registrationGroupId);
+            }
+
+            // ── Step 2: Insert PRIMARY registrant first ─────────────────────
+            const { data: pUserRows } = await supabase
+                .from('User')
+                .select('id')
+                .ilike('email', normalizedPrimaryEmail)
+                .limit(1);
+
+            const primaryUserId = pUserRows![0].id;
+
+            const { data: pReg, error: pErr } = await supabase
+                .from('Registration')
+                .insert([{
+                    event_id: numericEventId,
+                    user_id: primaryUserId,
+                    ticket_id: selectedTicket.id,
+                    status: 'pending',
+                    final_price_paid: Number(selectedTicket.price ?? 0),
+                    registration_group_id: registrationGroupId
+                }])
+                .select('id')
+                .single();
+
+            if (pErr) {
+                console.error('[Registration] Primary insert failed:', pErr);
+                return NextResponse.json({ error: 'Primary registration failed: ' + pErr.message }, { status: 500 });
+            }
+
+            primaryRegistrationId = pReg.id;
+            console.log('[Registration] Primary reg created, id:', primaryRegistrationId);
+
+            // ── Step 4: Insert each OTHER group member ──────────────────────
+            const otherEmails = uniqueEmails.filter(e => e !== normalizedPrimaryEmail);
+            console.log('[Registration] Other members to register:', otherEmails);
+
+            for (const memberEmail of otherEmails) {
+                // Look up the User row for this member
+                const { data: memberUserRows } = await supabase
+                    .from('User')
+                    .select('id')
+                    .ilike('email', memberEmail)
+                    .limit(1);
+
+                if (!memberUserRows || memberUserRows.length === 0) {
+                    console.warn('[Registration] Skipping unknown member:', memberEmail);
+                    continue;
+                }
+
+                const memberUserId = memberUserRows[0].id;
+
+                const { error: memberErr } = await supabase
+                    .from('Registration')
+                    .insert([{
+                        event_id: numericEventId,
+                        user_id: memberUserId,
+                        ticket_id: selectedTicket.id,
+                        status: 'pending',
+                        final_price_paid: Number(selectedTicket.price ?? 0),
+                        registration_group_id: registrationGroupId,
+                    }]);
+
+                if (memberErr) {
+                    console.error('[Registration] Member insert failed for', memberEmail, ':', memberErr);
+                    return NextResponse.json({ error: 'DB Member Insert Error: ' + memberErr.message }, { status: 500 });
+                } else {
+                    console.log('[Registration] Member registered:', memberEmail);
+                }
+            }
+
+        } else if (eventRow.allow_waitlist) {
+            submissionMode = 'waitlisted';
+            await supabase.from('WaitlistEntry').insert([{
+                event_id: numericEventId,
+                email: resolvedEmail,
+                status: 'pending',
+                ticket_id: numericTicketId || (tickets[0]?.id || null)
+            }]);
         } else {
-            return NextResponse.json(
-                { error: 'Registration is full and waitlist is disabled.' },
-                { status: 409 }
-            );
+            return NextResponse.json({ error: 'Event is full' }, { status: 409 });
         }
 
-        const { data, error } = await supabase
+        // ── Save OrderFormEntry ──────────────────────────────────────────────
+        const { data: entry, error: eErr } = await supabase
             .from('OrderFormEntries')
-            .insert([
-                {
-                    event_id: numericEventId,
-                    order_form_id: numericFormId,
-                    form_data: formData,
-                    user_email: resolvedEmail,
-                    registration_id: createdRegistrationId ?? numericRegistrationId
-                }
-            ])
+            .insert([{
+                event_id: numericEventId,
+                order_form_id: numericFormId,
+                form_data: formData,
+                user_email: resolvedEmail,
+                registration_id: primaryRegistrationId ?? numericRegistrationId
+            }])
             .select()
             .single();
 
-        if (error) {
-            console.error('Supabase Error:', error);
-            return NextResponse.json(
-                { error: error.message },
-                { status: 500 }
-            );
-        }
+        if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 });
 
-        // Send post-submission email but do not fail submission if email provider errors.
+        // ── Confirmation email ──────────────────────────────────────────────
         try {
-            if (submissionMode === 'registered') {
-                await sendEmail({
-                    to: resolvedEmail,
-                    subject: `Your ticket for ${eventRow.title}`,
-                    html: `
-                        <p>Hi ${resolvedName},</p>
-                        <p>Your registration for <strong>${eventRow.title}</strong> is received.</p>
-                        <p><strong>Ticket:</strong> ${assignedTicketName}</p>
-                        <p><strong>Reference ID:</strong> ${createdRegistrationId ?? data.id}</p>
-                        <p>Please keep this email for your records. Your QR/check-in details will be shared in follow-up communications.</p>
-                    `,
-                });
-            } else {
-                await sendEmail({
-                    to: resolvedEmail,
-                    subject: `You are on the waitlist for ${eventRow.title}`,
-                    html: `
-                        <p>Hi ${resolvedName},</p>
-                        <p>Thanks for your interest in <strong>${eventRow.title}</strong>.</p>
-                        <p>You have been added to the waitlist. We will notify you by email if a slot opens.</p>
-                    `,
-                });
-            }
-        } catch (emailError) {
-            console.warn('Order form submission succeeded but email failed:', emailError);
+            await sendEmail({
+                to: resolvedEmail,
+                subject: submissionMode === 'registered'
+                    ? `Your ticket for ${eventRow.title}`
+                    : `Waitlist: ${eventRow.title}`,
+                html: `<p>Hi ${resolvedName}, your ${submissionMode} request for ${eventRow.title} was successful.</p>`
+            });
+        } catch (err) {
+            console.warn('Email failed', err);
         }
 
-        const successMessage = submissionMode === 'registered'
-            ? 'Registration received. Your ticket details were sent via email.'
-            : 'Event is full. You have been added to the waitlist and notified by email.';
+        return NextResponse.json({
+            success: true,
+            data: entry,
+            mode: submissionMode,
+            message: submissionMode === 'registered' ? 'Registration successful!' : 'Added to waitlist.'
+        }, { status: 201 });
 
-        return NextResponse.json(
-            { success: true, data, entryId: data.id, mode: submissionMode, message: successMessage },
-            { status: 201 }
-        );
     } catch (e) {
-        console.error('Error saving form entry:', e);
-        return NextResponse.json(
-            { error: e instanceof Error ? e.message : 'An unexpected error occurred' },
-            { status: 500 }
-        );
+        console.error(e);
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

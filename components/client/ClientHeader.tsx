@@ -83,7 +83,7 @@ const ClientHeader = () => {
 
     return (
         <>
-            <header className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-gray-800 dark:text-gray-100 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-50 border-b border-gray-200/50 dark:border-gray-700/50 transition-all duration-300">
+            <header className="relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl text-gray-800 dark:text-gray-100 h-16 flex items-center justify-between px-4 md:px-8 shadow-sm z-50 border-b border-gray-200/50 dark:border-gray-700/50 transition-all duration-300">
                 {/* Logo */}
                 <div className="flex items-center gap-3">
                     <div className="relative">

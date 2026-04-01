@@ -1,9 +1,10 @@
 import { notFound } from "next/navigation";
 import ClientHeader from "@/components/client/ClientHeader";
 import RegistrationFlow from "@/components/public/RegistrationFlow";
-import { getEventById } from "@/lib/actions/events";
+import { getPublishedEventById } from "@/lib/actions/events";
 import { getOrderFormsByEventPublic } from "@/lib/actions/orderForm";
 import { buildEventSlug } from "@/lib/slug";
+import { createClient, createAdminClient } from "@/lib/supabase-server";
 import Link from "next/link";
 import { ChevronLeft, ClipboardX } from "lucide-react";
 
@@ -20,12 +21,57 @@ export default async function PublicEventRegistrationPage({
   const numericEventId = parseInt(eventId.split("-").pop() ?? "", 10);
   if (isNaN(numericEventId)) return notFound();
 
-  const event = await getEventById(numericEventId);
+  const event = await getPublishedEventById(numericEventId);
   if (!event) return notFound();
 
   const formsResult = await getOrderFormsByEventPublic(numericEventId);
   const form = formsResult?.data?.[0];
   const eventSlug = buildEventSlug(event.title, event.id);
+
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  const userEmail = user?.email || undefined;
+
+  const adminClient = await createAdminClient();
+  const { data: ticketRows } = await adminClient
+      .from("Ticket")
+      .select("id, name, price, available_quantity")
+      .eq("event_id", numericEventId)
+      .order("price", { ascending: true })
+      .order("id", { ascending: true });
+
+  const eventTickets = ticketRows || [];
+  const ticketIds = eventTickets.map((t: any) => t.id);
+  const usageByTicket = new Map<number, number>();
+
+  if (ticketIds.length > 0) {
+      const { data: regUsageRows } = await adminClient
+          .from("Registration")
+          .select("ticket_id, status")
+          .eq("event_id", numericEventId)
+          .in("ticket_id", ticketIds);
+
+      for (const row of regUsageRows || []) {
+          const status = String((row as any).status || "").toLowerCase();
+          if (status === "rejected" || status === "cancelled") continue;
+          const tid = Number((row as any).ticket_id);
+          if (Number.isNaN(tid)) continue;
+          usageByTicket.set(tid, (usageByTicket.get(tid) || 0) + 1);
+      }
+  }
+
+  const enrichedTickets = eventTickets.map((t: any) => {
+      const total = Number(t.available_quantity ?? 0);
+      const used = usageByTicket.get(Number(t.id)) || 0;
+      return {
+          id: t.id,
+          name: t.name,
+          price: t.price,
+          available_quantity: total,
+          used_quantity: used,
+          is_sold_out: total > 0 && used >= total,
+      };
+  });
 
   return (
     <div className="min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
@@ -71,6 +117,8 @@ export default async function PublicEventRegistrationPage({
           eventSlug={eventSlug}
           orderFormId={form.id}
           formData={form.form_data || { sections: [] }}
+          userEmail={userEmail}
+          tickets={enrichedTickets}
         />
       )}
     </div>

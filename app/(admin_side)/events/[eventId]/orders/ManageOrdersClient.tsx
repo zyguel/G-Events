@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Filter, Plus, MoreVertical, Users } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Search, Filter, Plus, MoreVertical, Users, Trash2, CheckCircle, XCircle } from "lucide-react";
 import ForReviewTab from "./tabs/ForReviewTab";
 import { EventSummary } from "@/lib/types";
 import { useLocale } from "@/contexts/LocaleContext";
+import Modal, { ModalFooter } from "@/components/admin/Modal";
 
 // Type for orders coming from the backend
 export interface Order {
@@ -18,6 +20,7 @@ export interface Order {
     time: string;
     addOnStatus: string;
     proofOfPayment?: string | null;
+    groupMemberEmails?: string[];
 }
 
 // Fallback mock data for local/demo events
@@ -32,7 +35,8 @@ const initialMockOrders: Order[] = [
         date: "May 18, 2025",
         time: "8:01 PM",
         addOnStatus: "Claimed",
-        proofOfPayment: "https://placehold.co/600x400/png"
+        proofOfPayment: "https://placehold.co/600x400/png",
+        groupMemberEmails: [],
     },
     {
         id: "20240502000001",
@@ -44,7 +48,8 @@ const initialMockOrders: Order[] = [
         date: "May 18, 2025",
         time: "8:01 PM",
         addOnStatus: "Unclaimed",
-        proofOfPayment: "https://placehold.co/600x400/png"
+        proofOfPayment: "https://placehold.co/600x400/png",
+        groupMemberEmails: ["vinzvillarin@gmail.com", "sophiavillarin@gmail.com"],
     },
     {
         id: "20240502000003",
@@ -56,7 +61,8 @@ const initialMockOrders: Order[] = [
         date: "May 18, 2025",
         time: "8:01 PM",
         addOnStatus: "Unclaimed",
-        proofOfPayment: "https://placehold.co/600x400/png"
+        proofOfPayment: "https://placehold.co/600x400/png",
+        groupMemberEmails: ["vinzvillarin@gmail.com", "sophiavillarin@gmail.com"],
     },
     {
         id: "20240502000004",
@@ -132,6 +138,11 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
     const [showFilters, setShowFilters] = useState(false);
     const [isLoading, setIsLoading] = useState(!event.id.startsWith("evt-"));
     const [error, setError] = useState<string | null>(null);
+    const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
 
     // Load orders from backend for real events
     useEffect(() => {
@@ -171,6 +182,31 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
 
         return () => controller.abort();
     }, [event.id]);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = () => {
+            setActiveMenuId(null);
+            setMenuPosition(null);
+        };
+        const handleCloseOnScroll = () => {
+            if (activeMenuId) {
+                setActiveMenuId(null);
+                setMenuPosition(null);
+            }
+        };
+
+        if (activeMenuId) {
+            window.addEventListener("click", handleClickOutside);
+            window.addEventListener("scroll", handleCloseOnScroll, true);
+            window.addEventListener("resize", handleCloseOnScroll);
+        }
+        return () => {
+            window.removeEventListener("click", handleClickOutside);
+            window.removeEventListener("scroll", handleCloseOnScroll, true);
+            window.removeEventListener("resize", handleCloseOnScroll);
+        };
+    }, [activeMenuId]);
 
     // Filter orders based on search query
     const filteredOrders = orders.filter(order => {
@@ -244,6 +280,34 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                     order.id === orderId ? { ...order, status: "Pending" } : order
                 )
             );
+        }
+    };
+
+    const handleDeleteOrder = async () => {
+        if (!orderToDelete) return;
+        const orderId = orderToDelete.id;
+
+        // Optimistic update
+        setOrders(prev => prev.filter(order => order.id !== orderId));
+        setIsDeleteModalOpen(false);
+        setOrderToDelete(null);
+
+        if (event.id.startsWith("evt-")) return;
+
+        try {
+            setIsDeleting(true);
+            const res = await fetch(`/api/events/${event.id}/orders/${orderId}`, {
+                method: "DELETE",
+            });
+            if (!res.ok) {
+                throw new Error(`Failed to delete order (${res.status})`);
+            }
+        } catch (e) {
+            console.error("Error deleting order:", e);
+            setError(e instanceof Error ? e.message : "Failed to delete order");
+            // Note: In a real app, you might want to re-fetch the orders to restore the deleted one if it failed
+        } finally {
+            setIsDeleting(false);
         }
     };
 
@@ -347,7 +411,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                             </div>
 
                             {/* Orders Table */}
-                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                                 {isLoading ? (
                                     <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                         {t('Loading orders...')}
@@ -402,8 +466,10 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                         {order.name}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                                        {order.email}
+                                                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                                        <div className="text-[13px] font-medium text-gray-700 dark:text-gray-300">
+                                                            {order.email}
+                                                        </div>
                                                     </td>
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                         {order.ticketType}
@@ -430,10 +496,80 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                                         {order.addOnStatus}
                                                     </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                                        <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-600 rounded-lg transition-colors">
+                                                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-right relative ${activeMenuId === order.id ? 'z-50' : 'z-auto'}`}>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (activeMenuId === order.id) {
+                                                                    setActiveMenuId(null);
+                                                                    setMenuPosition(null);
+                                                                } else {
+                                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                                    setMenuPosition({
+                                                                        top: rect.bottom + 4,
+                                                                        left: rect.right - 192,
+                                                                    });
+                                                                    setActiveMenuId(order.id);
+                                                                }
+                                                            }}
+                                                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
+                                                        >
                                                             <MoreVertical size={16} className="text-gray-400" />
                                                         </button>
+
+                                                        {activeMenuId === order.id && menuPosition && typeof document !== 'undefined' && createPortal(
+                                                            <div
+                                                                style={{
+                                                                    position: 'fixed',
+                                                                    top: `${menuPosition.top}px`,
+                                                                    left: `${menuPosition.left}px`,
+                                                                }}
+                                                                className="w-48 bg-white dark:bg-gray-800 rounded-xl shadow-xl border border-gray-100 dark:border-gray-700 z-[100] overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            >
+                                                                <div className="py-1">
+                                                                    {order.status === "Pending" && (
+                                                                        <>
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    handleConfirmOrder(order.id);
+                                                                                    setActiveMenuId(null);
+                                                                                    setMenuPosition(null);
+                                                                                }}
+                                                                                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+                                                                            >
+                                                                                <CheckCircle size={16} />
+                                                                                Confirm Registration
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    handleRejectOrder(order.id);
+                                                                                    setActiveMenuId(null);
+                                                                                    setMenuPosition(null);
+                                                                                }}
+                                                                                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-yellow-600 dark:text-yellow-400 hover:bg-yellow-50 dark:hover:bg-yellow-900/20 transition-colors"
+                                                                            >
+                                                                                <XCircle size={16} />
+                                                                                Reject Registration
+                                                                            </button>
+                                                                        </>
+                                                                    )}
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setOrderToDelete(order);
+                                                                            setIsDeleteModalOpen(true);
+                                                                            setActiveMenuId(null);
+                                                                            setMenuPosition(null);
+                                                                        }}
+                                                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                                                                    >
+                                                                        <Trash2 size={16} />
+                                                                        Delete Order
+                                                                    </button>
+                                                                </div>
+                                                            </div>,
+                                                            document.body
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}
@@ -466,6 +602,42 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                     )}
                 </div>
             </main>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                isOpen={isDeleteModalOpen}
+                onClose={() => !isDeleting && setIsDeleteModalOpen(false)}
+                title={t('Delete Registration')}
+                subtitle={t('This action cannot be undone')}
+                size="sm"
+            >
+                <div className="space-y-4">
+                    <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30 flex items-start gap-4">
+                        <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center flex-shrink-0">
+                            <Trash2 size={20} className="text-red-600 dark:text-red-400" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-semibold text-red-800 dark:text-red-200">
+                                {t('Are you sure you want to delete this registration?')}
+                            </p>
+                            <p className="text-xs text-red-600/80 dark:text-red-400/80 mt-1">
+                                {t('Registration ID')}: {orderToDelete?.id}<br />
+                                {t('Name')}: {orderToDelete?.name}
+                            </p>
+                        </div>
+                    </div>
+
+                    <ModalFooter
+                        onCancel={() => setIsDeleteModalOpen(false)}
+                        onSave={handleDeleteOrder}
+                        saveText={t('Delete Registration')}
+                        cancelText={t('Cancel')}
+                        isDanger={true}
+                        isSubmitting={isDeleting}
+                        submitType="button"
+                    />
+                </div>
+            </Modal>
         </div>
     );
 }

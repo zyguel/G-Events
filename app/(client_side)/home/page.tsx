@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import ClientHeader from '@/components/client/ClientHeader';
-import { getEvents } from '@/lib/actions/events';
+import { getPublishedEvents } from '@/lib/actions/events';
 import { buildEventSlug } from '@/lib/slug';
 import Link from 'next/link';
 import { Calendar, MapPin, ChevronRight, Clock } from 'lucide-react';
@@ -25,14 +25,13 @@ export default function ClientDashboardPage() {
 
         const loadEvents = async () => {
             try {
-                // Fetch published events
-                const data = await getEvents();
+                // Fetch published events (already filtered server-side)
+                const data = await getPublishedEvents();
 
                 const now = new Date();
 
-                // Filter and map events
+                // Map events
                 const mappedFilteredEvents = data
-                    .filter((e: any) => e.is_published)
                     .map((e: any) => {
                         const startDate = e.event_start_at ? new Date(e.event_start_at) : null;
                         const endDate = e.event_end_at ? new Date(e.event_end_at) : null;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-server";
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 
 type UiStatus = "Confirmed" | "Pending" | "Rejected";
@@ -26,7 +26,7 @@ export async function GET(
             );
         }
 
-        const supabase = await createClient();
+        const supabase = await createAdminClient();
 
         // 1. Fetch registrations for the event with joined User and Ticket
         const { data: regRows, error: regErr } = await supabase
@@ -90,7 +90,23 @@ export async function GET(
             }
         });
 
-        // 4. Map into UI-friendly orders
+        // 4. Build group member email lookup
+        // Group registrations share the same registration_group_id (which equals the primary registration's id)
+        const groupIdToEmails = new Map<number, string[]>();
+        for (const r of registrations) {
+            const groupId = r.registration_group_id;
+            if (groupId) {
+                if (!groupIdToEmails.has(groupId)) {
+                    groupIdToEmails.set(groupId, []);
+                }
+                const memberEmail = (r as any).User?.email;
+                if (memberEmail) {
+                    groupIdToEmails.get(groupId)!.push(memberEmail);
+                }
+            }
+        }
+
+        // 5. Map into UI-friendly orders
         const formatterDate = new Intl.DateTimeFormat("en-US", {
             month: "short",
             day: "numeric",
@@ -103,17 +119,25 @@ export async function GET(
 
         const orders = registrations.map((r: any) => {
             const createdAt = r.created_at ? new Date(r.created_at) : null;
+            const isGroup = !!r.registration_group_id;
+            // For group leader (registration_group_id === own id), show all member emails
+            // For group members, show the group's emails too
+            const groupMemberEmails = isGroup
+                ? groupIdToEmails.get(r.registration_group_id) || []
+                : [];
+
             return {
                 id: r.id.toString(),
                 name: r.User?.name || "Unknown",
                 email: r.User?.email || "",
                 ticketType: r.Ticket?.name || "General Admission",
-                registrationType: r.registration_group_id ? "Group" : "Individual",
+                registrationType: isGroup ? "Group" : "Individual",
                 status: mapStatusToUi(r.status || ""),
                 date: createdAt ? formatterDate.format(createdAt) : "",
                 time: createdAt ? formatterTime.format(createdAt) : "",
                 addOnStatus: addOnByRegId.get(r.id) ? "Claimed" : "Unclaimed",
                 proofOfPayment: paymentByRegId.get(r.id) || null,
+                groupMemberEmails,
             };
         });
 

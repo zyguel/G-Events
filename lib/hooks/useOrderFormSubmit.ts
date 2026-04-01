@@ -19,7 +19,7 @@ interface UseOrderFormSubmitReturn {
     error: string | null;
     success: boolean;
     successMessage: string | null;
-    submit: (formData: OrderFormData, answers: FormAnswers) => Promise<void>;
+    submit: (formData: OrderFormData, answers: FormAnswers, ticketId?: number | null, groupEmails?: string[]) => Promise<void>;
 }
 
 export function useOrderFormSubmit({
@@ -35,7 +35,9 @@ export function useOrderFormSubmit({
 
     const submit = useCallback(async (
         formData: OrderFormData,
-        answers: FormAnswers
+        answers: FormAnswers,
+        ticketId?: number | null,
+        groupEmails?: string[]
     ) => {
         setIsSubmitting(true);
         setError(null);
@@ -62,6 +64,8 @@ export function useOrderFormSubmit({
                     formData: enrichedFormData,
                     userEmail,
                     registrationId,
+                    ticketId,
+                    groupEmails,
                 }),
             });
             const result = await response.json().catch(() => ({}));

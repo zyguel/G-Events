@@ -14,7 +14,7 @@ interface TicketsClientProps {
   event: EventSummary;
 }
 
-const initialTicketForm: Omit<Ticket, "id" | "createdAt"> = {
+const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
   name: "",
   type: "paid",
   quantity: 0,
@@ -221,7 +221,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                           )}
                         </div>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                          {ticket.quantity} available • {ticket.startDate} to {ticket.endDate}
+                          {Math.max(0, ticket.quantity - ticket.usedQuantity)} / {ticket.quantity} available • {ticket.startDate} to {ticket.endDate}
                         </p>
                       </div>
 

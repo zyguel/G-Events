@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
     User, Users, Plus, X, ChevronRight, ChevronLeft,
     Mail, AlertCircle, CheckCircle, Loader, ArrowRight,
-    Check
+    Check, Ticket
 } from 'lucide-react';
 import { OrderFormData } from '@/lib/types';
 import { useOrderFormSubmit } from '@/lib/hooks/useOrderFormSubmit';
@@ -22,10 +22,19 @@ interface RegistrationFlowProps {
     eventSlug: string;
     orderFormId: number;
     formData: OrderFormData;
+    userEmail?: string;
+    tickets: {
+        id: number;
+        name: string;
+        price: number;
+        available_quantity: number;
+        used_quantity: number;
+        is_sold_out: boolean;
+    }[];
 }
 
 type RegistrationType = 'individual' | 'group';
-type Step = 'choose-type' | 'group-members' | 'fill-form';
+type Step = 'identify' | 'choose-ticket' | 'choose-type' | 'group-members' | 'fill-form';
 
 // ─── Email validation helper ──────────────────────────────────────────────────
 
@@ -35,19 +44,19 @@ function isValidEmail(email: string) {
 
 // ─── Step Indicator ──────────────────────────────────────────────────────────
 
-function StepIndicator({ currentStep, type }: { currentStep: Step; type: RegistrationType }) {
+function StepIndicator({ currentStep, type, userEmail }: { currentStep: Step; type: RegistrationType; userEmail?: string }) {
     const steps = type === 'group'
-        ? ['Choose Type', 'Add Members', 'Fill Form']
-        : ['Choose Type', 'Fill Form'];
+        ? (userEmail ? ['Tickets', 'Type', 'Members', 'Form'] : ['Identify', 'Tickets', 'Type', 'Members', 'Form'])
+        : (userEmail ? ['Tickets', 'Type', 'Form'] : ['Identify', 'Tickets', 'Type', 'Form']);
 
     const stepKeys: Step[] = type === 'group'
-        ? ['choose-type', 'group-members', 'fill-form']
-        : ['choose-type', 'fill-form'];
+        ? (userEmail ? ['choose-ticket', 'choose-type', 'group-members', 'fill-form'] : ['identify', 'choose-ticket', 'choose-type', 'group-members', 'fill-form'])
+        : (userEmail ? ['choose-ticket', 'choose-type', 'fill-form'] : ['identify', 'choose-ticket', 'choose-type', 'fill-form']);
 
     const currentIndex = stepKeys.indexOf(currentStep);
 
     return (
-        <div className="flex items-center justify-center gap-0 mb-10">
+        <div className="flex items-center justify-center gap-0 mb-10 overflow-x-auto pb-4 no-scrollbar">
             {steps.map((label, i) => {
                 const isDone = i < currentIndex;
                 const isActive = i === currentIndex;
@@ -55,7 +64,7 @@ function StepIndicator({ currentStep, type }: { currentStep: Step; type: Registr
                     <div key={label} className="flex items-center">
                         <div className="flex flex-col items-center gap-1.5">
                             <div className={`
-                                w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300
+                                w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300
                                 ${isDone
                                     ? 'bg-[#3D518C] text-white shadow-md shadow-blue-200 dark:shadow-blue-900/30'
                                     : isActive
@@ -63,16 +72,16 @@ function StepIndicator({ currentStep, type }: { currentStep: Step; type: Registr
                                     : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500'
                                 }
                             `}>
-                                {isDone ? <Check size={15} strokeWidth={3} /> : <span>{i + 1}</span>}
+                                {isDone ? <Check size={14} strokeWidth={3} /> : <span>{i + 1}</span>}
                             </div>
-                            <span className={`text-xs font-semibold whitespace-nowrap ${
+                            <span className={`text-[10px] sm:text-xs font-semibold whitespace-nowrap ${
                                 isActive ? 'text-[#3D518C] dark:text-blue-400' : isDone ? 'text-[#3D518C]/70 dark:text-blue-500/70' : 'text-gray-400 dark:text-gray-500'
                             }`}>
                                 {label}
                             </span>
                         </div>
                         {i < steps.length - 1 && (
-                            <div className={`w-16 sm:w-24 h-0.5 mt-[-18px] mx-2 transition-all duration-500 ${
+                            <div className={`w-8 sm:w-16 h-0.5 mt-[-18px] mx-1 sm:mx-2 transition-all duration-500 ${
                                 i < currentIndex ? 'bg-[#3D518C]' : 'bg-gray-200 dark:bg-gray-700'
                             }`} />
                         )}
@@ -83,12 +92,195 @@ function StepIndicator({ currentStep, type }: { currentStep: Step; type: Registr
     );
 }
 
+// ─── Step 00: Identify (Guest) ──────────────────────────────────────────────────
+function IdentifyStep({
+    onVerified
+}: {
+    onVerified: (email: string) => void;
+}) {
+    const [email, setEmail] = useState('');
+    const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
+    const [errorMsg, setErrorMsg] = useState('');
+
+    const handleVerify = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!isValidEmail(email)) {
+            setErrorMsg('Please enter a valid email');
+            setStatus('error');
+            return;
+        }
+
+        setStatus('loading');
+        try {
+            const res = await fetch('/api/users/check-accounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emails: [email] })
+            });
+            const data = await res.json();
+            
+            if (data.data?.[email]) {
+                onVerified(email);
+            } else {
+                setErrorMsg('This email is not registered. Registration is restricted to members.');
+                setStatus('error');
+            }
+        } catch (err) {
+            setErrorMsg('Verification failed. Please try again.');
+            setStatus('error');
+        }
+    };
+
+    return (
+        <div className="animate-fade-in py-4">
+            <div className="text-center mb-10">
+                <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                    <Mail size={32} className="text-[#3D518C] dark:text-blue-400" />
+                </div>
+                <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
+                    Verify Your Account
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto leading-relaxed">
+                    Event registration is restricted to existing members. Please enter your registered email to continue.
+                </p>
+            </div>
+
+            <form onSubmit={handleVerify} className="max-w-sm mx-auto space-y-5">
+                <div className="space-y-2">
+                    <label className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest px-1">
+                        Email Address
+                    </label>
+                    <div className={`
+                        flex items-center gap-3 bg-white dark:bg-gray-800 border-2 rounded-2xl px-5 py-4 transition-all duration-200
+                        ${status === 'error'
+                            ? 'border-red-300 dark:border-red-700 ring-4 ring-red-50 dark:ring-red-900/10'
+                            : 'border-gray-100 dark:border-gray-800 focus-within:border-[#3D518C] focus-within:ring-4 focus-within:ring-blue-50 dark:focus-within:ring-blue-900/10'}
+                    `}>
+                        <Mail size={18} className="text-gray-300" />
+                        <input
+                            type="email"
+                            value={email}
+                            onChange={(e) => { setEmail(e.target.value); setStatus('idle'); }}
+                            placeholder="your@email.com"
+                            className="flex-1 bg-transparent text-sm font-medium text-gray-900 dark:text-white outline-none placeholder-gray-300"
+                            autoFocus
+                        />
+                    </div>
+                    {status === 'error' && (
+                        <div className="flex items-center gap-2 px-1 text-red-500 animate-slide-up">
+                            <AlertCircle size={14} />
+                            <p className="text-xs font-semibold">{errorMsg}</p>
+                        </div>
+                    )}
+                </div>
+
+                <button
+                    type="submit"
+                    disabled={status === 'loading'}
+                    className="w-full flex items-center justify-center gap-2 py-5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white font-black rounded-2xl shadow-xl shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                    {status === 'loading' ? (
+                        <Loader size={20} className="animate-spin" />
+                    ) : (
+                        <>
+                            Verify & Continue
+                            <ChevronRight size={20} className="mt-0.5" />
+                        </>
+                    )}
+                </button>
+            </form>
+        </div>
+    );
+}
+
+// ─── Step 0: Choose Ticket Type ────────────────────────────────────────────────
+function ChooseTicketStep({
+    tickets,
+    onSelect,
+}: {
+    tickets: RegistrationFlowProps['tickets'];
+    onSelect: (ticketId: number) => void;
+}) {
+    const [hovered, setHovered] = useState<number | null>(null);
+
+    return (
+        <div className="animate-fade-in">
+            <div className="text-center mb-8">
+                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
+                    Select Your Ticket
+                </h2>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Choose the ticket type that best fits your needs.
+                </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4">
+                {tickets.map((ticket) => (
+                    <button
+                        key={ticket.id}
+                        onClick={() => !ticket.is_sold_out && onSelect(ticket.id)}
+                        onMouseEnter={() => setHovered(ticket.id)}
+                        onMouseLeave={() => setHovered(null)}
+                        disabled={ticket.is_sold_out}
+                        className={`
+                            relative group flex items-center justify-between p-6 rounded-2xl border-2 transition-all duration-300
+                            ${ticket.is_sold_out 
+                                ? 'opacity-60 grayscale border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40 cursor-not-allowed' 
+                                : hovered === ticket.id
+                                    ? 'border-[#3D518C] bg-gradient-to-r from-[#3D518C]/5 to-[#5C6BC0]/5 shadow-lg shadow-blue-100 dark:shadow-blue-900/20 scale-[1.01]'
+                                    : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/60 hover:shadow-md'}
+                        `}
+                    >
+                        <div className="flex items-center gap-4">
+                            <div className={`
+                                w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300
+                                ${ticket.is_sold_out 
+                                    ? 'bg-gray-200 dark:bg-gray-700' 
+                                    : hovered === ticket.id 
+                                        ? 'bg-[#3D518C] text-white shadow-md' 
+                                        : 'bg-blue-50 dark:bg-blue-900/20 text-[#3D518C] dark:text-blue-400'}
+                            `}>
+                                <Ticket size={24} />
+                            </div>
+                            <div className="text-left">
+                                <p className="text-base font-bold text-gray-900 dark:text-white">{ticket.name}</p>
+                                {ticket.is_sold_out ? (
+                                    <p className="text-xs font-semibold text-red-500 dark:text-red-400">Sold out</p>
+                                ) : (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {ticket.available_quantity > 0 ? `${ticket.available_quantity - ticket.used_quantity} remaining` : 'Unlimited'}
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-lg font-black text-[#3D518C] dark:text-blue-400">
+                                {ticket.price === 0 ? 'FREE' : `$${ticket.price}`}
+                            </p>
+                            {!ticket.is_sold_out && (
+                                <div className={`
+                                    flex items-center gap-1 text-xs font-bold transition-all duration-300
+                                    ${hovered === ticket.id ? 'text-[#3D518C] dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}
+                                `}>
+                                    Select <ChevronRight size={14} />
+                                </div>
+                            )}
+                        </div>
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 // ─── Step 1: Choose Registration Type ────────────────────────────────────────
 
 function ChooseTypeStep({
     onSelect,
+    onBack,
 }: {
     onSelect: (type: RegistrationType) => void;
+    onBack: () => void;
 }) {
     const [hovered, setHovered] = useState<RegistrationType | null>(null);
 
@@ -103,7 +295,7 @@ function ChooseTypeStep({
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
                 {/* Individual */}
                 <button
                     id="reg-type-individual"
@@ -182,6 +374,18 @@ function ChooseTypeStep({
                     </div>
                 </button>
             </div>
+
+            {/* Back button */}
+            <div className="flex justify-center border-t border-gray-100 dark:border-gray-800 pt-6">
+                <button
+                    type="button"
+                    onClick={onBack}
+                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+                >
+                    <ChevronLeft size={16} />
+                    Back to ticket selection
+                </button>
+            </div>
         </div>
     );
 }
@@ -189,14 +393,54 @@ function ChooseTypeStep({
 // ─── Step 2: Group Members ────────────────────────────────────────────────────
 
 function GroupMembersStep({
+    initialEmails,
     onBack,
     onContinue,
 }: {
+    initialEmails: string[];
     onBack: () => void;
     onContinue: (emails: string[]) => void;
 }) {
-    const [emails, setEmails] = useState<string[]>(['']);
-    const [errors, setErrors] = useState<string[]>(['']);
+    const [emails, setEmails] = useState<string[]>(initialEmails.length > 0 ? initialEmails : ['']);
+    const [errors, setErrors] = useState<string[]>(new Array(initialEmails.length > 0 ? initialEmails.length : 1).fill(''));
+    const [verificationStatus, setVerificationStatus] = useState<Record<string, 'loading' | 'verified' | 'unverified' | 'idle'>>({});
+
+    const checkEmails = async (emailsToCheck: string[]) => {
+        const validEmails = emailsToCheck.filter(e => isValidEmail(e.trim()));
+        if (validEmails.length === 0) return;
+
+        // Set status to loading for target emails
+        const nextStatus = { ...verificationStatus };
+        validEmails.forEach(e => nextStatus[e.toLowerCase()] = 'loading');
+        setVerificationStatus(nextStatus);
+
+        try {
+            const res = await fetch('/api/users/check-accounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emails: validEmails })
+            });
+            const data = await res.json();
+            
+            setVerificationStatus(prev => {
+                const updated = { ...prev };
+                validEmails.forEach(e => {
+                    updated[e.toLowerCase()] = data.data?.[e] ? 'verified' : 'unverified';
+                });
+                return updated;
+            });
+        } catch (error) {
+            console.error('Failed to verify emails:', error);
+            // Revert loading if failed
+            setVerificationStatus(prev => {
+                const updated = { ...prev };
+                validEmails.forEach(e => {
+                    if (updated[e.toLowerCase()] === 'loading') updated[e.toLowerCase()] = 'idle';
+                });
+                return updated;
+            });
+        }
+    };
 
     const handleEmailChange = (index: number, value: string) => {
         const updated = [...emails];
@@ -205,6 +449,20 @@ function GroupMembersStep({
         const updatedErrors = [...errors];
         updatedErrors[index] = '';
         setErrors(updatedErrors);
+
+        // Reset status for this email
+        setVerificationStatus(prev => {
+            const next = { ...prev };
+            delete next[value.toLowerCase()];
+            return next;
+        });
+    };
+
+    const handleBlur = (index: number) => {
+        const email = emails[index].trim();
+        if (isValidEmail(email)) {
+            checkEmails([email]);
+        }
     };
 
     const addEmail = () => {
@@ -235,6 +493,22 @@ function GroupMembersStep({
         });
 
         setErrors(newErrors);
+        
+        // Final verification check
+        const allVerified = emails.every(e => verificationStatus[e.toLowerCase()] === 'verified');
+        if (!allVerified) {
+            const finalErrors = [...newErrors];
+            emails.forEach((e, i) => {
+                if (verificationStatus[e.toLowerCase()] === 'unverified') {
+                    finalErrors[i] = 'Email is not registered in the system';
+                } else if (verificationStatus[e.toLowerCase()] === 'loading') {
+                    finalErrors[i] = 'Checking...';
+                }
+            });
+            setErrors(finalErrors);
+            return;
+        }
+
         if (newErrors.some(e => e !== '')) return;
 
         onContinue(emails.map(e => e.trim()));
@@ -271,10 +545,26 @@ function GroupMembersStep({
                                 type="email"
                                 value={email}
                                 onChange={(e) => handleEmailChange(index, e.target.value)}
+                                onBlur={() => handleBlur(index)}
                                 placeholder={`Member ${index + 1} email address`}
                                 className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none"
                             />
                             <div className="flex items-center gap-1.5">
+                                {verificationStatus[email.toLowerCase()] === 'loading' && (
+                                    <Loader size={15} className="text-blue-500 animate-spin" />
+                                )}
+                                {verificationStatus[email.toLowerCase()] === 'verified' && (
+                                    <div className="flex items-center gap-1 text-green-500">
+                                        <Check size={14} className="stroke-[3]" />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Known</span>
+                                    </div>
+                                )}
+                                {verificationStatus[email.toLowerCase()] === 'unverified' && (
+                                    <div className="flex items-center gap-1 text-red-500">
+                                        <AlertCircle size={14} />
+                                        <span className="text-[10px] font-bold uppercase tracking-wider">Unknown</span>
+                                    </div>
+                                )}
                                 <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full shrink-0">
                                     #{index + 1}
                                 </span>
@@ -355,6 +645,8 @@ function OrderFormStep({
     groupEmails,
     onBack,
     eventSlug,
+    userEmail,
+    ticketId,
 }: {
     formData: OrderFormData;
     eventId: number;
@@ -363,6 +655,8 @@ function OrderFormStep({
     groupEmails: string[];
     onBack: () => void;
     eventSlug: string;
+    userEmail?: string;
+    ticketId: number | null;
 }) {
     const router = useRouter();
     const [answers, setAnswers] = useState<FormAnswers>({});
@@ -372,6 +666,8 @@ function OrderFormStep({
     const { isSubmitting, error, success, successMessage, submit } = useOrderFormSubmit({
         eventId,
         orderFormId,
+        userEmail,
+        registrationId: undefined, // Will be created on server or passed if we had it
     });
 
     const handleInputChange = useCallback((inputId: string, value: string | string[]) => {
@@ -403,8 +699,8 @@ function OrderFormStep({
         setValidationErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
 
-        await submit(formData, answers);
-    }, [formData, answers, submit]);
+        await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : []);
+    }, [formData, answers, submit, ticketId, registrationType, groupEmails]);
 
     const renderInput = (input: { id: string; question: string; type: string; required: boolean; options?: string[] }) => {
         const base = "w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3D518C]/30 focus:border-[#3D518C] dark:focus:border-blue-500 transition-all duration-200";
@@ -730,10 +1026,19 @@ export default function RegistrationFlow({
     eventSlug,
     orderFormId,
     formData,
+    userEmail: initialUserEmail,
+    tickets
 }: RegistrationFlowProps) {
-    const [step, setStep] = useState<Step>('choose-type');
+    const [userEmail, setUserEmail] = useState<string | undefined>(initialUserEmail);
+    const [step, setStep] = useState<Step>(initialUserEmail ? 'choose-ticket' : 'identify');
     const [registrationType, setRegistrationType] = useState<RegistrationType>('individual');
+    const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
     const [groupEmails, setGroupEmails] = useState<string[]>([]);
+
+    const handleTicketSelect = (ticketId: number) => {
+        setSelectedTicketId(ticketId);
+        setStep('choose-type');
+    };
 
     const handleTypeSelect = (type: RegistrationType) => {
         setRegistrationType(type);
@@ -758,6 +1063,10 @@ export default function RegistrationFlow({
             }
         } else if (step === 'group-members') {
             setStep('choose-type');
+        } else if (step === 'choose-type') {
+            setStep('choose-ticket');
+        } else if (step === 'choose-ticket' && !initialUserEmail) {
+            setStep('identify');
         }
     };
 
@@ -780,15 +1089,27 @@ export default function RegistrationFlow({
                 </div>
 
                 {/* Step indicator */}
-                <StepIndicator currentStep={step} type={registrationType} />
+                <StepIndicator currentStep={step} type={registrationType} userEmail={userEmail} />
 
                 {/* Card */}
                 <div className="bg-white dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl dark:shadow-black/20 p-6 sm:p-10">
+                    {step === 'identify' && (
+                        <IdentifyStep
+                            onVerified={(email) => {
+                                setUserEmail(email);
+                                setStep('choose-ticket');
+                            }}
+                        />
+                    )}
+                    {step === 'choose-ticket' && (
+                        <ChooseTicketStep tickets={tickets} onSelect={handleTicketSelect} />
+                    )}
                     {step === 'choose-type' && (
-                        <ChooseTypeStep onSelect={handleTypeSelect} />
+                        <ChooseTypeStep onSelect={handleTypeSelect} onBack={handleBack} />
                     )}
                     {step === 'group-members' && (
                         <GroupMembersStep
+                            initialEmails={groupEmails}
                             onBack={handleBack}
                             onContinue={handleGroupContinue}
                         />
@@ -802,6 +1123,8 @@ export default function RegistrationFlow({
                             groupEmails={groupEmails}
                             onBack={handleBack}
                             eventSlug={eventSlug}
+                            userEmail={userEmail}
+                            ticketId={selectedTicketId}
                         />
                     )}
                 </div>

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase-server';
+import { createClient, createAdminClient } from '@/lib/supabase-server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { UserWithRole, OrganizationRole, OrganizationPermission } from './supabase';
 import { logAuditEntry } from '@/lib/actions/audit';
@@ -539,16 +539,45 @@ export async function deleteEvent(eventId: number, organizationId?: number) {
 // ─── Tickets ──────────────────────────────────────────────────────────────────
 
 export async function getTickets(eventId: number) {
-    const supabase = await getSupabase();
+    const supabase = await createClient();
+    const adminSupabase = await createAdminClient();
 
-    const { data, error } = await supabase
+    // 1. Fetch tickets (use standard client)
+    const { data: tickets, error: ticketError } = await supabase
         .from('Ticket')
         .select('*')
         .eq('event_id', eventId)
         .order('id', { ascending: true });
 
-    if (error) throw error;
-    return data || [];
+    if (ticketError) throw ticketError;
+    if (!tickets || tickets.length === 0) return [];
+
+    // 2. Fetch registration counts (use admin client to bypass RLS)
+    const ticketIds = tickets.map(t => t.id);
+    const { data: registrations, error: regError } = await adminSupabase
+        .from('Registration')
+        .select('ticket_id, status')
+        .eq('event_id', eventId)
+        .in('ticket_id', ticketIds);
+
+    if (regError) throw regError;
+
+    // 3. Aggregate counts
+    const usageMap = new Map<number, number>();
+    for (const reg of registrations || []) {
+        const status = String(reg.status || '').toLowerCase();
+        if (status === 'rejected' || status === 'cancelled') continue;
+        const tid = Number(reg.ticket_id);
+        if (!isNaN(tid)) {
+            usageMap.set(tid, (usageMap.get(tid) || 0) + 1);
+        }
+    }
+
+    // 4. Enrich ticket data
+    return tickets.map(t => ({
+        ...t,
+        used_quantity: usageMap.get(t.id) || 0
+    }));
 }
 
 export async function getTicket(ticketId: number) {

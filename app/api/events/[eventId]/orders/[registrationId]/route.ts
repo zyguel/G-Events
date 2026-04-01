@@ -66,3 +66,54 @@ export async function PATCH(
     }
 }
 
+export async function DELETE(
+    _request: NextRequest,
+    { params }: { params: Promise<{ eventId: string; registrationId: string }> }
+) {
+    try {
+        await requireUser();
+        const { eventId, registrationId } = await params;
+        const id = parseInt(eventId, 10);
+        const regId = parseInt(registrationId, 10);
+
+        if (isNaN(id) || isNaN(regId)) {
+            return NextResponse.json(
+                { success: false, error: "Invalid eventId or registrationId" },
+                { status: 400 }
+            );
+        }
+
+        const supabase = await createClient();
+        
+        // Delete registration
+        const { error } = await supabase
+            .from("Registration")
+            .delete()
+            .eq("id", regId)
+            .eq("event_id", id);
+
+        if (error) {
+            console.error("ManageOrders DELETE: deletion failed", error);
+            return NextResponse.json(
+                { success: false, error: error.message },
+                { status: 500 }
+            );
+        }
+
+        // Revalidate relevant paths
+        revalidatePath(`/events/${id}/orders`);
+        revalidatePath(`/events/${id}/reports`);
+
+        return NextResponse.json({ success: true });
+    } catch (e: any) {
+        const authError = getAuthErrorResponse(e);
+        if (authError) return authError;
+
+        console.error("ManageOrders DELETE error:", e);
+        return NextResponse.json(
+            { success: false, error: e?.message || "Unexpected error" },
+            { status: 500 }
+        );
+    }
+}
+

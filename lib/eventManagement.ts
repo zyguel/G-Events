@@ -21,6 +21,7 @@ export interface Ticket {
   visibility: 'visible' | 'hidden';
   minQuantity: number;
   maxQuantity: number;
+  usedQuantity: number;
   createdAt: string;
 }
 
@@ -106,6 +107,7 @@ function mapDbTicket(row: any): Ticket {
     visibility: 'visible',
     minQuantity: row.min_per_user ?? 1,
     maxQuantity: row.max_per_user ?? 1,
+    usedQuantity: row.used_quantity ?? 0,
     createdAt: row.created_at ?? new Date().toISOString(),
   };
 }
@@ -169,7 +171,7 @@ function mapDbPromotion(row: any): PromoCode {
 // FRONTEND → DB MAPPERS
 // ============================================================================
 
-function ticketToDb(ticket: Partial<Omit<Ticket, 'id' | 'createdAt'>>) {
+function ticketToDb(ticket: Partial<Omit<Ticket, 'id' | 'createdAt' | 'usedQuantity'>>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fields: any = {};
   if (ticket.name !== undefined) fields.name = ticket.name;
@@ -241,7 +243,7 @@ export async function getTickets(eventId: string): Promise<Ticket[]> {
   return rows.map(mapDbTicket);
 }
 
-export async function createTicket(eventId: string, ticket: Omit<Ticket, 'id' | 'createdAt'>): Promise<Ticket> {
+export async function createTicket(eventId: string, ticket: Omit<Ticket, 'id' | 'createdAt' | 'usedQuantity'>): Promise<Ticket> {
   const numId = resolveEventId(eventId);
   const body = ticketToDb(ticket);
   const row = await apiFetch<any>(`/api/events/${numId}/tickets`, {

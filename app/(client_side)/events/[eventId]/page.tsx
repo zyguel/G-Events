@@ -9,7 +9,7 @@ import {
     ChevronLeft, ArrowRight, Loader2, AlertTriangle, Ticket, Users, Check
 } from 'lucide-react';
 import ClientHeader from '@/components/client/ClientHeader';
-import { getEventById } from '@/lib/actions/events';
+import { getPublishedEventById } from '@/lib/actions/events';
 import { getTickets, Ticket as TicketType } from '@/lib/eventManagement';
 
 interface AgendaSlot {
@@ -57,8 +57,8 @@ export default function ClientEventDetailPage() {
     useEffect(() => {
         if (isNaN(eventId)) { setLoading(false); return; }
         Promise.all([
-            getEventById(eventId),
-            getTickets(String(eventId)),
+            getPublishedEventById(eventId),
+            getTickets(String(eventId)).catch(() => []),
         ]).then(([eventData, ticketData]) => {
             setEvent(eventData ?? null);
             setTickets(ticketData.filter(t => t.visibility === 'visible'));
@@ -131,12 +131,12 @@ export default function ClientEventDetailPage() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
 
                     {/* Back button */}
-                    <button
-                        onClick={() => router.back()}
+                    <Link
+                        href="/home"
                         className="absolute top-5 left-5 flex items-center gap-1.5 text-white/80 hover:text-white text-sm font-medium bg-black/30 hover:bg-black/50 backdrop-blur-sm px-3 py-2 rounded-xl transition-all duration-200"
                     >
                         <ChevronLeft size={16} /> Back
-                    </button>
+                    </Link>
 
                     {/* Title overlay */}
                     <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
@@ -286,7 +286,9 @@ export default function ClientEventDetailPage() {
                                                     <p className="font-bold text-gray-900 dark:text-white text-[15px] leading-snug">{ticket.name}</p>
                                                     <div className="flex items-center gap-1.5 mt-1.5">
                                                         <Users size={13} className="text-gray-400" />
-                                                        <span className="text-xs text-gray-500 dark:text-gray-400">{ticket.quantity} slots available</span>
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {Math.max(0, ticket.quantity - ticket.usedQuantity)} slots available
+                                                        </span>
                                                     </div>
                                                 </div>
                                                 <span className={`shrink-0 text-sm font-extrabold px-3 py-1 rounded-full ${isFree

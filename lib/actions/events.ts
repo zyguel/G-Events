@@ -231,6 +231,91 @@ export async function getEvents() {
     }
 }
 
+/**
+ * Fetch all published events for the client/attendee side.
+ * This does NOT require organization membership — any authenticated user can see published events.
+ */
+export async function getPublishedEvents() {
+    try {
+        const storageClient = await getStorageClient()
+        const { data, error } = await storageClient
+            .from('Event')
+            .select(`
+                id,
+                title,
+                location,
+                event_start_at,
+                event_end_at,
+                is_published,
+                is_visible,
+                capacity,
+                banner_image,
+                objectives,
+                theme,
+                registration_open_at
+            `)
+            .eq('is_published', true)
+            .eq('is_visible', true)
+            .gte('event_end_at', new Date().toISOString())
+            .order('event_start_at', { ascending: true })
+
+        if (error) {
+            console.error('Error fetching published events:', error)
+            return []
+        }
+
+        return data || []
+    } catch (e) {
+        if (isDynamicServerUsageError(e)) {
+            throw e
+        }
+        console.error('Unexpected error fetching published events:', e)
+        return []
+    }
+}
+
+/**
+ * Fetch a specific published event for the client/attendee side by ID.
+ * This does NOT require organization membership.
+ */
+export async function getPublishedEventById(id: number) {
+    try {
+        const storageClient = await getStorageClient()
+
+        const { data, error } = await storageClient
+            .from('Event')
+            .select(`
+                *,
+                AgendaSlot (
+                    id,
+                    title,
+                    description,
+                    speaker_name,
+                    start_time,
+                    end_time,
+                    order
+                )
+            `)
+            .eq('id', id)
+            .eq('is_published', true)
+            .eq('is_visible', true)
+            .single()
+
+        if (error) {
+            console.error(`Error fetching published event ${id}:`, error)
+            return null
+        }
+
+        return data
+    } catch (e) {
+        if (isDynamicServerUsageError(e)) {
+            throw e
+        }
+        console.error(`Unexpected error fetching published event ${id}:`, e)
+        return null
+    }
+}
+
 const fetchEventById = cache(async (id: number, organizationId: number) => {
     const supabase = await createClient();
 
