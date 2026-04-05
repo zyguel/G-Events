@@ -3,7 +3,7 @@ import { createClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 
-type Action = "confirm" | "reject";
+type Action = "confirm" | "reject" | "update";
 
 export async function PATCH(
     request: NextRequest,
@@ -25,19 +25,33 @@ export async function PATCH(
         const body = await request.json().catch(() => ({}));
         const action: Action | undefined = body?.action;
 
-        if (!action || !["confirm", "reject"].includes(action)) {
+        if (!action || !["confirm", "reject", "update"].includes(action)) {
             return NextResponse.json(
                 { success: false, error: "Invalid or missing action" },
                 { status: 400 }
             );
         }
 
-        const newStatus = action === "confirm" ? "confirmed" : "rejected";
-
         const supabase = await createClient();
+        let updateData: any = {};
+
+        if (action === "update") {
+            const { ticketId } = body;
+            if (ticketId) updateData.ticket_id = parseInt(ticketId, 10);
+            
+            if (Object.keys(updateData).length === 0) {
+                return NextResponse.json(
+                    { success: false, error: "No update data provided" },
+                    { status: 400 }
+                );
+            }
+        } else {
+            updateData.status = action === "confirm" ? "confirmed" : "rejected";
+        }
+
         const { error } = await supabase
             .from("Registration")
-            .update({ status: newStatus })
+            .update(updateData)
             .eq("id", regId)
             .eq("event_id", id);
 
@@ -49,7 +63,7 @@ export async function PATCH(
             );
         }
 
-        // Revalidate orders + reports that depend on registration status
+        // Revalidate relevant caches
         revalidatePath(`/events/${id}/orders`);
         revalidatePath(`/events/${id}/reports`);
 
@@ -65,6 +79,7 @@ export async function PATCH(
         );
     }
 }
+
 
 export async function DELETE(
     _request: NextRequest,

@@ -11,9 +11,10 @@ interface ModalProps {
     subtitle?: string;
     children: React.ReactNode;
     size?: "sm" | "md" | "lg" | "xl";
+    bodyClassName?: string;
 }
 
-export default function Modal({ isOpen, onClose, title, subtitle, children, size = "md" }: ModalProps) {
+export default function Modal({ isOpen, onClose, title, subtitle, children, size = "md", bodyClassName }: ModalProps) {
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -71,7 +72,7 @@ export default function Modal({ isOpen, onClose, title, subtitle, children, size
                 </div>
 
                 {/* Content */}
-                <div className={`flex-1 overflow-y-scroll bg-white dark:bg-gray-800 ${size === 'sm' ? 'p-6' : 'p-6 md:p-8'}`}>
+                <div className={`flex-1 overflow-y-auto bg-white dark:bg-gray-800 ${bodyClassName ? bodyClassName : (size === 'sm' ? 'p-6' : 'p-6 md:p-8')}`}>
                     {children}
                 </div>
             </div>
@@ -141,7 +142,7 @@ export function ModalFooter({
     disableSave = false,
 }: ModalFooterProps) {
     return (
-        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100 dark:border-gray-700 mt-6">
+        <div className="flex justify-end gap-3 pt-4 pb-6 border-t border-gray-100 dark:border-gray-700 mt-6 px-6 md:px-8">
             <button
                 type="button"
                 onClick={onCancel}

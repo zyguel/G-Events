@@ -13,7 +13,8 @@ interface AdmissionTabProps {
   event: EventSummary;
 }
 
-const initialTicketForm: Omit<Ticket, "id" | "createdAt"> = {
+const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
+
   name: "",
   type: "paid",
   quantity: 0,
