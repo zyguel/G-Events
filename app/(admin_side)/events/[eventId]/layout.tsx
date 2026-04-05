@@ -59,7 +59,7 @@ export default async function EventLayout({
                 <Sidebar activePage="events" disableExpand={true} />
 
                 {/* Event Specific Sidebar */}
-                <div className="ml-20 hidden lg:block h-full shrink-0">
+                <div className="ml-14 hidden lg:block h-full shrink-0">
                     <EventsSidebar event={sidebarEvent} />
                 </div>
 

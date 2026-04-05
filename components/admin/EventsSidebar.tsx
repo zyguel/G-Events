@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { LayoutDashboard, FileText, BarChart3, Ticket, ClipboardList, CheckCircle, Send, Users, Mail, UserCheck, Award, Clock, Presentation } from "lucide-react";
+import { LayoutDashboard, FileText, BarChart3, Ticket, ClipboardList, CheckCircle, Send, Users, Mail, UserCheck, Award, Clock, Presentation, MessageSquareDot } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EventSummary } from "@/lib/types";
@@ -213,6 +213,29 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                     </li>
                                 );
                             })}
+                        </ul>
+                    </div>
+
+                    <hr className="border-gray-200 dark:border-gray-700" />
+
+                    {/* Section: Feedback */}
+                    <div>
+                        <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('Feedback')}</h3>
+                        <ul className="space-y-1">
+                            {(!permResolved || isAdmin || hasPermission('View Reports')) && (
+                                <li className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
+                                    <Link
+                                        href={event.id === 'new' ? '#' : `/events/${slug}/feedback`}
+                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive('feedback')
+                                            ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}
+                                    >
+                                        <MessageSquareDot size={16} />
+                                        {t('Feedback Form')}
+                                    </Link>
+                                </li>
+                            )}
                         </ul>
                     </div>
 
