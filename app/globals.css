@@ -64,13 +64,36 @@ body {
 /* TipTap Editor Styles */
 .ProseMirror {
   outline: none;
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
+
+.ProseMirror * {
+  direction: inherit;
+}
+
+.ProseMirror p,
+.ProseMirror h1,
+.ProseMirror h2,
+.ProseMirror h3,
+.ProseMirror li {
+  direction: ltr;
+  unicode-bidi: isolate;
+  text-align: left;
+}
+
+.ProseMirror p.is-editor-empty:first-child {
+  position: relative;
 }
 
 .ProseMirror p.is-editor-empty:first-child::before {
   color: #9ca3af;
   content: attr(data-placeholder);
-  float: left;
-  height: 0;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
   pointer-events: none;
 }
 

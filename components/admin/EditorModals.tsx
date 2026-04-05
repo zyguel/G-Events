@@ -70,12 +70,15 @@ export function LinkModal({ isOpen, onClose, onSubmit, initialUrl = "" }: LinkMo
 interface ImageModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (url: string) => void;
+    onSubmit: (url: string) => void | Promise<void>;
+    onUploadImage?: (file: File) => Promise<string>;
 }
 
-export function ImageModal({ isOpen, onClose, onSubmit }: ImageModalProps) {
+export function ImageModal({ isOpen, onClose, onSubmit, onUploadImage }: ImageModalProps) {
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<string>("");
+    const [imageUrl, setImageUrl] = useState<string>("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     if (!isOpen) return null;
 
@@ -91,19 +94,44 @@ export function ImageModal({ isOpen, onClose, onSubmit }: ImageModalProps) {
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (preview) {
-            onSubmit(preview);
-            setFile(null);
-            setPreview("");
-            onClose();
+        const trimmedUrl = imageUrl.trim();
+
+        if (!trimmedUrl && !file) {
+            return;
+        }
+
+        try {
+            setIsSubmitting(true);
+
+            if (trimmedUrl) {
+                await onSubmit(trimmedUrl);
+                handleClose();
+                return;
+            }
+
+            if (file && onUploadImage) {
+                const uploadedUrl = await onUploadImage(file);
+                await onSubmit(uploadedUrl);
+                handleClose();
+                return;
+            }
+
+            if (preview) {
+                await onSubmit(preview);
+                handleClose();
+            }
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
     const handleClose = () => {
         setFile(null);
         setPreview("");
+        setImageUrl("");
+        setIsSubmitting(false);
         onClose();
     };
 
@@ -121,8 +149,18 @@ export function ImageModal({ isOpen, onClose, onSubmit }: ImageModalProps) {
                 </div>
                 <form onSubmit={handleSubmit}>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Upload Image
+                        Image URL
                     </label>
+                    <input
+                        type="url"
+                        value={imageUrl}
+                        onChange={(e) => setImageUrl(e.target.value)}
+                        placeholder="https://example.com/image.jpg"
+                        className="w-full px-4 py-2.5 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all text-gray-900 dark:text-gray-100"
+                    />
+
+                    <div className="mt-4 text-xs text-gray-500 dark:text-gray-400">or upload an image file</div>
+
                     <input
                         type="file"
                         accept="image/*"
@@ -145,10 +183,10 @@ export function ImageModal({ isOpen, onClose, onSubmit }: ImageModalProps) {
                         </button>
                         <button
                             type="submit"
-                            disabled={!file}
+                            disabled={isSubmitting || (!file && !imageUrl.trim())}
                             className="flex-1 px-4 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 rounded-lg shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Insert Image
+                            {isSubmitting ? 'Inserting...' : 'Insert Image'}
                         </button>
                     </div>
                 </form>

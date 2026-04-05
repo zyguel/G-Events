@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-server';
 import { sendEmail } from '@/lib/emailProvider';
+import { generateCheckInPass } from '@/lib/checkinQr';
 
 type FormInput = {
     id?: string;
@@ -257,6 +258,7 @@ export async function POST(
         }
 
         let primaryRegistrationId: number | null = null;
+        const registeredAttendees: Array<{ email: string; registrationId: number }> = [];
         let submissionMode: 'registered' | 'waitlisted' = 'registered';
         let assignedTicketName = selectedTicket?.name || 'General Admission';
 
@@ -324,6 +326,7 @@ export async function POST(
             }
 
             primaryRegistrationId = pReg.id;
+            registeredAttendees.push({ email: normalizedPrimaryEmail, registrationId: pReg.id });
             console.log('[Registration] Primary reg created, id:', primaryRegistrationId);
 
             // ── Step 4: Insert each OTHER group member ──────────────────────
@@ -345,7 +348,7 @@ export async function POST(
 
                 const memberUserId = memberUserRows[0].id;
 
-                const { error: memberErr } = await supabase
+                const { data: memberReg, error: memberErr } = await supabase
                     .from('Registration')
                     .insert([{
                         event_id: numericEventId,
@@ -354,13 +357,18 @@ export async function POST(
                         status: 'pending',
                         final_price_paid: Number(selectedTicket.price ?? 0),
                         registration_group_id: registrationGroupId,
-                    }]);
+                    }])
+                    .select('id')
+                    .single();
 
                 if (memberErr) {
                     console.error('[Registration] Member insert failed for', memberEmail, ':', memberErr);
                     return NextResponse.json({ error: 'DB Member Insert Error: ' + memberErr.message }, { status: 500 });
                 } else {
                     console.log('[Registration] Member registered:', memberEmail);
+                    if (memberReg?.id) {
+                        registeredAttendees.push({ email: memberEmail, registrationId: memberReg.id });
+                    }
                 }
             }
 
@@ -404,10 +412,23 @@ export async function POST(
             console.warn('Email failed', err);
         }
 
+        const checkInPasses = submissionMode === 'registered'
+            ? registeredAttendees.map((attendee) => ({
+                email: attendee.email,
+                registrationId: attendee.registrationId,
+                ...generateCheckInPass({
+                    eventId: numericEventId,
+                    registrationId: attendee.registrationId,
+                    email: attendee.email,
+                }),
+            }))
+            : [];
+
         return NextResponse.json({
             success: true,
             data: entry,
             mode: submissionMode,
+            checkInPasses,
             message: submissionMode === 'registered' ? 'Registration successful!' : 'Added to waitlist.'
         }, { status: 201 });
 

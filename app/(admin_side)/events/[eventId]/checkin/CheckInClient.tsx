@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Search, Filter, MoreVertical, CheckCircle, Clock, ChevronDown, UserCheck, UserX, Eye } from 'lucide-react';
+import { Search, Filter, MoreVertical, CheckCircle, Clock, ChevronDown, UserCheck, UserX, Eye, QrCode, Camera, ScanLine, XCircle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { EventSummary } from '@/lib/types';
@@ -41,6 +41,20 @@ export default function CheckInClient({ event }: CheckInClientProps) {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<'All' | 'Checked-In' | 'Not Yet Checked-In'>('All');
     const [updatingId, setUpdatingId] = useState<string | null>(null);
+    const [scanInput, setScanInput] = useState('');
+    const [scanStatus, setScanStatus] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [isCameraReady, setIsCameraReady] = useState(false);
+    const [isScanningFrame, setIsScanningFrame] = useState(false);
+    const [isSubmittingScan, setIsSubmittingScan] = useState(false);
+    const [cameraError, setCameraError] = useState<string | null>(null);
+
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+    const canvasRef = useRef<HTMLCanvasElement | null>(null);
+    const streamRef = useRef<MediaStream | null>(null);
+    const intervalRef = useRef<number | null>(null);
+    const isDetectingRef = useRef(false);
+    const isSubmittingScanRef = useRef(false);
 
     // Action Menu State
     const [openActionId, setOpenActionId] = useState<string | null>(null);
@@ -122,6 +136,222 @@ export default function CheckInClient({ event }: CheckInClientProps) {
         }
     };
 
+    const applyScannedAttendee = (attendee: Attendee) => {
+        setAttendees((prev) => {
+            const existing = prev.find((item) => item.registrationId === attendee.registrationId);
+            if (!existing) {
+                return [attendee, ...prev];
+            }
+
+            return prev.map((item) =>
+                item.registrationId === attendee.registrationId
+                    ? { ...item, ...attendee }
+                    : item
+            );
+        });
+    };
+
+    const handleScanSubmit = async (qrData: string) => {
+        const payload = qrData.trim();
+        if (!payload || event.id.startsWith('evt-')) return;
+
+        try {
+            setIsSubmittingScan(true);
+            isSubmittingScanRef.current = true;
+            setScanStatus(null);
+
+            const res = await fetch(`/api/events/${event.id}/checkin/scan`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ qrData: payload }),
+            });
+
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Scan failed (${res.status})`);
+            }
+
+            if (json?.attendee) {
+                applyScannedAttendee(json.attendee as Attendee);
+            }
+
+            setScanInput('');
+            setScanStatus({
+                type: json?.alreadyCheckedIn ? 'info' : 'success',
+                message: json?.alreadyCheckedIn ? 'Attendee was already checked in.' : 'Attendee checked in successfully.'
+            });
+
+            if (isCameraOpen) {
+                stopCamera();
+            }
+        } catch (e) {
+            setScanStatus({
+                type: 'error',
+                message: e instanceof Error ? e.message : 'Failed to process scanned QR code'
+            });
+        } finally {
+            setIsSubmittingScan(false);
+            isSubmittingScanRef.current = false;
+            setIsScanningFrame(false);
+        }
+    };
+
+    const stopCamera = () => {
+        if (intervalRef.current !== null) {
+            window.clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+
+        if (streamRef.current) {
+            streamRef.current.getTracks().forEach((track) => track.stop());
+            streamRef.current = null;
+        }
+
+        if (videoRef.current) {
+            videoRef.current.srcObject = null;
+        }
+
+        setIsCameraOpen(false);
+        setIsCameraReady(false);
+        setIsScanningFrame(false);
+        isDetectingRef.current = false;
+    };
+
+    const attachStreamToVideo = useCallback(async () => {
+        const video = videoRef.current;
+        const stream = streamRef.current;
+
+        if (!video || !stream) {
+            return false;
+        }
+
+        if (video.srcObject !== stream) {
+            video.srcObject = stream;
+        }
+
+        try {
+            await video.play();
+            setIsCameraReady(true);
+            return true;
+        } catch {
+            return false;
+        }
+    }, []);
+
+    useEffect(() => {
+        if (!isCameraOpen || !streamRef.current) {
+            return;
+        }
+
+        let cancelled = false;
+
+        const syncVideo = async () => {
+            // Wait one paint so the <video> is mounted after isCameraOpen toggles.
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+            if (cancelled) return;
+
+            const ok = await attachStreamToVideo();
+            if (!ok && !cancelled) {
+                setCameraError('Camera stream started but could not attach to video preview. Please retry.');
+            }
+        };
+
+        syncVideo();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [attachStreamToVideo, isCameraOpen]);
+
+    const startCamera = async () => {
+        try {
+            setCameraError(null);
+            setIsCameraReady(false);
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' } },
+                audio: false,
+            });
+
+            streamRef.current = stream;
+            setIsCameraOpen(true);
+
+            const jsQrModule = await import('jsqr');
+            const decodeWithJsQr = jsQrModule.default;
+
+            let detector: any = null;
+            if ('BarcodeDetector' in window) {
+                try {
+                    const DetectorCtor = (window as any).BarcodeDetector;
+                    detector = new DetectorCtor({ formats: ['qr_code'] });
+                } catch {
+                    detector = null;
+                }
+            }
+
+            intervalRef.current = window.setInterval(async () => {
+                if (isDetectingRef.current || !videoRef.current || !canvasRef.current || isSubmittingScanRef.current) {
+                    return;
+                }
+
+                const video = videoRef.current;
+                if (video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+                    return;
+                }
+
+                const canvas = canvasRef.current;
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+
+                const ctx = canvas.getContext('2d');
+                if (!ctx) return;
+
+                isDetectingRef.current = true;
+                setIsScanningFrame(true);
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                try {
+                    let rawValue: string | undefined;
+
+                    if (detector) {
+                        try {
+                            const results = await detector.detect(canvas);
+                            rawValue = results?.[0]?.rawValue;
+                        } catch {
+                            rawValue = undefined;
+                        }
+                    }
+
+                    if (!rawValue) {
+                        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        const qrResult = decodeWithJsQr(imageData.data, imageData.width, imageData.height, {
+                            inversionAttempts: 'attemptBoth',
+                        });
+                        rawValue = qrResult?.data;
+                    }
+
+                    if (rawValue) {
+                        await handleScanSubmit(rawValue);
+                    }
+                } catch {
+                    // Detection can fail on frames with no QR; ignore and continue scanning.
+                } finally {
+                    isDetectingRef.current = false;
+                    setIsScanningFrame(false);
+                }
+            }, 450);
+        } catch (e) {
+            setCameraError(e instanceof Error ? e.message : 'Failed to access camera');
+            stopCamera();
+        }
+    };
+
+    useEffect(() => {
+        return () => {
+            stopCamera();
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // --- Filtering ---
     const filteredAttendees = attendees.filter(attendee => {
         const matchesSearch =
@@ -182,6 +412,92 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                     </div>
 
                     {/* Controls Bar */}
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white/70 dark:bg-gray-800/80 backdrop-blur-sm p-4 md:p-5 shadow-sm space-y-4">
+                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                            <div>
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Scan QR Check-In</h2>
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">Scan attendee passes or paste QR data manually.</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={isCameraOpen ? stopCamera : startCamera}
+                                    className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                                        isCameraOpen
+                                            ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-700/50'
+                                            : 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-300 dark:border-indigo-700/50 hover:bg-indigo-100 dark:hover:bg-indigo-900/30'
+                                    }`}
+                                >
+                                    {isCameraOpen ? <XCircle size={16} /> : <Camera size={16} />}
+                                    {isCameraOpen ? 'Stop Camera' : 'Start Camera Scanner'}
+                                </button>
+                            </div>
+                        </div>
+
+                        {scanStatus && (
+                            <div className={`px-3 py-2 rounded-lg text-sm border ${
+                                scanStatus.type === 'success'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700/50'
+                                    : scanStatus.type === 'info'
+                                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-300 dark:border-blue-700/50'
+                                        : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-700/50'
+                            }`}>{scanStatus.message}</div>
+                        )}
+
+                        {cameraError && (
+                            <div className="px-3 py-2 rounded-lg text-sm border bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-300 dark:border-rose-700/50">
+                                {cameraError}
+                            </div>
+                        )}
+
+                        {isCameraOpen && (
+                            <div className="relative rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-950">
+                                <video ref={videoRef} className="w-full max-h-[320px] object-cover" playsInline muted />
+                                <canvas ref={canvasRef} className="hidden" />
+                                <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                                    <div className="w-56 h-56 border-2 border-emerald-400/80 rounded-2xl shadow-[0_0_0_9999px_rgba(0,0,0,0.28)]" />
+                                </div>
+                                <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs">
+                                    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-black/50 text-white">
+                                        <ScanLine size={13} />
+                                        {isCameraReady ? 'Point camera to attendee QR code' : 'Initializing camera...'}
+                                    </span>
+                                    {isSubmittingScan && (
+                                        <span className="px-2 py-1 rounded-md bg-indigo-500/85 text-white">Processing scan...</span>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        <form
+                            onSubmit={(e) => {
+                                e.preventDefault();
+                                if (scanInput.trim()) {
+                                    handleScanSubmit(scanInput);
+                                }
+                            }}
+                            className="flex flex-col md:flex-row gap-2"
+                        >
+                            <div className="relative flex-1">
+                                <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <input
+                                    type="text"
+                                    value={scanInput}
+                                    onChange={(e) => setScanInput(e.target.value)}
+                                    placeholder="Paste scanned QR payload"
+                                    className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-900 text-sm text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={!scanInput.trim() || isSubmittingScan}
+                                className="px-4 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-700 transition-colors"
+                            >
+                                Verify and Check In
+                            </button>
+                        </form>
+                    </div>
+
                     <div className="glass-panel p-1.5 rounded-2xl flex flex-col md:flex-row items-center gap-2 bg-white/70 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 backdrop-blur-xl shadow-sm transition-all duration-300 relative z-30">
                         <div className="relative flex-1 w-full group">
                             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 group-focus-within:text-indigo-600 dark:group-focus-within:text-indigo-400 transition-colors w-5 h-5" />

@@ -23,7 +23,7 @@ export async function GET(
     const { data, error } = await supabase
       .from("Registration")
       .select(
-        "id, status, has_checked_in, created_at, User(name, email), Ticket(name)"
+        "id, status, has_checked_in, checked_in_at, User(name, email), Ticket(name)"
       )
       .eq("event_id", id)
       .not("status", "in", "(cancelled,rejected)")
@@ -43,8 +43,8 @@ export async function GET(
       ticketType: row.Ticket?.name || "General Admission",
       status: row.has_checked_in ? "Checked-In" : "Not Yet Checked-In",
       checkInTime:
-        row.has_checked_in && row.created_at
-          ? new Date(row.created_at).toLocaleString()
+        row.has_checked_in && row.checked_in_at
+          ? new Date(row.checked_in_at).toLocaleString()
           : undefined,
     }));
 

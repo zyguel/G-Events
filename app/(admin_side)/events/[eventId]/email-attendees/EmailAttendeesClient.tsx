@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Mail, Filter, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
 import RichTextEditor from '@/components/admin/RichTextEditor';
 import Modal from '@/components/admin/Modal';
@@ -18,6 +18,20 @@ function sanitizeHtml(input: string) {
         .replace(/on\w+=(?:"[^"]*"|'[^']*')/gi, '')
         // Remove javascript: URIs
         .replace(/javascript:/gi, '');
+}
+
+function escapeHtml(value: string) {
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function buildDefaultEmailBody(eventName: string) {
+    const safeEventName = escapeHtml(eventName || 'Event Update');
+    return `<h1 data-g-events-title="true">${safeEventName}</h1><p></p>`;
 }
 
 // Toast notification component
@@ -314,7 +328,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
 
     // Email composer states
     const [emailSubject, setEmailSubject] = useState('');
-    const [emailBody, setEmailBody] = useState(''); // New state for RichTextEditor
+    const [emailBody, setEmailBody] = useState(() => buildDefaultEmailBody(event.name)); // New state for RichTextEditor
     const [scheduledDate, setScheduledDate] = useState('');
     const [scheduledTime, setScheduledTime] = useState('');
 
@@ -368,6 +382,32 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     useEffect(() => {
         loadCampaigns();
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [event.id]);
+
+    const uploadEditorImage = useCallback(async (file: File): Promise<string> => {
+        if (event.id.startsWith('evt-')) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(String(reader.result || ''));
+                reader.onerror = () => reject(new Error('Failed to read image file'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const response = await fetch(`/api/events/${event.id}/email-attendees/images`, {
+            method: 'POST',
+            body: formData,
+        });
+
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || !json?.success || !json?.data?.url) {
+            throw new Error(json?.error || `Failed to upload image (${response.status})`);
+        }
+
+        return String(json.data.url);
     }, [event.id]);
 
 
@@ -555,7 +595,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
 
             // Reset form
             setEmailSubject('');
-            setEmailBody('');
+            setEmailBody(buildDefaultEmailBody(event.name));
             setScheduledDate('');
             setScheduledTime('');
         } catch (e) {
@@ -832,6 +872,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                             content={emailBody}
                                             onChange={setEmailBody}
                                             placeholder="Start typing your email content here..."
+                                            onUploadImage={uploadEditorImage}
                                         />
                                     </div>
                                 </div>

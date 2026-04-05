@@ -7,6 +7,7 @@ interface SendEmailParams {
 }
 
 const RESEND_API_URL = "https://api.resend.com/emails";
+const DEFAULT_FROM_NAME = "G Events";
 
 type EmailProvider = "auto" | "smtp" | "resend";
 
@@ -55,20 +56,36 @@ function getRequiredSmtpFromAddress(): string {
     throw new Error("SMTP_FROM_EMAIL is not configured");
   }
 
-  return from;
+  return formatFromAddress(from);
+}
+
+function formatFromAddress(from: string): string {
+  const trimmed = from.trim();
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  // Keep explicit display-name formats untouched.
+  if (trimmed.includes("<") && trimmed.includes(">")) {
+    return trimmed;
+  }
+
+  return `"${DEFAULT_FROM_NAME}" <${trimmed}>`;
 }
 
 async function sendWithResend({ to, subject, html }: SendEmailParams): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM_EMAIL;
+  const rawFrom = process.env.RESEND_FROM_EMAIL;
 
   if (!apiKey) {
     throw new Error("RESEND_API_KEY is not configured");
   }
 
-  if (!from) {
+  if (!rawFrom) {
     throw new Error("RESEND_FROM_EMAIL is not configured");
   }
+
+  const from = formatFromAddress(rawFrom);
 
   const response = await fetch(RESEND_API_URL, {
     method: "POST",

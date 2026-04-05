@@ -49,6 +49,17 @@ function wrapText(source: string, translated: string): string {
   return `${leading}${translated}${trailing}`;
 }
 
+function isInsideEditableOrNoTranslate(node: Text): boolean {
+  const parent = node.parentElement;
+  if (!parent) {
+    return false;
+  }
+
+  return !!parent.closest(
+    '[contenteditable="true"], .ProseMirror, input, textarea, [translate="no"], [data-no-translate="true"], .notranslate'
+  );
+}
+
 async function fetchBatchTranslations(payload: { texts: string[]; source?: string; target: string }) {
   const result: Record<string, string> = {};
 
@@ -81,6 +92,10 @@ async function applyTranslations(
     const parentTag = node.parentElement?.tagName;
 
     if (!parentTag || parentTag === 'SCRIPT' || parentTag === 'STYLE' || parentTag === 'NOSCRIPT') {
+      continue;
+    }
+
+    if (isInsideEditableOrNoTranslate(node)) {
       continue;
     }
 

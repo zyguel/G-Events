@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
     User, Users, Plus, X, ChevronRight, ChevronLeft,
     Mail, AlertCircle, CheckCircle, Loader, ArrowRight,
-    Check, Ticket
+    Check, Ticket, QrCode, Copy
 } from 'lucide-react';
 import { OrderFormData } from '@/lib/types';
 import { useOrderFormSubmit } from '@/lib/hooks/useOrderFormSubmit';
@@ -31,7 +31,17 @@ interface RegistrationFlowProps {
         used_quantity: number;
         is_sold_out: boolean;
     }[];
+    existingCheckInPasses?: CheckInPass[];
+    existingTicketNames?: string[];
 }
+
+type CheckInPass = {
+    email: string;
+    registrationId: number;
+    token: string;
+    qrPayload: string;
+    expiresAt: string;
+};
 
 type RegistrationType = 'individual' | 'group';
 type Step = 'identify' | 'choose-ticket' | 'choose-type' | 'group-members' | 'fill-form';
@@ -40,6 +50,85 @@ type Step = 'identify' | 'choose-ticket' | 'choose-type' | 'group-members' | 'fi
 
 function isValidEmail(email: string) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function CheckInPassCard({ pass }: { pass: CheckInPass }) {
+    const [qrDataUrl, setQrDataUrl] = useState<string>('');
+    const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle');
+
+    useEffect(() => {
+        let active = true;
+
+        const generateQr = async () => {
+            try {
+                const qrcode = await import('qrcode');
+                const dataUrl = await qrcode.toDataURL(pass.qrPayload, {
+                    width: 240,
+                    margin: 1,
+                    errorCorrectionLevel: 'M'
+                });
+
+                if (active) {
+                    setQrDataUrl(dataUrl);
+                }
+            } catch {
+                if (active) {
+                    setQrDataUrl('');
+                }
+            }
+        };
+
+        generateQr();
+        return () => {
+            active = false;
+        };
+    }, [pass.qrPayload]);
+
+    const handleCopy = useCallback(async () => {
+        try {
+            await navigator.clipboard.writeText(pass.qrPayload);
+            setCopyStatus('copied');
+        } catch {
+            setCopyStatus('failed');
+        }
+
+        window.setTimeout(() => setCopyStatus('idle'), 1800);
+    }, [pass.qrPayload]);
+
+    return (
+        <div className="bg-white dark:bg-gray-800/70 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-xs uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Check-In Pass</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{pass.email}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Registration #{pass.registrationId}</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={handleCopy}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                    <Copy size={13} />
+                    {copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy Failed' : 'Copy QR Data'}
+                </button>
+            </div>
+
+            <div className="mt-4 flex items-center justify-center bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700 min-h-[180px]">
+                {qrDataUrl ? (
+                    <img src={qrDataUrl} alt={`Check-in QR for ${pass.email}`} className="w-44 h-44" />
+                ) : (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                        <QrCode size={14} />
+                        Generating QR...
+                    </div>
+                )}
+            </div>
+
+            <p className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                Valid until {new Date(pass.expiresAt).toLocaleString()}
+            </p>
+        </div>
+    );
 }
 
 // ─── Step Indicator ──────────────────────────────────────────────────────────
@@ -663,12 +752,16 @@ function OrderFormStep({
     const [touched, setTouched] = useState<Set<string>>(new Set());
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
-    const { isSubmitting, error, success, successMessage, submit } = useOrderFormSubmit({
+    const { isSubmitting, error, success, successMessage, submissionResult, submit } = useOrderFormSubmit({
         eventId,
         orderFormId,
         userEmail,
         registrationId: undefined, // Will be created on server or passed if we had it
     });
+
+    const checkInPasses: CheckInPass[] = Array.isArray(submissionResult?.checkInPasses)
+        ? (submissionResult?.checkInPasses as CheckInPass[])
+        : [];
 
     const handleInputChange = useCallback((inputId: string, value: string | string[]) => {
         setAnswers(prev => ({ ...prev, [inputId]: value }));
@@ -879,6 +972,21 @@ function OrderFormStep({
                         </ul>
                     </div>
                 )}
+                {checkInPasses.length > 0 && (
+                    <div className="mt-6 max-w-3xl mx-auto text-left">
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 text-center">
+                            Save your check-in QR pass{checkInPasses.length > 1 ? 'es' : ''}
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {checkInPasses.map((pass) => (
+                                <CheckInPassCard
+                                    key={`${pass.registrationId}-${pass.email}`}
+                                    pass={pass}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
                 <button
                     id="back-to-event-btn"
                     onClick={() => router.push(`/events/${eventSlug}`)}
@@ -1027,13 +1135,79 @@ export default function RegistrationFlow({
     orderFormId,
     formData,
     userEmail: initialUserEmail,
-    tickets
+    tickets,
+    existingCheckInPasses = [],
+    existingTicketNames = [],
 }: RegistrationFlowProps) {
+    const router = useRouter();
     const [userEmail, setUserEmail] = useState<string | undefined>(initialUserEmail);
     const [step, setStep] = useState<Step>(initialUserEmail ? 'choose-ticket' : 'identify');
     const [registrationType, setRegistrationType] = useState<RegistrationType>('individual');
     const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
     const [groupEmails, setGroupEmails] = useState<string[]>([]);
+
+    if (existingCheckInPasses.length > 0) {
+        return (
+            <div className="min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] relative overflow-x-hidden">
+                <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0" />
+                <div className="fixed bottom-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-400/10 dark:bg-purple-600/10 rounded-full blur-[120px] pointer-events-none z-0" />
+
+                <div className="relative z-10 max-w-3xl mx-auto px-4 py-10 sm:py-14">
+                    <div className="text-center mb-8">
+                        <span className="inline-block px-4 py-1.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-4 shadow-sm">
+                            Event Registration
+                        </span>
+                        <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 dark:text-white tracking-tight">
+                            {eventTitle}
+                        </h1>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl dark:shadow-black/20 p-6 sm:p-10">
+                        <div className="text-center">
+                            <div className="w-20 h-20 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-5 shadow-xl shadow-emerald-200 dark:shadow-emerald-900/30">
+                                <CheckCircle size={38} className="text-white" />
+                            </div>
+                            <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2">
+                                You are already registered
+                            </h2>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-lg mx-auto">
+                                This account already has an active registration for this event, so duplicate self-registration is disabled.
+                            </p>
+                            {existingTicketNames.length > 0 && (
+                                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                                    Ticket{existingTicketNames.length > 1 ? 's' : ''}: {existingTicketNames.join(', ')}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="mt-7">
+                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 text-center">
+                                Your check-in QR pass{existingCheckInPasses.length > 1 ? 'es' : ''}
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {existingCheckInPasses.map((pass) => (
+                                    <CheckInPassCard
+                                        key={`${pass.registrationId}-${pass.email}`}
+                                        pass={pass}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-8 text-center">
+                            <button
+                                type="button"
+                                onClick={() => router.push(`/events/${eventSlug}`)}
+                                className="px-8 py-3 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white font-bold rounded-2xl shadow-lg shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+                            >
+                                Back to Event
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     const handleTicketSelect = (ticketId: number) => {
         setSelectedTicketId(ticketId);

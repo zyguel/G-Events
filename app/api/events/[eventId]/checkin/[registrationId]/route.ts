@@ -29,9 +29,10 @@ export async function PATCH(
     }
 
     const supabase = await createClient();
+    const checkedInAt = body.checkedIn ? new Date().toISOString() : null;
     const { error } = await supabase
       .from("Registration")
-      .update({ has_checked_in: body.checkedIn })
+      .update({ has_checked_in: body.checkedIn, checked_in_at: checkedInAt })
       .eq("id", parsedRegistrationId)
       .eq("event_id", parsedEventId);
 

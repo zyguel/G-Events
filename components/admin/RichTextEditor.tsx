@@ -36,6 +36,7 @@ interface RichTextEditorProps {
     content: string;
     onChange: (content: string) => void;
     placeholder?: string;
+    onUploadImage?: (file: File) => Promise<string>;
 }
 
 
@@ -100,7 +101,7 @@ const FONT_FAMILIES = [
 
 const FONT_SIZES = ['12px', '14px', '16px', '18px', '20px', '24px', '28px', '32px', '36px'];
 
-export default function RichTextEditor({ content, onChange, placeholder = "Start typing..." }: RichTextEditorProps) {
+export default function RichTextEditor({ content, onChange, placeholder = "Start typing...", onUploadImage }: RichTextEditorProps) {
     const [linkModalOpen, setLinkModalOpen] = useState(false);
     const [imageModalOpen, setImageModalOpen] = useState(false);
     const [showColorPicker, setShowColorPicker] = useState(false);
@@ -153,6 +154,7 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
             }),
             TextAlign.configure({
                 types: ['heading', 'paragraph'],
+                defaultAlignment: 'left',
             }),
             TextStyle,
             Color,
@@ -167,7 +169,11 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
         },
         editorProps: {
             attributes: {
-                class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] px-4 py-3',
+                class: 'max-w-none focus:outline-none min-h-[200px] px-4 py-3',
+                dir: 'ltr',
+                style: 'direction:ltr;text-align:left;unicode-bidi:isolate;writing-mode:horizontal-tb;',
+                translate: 'no',
+                'data-no-translate': 'true',
             },
         },
     });
@@ -491,6 +497,7 @@ export default function RichTextEditor({ content, onChange, placeholder = "Start
                     isOpen={imageModalOpen}
                     onClose={() => setImageModalOpen(false)}
                     onSubmit={handleAddImage}
+                    onUploadImage={onUploadImage}
                 />
             </div >
         </>

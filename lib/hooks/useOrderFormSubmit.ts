@@ -19,6 +19,7 @@ interface UseOrderFormSubmitReturn {
     error: string | null;
     success: boolean;
     successMessage: string | null;
+    submissionResult: Record<string, unknown> | null;
     submit: (formData: OrderFormData, answers: FormAnswers, ticketId?: number | null, groupEmails?: string[]) => Promise<void>;
 }
 
@@ -32,6 +33,7 @@ export function useOrderFormSubmit({
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [submissionResult, setSubmissionResult] = useState<Record<string, unknown> | null>(null);
 
     const submit = useCallback(async (
         formData: OrderFormData,
@@ -43,6 +45,7 @@ export function useOrderFormSubmit({
         setError(null);
         setSuccess(false);
         setSuccessMessage(null);
+        setSubmissionResult(null);
 
         try {
             // Enrich form data with answers
@@ -77,6 +80,7 @@ export function useOrderFormSubmit({
 
             setSuccess(true);
             setSuccessMessage(result?.message || 'Form submitted successfully.');
+            setSubmissionResult(result && typeof result === 'object' ? result : null);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'An unexpected error occurred');
         } finally {
@@ -89,6 +93,7 @@ export function useOrderFormSubmit({
         error,
         success,
         successMessage,
+        submissionResult,
         submit
     };
 }

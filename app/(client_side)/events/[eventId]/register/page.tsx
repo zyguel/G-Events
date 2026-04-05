@@ -5,6 +5,7 @@ import { getPublishedEventById } from "@/lib/actions/events";
 import { getOrderFormsByEventPublic } from "@/lib/actions/orderForm";
 import { buildEventSlug } from "@/lib/slug";
 import { createClient, createAdminClient } from "@/lib/supabase-server";
+import { generateCheckInPass } from "@/lib/checkinQr";
 import Link from "next/link";
 import { ChevronLeft, ClipboardX } from "lucide-react";
 
@@ -73,6 +74,58 @@ export default async function PublicEventRegistrationPage({
       };
   });
 
+  let existingCheckInPasses: Array<{
+    email: string;
+    registrationId: number;
+    token: string;
+    qrPayload: string;
+    expiresAt: string;
+  }> = [];
+
+  let existingTicketNames: string[] = [];
+
+  if (userEmail) {
+    const { data: userRow } = await adminClient
+      .from("User")
+      .select("id")
+      .ilike("email", userEmail)
+      .limit(1)
+      .maybeSingle();
+
+    const userId = Number(userRow?.id);
+    if (!Number.isNaN(userId) && userId > 0) {
+      const { data: existingRegistrations } = await adminClient
+        .from("Registration")
+        .select("id, status, Ticket(name)")
+        .eq("event_id", numericEventId)
+        .eq("user_id", userId)
+        .not("status", "in", "(cancelled,rejected)")
+        .order("created_at", { ascending: true });
+
+      const safeRegistrations = (existingRegistrations || []) as Array<{ id: number; status?: string; Ticket?: { name?: string } }>;
+
+      existingCheckInPasses = safeRegistrations
+        .map((registration) => ({
+          email: userEmail.toLowerCase(),
+          registrationId: Number(registration.id),
+          ...generateCheckInPass({
+            eventId: numericEventId,
+            registrationId: Number(registration.id),
+            email: userEmail,
+          }),
+        }))
+        .filter((pass) => Number.isFinite(pass.registrationId));
+
+      existingTicketNames = Array.from(
+        new Set(
+          safeRegistrations
+            .map((registration) => registration.Ticket?.name)
+            .filter((name): name is string => !!name)
+        )
+      );
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
       <ClientHeader />
@@ -119,6 +172,8 @@ export default async function PublicEventRegistrationPage({
           formData={form.form_data || { sections: [] }}
           userEmail={userEmail}
           tickets={enrichedTickets}
+          existingCheckInPasses={existingCheckInPasses}
+          existingTicketNames={existingTicketNames}
         />
       )}
     </div>
