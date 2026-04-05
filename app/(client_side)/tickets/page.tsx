@@ -38,11 +38,13 @@ export default async function TicketsPage() {
     redirect("/login");
   }
 
+  const currentUserEmail: string = user.email;
+
   const adminClient = await createAdminClient();
   const { data: userRow } = await adminClient
     .from("User")
     .select("id")
-    .ilike("email", user.email)
+    .ilike("email", currentUserEmail)
     .limit(1)
     .maybeSingle();
 
@@ -65,7 +67,7 @@ export default async function TicketsPage() {
         const checkInPass = generateCheckInPass({
           eventId: Number(row.event_id),
           registrationId: Number(row.id),
-          email: user.email,
+          email: currentUserEmail,
         });
 
         return {
@@ -82,7 +84,7 @@ export default async function TicketsPage() {
           hasCheckedIn: !!row.has_checked_in,
           checkedInAt: row.checked_in_at || null,
           createdAt: row.created_at || null,
-          passEmail: user.email,
+          passEmail: currentUserEmail,
           token: checkInPass.token,
           qrPayload: checkInPass.qrPayload,
           expiresAt: checkInPass.expiresAt,

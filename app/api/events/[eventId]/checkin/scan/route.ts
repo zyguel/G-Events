@@ -3,6 +3,13 @@ import { createClient } from "@/lib/supabase-server";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 import { extractCheckInToken, verifyCheckInToken } from "@/lib/checkinQr";
 
+type MaybeRelation<T> = T | T[] | null | undefined;
+
+function pickSingleRelation<T>(value: MaybeRelation<T>): T | null {
+  if (!value) return null;
+  return Array.isArray(value) ? value[0] ?? null : value;
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ eventId: string }> }
@@ -68,7 +75,10 @@ export async function POST(
       );
     }
 
-    const attendeeEmail = String(registration.User?.email || "").trim().toLowerCase();
+    const attendee = pickSingleRelation<{ name?: string | null; email?: string | null }>(registration.User);
+    const ticket = pickSingleRelation<{ name?: string | null }>(registration.Ticket);
+
+    const attendeeEmail = String(attendee?.email || "").trim().toLowerCase();
     if (attendeeEmail && attendeeEmail !== claims.email) {
       return NextResponse.json(
         { success: false, error: "QR attendee details do not match registration data" },
@@ -101,9 +111,9 @@ export async function POST(
       alreadyCheckedIn,
       attendee: {
         registrationId: String(registration.id),
-        name: registration.User?.name || "Unknown",
-        email: registration.User?.email || "",
-        ticketType: registration.Ticket?.name || "General Admission",
+        name: attendee?.name || "Unknown",
+        email: attendee?.email || "",
+        ticketType: ticket?.name || "General Admission",
         status: "Checked-In",
         checkInTime: checkedInAt ? new Date(checkedInAt).toLocaleString() : undefined,
       },
