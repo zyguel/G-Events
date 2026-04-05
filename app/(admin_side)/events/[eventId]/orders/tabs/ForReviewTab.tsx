@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, ImageIcon, Search, Filter, X } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import ReviewOrderModal from "../components/ReviewOrderModal";
+import TablePaginationControls from "@/components/admin/TablePaginationControls";
 import type { Order } from "../ManageOrdersClient";
 
 interface FilterDropdownInlineProps {
@@ -58,6 +59,8 @@ export default function ForReviewTab({ orders, onConfirm, onReject }: ForReviewT
         ticketType: "All",
         registrationType: "All",
     });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     // Filter only pending orders, then apply search + filters
     const pendingOrders = orders.filter((order) => order.status === "Pending");
@@ -76,6 +79,22 @@ export default function ForReviewTab({ orders, onConfirm, onReject }: ForReviewT
 
         return matchesSearch && matchesTicket && matchesRegType;
     });
+
+    const paginatedOrders = filteredOrders.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage
+    );
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filters.ticketType, filters.registrationType]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredOrders.length / rowsPerPage));
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, filteredOrders.length, rowsPerPage]);
 
     const activeFiltersCount = [
         filters.ticketType !== "All",
@@ -240,91 +259,104 @@ export default function ForReviewTab({ orders, onConfirm, onReject }: ForReviewT
                             </p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full">
-                                <thead>
-                                    <tr className="bg-blue-100 dark:bg-blue-900/30">
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                            Registration Details
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                            Ticket Info
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                            Date Submitted
-                                        </th>
-                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                            Proof of Payment
-                                        </th>
-                                        <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                            Action
-                                        </th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                    {filteredOrders.map((order) => (
-                                        <tr
-                                            key={order.id}
-                                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
-                                            onClick={() => handleOpenReview(order)}
-                                        >
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                                                        {order.name}
-                                                    </span>
-                                                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                                                        {order.email}
-                                                    </span>
-                                                    <span className="text-xs text-gray-400 mt-1">ID: {order.id}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm text-gray-900 dark:text-gray-100">
-                                                        {order.ticketType}
-                                                    </span>
-                                                    <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 w-fit mt-1">
-                                                        {order.registrationType}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm text-gray-900 dark:text-gray-100">
-                                                        {order.date}
-                                                    </span>
-                                                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                        {order.time}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {order.proofOfPayment ? (
-                                                    <div className="flex items-center gap-2 text-sm text-[#3D518C] dark:text-[#ABD2FA]">
-                                                        <ImageIcon size={16} />
-                                                        <span className="font-medium">View Image</span>
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-sm text-gray-400 italic">No image</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleOpenReview(order);
-                                                    }}
-                                                    className="p-2 hover:bg-[#3D518C]/10 text-[#3D518C] dark:text-[#ABD2FA] rounded-lg transition-colors"
-                                                >
-                                                    <Eye size={20} />
-                                                </button>
-                                            </td>
+                        <>
+                            <div className="overflow-x-auto">
+                                <table className="w-full">
+                                    <thead>
+                                        <tr className="bg-blue-100 dark:bg-blue-900/30">
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                Registration Details
+                                            </th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                Ticket Info
+                                            </th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                Date Submitted
+                                            </th>
+                                            <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                Proof of Payment
+                                            </th>
+                                            <th className="px-6 py-4 text-right text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                Action
+                                            </th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                        {paginatedOrders.map((order) => (
+                                            <tr
+                                                key={order.id}
+                                                className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer"
+                                                onClick={() => handleOpenReview(order)}
+                                            >
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                                                            {order.name}
+                                                        </span>
+                                                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                                                            {order.email}
+                                                        </span>
+                                                        <span className="text-xs text-gray-400 mt-1">ID: {order.id}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm text-gray-900 dark:text-gray-100">
+                                                            {order.ticketType}
+                                                        </span>
+                                                        <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 w-fit mt-1">
+                                                            {order.registrationType}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm text-gray-900 dark:text-gray-100">
+                                                            {order.date}
+                                                        </span>
+                                                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                                                            {order.time}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    {order.proofOfPayment ? (
+                                                        <div className="flex items-center gap-2 text-sm text-[#3D518C] dark:text-[#ABD2FA]">
+                                                            <ImageIcon size={16} />
+                                                            <span className="font-medium">View Image</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm text-gray-400 italic">No image</span>
+                                                    )}
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleOpenReview(order);
+                                                        }}
+                                                        className="p-2 hover:bg-[#3D518C]/10 text-[#3D518C] dark:text-[#ABD2FA] rounded-lg transition-colors"
+                                                    >
+                                                        <Eye size={20} />
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <TablePaginationControls
+                                totalItems={filteredOrders.length}
+                                currentPage={currentPage}
+                                rowsPerPage={rowsPerPage}
+                                onPageChange={setCurrentPage}
+                                onRowsPerPageChange={(rows) => {
+                                    setRowsPerPage(rows);
+                                    setCurrentPage(1);
+                                }}
+                            />
+                        </>
                     )}
                 </div>
             </div>

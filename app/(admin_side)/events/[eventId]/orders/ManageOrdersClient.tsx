@@ -23,6 +23,7 @@ import ForReviewTab from "./tabs/ForReviewTab";
 import { EventSummary } from "@/lib/types";
 import { useLocale } from "@/contexts/LocaleContext";
 import Modal, { ModalFooter } from "@/components/admin/Modal";
+import TablePaginationControls from "@/components/admin/TablePaginationControls";
 
 // Type for orders coming from the backend
 export interface Order {
@@ -686,6 +687,8 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
     });
 
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [allOrdersPage, setAllOrdersPage] = useState(1);
+    const [allOrdersRowsPerPage, setAllOrdersRowsPerPage] = useState(10);
 
 
     const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
@@ -784,6 +787,22 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
 
         return matchesSearch && matchesStatus && matchesTicket && matchesRegType;
     });
+
+    const paginatedOrders = filteredOrders.slice(
+        (allOrdersPage - 1) * allOrdersRowsPerPage,
+        allOrdersPage * allOrdersRowsPerPage
+    );
+
+    useEffect(() => {
+        setAllOrdersPage(1);
+    }, [searchQuery, appliedFilters.status, appliedFilters.ticketType, appliedFilters.registrationType]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredOrders.length / allOrdersRowsPerPage));
+        if (allOrdersPage > totalPages) {
+            setAllOrdersPage(totalPages);
+        }
+    }, [allOrdersPage, allOrdersRowsPerPage, filteredOrders.length]);
 
     const activeFiltersCount = [
         appliedFilters.status !== "All",
@@ -1198,7 +1217,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                            {filteredOrders.map((order) => (
+                                            {paginatedOrders.map((order) => (
                                                 <tr
                                                     key={order.id}
                                                     className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
@@ -1303,6 +1322,17 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <TablePaginationControls
+                                    totalItems={filteredOrders.length}
+                                    currentPage={allOrdersPage}
+                                    rowsPerPage={allOrdersRowsPerPage}
+                                    onPageChange={setAllOrdersPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setAllOrdersRowsPerPage(rows);
+                                        setAllOrdersPage(1);
+                                    }}
+                                />
 
                                 {/* Empty State */}
                                 {filteredOrders.length === 0 && !isLoading && (

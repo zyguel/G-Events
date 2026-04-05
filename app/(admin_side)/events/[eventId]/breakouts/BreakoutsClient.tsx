@@ -7,6 +7,7 @@ import {
     CheckCircle, AlertCircle, PlayCircle, XCircle, User
 } from 'lucide-react';
 import { useLocale } from '@/contexts/LocaleContext';
+import TablePaginationControls from '@/components/admin/TablePaginationControls';
 
 // Types
 import { EventSummary } from '@/lib/types';
@@ -483,6 +484,10 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
     const [editingSession, setEditingSession] = useState<BreakoutSession | null>(null);
     const [isLoading, setIsLoading] = useState(!eventId.startsWith('evt-'));
     const [error, setError] = useState<string | null>(null);
+    const [upcomingPage, setUpcomingPage] = useState(1);
+    const [upcomingRowsPerPage, setUpcomingRowsPerPage] = useState(5);
+    const [listPage, setListPage] = useState(1);
+    const [listRowsPerPage, setListRowsPerPage] = useState(10);
 
     // Load sessions from backend for real events
     useEffect(() => {
@@ -534,6 +539,36 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
         const matchesStatus = statusFilter === 'All' || session.status === statusFilter;
         return matchesSearch && matchesType && matchesStatus;
     });
+
+    const upcomingSessions = sessions.filter(s => s.status === 'Not Started');
+
+    const paginatedUpcomingSessions = upcomingSessions.slice(
+        (upcomingPage - 1) * upcomingRowsPerPage,
+        upcomingPage * upcomingRowsPerPage
+    );
+
+    const paginatedFilteredSessions = filteredSessions.slice(
+        (listPage - 1) * listRowsPerPage,
+        listPage * listRowsPerPage
+    );
+
+    useEffect(() => {
+        setListPage(1);
+    }, [searchQuery, typeFilter, statusFilter]);
+
+    useEffect(() => {
+        const totalUpcomingPages = Math.max(1, Math.ceil(upcomingSessions.length / upcomingRowsPerPage));
+        if (upcomingPage > totalUpcomingPages) {
+            setUpcomingPage(totalUpcomingPages);
+        }
+    }, [upcomingPage, upcomingRowsPerPage, upcomingSessions.length]);
+
+    useEffect(() => {
+        const totalListPages = Math.max(1, Math.ceil(filteredSessions.length / listRowsPerPage));
+        if (listPage > totalListPages) {
+            setListPage(totalListPages);
+        }
+    }, [filteredSessions.length, listPage, listRowsPerPage]);
 
     // Stats
     const stats = {
@@ -813,7 +848,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                            {sessions.filter(s => s.status === 'Not Started').slice(0, 5).map((session) => (
+                                            {paginatedUpcomingSessions.map((session) => (
                                                 <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                                     <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{session.title}</td>
                                                     <td className="px-5 py-4"><TypeBadge type={session.type} /></td>
@@ -828,6 +863,18 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <TablePaginationControls
+                                    totalItems={upcomingSessions.length}
+                                    currentPage={upcomingPage}
+                                    rowsPerPage={upcomingRowsPerPage}
+                                    onPageChange={setUpcomingPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setUpcomingRowsPerPage(rows);
+                                        setUpcomingPage(1);
+                                    }}
+                                    pageSizeOptions={[5, 10, 25, 50]}
+                                />
                             </div>
                         </div>
                     )}
@@ -884,7 +931,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                            {filteredSessions.map((session) => (
+                                            {paginatedFilteredSessions.map((session) => (
                                                 <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                                     <td className="px-5 py-4">
                                                         <div className="flex items-center gap-2">
@@ -928,6 +975,17 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <TablePaginationControls
+                                    totalItems={filteredSessions.length}
+                                    currentPage={listPage}
+                                    rowsPerPage={listRowsPerPage}
+                                    onPageChange={setListPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setListRowsPerPage(rows);
+                                        setListPage(1);
+                                    }}
+                                />
 
                                 {filteredSessions.length === 0 && (
                                     <div className="p-12 text-center">

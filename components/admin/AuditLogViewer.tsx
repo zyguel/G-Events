@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import TablePaginationControls from "@/components/admin/TablePaginationControls"
 
 interface AuditEntry {
   id: number
@@ -23,6 +24,20 @@ export default function AuditLogViewer({ entityType, entityId }: AuditLogViewerP
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([])
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [rowsPerPage, setRowsPerPage] = useState(10)
+
+  const paginatedEntries = useMemo(() => {
+    const start = (currentPage - 1) * rowsPerPage
+    return auditEntries.slice(start, start + rowsPerPage)
+  }, [auditEntries, currentPage, rowsPerPage])
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(auditEntries.length / rowsPerPage))
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [auditEntries.length, currentPage, rowsPerPage])
 
   useEffect(() => {
     async function fetchAudit() {
@@ -64,41 +79,54 @@ export default function AuditLogViewer({ entityType, entityId }: AuditLogViewerP
       )}
 
       {!loading && !error && auditEntries.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm text-left text-gray-600 dark:text-gray-300">
-            <thead>
-              <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
-                <th className="px-2 py-2">When</th>
-                <th className="px-2 py-2">Action</th>
-                <th className="px-2 py-2">Hash</th>
-                <th className="px-2 py-2">Prev Hash</th>
-                <th className="px-2 py-2">IPFS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {auditEntries.map((entry) => (
-                <tr key={entry.id} className="border-b border-gray-100 dark:border-gray-700">
-                  <td className="px-2 py-2">{new Date(entry.created_at).toLocaleString()}</td>
-                  <td className="px-2 py-2 font-medium">{entry.action}</td>
-                  <td className="px-2 py-2 truncate max-w-[250px]" title={entry.audit_hash}>{entry.audit_hash}</td>
-                  <td className="px-2 py-2 truncate max-w-[250px]" title={entry.prev_hash || ''}>{entry.prev_hash || '-'}</td>
-                  <td className="px-2 py-2">
-                    {entry.ipfs_cid ? (
-                      <a
-                        className="text-blue-600 dark:text-blue-400 hover:underline"
-                        href={`https://ipfs.io/ipfs/${entry.ipfs_cid}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        {entry.ipfs_cid}
-                      </a>
-                    ) : '-'}
-                  </td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm text-left text-gray-600 dark:text-gray-300">
+              <thead>
+                <tr className="text-xs uppercase tracking-wider text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  <th className="px-2 py-2">When</th>
+                  <th className="px-2 py-2">Action</th>
+                  <th className="px-2 py-2">Hash</th>
+                  <th className="px-2 py-2">Prev Hash</th>
+                  <th className="px-2 py-2">IPFS</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {paginatedEntries.map((entry) => (
+                  <tr key={entry.id} className="border-b border-gray-100 dark:border-gray-700">
+                    <td className="px-2 py-2">{new Date(entry.created_at).toLocaleString()}</td>
+                    <td className="px-2 py-2 font-medium">{entry.action}</td>
+                    <td className="px-2 py-2 truncate max-w-[250px]" title={entry.audit_hash}>{entry.audit_hash}</td>
+                    <td className="px-2 py-2 truncate max-w-[250px]" title={entry.prev_hash || ''}>{entry.prev_hash || '-'}</td>
+                    <td className="px-2 py-2">
+                      {entry.ipfs_cid ? (
+                        <a
+                          className="text-blue-600 dark:text-blue-400 hover:underline"
+                          href={`https://ipfs.io/ipfs/${entry.ipfs_cid}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {entry.ipfs_cid}
+                        </a>
+                      ) : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <TablePaginationControls
+            totalItems={auditEntries.length}
+            currentPage={currentPage}
+            rowsPerPage={rowsPerPage}
+            onPageChange={setCurrentPage}
+            onRowsPerPageChange={(rows) => {
+              setRowsPerPage(rows)
+              setCurrentPage(1)
+            }}
+          />
+        </>
       )}
     </section>
   )

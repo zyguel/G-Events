@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Filter, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
+import TablePaginationControls from "@/components/admin/TablePaginationControls";
 import { getPromoCodes, createPromoCode, updatePromoCode, deletePromoCode, PromoCode, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
 
@@ -38,6 +39,8 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
   const [filterType, setFilterType] = useState<"all" | "promo_code" | "discount">("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [addPromoTypeOpen, setAddPromoTypeOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   useEffect(() => {
     loadData();
@@ -137,6 +140,22 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
     return matchesSearch && matchesFilter;
   });
 
+  const paginatedPromoCodes = filteredPromoCodes.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterType]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredPromoCodes.length / rowsPerPage));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredPromoCodes.length, currentPage, rowsPerPage]);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
@@ -229,73 +248,86 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
             <p className="text-gray-600 dark:text-gray-400">No promo codes found</p>
           </div>
         ) : (
-          <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Code Name</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Type</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Value</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Uses / Limit</th>
-                <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
-                <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              <AnimatePresence>
-                {filteredPromoCodes.map((promo) => (
-                  <motion.tr
-                    key={promo.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                  >
-                    <td className="px-6 py-4 text-sm font-medium">{promo.code}</td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${promo.type === "promo_code"
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                        : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                        }`}>
-                        {promo.type === "promo_code" ? "Promo Code" : "Discount"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      {promo.valueType === "percentage" ? `${promo.value}%` : `₱${promo.value.toLocaleString()}`}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      {promo.usageCount}/{promo.usageLimit > 0 ? promo.usageLimit : "∞"}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span
-                        className={`px-2 py-1 rounded text-xs font-semibold ${promo.status === "active"
-                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                          : "bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-400"
-                          }`}
-                      >
-                        {promo.status === "active" ? "Active" : "Inactive"}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-right">
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          onClick={() => handleEditPromo(promo)}
-                          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+          <>
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Code Name</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Type</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Value</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Uses / Limit</th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
+                  <th className="px-6 py-3 text-right text-sm font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                <AnimatePresence>
+                  {paginatedPromoCodes.map((promo) => (
+                    <motion.tr
+                      key={promo.id}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                    >
+                      <td className="px-6 py-4 text-sm font-medium">{promo.code}</td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className={`px-2 py-1 rounded text-xs font-semibold ${promo.type === "promo_code"
+                          ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+                          : "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                          }`}>
+                          {promo.type === "promo_code" ? "Promo Code" : "Discount"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {promo.valueType === "percentage" ? `${promo.value}%` : `₱${promo.value.toLocaleString()}`}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {promo.usageCount}/{promo.usageLimit > 0 ? promo.usageLimit : "∞"}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <span
+                          className={`px-2 py-1 rounded text-xs font-semibold ${promo.status === "active"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                            : "bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-400"
+                            }`}
                         >
-                          <Edit2 size={16} className="text-gray-600 dark:text-gray-400" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteClick(promo.id)}
-                          className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                        >
-                          <Trash2 size={16} className="text-red-600" />
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </AnimatePresence>
-            </tbody>
-          </table>
+                          {promo.status === "active" ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-right">
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => handleEditPromo(promo)}
+                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                          >
+                            <Edit2 size={16} className="text-gray-600 dark:text-gray-400" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteClick(promo.id)}
+                            className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
+                          >
+                            <Trash2 size={16} className="text-red-600" />
+                          </button>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </AnimatePresence>
+              </tbody>
+            </table>
+
+            <TablePaginationControls
+              totalItems={filteredPromoCodes.length}
+              currentPage={currentPage}
+              rowsPerPage={rowsPerPage}
+              onPageChange={setCurrentPage}
+              onRowsPerPageChange={(rows) => {
+                setRowsPerPage(rows);
+                setCurrentPage(1);
+              }}
+            />
+          </>
         )}
       </div>
 

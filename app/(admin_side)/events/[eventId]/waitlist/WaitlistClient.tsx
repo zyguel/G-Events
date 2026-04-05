@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown, Ticket } from 'lucide-react';
 import { EventSummary } from '@/lib/types';
+import TablePaginationControls from '@/components/admin/TablePaginationControls';
 
 // Waitlist entry type and mock data (used only for local draft events)
 type WaitlistStatus = 'Invited' | 'Waiting';
@@ -179,6 +180,8 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
 
     // Ticket type filter state
     const [selectedTicketType, setSelectedTicketType] = useState(() => getDefaultTicketType(entries));
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     // Keep selected ticket type in sync when entries change
     useEffect(() => {
@@ -191,6 +194,22 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     const filteredEntries = selectedTicketType
         ? entries.filter(e => e.ticketType === selectedTicketType)
         : [];
+
+    const paginatedEntries = filteredEntries.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage
+    );
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedTicketType]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredEntries.length / rowsPerPage));
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, filteredEntries.length, rowsPerPage]);
 
 
 
@@ -488,7 +507,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                                                 Loading waitlist...
                                             </td>
                                         </tr>
-                                    ) : filteredEntries.map((entry) => (
+                                    ) : paginatedEntries.map((entry) => (
                                         <tr key={entry.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                             <td className="px-6 py-4">
                                                 <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -539,6 +558,17 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                                 </tbody>
                             </table>
                         </div>
+
+                        <TablePaginationControls
+                            totalItems={filteredEntries.length}
+                            currentPage={currentPage}
+                            rowsPerPage={rowsPerPage}
+                            onPageChange={setCurrentPage}
+                            onRowsPerPageChange={(rows) => {
+                                setRowsPerPage(rows);
+                                setCurrentPage(1);
+                            }}
+                        />
 
                         {filteredEntries.length === 0 && !isLoadingEntries && (
                             <div className="p-12 text-center">

@@ -6,6 +6,7 @@ import { Search, Filter, MoreVertical, CheckCircle, Clock, ChevronDown, UserChec
 import { AnimatePresence, motion } from 'framer-motion';
 
 import { EventSummary } from '@/lib/types';
+import TablePaginationControls from '@/components/admin/TablePaginationControls';
 
 // --- Types ---
 interface Attendee {
@@ -58,6 +59,8 @@ export default function CheckInClient({ event }: CheckInClientProps) {
 
     // Action Menu State
     const [openActionId, setOpenActionId] = useState<string | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     useEffect(() => {
         if (event.id.startsWith('evt-')) {
@@ -364,6 +367,22 @@ export default function CheckInClient({ event }: CheckInClientProps) {
         return matchesSearch && matchesFilter;
     });
 
+    const paginatedAttendees = filteredAttendees.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage
+    );
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, activeFilter]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredAttendees.length / rowsPerPage));
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, filteredAttendees.length, rowsPerPage]);
+
     const stats = {
         total: attendees.length,
         checkedIn: attendees.filter(a => a.status === 'Checked-In').length,
@@ -594,7 +613,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                             </td>
                                         </tr>
                                     ) : filteredAttendees.length > 0 ? (
-                                        filteredAttendees.map((attendee) => (
+                                        paginatedAttendees.map((attendee) => (
                                             <tr
                                                 key={attendee.registrationId}
                                                 className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-200"
@@ -689,6 +708,17 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                 </tbody>
                             </table>
                         </div>
+
+                        <TablePaginationControls
+                            totalItems={filteredAttendees.length}
+                            currentPage={currentPage}
+                            rowsPerPage={rowsPerPage}
+                            onPageChange={setCurrentPage}
+                            onRowsPerPageChange={(rows) => {
+                                setRowsPerPage(rows);
+                                setCurrentPage(1);
+                            }}
+                        />
                     </div>
                 </div>
             </div>

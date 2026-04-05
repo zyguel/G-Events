@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { usePermissions } from '@/contexts/PermissionContext';
+import TablePaginationControls from '@/components/admin/TablePaginationControls';
 
 // Types
 interface Registrant {
@@ -438,6 +439,12 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
     const [searchQuery, setSearchQuery] = useState('');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [filters, setFilters] = useState<Record<string, string>>({});
+    const [registrationPage, setRegistrationPage] = useState(1);
+    const [registrationRowsPerPage, setRegistrationRowsPerPage] = useState(10);
+    const [attendancePage, setAttendancePage] = useState(1);
+    const [attendanceRowsPerPage, setAttendanceRowsPerPage] = useState(10);
+    const [breakoutPage, setBreakoutPage] = useState(1);
+    const [breakoutRowsPerPage, setBreakoutRowsPerPage] = useState(10);
 
 
 
@@ -472,6 +479,59 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
         const matchesDateTo = !dateTo || !registrationDate || registrationDate <= dateTo;
         return matchesSearch && matchesTicketType && matchesStatus && matchesDateFrom && matchesDateTo;
     });
+
+    const filteredBreakoutSessions = breakoutSessions.filter(s =>
+        s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        s.speaker.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    const paginatedRegistrants = filteredRegistrants.slice(
+        (registrationPage - 1) * registrationRowsPerPage,
+        registrationPage * registrationRowsPerPage
+    );
+
+    const paginatedAttendance = filteredForAttendance.slice(
+        (attendancePage - 1) * attendanceRowsPerPage,
+        attendancePage * attendanceRowsPerPage
+    );
+
+    const paginatedBreakoutSessions = filteredBreakoutSessions.slice(
+        (breakoutPage - 1) * breakoutRowsPerPage,
+        breakoutPage * breakoutRowsPerPage
+    );
+
+    useEffect(() => {
+        if (activeTab === 'registration') {
+            setRegistrationPage(1);
+        }
+        if (activeTab === 'attendance') {
+            setAttendancePage(1);
+        }
+        if (activeTab === 'breakout') {
+            setBreakoutPage(1);
+        }
+    }, [activeTab, filters, searchQuery]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredRegistrants.length / registrationRowsPerPage));
+        if (registrationPage > totalPages) {
+            setRegistrationPage(totalPages);
+        }
+    }, [filteredRegistrants.length, registrationPage, registrationRowsPerPage]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredForAttendance.length / attendanceRowsPerPage));
+        if (attendancePage > totalPages) {
+            setAttendancePage(totalPages);
+        }
+    }, [attendancePage, attendanceRowsPerPage, filteredForAttendance.length]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(filteredBreakoutSessions.length / breakoutRowsPerPage));
+        if (breakoutPage > totalPages) {
+            setBreakoutPage(totalPages);
+        }
+    }, [breakoutPage, breakoutRowsPerPage, filteredBreakoutSessions.length]);
 
     const [exportedFormat, setExportedFormat] = useState<string | null>(null);
 
@@ -739,7 +799,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
 
                             {/* Row Count */}
                             <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
-                                Displaying up to 10 rows. Export to view full report
+                                Displaying paginated rows. Use the table controls to navigate.
                             </div>
 
                             {/* Table */}
@@ -758,7 +818,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                            {filteredRegistrants.slice(0, 10).map((registrant) => (
+                                            {paginatedRegistrants.map((registrant) => (
                                                 <tr key={registrant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                                     <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{registrant.name}</td>
                                                     <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.email}</td>
@@ -772,6 +832,17 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <TablePaginationControls
+                                    totalItems={filteredRegistrants.length}
+                                    currentPage={registrationPage}
+                                    rowsPerPage={registrationRowsPerPage}
+                                    onPageChange={setRegistrationPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setRegistrationRowsPerPage(rows);
+                                        setRegistrationPage(1);
+                                    }}
+                                />
                             </div>
                         </div>
                     )}
@@ -827,7 +898,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
 
                             {/* Row Count */}
                             <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
-                                Displaying up to 10 rows. Export to view full report
+                                Displaying paginated rows. Use the table controls to navigate.
                             </div>
 
                             {/* Table */}
@@ -846,7 +917,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                            {filteredForAttendance.slice(0, 10).map((registrant) => (
+                                            {paginatedAttendance.map((registrant) => (
                                                 <tr key={registrant.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                                     <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{registrant.name}</td>
                                                     <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{registrant.email}</td>
@@ -867,6 +938,17 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <TablePaginationControls
+                                    totalItems={filteredForAttendance.length}
+                                    currentPage={attendancePage}
+                                    rowsPerPage={attendanceRowsPerPage}
+                                    onPageChange={setAttendancePage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setAttendanceRowsPerPage(rows);
+                                        setAttendancePage(1);
+                                    }}
+                                />
                             </div>
                         </div>
                     )}
@@ -897,7 +979,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
 
                             {/* Row Count */}
                             <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
-                                Displaying up to {breakoutSessions.length} rows. Export to view full report
+                                Displaying paginated rows. Use the table controls to navigate.
                             </div>
 
                             {/* Table */}
@@ -916,9 +998,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                                            {breakoutSessions
-                                                .filter(s => s.name.toLowerCase().includes(searchQuery.toLowerCase()) || s.speaker.toLowerCase().includes(searchQuery.toLowerCase()))
-                                                .map((session) => (
+                                            {paginatedBreakoutSessions.map((session) => (
                                                     <tr key={session.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                                         <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{session.name}</td>
                                                         <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{session.speaker}</td>
@@ -932,6 +1012,17 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                         </tbody>
                                     </table>
                                 </div>
+
+                                <TablePaginationControls
+                                    totalItems={filteredBreakoutSessions.length}
+                                    currentPage={breakoutPage}
+                                    rowsPerPage={breakoutRowsPerPage}
+                                    onPageChange={setBreakoutPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setBreakoutRowsPerPage(rows);
+                                        setBreakoutPage(1);
+                                    }}
+                                />
                             </div>
                         </div>
                     )}

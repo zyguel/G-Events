@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import RegistrationChart from "./RegistrationChart";
 import TopPerformingEvents from "./TopPerformingEvents";
+import TablePaginationControls from "@/components/admin/TablePaginationControls";
 import type { DemographicsData } from "@/lib/actions/events";
 
 // ── Chart helpers ────────────────────────────────────────────────────────────
@@ -86,6 +87,8 @@ export default function DashboardTabs({
     demographics?: DemographicsData;
 }) {
     const [activeTab, setActiveTab] = useState("registrations");
+    const [transactionsPage, setTransactionsPage] = useState(1);
+    const [transactionsRowsPerPage, setTransactionsRowsPerPage] = useState(10);
     const attendanceTotal =
         data.trends.attendance.checkedIn +
         data.trends.attendance.waitlisted +
@@ -100,6 +103,21 @@ export default function DashboardTabs({
     const profitMarginPct = data.stats.revenue > 0
         ? Math.round((data.stats.netProfit / data.stats.revenue) * 100)
         : 0;
+
+    const paginatedTransactions = data.recentTransactions.slice(
+        (transactionsPage - 1) * transactionsRowsPerPage,
+        transactionsPage * transactionsRowsPerPage
+    );
+
+    useEffect(() => {
+        if (activeTab !== "revenue") {
+            return;
+        }
+        const totalPages = Math.max(1, Math.ceil(data.recentTransactions.length / transactionsRowsPerPage));
+        if (transactionsPage > totalPages) {
+            setTransactionsPage(totalPages);
+        }
+    }, [activeTab, data.recentTransactions.length, transactionsPage, transactionsRowsPerPage]);
 
     return (
         <div className="space-y-6">
@@ -297,7 +315,7 @@ export default function DashboardTabs({
                                                 </tr>
                                             </thead>
                                             <tbody className="text-sm">
-                                                {data.recentTransactions.map((tx, i) => (
+                                                {paginatedTransactions.map((tx, i) => (
                                                     <tr key={i} className="group hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                                         <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-medium">
                                                             {tx.user} <span className="block text-xs text-gray-400 dark:text-gray-500 font-normal">{tx.id}</span>
@@ -318,6 +336,17 @@ export default function DashboardTabs({
                                         </table>
                                     )}
                                 </div>
+
+                                <TablePaginationControls
+                                    totalItems={data.recentTransactions.length}
+                                    currentPage={transactionsPage}
+                                    rowsPerPage={transactionsRowsPerPage}
+                                    onPageChange={setTransactionsPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setTransactionsRowsPerPage(rows);
+                                        setTransactionsPage(1);
+                                    }}
+                                />
                             </div>
                         </div>
                     </div>
