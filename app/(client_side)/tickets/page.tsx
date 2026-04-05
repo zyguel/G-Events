@@ -19,6 +19,7 @@ type RegistrationRow = {
     event_start_at?: string | null;
     event_end_at?: string | null;
     location?: string | null;
+    banner_image?: string | null;
   } | null;
   Ticket?: {
     id?: number;
