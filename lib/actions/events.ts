@@ -633,8 +633,9 @@ export async function getEventAnalytics(eventId: number) {
         percentage: totalRevenue > 0 ? Math.round((value / totalRevenue) * 100) : 0
     }));
 
-    // 7. Satisfaction — two-step, fully isolated
+    // 7. Satisfaction + Comments — handles both new (feedback_submission_id) and old (registration_id) rows
     let avgSatisfaction = 0;
+    let comments: { user: string; rating: number; text: string; time: string }[] = [];
     try {
         const { data: feedbackForms } = await supabase
             .from('FeedbackForm')
@@ -643,12 +644,17 @@ export async function getEventAnalytics(eventId: number) {
 
         const formIds = (feedbackForms || []).map((f: any) => f.id);
         if (formIds.length > 0) {
-            const { data: feedbackAnswers } = await supabase
+            // Fetch all answers for this form (works for both old & new rows)
+            const { data: allAnswers } = await supabase
                 .from('FeedbackAnswer')
-                .select('answer, FeedbackQuestion(input_format)')
-                .in('feedback_form_id', formIds);
+                .select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format)')
+                .in('feedback_form_id', formIds)
+                .limit(200);
 
-            const ratings = (feedbackAnswers || [])
+            const answerRows = (allAnswers || []) as any[];
+
+            // Satisfaction from all rating answers
+            const ratings = answerRows
                 .filter((f: any) => f.FeedbackQuestion?.input_format === 'rating')
                 .map((f: any) => parseFloat(f.answer))
                 .filter((v: number) => !isNaN(v) && v >= 1 && v <= 5);
@@ -658,6 +664,57 @@ export async function getEventAnalytics(eventId: number) {
                     (ratings.reduce((s: number, v: number) => s + v, 0) / ratings.length).toFixed(1)
                 );
             }
+
+            // Fetch FeedbackSubmission rows (new-style) for names + timestamps
+            const { data: submissions } = await supabase
+                .from('FeedbackSubmission')
+                .select('id, submitter_name, submitted_at')
+                .in('feedback_form_id', formIds)
+                .order('submitted_at', { ascending: false })
+                .limit(50);
+
+            const commentMap: Record<string, { user: string; rating: number; text: string; time: string }> = {};
+
+            // Seed new-style entries
+            (submissions || []).forEach((s: any) => {
+                commentMap[`sub_${s.id}`] = {
+                    user: s.submitter_name || 'Anonymous',
+                    rating: 0,
+                    text: '',
+                    time: formatRelativeTime(s.submitted_at),
+                };
+            });
+
+            // Seed old-style entries
+            answerRows
+                .filter((a: any) => !a.feedback_submission_id && a.registration_id)
+                .forEach((a: any) => {
+                    const key = `reg_${a.registration_id}`;
+                    if (!commentMap[key]) {
+                        commentMap[key] = { user: 'Anonymous', rating: 0, text: '', time: 'Previous' };
+                    }
+                });
+
+            answerRows.forEach((a: any) => {
+                const key = a.feedback_submission_id
+                    ? `sub_${a.feedback_submission_id}`
+                    : a.registration_id
+                    ? `reg_${a.registration_id}`
+                    : null;
+                if (!key || !commentMap[key]) return;
+                if (a.FeedbackQuestion?.input_format === 'rating') {
+                    const v = parseFloat(a.answer);
+                    if (!isNaN(v)) commentMap[key].rating = v;
+                } else if (String(a.answer || '').trim()) {
+                    commentMap[key].text = commentMap[key].text
+                        ? `${commentMap[key].text}\n${String(a.answer).trim()}`
+                        : String(a.answer).trim();
+                }
+            });
+
+            comments = Object.values(commentMap)
+                .filter((c) => c.text.length > 0 || c.rating > 0)
+                .slice(0, 20);
         }
     } catch (e) {
         console.warn('Could not fetch satisfaction data:', e);
@@ -676,37 +733,6 @@ export async function getEventAnalytics(eventId: number) {
             : r.status === 'pending' ? 'Pending'
                 : 'Cancelled'
     }));
-
-    // Build feedback comments from non-rating answers.
-    let comments: { user: string; rating: number; text: string; time: string }[] = [];
-    try {
-        const { data: feedbackForms } = await supabase
-            .from('FeedbackForm')
-            .select('id')
-            .eq('event_id', eventId);
-
-        const formIds = (feedbackForms || []).map((f: any) => f.id);
-        if (formIds.length > 0) {
-            const { data: feedbackAnswers } = await supabase
-                .from('FeedbackAnswer')
-                .select('answer, FeedbackQuestion(input_format)')
-                .in('feedback_form_id', formIds)
-                .limit(50);
-
-            comments = (feedbackAnswers || [])
-                .filter((row: any) => row?.FeedbackQuestion?.input_format !== 'rating')
-                .map((row: any) => ({
-                    user: 'Anonymous',
-                    rating: 0,
-                    text: String(row.answer || '').trim(),
-                    time: 'Recent',
-                }))
-                .filter((row: any) => row.text.length > 0)
-                .slice(0, 20);
-        }
-    } catch (e) {
-        console.warn('Could not fetch feedback comments:', e);
-    }
 
     return {
         stats: {
@@ -917,23 +943,74 @@ export async function getGeneralAnalytics() {
                     : 'Cancelled',
         }));
 
-        // 10. Feedback comments across events
-        const { data: commentRows } = await supabase
-            .from('FeedbackAnswer')
-            .select('answer, FeedbackQuestion(input_format), FeedbackForm(Event(title))')
-            .limit(60);
+        // 10. Feedback comments across events — use FeedbackSubmission for rich data
+        let comments: { user: string; rating: number; text: string; time: string; eventName?: string }[] = [];
+        try {
+            // Fetch all FeedbackAnswer rows with question type + form/event name
+            const { data: allAnswerRows } = await supabase
+                .from('FeedbackAnswer')
+                .select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format), FeedbackForm(Event(title))')
+                .limit(200);
 
-        const comments = (commentRows || [])
-            .filter((row: any) => row?.FeedbackQuestion?.input_format !== 'rating')
-            .map((row: any) => ({
-                user: 'Anonymous',
-                rating: 0,
-                text: String(row.answer || '').trim(),
-                time: 'Recent',
-                eventName: row?.FeedbackForm?.Event?.title || undefined,
-            }))
-            .filter((row: any) => row.text.length > 0)
-            .slice(0, 30);
+            // Fetch FeedbackSubmission rows (new-style) for name + timestamp
+            const { data: submissionRows } = await supabase
+                .from('FeedbackSubmission')
+                .select('id, submitter_name, submitted_at, FeedbackForm(Event(title))')
+                .order('submitted_at', { ascending: false })
+                .limit(60);
+
+            const commentMap: Record<string, { user: string; rating: number; text: string; time: string; eventName?: string }> = {};
+
+            // Seed new-style entries
+            (submissionRows || []).forEach((s: any) => {
+                commentMap[`sub_${s.id}`] = {
+                    user: s.submitter_name || 'Anonymous',
+                    rating: 0,
+                    text: '',
+                    time: formatRelativeTime(s.submitted_at),
+                    eventName: s?.FeedbackForm?.Event?.title || undefined,
+                };
+            });
+
+            // Seed old-style entries
+            (allAnswerRows || []).forEach((a: any) => {
+                if (!a.feedback_submission_id && a.registration_id) {
+                    const key = `reg_${a.registration_id}`;
+                    if (!commentMap[key]) {
+                        commentMap[key] = {
+                            user: 'Anonymous',
+                            rating: 0,
+                            text: '',
+                            time: 'Previous',
+                            eventName: a?.FeedbackForm?.Event?.title || undefined,
+                        };
+                    }
+                }
+            });
+
+            (allAnswerRows || []).forEach((a: any) => {
+                const key = a.feedback_submission_id
+                    ? `sub_${a.feedback_submission_id}`
+                    : a.registration_id
+                    ? `reg_${a.registration_id}`
+                    : null;
+                if (!key || !commentMap[key]) return;
+                if (a.FeedbackQuestion?.input_format === 'rating') {
+                    const v = parseFloat(a.answer);
+                    if (!isNaN(v)) commentMap[key].rating = v;
+                } else if (String(a.answer || '').trim()) {
+                    commentMap[key].text = commentMap[key].text
+                        ? `${commentMap[key].text}\n${String(a.answer).trim()}`
+                        : String(a.answer).trim();
+                }
+            });
+
+            comments = Object.values(commentMap)
+                .filter((c) => c.text.length > 0 || c.rating > 0)
+                .slice(0, 30);
+        } catch (e) {
+            console.warn('Could not fetch general feedback comments:', e);
+        }
 
         return {
             stats: {
