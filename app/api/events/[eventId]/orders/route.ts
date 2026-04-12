@@ -6,7 +6,7 @@ import { getPublicAppBaseUrl } from "@/lib/appBaseUrl";
 import { sendEmail } from "@/lib/emailProvider";
 import { buildEventSlug } from "@/lib/slug";
 import { newTicketToken } from "@/lib/ticketToken";
-import { buildSignedTicketQrImageUrl } from "@/lib/ticketQrEmailImage";
+import { buildAndStoreTicketQrImage } from "@/lib/ticketQrStorage";
 import {
     buildEticketUrl,
     buildGroupCompleteUrl,
@@ -323,7 +323,7 @@ export async function POST(
 
         // 5. E-ticket / group invite emails (non-fatal if mail fails)
         try {
-            const baseUrl = getPublicAppBaseUrl();
+            const baseUrl = getPublicAppBaseUrl(request);
             const slug = buildEventSlug(eventRow.title, numericEventId);
             const breakoutsEnabled = !!(eventRow as { allow_breakout_sessions?: boolean })
                 .allow_breakout_sessions;
@@ -331,7 +331,11 @@ export async function POST(
             const primary = inserted[0];
             if (primary) {
                 const ticketUrl = buildEticketUrl(baseUrl, slug, primary.token);
-                const qrImageUrl = buildSignedTicketQrImageUrl(baseUrl, ticketUrl);
+                const qrImageUrl = await buildAndStoreTicketQrImage({
+                    supabase,
+                    ticketUrl,
+                    folder: `event-${numericEventId}`,
+                });
                 const html = buildRegistrationConfirmationEmailHtml({
                     attendeeName:
                         primary.reg.User?.name ||

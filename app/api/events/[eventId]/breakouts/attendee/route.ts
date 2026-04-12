@@ -8,7 +8,7 @@ import {
 import { getPublicAppBaseUrl } from '@/lib/appBaseUrl';
 import { buildEventSlug } from '@/lib/slug';
 import { newTicketToken } from '@/lib/ticketToken';
-import { buildSignedTicketQrImageUrl } from '@/lib/ticketQrEmailImage';
+import { buildAndStoreTicketQrImage } from '@/lib/ticketQrStorage';
 import {
   buildBreakoutEticketUrl,
   buildBreakoutTicketEmailHtml,
@@ -373,10 +373,14 @@ export async function POST(
       [userRow.name, userRow.email].find((v) => typeof v === 'string' && v.trim().length > 0) || 'Attendee';
 
     try {
-      const baseUrl = getPublicAppBaseUrl();
+      const baseUrl = getPublicAppBaseUrl(request);
       const slug = buildEventSlug(eventRow.title, id);
       const ticketUrl = buildBreakoutEticketUrl(baseUrl, slug, token);
-      const qrImageUrl = buildSignedTicketQrImageUrl(baseUrl, ticketUrl);
+      const qrImageUrl = await buildAndStoreTicketQrImage({
+        supabase: admin,
+        ticketUrl,
+        folder: `event-${id}/breakouts`,
+      });
       const html = buildBreakoutTicketEmailHtml({
         attendeeName: String(attendeeName),
         eventTitle: eventRow.title,

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase-server';
+import { createAdminClient, createClient } from '@/lib/supabase-server';
 import { sendEmail } from '@/lib/emailProvider';
 import { generateCheckInPass } from '@/lib/checkinQr';
 import { getPublicAppBaseUrl } from '@/lib/appBaseUrl';
 import { buildEventSlug } from '@/lib/slug';
 import { newTicketToken } from '@/lib/ticketToken';
-import { buildSignedTicketQrImageUrl } from '@/lib/ticketQrEmailImage';
+import { buildAndStoreTicketQrImage } from '@/lib/ticketQrStorage';
 import {
     buildEticketUrl,
     buildGroupCompleteUrl,
@@ -69,6 +69,10 @@ export async function POST(
         }
 
         const supabase = await createAdminClient();
+        const sessionClient = await createClient();
+        const {
+            data: { user: authUser },
+        } = await sessionClient.auth.getUser();
 
         // Verify order form belongs to the same event.
         const { data: existingForm, error: formError } = await supabase
@@ -284,6 +288,40 @@ export async function POST(
                     .limit(1);
 
                 if (!userCheck || userCheck.length === 0) {
+                    const authEmail = authUser?.email?.trim().toLowerCase() || null;
+                    const isPrimaryEmail = email === normalizedPrimaryEmail;
+                    const canAutoProvisionPrimaryUser =
+                        !isGroupRegistration && isPrimaryEmail && authEmail === normalizedPrimaryEmail;
+
+                    if (canAutoProvisionPrimaryUser) {
+                        const fallbackName =
+                            resolvedName && resolvedName !== 'Attendee'
+                                ? resolvedName
+                                : normalizedPrimaryEmail.split('@')[0] || 'Attendee';
+
+                        const { error: insertUserError } = await supabase
+                            .from('User')
+                            .insert([{ name: fallbackName, email: normalizedPrimaryEmail }]);
+
+                        if (!insertUserError) {
+                            console.log('[Registration] Auto-provisioned missing User row for authenticated attendee:', normalizedPrimaryEmail);
+                            continue;
+                        }
+
+                        // If another request created the row concurrently, proceed.
+                        if (insertUserError.code === '23505') {
+                            console.log('[Registration] User row already created concurrently for:', normalizedPrimaryEmail);
+                            continue;
+                        }
+
+                        console.error('[Registration] Failed to auto-provision User row:', insertUserError);
+                        return NextResponse.json(
+                            { error: 'Failed to initialize your attendee profile. Please try again.' },
+                            { status: 500 }
+                        );
+                    }
+
+                    console.warn('[Registration] Rejected registration because email is not a known member:', email);
                     return NextResponse.json(
                         { error: `The email ${email} is not registered in our system. All registrants must have an account.` },
                         { status: 400 }
@@ -428,10 +466,14 @@ export async function POST(
                     html: `<p>Hi ${resolvedName}, your waitlist request for ${eventRow.title} was successful.</p>`,
                 });
             } else if (submissionMode === 'registered' && primaryTicketToken) {
-                const baseUrl = getPublicAppBaseUrl();
+                const baseUrl = getPublicAppBaseUrl(request);
                 const slug = buildEventSlug(eventRow.title, numericEventId);
                 const ticketUrl = buildEticketUrl(baseUrl, slug, primaryTicketToken);
-                const qrImageUrl = buildSignedTicketQrImageUrl(baseUrl, ticketUrl);
+                const qrImageUrl = await buildAndStoreTicketQrImage({
+                    supabase,
+                    ticketUrl,
+                    folder: `event-${numericEventId}`,
+                });
                 const html = buildRegistrationConfirmationEmailHtml({
                     attendeeName: resolvedName,
                     eventTitle: eventRow.title,

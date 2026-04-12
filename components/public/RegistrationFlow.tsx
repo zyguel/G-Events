@@ -114,9 +114,13 @@ function CheckInPassCard({ pass }: { pass: CheckInPass }) {
                 </button>
             </div>
 
-            <div className="mt-4 flex items-center justify-center bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700 min-h-[180px]">
+            <div className="mt-4 flex items-center justify-center bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700 min-h-45 overflow-hidden p-2">
                 {qrDataUrl ? (
-                    <img src={qrDataUrl} alt={`Check-in QR for ${pass.email}`} className="w-44 h-44" />
+                    <img
+                        src={qrDataUrl}
+                        alt={`Check-in QR for ${pass.email}`}
+                        className="w-full max-w-44 sm:max-w-48 h-auto aspect-square object-contain"
+                    />
                 ) : (
                     <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
                         <QrCode size={14} />
