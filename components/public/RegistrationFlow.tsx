@@ -32,6 +32,17 @@ interface RegistrationFlowProps {
         used_quantity: number;
         is_sold_out: boolean;
     }[];
+    breakoutSessions?: {
+        id: string;
+        name: string;
+        type: 'Online' | 'In-Person';
+        status: 'Not Started' | 'Ongoing' | 'Completed' | 'Cancelled';
+        date: string;
+        time: string;
+        location: string;
+        currentAttendees: number;
+        maxCapacity: number;
+    }[];
     existingCheckInPasses?: CheckInPass[];
     existingTicketNames?: string[];
 }
@@ -827,6 +838,9 @@ function OrderFormStep({
     eventSlug,
     userEmail,
     ticketId,
+    breakoutSessions,
+    breakoutSessionId,
+    onBreakoutSessionChange,
 }: {
     formData: OrderFormData;
     eventId: number;
@@ -837,6 +851,9 @@ function OrderFormStep({
     eventSlug: string;
     userEmail?: string;
     ticketId: number | null;
+    breakoutSessions: RegistrationFlowProps['breakoutSessions'];
+    breakoutSessionId: number | null;
+    onBreakoutSessionChange: (sessionId: number | null) => void;
 }) {
     const router = useRouter();
     const [answers, setAnswers] = useState<FormAnswers>({});
@@ -883,8 +900,13 @@ function OrderFormStep({
         setValidationErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
 
-        await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : []);
-    }, [formData, answers, submit, ticketId, registrationType, groupEmails]);
+        await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : [], breakoutSessionId);
+    }, [formData, answers, submit, ticketId, registrationType, groupEmails, breakoutSessionId]);
+
+    const inPersonBreakouts = (breakoutSessions || []).filter((session) => session.type === 'In-Person');
+    const selectedBreakout = breakoutSessionId == null
+        ? null
+        : inPersonBreakouts.find((session) => Number(session.id) === breakoutSessionId) || null;
 
     if (success) {
         return (
@@ -898,6 +920,25 @@ function OrderFormStep({
                 <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mx-auto mb-2">
                     {successMessage || 'Your registration has been submitted successfully.'}
                 </p>
+                {selectedBreakout && (
+                    <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-left max-w-sm mx-auto border border-indigo-100 dark:border-indigo-800/40">
+                        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
+                            Selected breakout room
+                        </p>
+                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedBreakout.name}</p>
+                        {selectedBreakout.location ? (
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{selectedBreakout.location}</p>
+                        ) : null}
+                        {selectedBreakout.date || selectedBreakout.time ? (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                {[selectedBreakout.date, selectedBreakout.time].filter(Boolean).join(' • ')}
+                            </p>
+                        ) : null}
+                        <p className="text-xs text-indigo-800/90 dark:text-indigo-200/90 mt-2 leading-relaxed">
+                            A separate breakout QR ticket has been prepared for this session.
+                        </p>
+                    </div>
+                )}
                 {registrationType === 'group' && groupEmails.length > 0 && (
                     <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-left max-w-sm mx-auto border border-indigo-100 dark:border-indigo-800/40">
                         <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">Group members</p>
@@ -1001,6 +1042,45 @@ function OrderFormStep({
             )}
 
             <form id="event-order-form" onSubmit={handleSubmit} className="space-y-6">
+                {inPersonBreakouts.length > 0 && (
+                    <div className="rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/80 dark:bg-gray-800/40 p-4">
+                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                            Breakout room (optional)
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                            Select one in-person breakout now, or leave it as Main Event Only.
+                        </p>
+                        <select
+                            value={breakoutSessionId == null ? '' : String(breakoutSessionId)}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                onBreakoutSessionChange(value ? Number(value) : null);
+                            }}
+                            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700/60 text-sm text-gray-900 dark:text-white"
+                        >
+                            <option value="">Main Event Only</option>
+                            {inPersonBreakouts.map((session) => {
+                                const maxCapacity = Number(session.maxCapacity || 0);
+                                const currentAttendees = Number(session.currentAttendees || 0);
+                                const full = maxCapacity > 0 && currentAttendees >= maxCapacity;
+                                const unavailable = session.status === 'Completed' || session.status === 'Cancelled';
+                                const disabled = full || unavailable;
+                                const suffix = full
+                                    ? ' (Full)'
+                                    : unavailable
+                                        ? ` (${session.status})`
+                                        : '';
+
+                                return (
+                                    <option key={session.id} value={session.id} disabled={disabled}>
+                                        {session.name}{session.location ? ` - ${session.location}` : ''}{suffix}
+                                    </option>
+                                );
+                            })}
+                        </select>
+                    </div>
+                )}
+
                 <PublicOrderForm
                     formData={formData}
                     answers={answers}
@@ -1054,6 +1134,7 @@ export default function RegistrationFlow({
     formData,
     userEmail: initialUserEmail,
     tickets,
+    breakoutSessions = [],
     existingCheckInPasses = [],
     existingTicketNames = [],
 }: RegistrationFlowProps) {
@@ -1063,6 +1144,7 @@ export default function RegistrationFlow({
     const [registrationType, setRegistrationType] = useState<RegistrationType>('individual');
     const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
     const [groupEmails, setGroupEmails] = useState<string[]>([]);
+    const [selectedBreakoutSessionId, setSelectedBreakoutSessionId] = useState<number | null>(null);
 
     if (existingCheckInPasses.length > 0) {
         return (
@@ -1219,6 +1301,9 @@ export default function RegistrationFlow({
                             eventSlug={eventSlug}
                             userEmail={userEmail}
                             ticketId={selectedTicketId}
+                            breakoutSessions={breakoutSessions}
+                            breakoutSessionId={selectedBreakoutSessionId}
+                            onBreakoutSessionChange={setSelectedBreakoutSessionId}
                         />
                     )}
                 </div>

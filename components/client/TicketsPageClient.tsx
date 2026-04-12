@@ -6,6 +6,7 @@ import { Calendar, CheckCircle2, Copy, MapPin, QrCode, Ticket, Clock } from "luc
 import { buildEventSlug } from "@/lib/slug";
 
 export type TicketPassItem = {
+  passKind?: "event" | "breakout";
   registrationId: number;
   eventId: number;
   eventTitle: string;
@@ -22,7 +23,9 @@ export type TicketPassItem = {
   passEmail: string;
   token: string;
   qrPayload: string;
-  expiresAt: string;
+  expiresAt: string | null;
+  breakoutSessionTitle?: string | null;
+  breakoutSessionLocation?: string | null;
 };
 
 function formatDateTime(isoValue: string | null): string {
@@ -45,6 +48,7 @@ function TicketPassCard({
   pass: TicketPassItem;
   onWithdraw: (registrationId: number) => Promise<void>;
 }) {
+  const isBreakoutPass = pass.passKind === "breakout";
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
   const [withdrawState, setWithdrawState] = useState<"idle" | "withdrawing" | "error">("idle");
@@ -57,7 +61,7 @@ function TicketPassCard({
       try {
         const qrcode = await import("qrcode");
         const dataUrl = await qrcode.toDataURL(pass.qrPayload, {
-          width: 260,
+          width: 240,
           margin: 1,
           errorCorrectionLevel: "M",
         });
@@ -115,17 +119,23 @@ function TicketPassCard({
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">{pass.ticketName}</p>
             <h2 className="text-lg font-extrabold text-gray-900 dark:text-white mt-1">{pass.eventTitle}</h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{formatPrice(pass.ticketPrice)}</p>
+            {isBreakoutPass ? (
+              <p className="text-sm text-indigo-600 dark:text-indigo-300 mt-1">Breakout room ticket</p>
+            ) : (
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{formatPrice(pass.ticketPrice)}</p>
+            )}
           </div>
           <span
             className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
-              pass.hasCheckedIn
+              isBreakoutPass
+                ? "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/25 dark:text-indigo-300 dark:border-indigo-700/40"
+                : pass.hasCheckedIn
                 ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-300 dark:border-emerald-700/40"
                 : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/25 dark:text-amber-300 dark:border-amber-700/40"
             }`}
           >
             <CheckCircle2 size={12} />
-            {pass.hasCheckedIn ? "Checked In" : "Active"}
+            {isBreakoutPass ? "Breakout" : pass.hasCheckedIn ? "Checked In" : "Active"}
           </span>
         </div>
       </div>
@@ -142,14 +152,14 @@ function TicketPassCard({
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <MapPin size={15} className="text-rose-500" />
-            <span>{pass.eventLocation || "Location TBD"}</span>
+            <span>{pass.breakoutSessionLocation || pass.eventLocation || "Location TBD"}</span>
           </div>
           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
             <Ticket size={15} className="text-violet-500" />
             <span>Registration #{pass.registrationId}</span>
           </div>
-          <p className="text-xs text-gray-500 dark:text-gray-400 pt-2">QR pass expires: {formatDateTime(pass.expiresAt)}</p>
-          {pass.checkedInAt && (
+          {pass.expiresAt ? <p className="text-xs text-gray-500 dark:text-gray-400 pt-2">QR pass expires: {formatDateTime(pass.expiresAt)}</p> : null}
+          {pass.checkedInAt && !isBreakoutPass && (
             <p className="text-xs text-emerald-600 dark:text-emerald-400">Checked in at: {formatDateTime(pass.checkedInAt)}</p>
           )}
           <div className="pt-2 flex items-center gap-2">
@@ -170,7 +180,7 @@ function TicketPassCard({
             <button
               type="button"
               onClick={handleWithdraw}
-              disabled={withdrawState === "withdrawing" || pass.hasCheckedIn}
+              disabled={withdrawState === "withdrawing" || pass.hasCheckedIn || isBreakoutPass}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-700/50 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {withdrawState === "withdrawing" ? "Withdrawing..." : "Withdraw"}
@@ -200,6 +210,17 @@ function TicketPassCard({
 
 export default function TicketsPageClient({ passes }: { passes: TicketPassItem[] }) {
   const [items, setItems] = useState<TicketPassItem[]>(passes);
+  const [activeTab, setActiveTab] = useState<"event" | "breakout">("event");
+
+  const eventItems = useMemo(
+    () => items.filter((item) => (item.passKind || "event") !== "breakout"),
+    [items]
+  );
+  const breakoutItems = useMemo(
+    () => items.filter((item) => item.passKind === "breakout"),
+    [items]
+  );
+  const visibleItems = activeTab === "event" ? eventItems : breakoutItems;
 
   const handleWithdraw = async (registrationId: number): Promise<void> => {
     const response = await fetch(`/api/tickets/${registrationId}/withdraw`, {
@@ -221,6 +242,33 @@ export default function TicketsPageClient({ passes }: { passes: TicketPassItem[]
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your event passes and present your QR code during check-in.</p>
       </div>
 
+      {items.length > 0 ? (
+        <div className="mb-6 inline-flex rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/70 p-1 gap-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab("event")}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              activeTab === "event"
+                ? "bg-[#3D518C] text-white"
+                : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+          >
+            Event Tickets ({eventItems.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("breakout")}
+            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+              activeTab === "breakout"
+                ? "bg-indigo-600 text-white"
+                : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+            }`}
+          >
+            Breakout Tickets ({breakoutItems.length})
+          </button>
+        </div>
+      ) : null}
+
       {items.length === 0 ? (
         <section className="bg-white dark:bg-gray-900/70 border border-dashed border-gray-300 dark:border-gray-700 rounded-3xl p-12 text-center">
           <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 mx-auto flex items-center justify-center mb-5">
@@ -237,8 +285,21 @@ export default function TicketsPageClient({ passes }: { passes: TicketPassItem[]
         </section>
       ) : (
         <section className="space-y-5">
-          {items.map((pass) => (
-            <TicketPassCard key={`${pass.eventId}-${pass.registrationId}`} pass={pass} onWithdraw={handleWithdraw} />
+          {visibleItems.length === 0 ? (
+            <div className="bg-white dark:bg-gray-900/70 border border-dashed border-gray-300 dark:border-gray-700 rounded-3xl p-10 text-center">
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {activeTab === "breakout"
+                  ? "No breakout tickets yet. Select a breakout during registration or from the event page."
+                  : "No main event tickets available."}
+              </p>
+            </div>
+          ) : null}
+          {visibleItems.map((pass) => (
+            <TicketPassCard
+              key={`${pass.passKind || "event"}-${pass.eventId}-${pass.registrationId}-${pass.token}`}
+              pass={pass}
+              onWithdraw={handleWithdraw}
+            />
           ))}
         </section>
       )}
