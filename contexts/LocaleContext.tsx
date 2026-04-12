@@ -12,7 +12,7 @@ import {
 import { getStaticTranslation } from '@/lib/staticTranslations';
 
 const LOCALE_STORAGE_KEY = 'g_events_locale_settings';
-const ADMIN_ROOTS = ['/dashboard', '/events', '/management', '/profile', '/settings'];
+const ADMIN_ROOTS = ['/dashboard', '/admin/events', '/management', '/profile', '/settings'];
 
 function isAdminAppRoute(pathname: string) {
   return ADMIN_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));

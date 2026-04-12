@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-server';
 import { sendEmail } from '@/lib/emailProvider';
 import { generateCheckInPass } from '@/lib/checkinQr';
+import { getPublicAppBaseUrl } from '@/lib/appBaseUrl';
+import { buildEventSlug } from '@/lib/slug';
+import { newTicketToken } from '@/lib/ticketToken';
+import { buildSignedTicketQrImageUrl } from '@/lib/ticketQrEmailImage';
+import {
+    buildEticketUrl,
+    buildGroupCompleteUrl,
+    buildGroupMemberInviteEmailHtml,
+    buildRegistrationConfirmationEmailHtml,
+} from '@/lib/ticketEmail';
 
 type FormInput = {
     id?: string;
@@ -134,7 +144,7 @@ export async function POST(
         // Load event + ticket context
         const { data: eventRow, error: eventError } = await supabase
             .from('Event')
-            .select('id, title, allow_waitlist')
+            .select('id, title, allow_waitlist, allow_breakout_sessions')
             .eq('id', numericEventId)
             .single();
 
@@ -261,6 +271,8 @@ export async function POST(
         const registeredAttendees: Array<{ email: string; registrationId: number }> = [];
         let submissionMode: 'registered' | 'waitlisted' = 'registered';
         let assignedTicketName = selectedTicket?.name || 'General Admission';
+        let primaryTicketToken: string | null = null;
+        let secondaryInvitees: { email: string; token: string }[] = [];
 
         if (selectedTicket) {
             // ── Step 1: Verify ALL emails exist in the User table ────────────
@@ -307,6 +319,8 @@ export async function POST(
 
             const primaryUserId = pUserRows![0].id;
 
+            primaryTicketToken = newTicketToken();
+
             const { data: pReg, error: pErr } = await supabase
                 .from('Registration')
                 .insert([{
@@ -315,7 +329,9 @@ export async function POST(
                     ticket_id: selectedTicket.id,
                     status: 'pending',
                     final_price_paid: Number(selectedTicket.price ?? 0),
-                    registration_group_id: registrationGroupId
+                    registration_group_id: registrationGroupId,
+                    ticket_token: primaryTicketToken,
+                    profile_pending: false,
                 }])
                 .select('id')
                 .single();
@@ -334,7 +350,8 @@ export async function POST(
             console.log('[Registration] Other members to register:', otherEmails);
 
             for (const memberEmail of otherEmails) {
-                // Look up the User row for this member
+                const memberTicketToken = newTicketToken();
+
                 const { data: memberUserRows } = await supabase
                     .from('User')
                     .select('id')
@@ -357,6 +374,8 @@ export async function POST(
                         status: 'pending',
                         final_price_paid: Number(selectedTicket.price ?? 0),
                         registration_group_id: registrationGroupId,
+                        ticket_token: memberTicketToken,
+                        profile_pending: true,
                     }])
                     .select('id')
                     .single();
@@ -364,12 +383,13 @@ export async function POST(
                 if (memberErr) {
                     console.error('[Registration] Member insert failed for', memberEmail, ':', memberErr);
                     return NextResponse.json({ error: 'DB Member Insert Error: ' + memberErr.message }, { status: 500 });
-                } else {
-                    console.log('[Registration] Member registered:', memberEmail);
-                    if (memberReg?.id) {
-                        registeredAttendees.push({ email: memberEmail, registrationId: memberReg.id });
-                    }
                 }
+
+                if (memberReg?.id) {
+                    registeredAttendees.push({ email: memberEmail, registrationId: memberReg.id });
+                }
+                secondaryInvitees.push({ email: memberEmail, token: memberTicketToken });
+                console.log('[Registration] Member registered (profile pending):', memberEmail);
             }
 
         } else if (eventRow.allow_waitlist) {
@@ -401,13 +421,49 @@ export async function POST(
 
         // ── Confirmation email ──────────────────────────────────────────────
         try {
-            await sendEmail({
-                to: resolvedEmail,
-                subject: submissionMode === 'registered'
-                    ? `Your ticket for ${eventRow.title}`
-                    : `Waitlist: ${eventRow.title}`,
-                html: `<p>Hi ${resolvedName}, your ${submissionMode} request for ${eventRow.title} was successful.</p>`
-            });
+            if (submissionMode === 'waitlisted') {
+                await sendEmail({
+                    to: resolvedEmail,
+                    subject: `Waitlist: ${eventRow.title}`,
+                    html: `<p>Hi ${resolvedName}, your waitlist request for ${eventRow.title} was successful.</p>`,
+                });
+            } else if (submissionMode === 'registered' && primaryTicketToken) {
+                const baseUrl = getPublicAppBaseUrl();
+                const slug = buildEventSlug(eventRow.title, numericEventId);
+                const ticketUrl = buildEticketUrl(baseUrl, slug, primaryTicketToken);
+                const qrImageUrl = buildSignedTicketQrImageUrl(baseUrl, ticketUrl);
+                const html = buildRegistrationConfirmationEmailHtml({
+                    attendeeName: resolvedName,
+                    eventTitle: eventRow.title,
+                    ticketName: assignedTicketName,
+                    qrImageUrl,
+                    ticketUrl,
+                    isGroupPrimary: isGroupRegistration,
+                    breakoutsEnabled: !!(eventRow as { allow_breakout_sessions?: boolean }).allow_breakout_sessions,
+                });
+                await sendEmail({
+                    to: resolvedEmail,
+                    subject: `Your e-ticket — ${eventRow.title}`,
+                    html,
+                });
+                for (const inv of secondaryInvitees) {
+                    const completeUrl = buildGroupCompleteUrl(baseUrl, slug, inv.token);
+                    await sendEmail({
+                        to: inv.email,
+                        subject: `Complete your registration — ${eventRow.title}`,
+                        html: buildGroupMemberInviteEmailHtml({
+                            eventTitle: eventRow.title,
+                            completeUrl,
+                        }),
+                    });
+                }
+            } else {
+                await sendEmail({
+                    to: resolvedEmail,
+                    subject: `Your ticket for ${eventRow.title}`,
+                    html: `<p>Hi ${resolvedName}, your registration for ${eventRow.title} was successful.</p>`,
+                });
+            }
         } catch (err) {
             console.warn('Email failed', err);
         }

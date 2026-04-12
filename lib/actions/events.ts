@@ -183,7 +183,7 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
             }
         }
 
-        revalidatePath('/events')
+        revalidatePath('/admin/events')
         return { success: true, message: 'Event created successfully', eventId }
 
     } catch (e) {
@@ -459,7 +459,7 @@ export async function updateEvent(id: number, data: Partial<any>) {
             console.warn('Event audit log failed (update):', e)
         }
 
-        revalidatePath('/events')
+        revalidatePath('/admin/events')
         revalidatePath(`/events/${id}`)
         return { success: true }
     } catch (e) {
@@ -1480,8 +1480,7 @@ export async function deleteEvent(id: number) {
             await supabase.from('FeedbackForm').delete().eq('event_id', id);
         }
 
-        // Delete Registration-related data
-        // RegistrationAddOn depends on Registration and AddOn
+        // Delete Registration-related data (AddOnRedemption references Registration)
         const { data: regs } = await supabase
             .from('Registration')
             .select('id')
@@ -1489,7 +1488,7 @@ export async function deleteEvent(id: number) {
 
         if (regs && regs.length > 0) {
             const regIds = regs.map((r: any) => r.id);
-            await supabase.from('RegistrationAddOn').delete().in('registration_id', regIds);
+            await supabase.from('AddOnRedemption').delete().in('registration_id', regIds);
         }
 
         // Delete other related tables
@@ -1528,7 +1527,7 @@ export async function deleteEvent(id: number) {
             console.warn('Event audit log failed (delete):', e);
         }
 
-        revalidatePath('/events');
+        revalidatePath('/admin/events');
         return { success: true };
     } catch (e: any) {
         console.error('Unexpected error deleting event:', e);

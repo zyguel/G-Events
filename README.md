@@ -137,7 +137,8 @@ Use this section when handing the project to a new maintainer.
 | `SMTP_URL` | Optional (for SMTP URL mode) | Full SMTP connection URL instead of host/user/pass |
 | `RESEND_API_KEY` | Yes (if using Resend mode) | API key for sending attendee/certificate emails |
 | `RESEND_FROM_EMAIL` | Yes (if using Resend mode) | Sender email/domain configured in Resend |
-| `CRON_SECRET` | Yes (if cron routes are enabled) | Shared secret for protected cron endpoints |
+| `CRON_SECRET` | Yes (if cron routes are enabled) | Shared secret for protected cron endpoints; also used to sign e-ticket QR image URLs in emails if `TICKET_QR_EMAIL_SECRET` is unset |
+| `TICKET_QR_EMAIL_SECRET` | Optional | HMAC secret for `/api/ticket-qr` links in registration emails (mail apps block inline `data:` QR images). Falls back to `CRON_SECRET`, then a dev-only default in development |
 | `APP_URL` | Yes  | dev: http://localhost:3000 |
 
 #### 2) DB Migrations Required for Current Features

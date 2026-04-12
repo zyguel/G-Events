@@ -3,8 +3,27 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Eye, EyeOff, Mail, Lock, User, Check } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
+import { AuthFormHydrationGate } from '@/components/auth/AuthFormHydrationGate';
+
+function RegisterFormSkeleton() {
+    return (
+        <div className="space-y-3" aria-busy="true" aria-label="Loading sign-up form">
+            <div className="h-[46px] rounded-2xl bg-gray-100 animate-pulse" />
+            <div className="h-[46px] rounded-2xl bg-gray-100 animate-pulse" />
+            <div className="h-[46px] rounded-2xl bg-gray-100 animate-pulse" />
+            <div className="h-[46px] rounded-2xl bg-gray-100 animate-pulse" />
+            <div className="flex gap-2.5 pt-1 pb-1">
+                <div className="mt-0.5 h-5 w-5 shrink-0 rounded bg-gray-100 animate-pulse" />
+                <div className="h-10 flex-1 rounded bg-gray-100 animate-pulse" />
+            </div>
+            <div className="h-12 rounded-2xl bg-gray-200/80 animate-pulse" />
+            <div className="relative my-3 h-3" />
+            <div className="h-12 rounded-2xl bg-gray-100 animate-pulse" />
+        </div>
+    );
+}
 
 export default function RegisterPage() {
     const [showPassword, setShowPassword] = useState(false);
@@ -105,11 +124,17 @@ export default function RegisterPage() {
             ? `${window.location.origin}/auth/callback?next=/dashboard`
             : '/auth/callback?next=/dashboard';
         const supabase = createClient();
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: { redirectTo },
         });
-        if (error) setAuthError(error.message);
+        if (error) {
+            setAuthError(error.message);
+            return;
+        }
+        if (data?.url) {
+            window.location.assign(data.url);
+        }
     };
 
     return (
@@ -165,11 +190,11 @@ export default function RegisterPage() {
             </div>
 
             {/* Wave Separator — in root container so overflow-y-auto cannot clip it */}
-            <div className="absolute top-0 bottom-0 left-[50%] -translate-x-[100%] w-24 hidden md:block z-30 pointer-events-none text-white">
+            <div className="absolute top-0 bottom-0 left-[50%] -translate-x-[100%] z-30 hidden w-24 pointer-events-none text-white md:block">
                 <svg
                     viewBox="0 0 100 100"
                     preserveAspectRatio="none"
-                    className="w-full h-full fill-current"
+                    className="pointer-events-none w-full h-full fill-current"
                 >
                     <path d="M100 0 C 50 0 50 100 100 100 Z" />
                 </svg>
@@ -178,7 +203,7 @@ export default function RegisterPage() {
             {/* Right Side - Form */}
             <div className="w-full md:w-[50%] bg-white relative z-20 flex flex-col justify-center pt-0 p-6 md:p-10 lg:p-16 items-center transition-all duration-500 ease-in-out shadow-[-50px_0_100px_rgba(0,0,0,0.5)] overflow-hidden">
 
-                <div className="w-full max-w-md mx-auto relative z-10 my-auto">
+                <div className="relative z-10 mx-auto my-auto w-full max-w-md">
                     {/* Decoration */}
                     <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-50 rounded-full blur-2xl opacity-50 pointer-events-none"></div>
 
@@ -194,7 +219,8 @@ export default function RegisterPage() {
                         </div>
                     )}
 
-                    <form className="space-y-3" onSubmit={handleRegisterSubmit}>
+                    <form className="relative z-20 space-y-3" onSubmit={handleRegisterSubmit}>
+                        <AuthFormHydrationGate skeleton={<RegisterFormSkeleton />}>
                         {/* Full Name Input */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="fullName">
@@ -209,6 +235,8 @@ export default function RegisterPage() {
                                     <input
                                         type="text"
                                         id="fullName"
+                                        name="name"
+                                        autoComplete="name"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
                                         className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
@@ -232,6 +260,8 @@ export default function RegisterPage() {
                                     <input
                                         type="email"
                                         id="email"
+                                        name="email"
+                                        autoComplete="email"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
@@ -255,6 +285,8 @@ export default function RegisterPage() {
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         id="password"
+                                        name="new-password"
+                                        autoComplete="new-password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
@@ -285,6 +317,8 @@ export default function RegisterPage() {
                                     <input
                                         type={showConfirmPassword ? "text" : "password"}
                                         id="confirmPassword"
+                                        name="confirm-password"
+                                        autoComplete="new-password"
                                         value={confirmPassword}
                                         onChange={(e) => setConfirmPassword(e.target.value)}
                                         className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
@@ -302,25 +336,23 @@ export default function RegisterPage() {
                         </div>
 
                         {/* Terms & Conditions */}
-                        <div className="pt-1 pb-1">
-                            <label className="flex items-center cursor-pointer group">
-                                <div className="relative">
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only"
-                                        checked={agreeTerms}
-                                        onChange={() => setAgreeTerms(!agreeTerms)}
-                                    />
-                                    <div className={`w-5 h-5 border-2 rounded transition-all duration-300 flex items-center justify-center ${agreeTerms ? 'bg-blue-600 border-blue-600 scale-105' : 'bg-transparent border-gray-300 group-hover:border-blue-400'}`}>
-                                        {agreeTerms && <Check size={12} className="text-white stroke-[4]" />}
-                                    </div>
-                                </div>
-                                <span className="ml-2.5 text-[15px] font-medium text-gray-600 group-hover:text-gray-800 transition-colors select-none">
-                                    I agree to{" "}
-                                    <Link href="#" className="font-semibold text-blue-600 hover:text-indigo-600 hover:underline">
-                                        Terms & Conditions
-                                    </Link>
-                                </span>
+                        <div className="flex items-start gap-2.5 pt-1 pb-1">
+                            <input
+                                type="checkbox"
+                                id="agree-terms"
+                                checked={agreeTerms}
+                                onChange={(e) => setAgreeTerms(e.target.checked)}
+                                className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-2 border-gray-300 text-blue-600 accent-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                            />
+                            <label htmlFor="agree-terms" className="cursor-pointer text-[15px] font-medium leading-snug text-gray-600 hover:text-gray-800">
+                                I agree to{' '}
+                                <Link
+                                    href="#"
+                                    className="font-semibold text-blue-600 hover:text-indigo-600 hover:underline"
+                                    onClick={(e) => e.preventDefault()}
+                                >
+                                    Terms & Conditions
+                                </Link>
                             </label>
                         </div>
 
@@ -372,6 +404,7 @@ export default function RegisterPage() {
                             </svg>
                             Sign Up with Google
                         </button>
+                        </AuthFormHydrationGate>
                     </form>
 
                     {/* Sign In Link */}

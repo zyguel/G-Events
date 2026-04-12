@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { OrderFormData } from '@/lib/types';
 import { useOrderFormSubmit } from '@/lib/hooks/useOrderFormSubmit';
+import { PublicOrderForm } from '@/components/public/PublicOrderForm';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -135,8 +136,8 @@ function CheckInPassCard({ pass }: { pass: CheckInPass }) {
 
 function StepIndicator({ currentStep, type, userEmail }: { currentStep: Step; type: RegistrationType; userEmail?: string }) {
     const steps = type === 'group'
-        ? (userEmail ? ['Tickets', 'Type', 'Members', 'Form'] : ['Identify', 'Tickets', 'Type', 'Members', 'Form'])
-        : (userEmail ? ['Tickets', 'Type', 'Form'] : ['Identify', 'Tickets', 'Type', 'Form']);
+        ? (userEmail ? ['Tickets', 'Mode', 'Members', 'Form'] : ['Identify', 'Tickets', 'Mode', 'Members', 'Form'])
+        : (userEmail ? ['Tickets', 'Mode', 'Form'] : ['Identify', 'Tickets', 'Mode', 'Form']);
 
     const stepKeys: Step[] = type === 'group'
         ? (userEmail ? ['choose-ticket', 'choose-type', 'group-members', 'fill-form'] : ['identify', 'choose-ticket', 'choose-type', 'group-members', 'fill-form'])
@@ -145,7 +146,7 @@ function StepIndicator({ currentStep, type, userEmail }: { currentStep: Step; ty
     const currentIndex = stepKeys.indexOf(currentStep);
 
     return (
-        <div className="flex items-center justify-center gap-0 mb-10 overflow-x-auto pb-4 no-scrollbar">
+        <div className="flex items-center justify-center gap-0 mb-8 sm:mb-10 overflow-x-auto pb-4 no-scrollbar px-1">
             {steps.map((label, i) => {
                 const isDone = i < currentIndex;
                 const isActive = i === currentIndex;
@@ -179,6 +180,82 @@ function StepIndicator({ currentStep, type, userEmail }: { currentStep: Step; ty
             })}
         </div>
     );
+}
+
+function RegistrationModeBanner({
+    step,
+    registrationType,
+}: {
+    step: Step;
+    registrationType: RegistrationType;
+}) {
+    if (step === 'group-members') {
+        return (
+            <div className="mb-5 flex justify-center px-0 sm:px-1">
+                <div
+                    role="status"
+                    className="flex w-full max-w-xl items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/95 px-4 py-3 text-left shadow-sm dark:border-indigo-800/50 dark:bg-indigo-900/25"
+                >
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/50">
+                        <Users size={18} className="text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                            Group registration
+                        </p>
+                        <p className="mt-1 text-[13px] leading-snug text-indigo-900 dark:text-indigo-100/95">
+                            You&apos;re the lead registrant. Add each member&apos;s email; they&apos;ll confirm their own details after you submit (no payment fields for them).
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    if (step === 'fill-form') {
+        if (registrationType === 'group') {
+            return (
+                <div className="mb-5 flex justify-center px-0 sm:px-1">
+                    <div
+                        role="status"
+                        className="flex w-full max-w-xl items-start gap-3 rounded-2xl border border-indigo-200 bg-indigo-50/95 px-4 py-3 text-left shadow-sm dark:border-indigo-800/50 dark:bg-indigo-900/25"
+                    >
+                        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-900/50">
+                            <Users size={18} className="text-indigo-600 dark:text-indigo-400" />
+                        </div>
+                        <div className="min-w-0">
+                            <p className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
+                                Group — your form
+                            </p>
+                            <p className="mt-1 text-[13px] leading-snug text-indigo-900 dark:text-indigo-100/95">
+                                Complete this form as the main registrant (including payment if required). Members you listed will get their own link to finish their profiles.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+        return (
+            <div className="mb-5 flex justify-center px-0 sm:px-1">
+                <div
+                    role="status"
+                    className="flex w-full max-w-xl items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50/95 px-4 py-3 text-left shadow-sm dark:border-blue-900/40 dark:bg-blue-950/40"
+                >
+                    <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-900/40">
+                        <User size={18} className="text-[#3D518C] dark:text-blue-400" />
+                    </div>
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#3D518C] dark:text-blue-400">
+                            Individual registration
+                        </p>
+                        <p className="mt-1 text-[13px] leading-snug text-blue-950/90 dark:text-blue-100/90">
+                            You&apos;re registering only yourself. One form, one e-ticket — payment fields apply to you if the event requires them.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+    return null;
 }
 
 // ─── Step 00: Identify (Guest) ──────────────────────────────────────────────────
@@ -266,7 +343,7 @@ function IdentifyStep({
                 <button
                     type="submit"
                     disabled={status === 'loading'}
-                    className="w-full flex items-center justify-center gap-2 py-5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white font-black rounded-2xl shadow-xl shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                    className="min-h-[52px] w-full flex items-center justify-center gap-2 py-4 sm:py-5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white font-black rounded-2xl shadow-xl shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 touch-manipulation"
                 >
                     {status === 'loading' ? (
                         <Loader size={20} className="animate-spin" />
@@ -312,7 +389,7 @@ function ChooseTicketStep({
                         onMouseLeave={() => setHovered(null)}
                         disabled={ticket.is_sold_out}
                         className={`
-                            relative group flex items-center justify-between p-6 rounded-2xl border-2 transition-all duration-300
+                            relative group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 rounded-2xl border-2 transition-all duration-300 text-left w-full min-h-[52px]
                             ${ticket.is_sold_out 
                                 ? 'opacity-60 grayscale border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40 cursor-not-allowed' 
                                 : hovered === ticket.id
@@ -375,41 +452,47 @@ function ChooseTypeStep({
 
     return (
         <div className="animate-fade-in">
-            <div className="text-center mb-8">
-                <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
-                    How are you registering?
+            <div className="mb-8 text-center px-1">
+                <h2 className="text-xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-2xl">
+                    Individual or group?
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Choose whether you're signing up alone or with a group.
+                <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                    Pick how you&apos;re attending. You can go back and change this before you submit.
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-8">
+            <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
                 {/* Individual */}
                 <button
                     id="reg-type-individual"
+                    type="button"
                     onClick={() => onSelect('individual')}
                     onMouseEnter={() => setHovered('individual')}
                     onMouseLeave={() => setHovered(null)}
                     className={`
-                        relative group flex flex-col items-center text-center gap-5 p-8 rounded-3xl border-2 transition-all duration-300 cursor-pointer
+                        relative flex min-h-[168px] touch-manipulation flex-col items-center gap-4 rounded-3xl border-2 p-6 text-center transition-all duration-300 sm:min-h-[188px] sm:p-8
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3D518C] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900
                         ${hovered === 'individual'
-                            ? 'border-[#3D518C] bg-gradient-to-br from-[#3D518C]/5 to-[#5C6BC0]/10 shadow-xl shadow-blue-100 dark:shadow-blue-900/20 scale-[1.02]'
-                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:shadow-lg'}
+                            ? 'border-[#3D518C] bg-gradient-to-br from-[#3D518C]/5 to-[#5C6BC0]/10 shadow-xl shadow-blue-100 dark:shadow-blue-900/20 sm:scale-[1.02]'
+                            : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800/60 hover:shadow-lg'}
+                        active:scale-[0.99] sm:active:scale-100
                     `}
                 >
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-[#3D518C] dark:bg-blue-900/40 dark:text-blue-300">
+                        Solo attendee
+                    </span>
                     <div className={`
-                        w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-300
+                        flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl transition-all duration-300 sm:h-20 sm:w-20
                         ${hovered === 'individual'
                             ? 'bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] shadow-lg shadow-blue-300/40'
                             : 'bg-blue-50 dark:bg-blue-900/20'}
                     `}>
-                        <User size={36} className={hovered === 'individual' ? 'text-white' : 'text-[#3D518C] dark:text-blue-400'} />
+                        <User className={hovered === 'individual' ? 'text-white' : 'text-[#3D518C] dark:text-blue-400'} size={32} />
                     </div>
-                    <div>
-                        <p className="text-lg font-extrabold text-gray-900 dark:text-white mb-1.5">Individual</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                            Register just for yourself. Fill out the form with your own details.
+                    <div className="space-y-1">
+                        <p className="text-lg font-extrabold text-gray-900 dark:text-white">Just me</p>
+                        <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                            One person, one form, one e-ticket. Fastest if you&apos;re only registering yourself.
                         </p>
                     </div>
                     <div className={`
@@ -418,8 +501,7 @@ function ChooseTypeStep({
                     `}>
                         Continue <ChevronRight size={16} />
                     </div>
-                    {/* Shine effect */}
-                    <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
                         <div className={`absolute inset-0 bg-gradient-to-br from-white/40 to-transparent transition-opacity duration-300 ${hovered === 'individual' ? 'opacity-100' : 'opacity-0'}`} />
                     </div>
                 </button>
@@ -427,28 +509,34 @@ function ChooseTypeStep({
                 {/* Group */}
                 <button
                     id="reg-type-group"
+                    type="button"
                     onClick={() => onSelect('group')}
                     onMouseEnter={() => setHovered('group')}
                     onMouseLeave={() => setHovered(null)}
                     className={`
-                        relative group flex flex-col items-center text-center gap-5 p-8 rounded-3xl border-2 transition-all duration-300 cursor-pointer
+                        relative flex min-h-[168px] touch-manipulation flex-col items-center gap-4 rounded-3xl border-2 p-6 text-center transition-all duration-300 sm:min-h-[188px] sm:p-8
+                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900
                         ${hovered === 'group'
-                            ? 'border-indigo-500 bg-gradient-to-br from-indigo-500/5 to-purple-500/10 shadow-xl shadow-indigo-100 dark:shadow-indigo-900/20 scale-[1.02]'
-                            : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 hover:shadow-lg'}
+                            ? 'border-indigo-500 bg-gradient-to-br from-indigo-500/5 to-purple-500/10 shadow-xl shadow-indigo-100 dark:shadow-indigo-900/20 sm:scale-[1.02]'
+                            : 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800/60 hover:shadow-lg'}
+                        active:scale-[0.99] sm:active:scale-100
                     `}
                 >
+                    <span className="rounded-full bg-indigo-100 px-3 py-1 text-[10px] font-extrabold uppercase tracking-widest text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">
+                        You + others
+                    </span>
                     <div className={`
-                        w-20 h-20 rounded-2xl flex items-center justify-center transition-all duration-300
+                        flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl transition-all duration-300 sm:h-20 sm:w-20
                         ${hovered === 'group'
                             ? 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg shadow-indigo-300/40'
                             : 'bg-indigo-50 dark:bg-indigo-900/20'}
                     `}>
-                        <Users size={36} className={hovered === 'group' ? 'text-white' : 'text-indigo-500 dark:text-indigo-400'} />
+                        <Users className={hovered === 'group' ? 'text-white' : 'text-indigo-500 dark:text-indigo-400'} size={32} />
                     </div>
-                    <div>
-                        <p className="text-lg font-extrabold text-gray-900 dark:text-white mb-1.5">Group</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
-                            Register with friends or colleagues. Add their emails to include them.
+                    <div className="space-y-1">
+                        <p className="text-lg font-extrabold text-gray-900 dark:text-white">Group</p>
+                        <p className="text-sm leading-relaxed text-gray-500 dark:text-gray-400">
+                            You register as the lead; add member emails so each person can confirm their own profile.
                         </p>
                     </div>
                     <div className={`
@@ -457,8 +545,7 @@ function ChooseTypeStep({
                     `}>
                         Continue <ChevronRight size={16} />
                     </div>
-                    {/* Shine effect */}
-                    <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none">
+                    <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
                         <div className={`absolute inset-0 bg-gradient-to-br from-white/40 to-transparent transition-opacity duration-300 ${hovered === 'group' ? 'opacity-100' : 'opacity-0'}`} />
                     </div>
                 </button>
@@ -469,7 +556,7 @@ function ChooseTypeStep({
                 <button
                     type="button"
                     onClick={onBack}
-                    className="flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+                    className="flex min-h-[48px] items-center gap-2 rounded-xl px-6 py-2.5 text-sm font-semibold text-gray-500 transition-all duration-200 hover:bg-gray-50 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white touch-manipulation"
                 >
                     <ChevronLeft size={16} />
                     Back to ticket selection
@@ -613,7 +700,7 @@ function GroupMembersStep({
                     Add Group Members
                 </h2>
                 <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
-                    Enter the email addresses of everyone in your group. Each member will be registered under this submission.
+                    Enter each member&apos;s account email. After you submit, they&apos;ll get a link to sign in and complete their own details (without payment fields).
                 </p>
             </div>
 
@@ -683,7 +770,7 @@ function GroupMembersStep({
                 type="button"
                 id="add-group-member-btn"
                 onClick={addEmail}
-                className="w-full py-3 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-500 dark:text-gray-400 hover:border-[#3D518C] hover:text-[#3D518C] dark:hover:border-blue-500 dark:hover:text-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-all duration-200 flex items-center justify-center gap-2 mb-6"
+                className="mb-6 flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-gray-200 py-3 text-sm font-semibold text-gray-500 transition-all duration-200 hover:border-[#3D518C] hover:bg-blue-50/50 hover:text-[#3D518C] dark:border-gray-700 dark:text-gray-400 dark:hover:border-blue-500 dark:hover:bg-blue-900/10 dark:hover:text-blue-400 touch-manipulation"
             >
                 <Plus size={16} />
                 Add Another Member
@@ -700,12 +787,12 @@ function GroupMembersStep({
             </div>
 
             {/* Navigation */}
-            <div className="flex gap-3">
+            <div className="flex flex-col-reverse gap-3 sm:flex-row">
                 <button
                     type="button"
                     id="group-back-btn"
                     onClick={onBack}
-                    className="flex items-center gap-2 px-5 py-3 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+                    className="flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-gray-200 px-5 py-3 text-sm font-semibold text-gray-600 transition-all duration-200 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800 touch-manipulation sm:min-w-0 sm:justify-start"
                 >
                     <ChevronLeft size={16} />
                     Back
@@ -714,7 +801,7 @@ function GroupMembersStep({
                     type="button"
                     id="group-continue-btn"
                     onClick={handleContinue}
-                    className="flex-1 flex items-center justify-center gap-2 py-3 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:from-[#2e3d6e] hover:to-[#4a57a1] text-white font-bold rounded-2xl transition-all duration-200 shadow-lg shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99]"
+                    className="flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] py-3 font-bold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:from-[#2e3d6e] hover:to-[#4a57a1] hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] dark:shadow-blue-900/30 touch-manipulation"
                 >
                     Continue to Form
                     <ArrowRight size={16} />
@@ -795,158 +882,6 @@ function OrderFormStep({
         await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : []);
     }, [formData, answers, submit, ticketId, registrationType, groupEmails]);
 
-    const renderInput = (input: { id: string; question: string; type: string; required: boolean; options?: string[] }) => {
-        const base = "w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3D518C]/30 focus:border-[#3D518C] dark:focus:border-blue-500 transition-all duration-200";
-        const hasError = touched.has(input.id) && !!validationErrors[input.id];
-        const errorClass = hasError ? 'border-red-300 dark:border-red-700 ring-2 ring-red-100 dark:ring-red-900/30 focus:border-red-400' : '';
-        const val = answers[input.id];
-
-        switch (input.type) {
-            case 'short_answer':
-                return (
-                    <input
-                        id={`field-${input.id}`}
-                        type="text"
-                        className={`${base} ${errorClass}`}
-                        placeholder={`Enter your response`}
-                        value={(val as string) || ''}
-                        onChange={e => handleInputChange(input.id, e.target.value)}
-                    />
-                );
-            case 'paragraph':
-                return (
-                    <textarea
-                        id={`field-${input.id}`}
-                        className={`${base} ${errorClass} resize-none`}
-                        rows={4}
-                        placeholder="Enter your response..."
-                        value={(val as string) || ''}
-                        onChange={e => handleInputChange(input.id, e.target.value)}
-                    />
-                );
-            case 'dropdown':
-                return (
-                    <select
-                        id={`field-${input.id}`}
-                        className={`${base} ${errorClass}`}
-                        value={(val as string) || ''}
-                        onChange={e => handleInputChange(input.id, e.target.value)}
-                    >
-                        <option value="">Select an option</option>
-                        {input.options?.map((opt, i) => (
-                            <option key={i} value={opt}>{opt}</option>
-                        ))}
-                    </select>
-                );
-            case 'multiple_choice':
-                return (
-                    <div className="space-y-2.5">
-                        {input.options?.map((opt, i) => (
-                            <label key={i} className={`
-                                flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200
-                                ${val === opt
-                                    ? 'border-[#3D518C] bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500'
-                                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/60'}
-                            `}>
-                                <div className={`w-4.5 h-4.5 rounded-full border-2 flex items-center justify-center shrink-0 transition-all ${val === opt ? 'border-[#3D518C] dark:border-blue-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                                    {val === opt && <div className="w-2 h-2 rounded-full bg-[#3D518C] dark:bg-blue-500" />}
-                                </div>
-                                <input
-                                    type="radio"
-                                    name={input.id}
-                                    value={opt}
-                                    checked={val === opt}
-                                    onChange={e => handleInputChange(input.id, e.target.value)}
-                                    className="sr-only"
-                                />
-                                <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{opt}</span>
-                            </label>
-                        ))}
-                    </div>
-                );
-            case 'checkboxes':
-                return (
-                    <div className="space-y-2.5">
-                        {input.options?.map((opt, i) => {
-                            const selected = Array.isArray(val) ? val : [];
-                            const isChecked = selected.includes(opt);
-                            return (
-                                <label key={i} className={`
-                                    flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all duration-200
-                                    ${isChecked
-                                        ? 'border-[#3D518C] bg-blue-50 dark:bg-blue-900/20 dark:border-blue-500'
-                                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800/60'}
-                                `}>
-                                    <div className={`w-4.5 h-4.5 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${isChecked ? 'border-[#3D518C] bg-[#3D518C] dark:border-blue-500 dark:bg-blue-500' : 'border-gray-300 dark:border-gray-600'}`}>
-                                        {isChecked && <Check size={11} className="text-white" strokeWidth={3} />}
-                                    </div>
-                                    <input
-                                        type="checkbox"
-                                        value={opt}
-                                        checked={isChecked}
-                                        onChange={() => {
-                                            const next = isChecked ? selected.filter(v => v !== opt) : [...selected, opt];
-                                            handleInputChange(input.id, next);
-                                        }}
-                                        className="sr-only"
-                                    />
-                                    <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{opt}</span>
-                                </label>
-                            );
-                        })}
-                    </div>
-                );
-            case 'file_upload':
-                return (
-                    <label className={`flex items-center justify-center w-full border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 py-8 hover:border-[#3D518C] ${hasError ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'} bg-gray-50 dark:bg-gray-700/30`}>
-                        <div className="flex flex-col items-center gap-2 text-center px-4">
-                            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                </svg>
-                            </div>
-                            <div>
-                                {val ? (
-                                    <p className="text-sm font-semibold text-[#3D518C] dark:text-blue-400">{val as string}</p>
-                                ) : (
-                                    <>
-                                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Click to upload</p>
-                                        <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">or drag and drop your file here</p>
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                        <input type="file" className="hidden" onChange={e => {
-                            const file = e.target.files?.[0];
-                            if (file) handleInputChange(input.id, file.name);
-                        }} />
-                    </label>
-                );
-            case 'date':
-                return (
-                    <input
-                        id={`field-${input.id}`}
-                        type="date"
-                        className={`${base} ${errorClass}`}
-                        value={(val as string) || ''}
-                        onChange={e => handleInputChange(input.id, e.target.value)}
-                    />
-                );
-            case 'time':
-                return (
-                    <input
-                        id={`field-${input.id}`}
-                        type="time"
-                        className={`${base} ${errorClass}`}
-                        value={(val as string) || ''}
-                        onChange={e => handleInputChange(input.id, e.target.value)}
-                    />
-                );
-            default:
-                return null;
-        }
-    };
-
     if (success) {
         return (
             <div className="text-center py-10 animate-fade-in">
@@ -961,11 +896,14 @@ function OrderFormStep({
                 </p>
                 {registrationType === 'group' && groupEmails.length > 0 && (
                     <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-left max-w-sm mx-auto border border-indigo-100 dark:border-indigo-800/40">
-                        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">Group Members Registered</p>
+                        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">Group members</p>
+                        <p className="text-xs text-indigo-800/90 dark:text-indigo-200/90 mb-3 leading-relaxed">
+                            Each person below will get an email with a link to complete their details. They must sign in before submitting (payment fields are not required for them).
+                        </p>
                         <ul className="space-y-1">
                             {groupEmails.map((email, i) => (
-                                <li key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-                                    <Check size={13} className="text-green-500 shrink-0" />
+                                <li key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 break-all">
+                                    <Mail size={13} className="text-indigo-500 shrink-0" />
                                     {email}
                                 </li>
                             ))}
@@ -1001,17 +939,25 @@ function OrderFormStep({
     return (
         <div className="animate-fade-in">
             {/* Registration type badge */}
-            <div className="flex items-center gap-3 mb-6">
-                <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold border ${
+            <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3">
+                <div className={`inline-flex w-fit max-w-full items-center gap-2 rounded-full border px-3 py-2 text-xs font-bold sm:text-sm ${
                     registrationType === 'group'
-                        ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/40'
-                        : 'bg-blue-50 dark:bg-blue-900/20 text-[#3D518C] dark:text-blue-400 border-blue-100 dark:border-blue-800/40'
+                        ? 'border-indigo-100 bg-indigo-50 text-indigo-600 dark:border-indigo-800/40 dark:bg-indigo-900/20 dark:text-indigo-400'
+                        : 'border-blue-100 bg-blue-50 text-[#3D518C] dark:border-blue-800/40 dark:bg-blue-900/20 dark:text-blue-400'
                 }`}>
-                    {registrationType === 'group' ? <Users size={14} /> : <User size={14} />}
-                    {registrationType === 'group' ? `Group Registration · ${groupEmails.length} member${groupEmails.length !== 1 ? 's' : ''}` : 'Individual Registration'}
+                    {registrationType === 'group' ? <Users size={14} className="shrink-0" /> : <User size={14} className="shrink-0" />}
+                    <span className="min-w-0">
+                        {registrationType === 'group'
+                            ? `Group · ${groupEmails.length} member${groupEmails.length !== 1 ? 's' : ''}`
+                            : 'Individual · solo'}
+                    </span>
                 </div>
                 {registrationType === 'group' && (
-                    <button type="button" onClick={onBack} className="text-xs text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 underline transition-colors">
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className="min-h-[44px] self-start text-left text-xs text-gray-400 underline transition-colors hover:text-gray-600 sm:min-h-0 dark:hover:text-gray-300 touch-manipulation"
+                    >
                         Edit members
                     </button>
                 )}
@@ -1051,53 +997,21 @@ function OrderFormStep({
             )}
 
             <form id="event-order-form" onSubmit={handleSubmit} className="space-y-6">
-                {formData.sections.map((section, sIdx) => (
-                    <div key={section.id} className="bg-white dark:bg-gray-800/60 rounded-3xl border border-gray-100 dark:border-gray-700/60 overflow-hidden shadow-sm">
-                        {/* Section header */}
-                        <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-700/60 bg-gradient-to-r from-gray-50 to-transparent dark:from-gray-800/40 dark:to-transparent">
-                            <div className="flex items-center gap-3">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] flex items-center justify-center shrink-0 shadow-md">
-                                    <span className="text-white text-xs font-bold">{sIdx + 1}</span>
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-gray-900 dark:text-white text-base">{section.title}</h3>
-                                    {section.description && (
-                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{section.description}</p>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Section inputs */}
-                        <div className="p-6 space-y-6">
-                            {section.inputs.map(input => (
-                                <div key={input.id} className="space-y-2">
-                                    <label htmlFor={`field-${input.id}`} className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                        {input.question}
-                                        {input.required && (
-                                            <span className="text-red-500 text-base leading-none">*</span>
-                                        )}
-                                    </label>
-                                    {renderInput(input)}
-                                    {touched.has(input.id) && validationErrors[input.id] && (
-                                        <p className="text-xs text-red-500 flex items-center gap-1 mt-1">
-                                            <AlertCircle size={11} />
-                                            {validationErrors[input.id]}
-                                        </p>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                ))}
+                <PublicOrderForm
+                    formData={formData}
+                    answers={answers}
+                    onAnswerChange={handleInputChange}
+                    touched={touched}
+                    validationErrors={validationErrors}
+                />
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-2">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
                     <button
                         type="button"
                         id="form-back-btn"
                         onClick={onBack}
-                        className="flex items-center gap-2 px-5 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+                        className="flex min-h-[48px] items-center justify-center gap-2 px-5 py-3.5 border border-gray-200 dark:border-gray-700 rounded-2xl text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 sm:flex-initial"
                     >
                         <ChevronLeft size={16} />
                         Back
@@ -1106,7 +1020,7 @@ function OrderFormStep({
                         type="submit"
                         id="submit-registration-btn"
                         disabled={isSubmitting}
-                        className="flex-1 flex items-center justify-center gap-2.5 py-3.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:from-[#2e3d6e] hover:to-[#4a57a1] disabled:from-gray-400 disabled:to-gray-500 text-white font-bold rounded-2xl transition-all duration-200 shadow-lg shadow-blue-200 dark:shadow-blue-900/30 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed disabled:scale-100"
+                        className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] py-3.5 font-bold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:scale-[1.01] hover:from-[#2e3d6e] hover:to-[#4a57a1] hover:shadow-xl active:scale-[0.99] disabled:scale-100 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 disabled:opacity-70 dark:shadow-blue-900/30"
                     >
                         {isSubmitting ? (
                             <>
@@ -1250,7 +1164,7 @@ export default function RegistrationFlow({
             <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0" />
             <div className="fixed bottom-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-400/10 dark:bg-purple-600/10 rounded-full blur-[120px] pointer-events-none z-0" />
 
-            <div className="relative z-10 max-w-2xl mx-auto px-4 py-10 sm:py-14">
+            <div className="relative z-10 mx-auto max-w-2xl px-4 py-8 sm:px-5 sm:py-14">
 
                 {/* Event title header */}
                 <div className="text-center mb-8">
@@ -1265,8 +1179,10 @@ export default function RegistrationFlow({
                 {/* Step indicator */}
                 <StepIndicator currentStep={step} type={registrationType} userEmail={userEmail} />
 
+                <RegistrationModeBanner step={step} registrationType={registrationType} />
+
                 {/* Card */}
-                <div className="bg-white dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl dark:shadow-black/20 p-6 sm:p-10">
+                <div className="rounded-3xl border border-gray-100 bg-white p-4 shadow-xl backdrop-blur-sm dark:border-gray-800 dark:bg-gray-900/80 dark:shadow-black/20 sm:p-8 md:p-10">
                     {step === 'identify' && (
                         <IdentifyStep
                             onVerified={(email) => {

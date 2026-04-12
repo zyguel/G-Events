@@ -66,7 +66,7 @@ export default function DashboardPageClient({
                                     <Calendar size={16} />
                                     This Month
                                 </button>
-                                <Link href="/events/new/overview" className="flex items-center gap-2 px-4 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm">
+                                <Link href="/admin/events/new/overview" className="flex items-center gap-2 px-4 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm">
                                     <span>+ Create Event</span>
                                 </Link>
                             </div>
@@ -82,7 +82,7 @@ export default function DashboardPageClient({
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="bg-linear-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
-                                    <Link href={nextEvent ? `/events/${buildEventSlug(nextEvent.name, nextEvent.id)}/overview` : '#'}>
+                                    <Link href={nextEvent ? `/admin/events/${buildEventSlug(nextEvent.name, nextEvent.id)}/overview` : '#'}>
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-indigo-100 text-sm font-medium">Next Event</p>
@@ -185,7 +185,7 @@ export default function DashboardPageClient({
                                             <h2 className="font-semibold text-gray-900 dark:text-white">Upcoming Events</h2>
                                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Your scheduled events</p>
                                         </div>
-                                        <Link href="/events" className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium flex items-center gap-1">
+                                        <Link href="/admin/events" className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium flex items-center gap-1">
                                             View All <ChevronRight size={16} />
                                         </Link>
                                     </div>
@@ -195,7 +195,7 @@ export default function DashboardPageClient({
                                                 <Calendar size={32} className="text-gray-300 dark:text-gray-600 mb-3" />
                                                 <p className="text-gray-500 dark:text-gray-400 font-medium">No upcoming events found</p>
                                                 <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Get started by creating your first event!</p>
-                                                <Link href="/events/new/overview" className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#3D518C] text-white rounded-lg text-sm font-medium hover:bg-[#2d3d6b] transition-all">
+                                                <Link href="/admin/events/new/overview" className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#3D518C] text-white rounded-lg text-sm font-medium hover:bg-[#2d3d6b] transition-all">
                                                     Create Event
                                                 </Link>
                                             </div>
@@ -203,7 +203,7 @@ export default function DashboardPageClient({
                                             dashboardEvents.slice(0, 5).map((event) => (
                                                 <Link
                                                     key={event.id}
-                                                    href={`/events/${buildEventSlug(event.name, event.id)}/overview`}
+                                                    href={`/admin/events/${buildEventSlug(event.name, event.id)}/overview`}
                                                     className="block p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
                                                 >
                                                     <div className="flex items-center justify-between">

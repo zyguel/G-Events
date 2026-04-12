@@ -77,8 +77,8 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
     const isActive = (path: string) => {
         if (path === 'overview') {
             // Match slug-based or ID-based URLs for backwards compatibility
-            const idBase = `/events/${event.id}`;
-            const slugBase = `/events/${slug}`;
+            const idBase = `/admin/events/${event.id}`;
+            const slugBase = `/admin/events/${slug}`;
             return (
                 pathname === idBase ||
                 pathname === slugBase ||
@@ -120,7 +120,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                         <ul className="space-y-1">
                             <li>
                                 <Link
-                                    href={event.id === 'new' ? '#' : `/events/${slug}/overview`}
+                                    href={event.id === 'new' ? '#' : `/admin/events/${slug}/overview`}
                                     className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive('overview')
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -142,7 +142,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                             {['tickets', 'orderform', 'orderconfirmation', 'publish'].map((page) => (
                                 <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
                                     <Link
-                                        href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
+                                        href={event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`}
                                         className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page)
                                             ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -180,7 +180,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                 return (
                                     <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
                                         <Link
-                                            href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
+                                            href={event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`}
                                             className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page) ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                                 } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
                                             {icon}{label}
@@ -205,7 +205,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                 return (
                                     <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
                                         <Link
-                                            href={event.id === 'new' ? '#' : `/events/${slug}/${page}`}
+                                            href={event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`}
                                             className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page) ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                                 } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
                                             {icon}{label}

@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { usePermissions } from '@/contexts/PermissionContext';
 import { useLocale } from '@/contexts/LocaleContext';
+import { useAdminCompactMode } from '@/contexts/AdminCompactModeContext';
 
 interface SidebarItemProps {
     iconSrc: string;
@@ -71,8 +72,35 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
     // permResolved = false (still loading, or lookup failed) → fail-open (show all)
     const permResolved = !loading && role !== '';
     const canViewEvents = !permResolved || isAdmin || hasPermission('Create Event') || hasPermission('Edit Event Details') || hasPermission('View List of Attendees');
+    const canCheckIn = !permResolved || isAdmin || hasPermission('Check In Attendees');
     const canViewAnalytics = !permResolved || isAdmin || hasPermission('View Reports');
     const canViewManagement = !permResolved || isAdmin;
+
+    const { isCompactAdmin } = useAdminCompactMode();
+    const showCompactNav = isCompactAdmin && (canViewEvents || canCheckIn);
+
+    if (showCompactNav) {
+        return (
+            <aside
+                className={`fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-6 pb-6 gap-2 z-40 w-14 transition-all duration-300 ease-in-out`}
+            >
+                <div className="w-full px-3 flex flex-col gap-2 relative">
+                    <div
+                        className="absolute left-3 right-3 h-8.5 bg-[#3D518C] rounded-xl shadow-lg transition-all duration-300 ease-in-out z-0"
+                        style={{ top: '0px' }}
+                    />
+                    <SidebarItem
+                        iconSrc="/icons/calendar.png"
+                        alt={t('Events')}
+                        href="/admin/events"
+                        active={activePage === 'events'}
+                        label={t('Events')}
+                        isExpanded={false}
+                    />
+                </div>
+            </aside>
+        );
+    }
 
     return (
         <aside
@@ -92,7 +120,7 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
                 )}
                 <SidebarItem iconSrc="/icons/home.png" alt={t('Dashboard')} href="/dashboard" active={activePage === 'dashboard'} label={t('Dashboard')} isExpanded={isExpanded} />
                 {canViewEvents && (
-                    <SidebarItem iconSrc="/icons/calendar.png" alt={t('Events')} href="/events" active={activePage === 'events'} label={t('Events')} isExpanded={isExpanded} />
+                    <SidebarItem iconSrc="/icons/calendar.png" alt={t('Events')} href="/admin/events" active={activePage === 'events'} label={t('Events')} isExpanded={isExpanded} />
                 )}
                 {canViewAnalytics && (
                     <SidebarItem iconSrc="/icons/bar-chart.png" alt={t('Analytics')} href="/analytics/all" active={activePage === 'analytics'} label={t('Analytics')} isExpanded={isExpanded} />

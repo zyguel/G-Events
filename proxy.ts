@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextRequest, NextResponse } from 'next/server';
+import { ADMIN_EVENTS_ROOT } from '@/lib/appRoutes';
 import { SESSION_ROLE, SESSION_ROLE_COOKIE_NAME } from '@/lib/constants';
+import { legacyAdminEventsRedirectTarget } from '@/lib/legacyAdminEventsRedirect';
 
 const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/auth/callback']);
 const PUBLIC_ROUTE_PREFIXES = ['/auth/session-role'];
@@ -13,22 +15,9 @@ function isPublicRoute(pathname: string) {
 }
 
 function isAdminRoute(pathname: string) {
-  // Protect admin-only pages
-  if (pathname === '/dashboard' || pathname === '/events' || pathname === '/events/new') {
+  if (pathname === '/dashboard') return true;
+  if (pathname === ADMIN_EVENTS_ROOT || pathname.startsWith(`${ADMIN_EVENTS_ROOT}/`)) {
     return true;
-  }
-
-  // Protect nested admin sections under /events/[eventId]/...
-  // Exclude the client-facing event detail page and attendee registration page
-  if (pathname.startsWith('/events/')) {
-    const parts = pathname.split('/').filter(Boolean);
-    if (parts.length <= 2) return false; // /events or /events/<slug> — public detail page
-    // Attendee-facing sub-routes under /events/<slug>/
-    const CLIENT_SUBROUTES = new Set(['register', 'review', 'my-breakouts']);
-    if (parts.length === 3 && CLIENT_SUBROUTES.has(parts[2])) return false;
-    // Preview page (static segment, not a slug sub-route)
-    if (parts[1] === 'feedback-preview') return false;
-    return parts.length > 2; // e.g., /events/<slug>/overview — admin only
   }
 
   if (pathname.startsWith('/management') || pathname.startsWith('/profile') || pathname.startsWith('/settings')) {
@@ -45,11 +34,15 @@ function isAdminRoute(pathname: string) {
 function isAttendeeRoute(pathname: string) {
   if (pathname === '/home' || pathname === '/tickets') return true;
 
-  // Attendee-only sub-routes under /events/<slug>/
   if (pathname.startsWith('/events/')) {
     const parts = pathname.split('/').filter(Boolean);
-    const ATTENDEE_SUBROUTES = new Set(['register', 'review', 'my-breakouts']);
-    if (parts.length === 3 && ATTENDEE_SUBROUTES.has(parts[2])) return true;
+    const third = parts[2];
+    if (parts.length === 3 && third && ['register', 'review', 'my-breakouts'].includes(third)) {
+      return true;
+    }
+    if (parts.length === 4 && third === 'register' && parts[3] === 'complete') {
+      return true;
+    }
   }
 
   return false;
@@ -61,6 +54,20 @@ export async function proxy(request: NextRequest) {
   // Skip static assets
   if (pathname.startsWith('/_next/') || pathname.startsWith('/favicon.ico')) {
     return NextResponse.next();
+  }
+
+  const legacyTarget = legacyAdminEventsRedirectTarget(pathname, search);
+  if (legacyTarget) {
+    const url = request.nextUrl.clone();
+    const q = legacyTarget.indexOf('?');
+    if (q >= 0) {
+      url.pathname = legacyTarget.slice(0, q);
+      url.search = legacyTarget.slice(q);
+    } else {
+      url.pathname = legacyTarget;
+      url.search = '';
+    }
+    return NextResponse.redirect(url, 308);
   }
 
   // API routes enforce auth at the route-handler level (requireUser), so avoid
