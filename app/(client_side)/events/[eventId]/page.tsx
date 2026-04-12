@@ -6,11 +6,26 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
     Calendar, MapPin, Clock, Target, Palette,
-    ChevronLeft, ArrowRight, Loader2, AlertTriangle, Ticket, Users, Check
+    ChevronLeft, ArrowRight, Loader2, AlertTriangle, Ticket, Users, Check,
+    Presentation, Video, Building2, UserRound
 } from 'lucide-react';
 import ClientHeader from '@/components/client/ClientHeader';
-import { getPublishedEventById } from '@/lib/actions/events';
+import { getPublishedEventById, getPublicBreakoutSessions } from '@/lib/actions/events';
 import { getTickets, Ticket as TicketType } from '@/lib/eventManagement';
+
+interface BreakoutSessionItem {
+    id: string;
+    name: string;
+    type: 'Online' | 'In-Person';
+    status: 'Not Started' | 'Ongoing' | 'Completed' | 'Cancelled';
+    date: string;
+    time: string;
+    location: string;
+    joinLink: string;
+    currentAttendees: number;
+    maxCapacity: number;
+    speakers: string[];
+}
 
 interface AgendaSlot {
     id: number;
@@ -52,6 +67,7 @@ export default function ClientEventDetailPage() {
 
     const [event, setEvent] = useState<EventDetail | null>(null);
     const [tickets, setTickets] = useState<TicketType[]>([]);
+    const [breakoutSessions, setBreakoutSessions] = useState<BreakoutSessionItem[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -59,9 +75,11 @@ export default function ClientEventDetailPage() {
         Promise.all([
             getPublishedEventById(eventId),
             getTickets(String(eventId)).catch(() => []),
-        ]).then(([eventData, ticketData]) => {
+            getPublicBreakoutSessions(eventId).catch(() => []),
+        ]).then(([eventData, ticketData, breakoutData]) => {
             setEvent(eventData ?? null);
             setTickets(ticketData.filter(t => t.visibility === 'visible'));
+            setBreakoutSessions(breakoutData as BreakoutSessionItem[]);
             setLoading(false);
         }).catch(() => setLoading(false));
     }, [eventId]);
@@ -259,6 +277,83 @@ export default function ClientEventDetailPage() {
                                     </li>
                                 ))}
                             </ol>
+                        </section>
+                    )}
+
+                    {/* Breakout Sessions */}
+                    {breakoutSessions.length > 0 && (
+                        <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                            <div className="flex items-center gap-2 mb-6">
+                                <Presentation size={20} className="text-indigo-500" />
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Breakout Sessions</h2>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {breakoutSessions.map((session) => {
+                                    const isFull = session.maxCapacity > 0 && session.currentAttendees >= session.maxCapacity;
+                                    const statusColors: Record<string, string> = {
+                                        'Not Started': 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+                                        'Ongoing': 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+                                        'Completed': 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+                                        'Cancelled': 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+                                    };
+                                    return (
+                                        <div
+                                            key={session.id}
+                                            className="relative flex flex-col gap-3 rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40 p-5 hover:border-indigo-200 dark:hover:border-indigo-700/50 hover:shadow-md transition-all duration-200"
+                                        >
+                                            {/* Header row */}
+                                            <div className="flex items-start justify-between gap-2">
+                                                <p className="font-bold text-gray-900 dark:text-white text-[15px] leading-snug">{session.name}</p>
+                                                <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${statusColors[session.status] ?? statusColors['Not Started']}`}>
+                                                    {session.status}
+                                                </span>
+                                            </div>
+
+                                            {/* Type badge */}
+                                            <span className={`w-fit inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+                                                session.type === 'Online'
+                                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                            }`}>
+                                                {session.type === 'Online'
+                                                    ? <><Video size={12} /> Online</>
+                                                    : <><Building2 size={12} /> In-Person</>
+                                                }
+                                            </span>
+
+                                            {/* Meta rows */}
+                                            <div className="space-y-1.5 text-sm text-gray-500 dark:text-gray-400">
+                                                {session.time && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock size={13} className="shrink-0" />
+                                                        <span>{session.time}{session.date ? ` · ${session.date}` : ''}</span>
+                                                    </div>
+                                                )}
+                                                {session.type === 'In-Person' && session.location && (
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin size={13} className="shrink-0" />
+                                                        <span>{session.location}</span>
+                                                    </div>
+                                                )}
+                                                {session.speakers.length > 0 && (
+                                                    <div className="flex items-center gap-2">
+                                                        <UserRound size={13} className="shrink-0" />
+                                                        <span>{session.speakers.join(', ')}</span>
+                                                    </div>
+                                                )}
+                                                {session.maxCapacity > 0 && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Users size={13} className="shrink-0" />
+                                                        <span className={isFull ? 'text-red-500 dark:text-red-400 font-medium' : ''}>
+                                                            {isFull ? 'Full' : `${Math.max(0, session.maxCapacity - session.currentAttendees)} slots available`}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </section>
                     )}
 

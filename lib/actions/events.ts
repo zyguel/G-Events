@@ -316,6 +316,60 @@ export async function getPublishedEventById(id: number) {
     }
 }
 
+/**
+ * Fetch breakout sessions for a published event on the client/attendee side.
+ * Does NOT require authentication.
+ */
+export async function getPublicBreakoutSessions(eventId: number) {
+    try {
+        const storageClient = await getStorageClient()
+
+        const { data, error } = await storageClient
+            .from('BreakoutSession')
+            .select('id, name, description, room_name, room_capacity, speaker_name, BreakoutSessionRegistration(id)')
+            .eq('event_id', eventId)
+            .order('id', { ascending: true })
+
+        if (error) {
+            console.error(`Error fetching breakout sessions for event ${eventId}:`, error)
+            return []
+        }
+
+        return (data || []).map((row: any) => {
+            let meta: any = {}
+            try {
+                meta = row.description ? JSON.parse(row.description) : {}
+            } catch { meta = {} }
+
+            const currentAttendees = Array.isArray(row.BreakoutSessionRegistration)
+                ? row.BreakoutSessionRegistration.length
+                : 0
+
+            const speakers: string[] = row.speaker_name
+                ? String(row.speaker_name).split(',').map((n: string) => n.trim()).filter(Boolean)
+                : []
+
+            return {
+                id: row.id.toString(),
+                name: row.name || '',
+                type: (meta.type === 'In-Person' ? 'In-Person' : 'Online') as 'Online' | 'In-Person',
+                status: (['Ongoing', 'Completed', 'Cancelled'].includes(meta.status) ? meta.status : 'Not Started') as 'Not Started' | 'Ongoing' | 'Completed' | 'Cancelled',
+                date: meta.date || '',
+                time: meta.time || '',
+                location: row.room_name || '',
+                joinLink: meta.joinLink || '',
+                currentAttendees,
+                maxCapacity: row.room_capacity || 0,
+                speakers,
+            }
+        })
+    } catch (e) {
+        if (isDynamicServerUsageError(e)) throw e
+        console.error(`Unexpected error fetching breakout sessions for event ${eventId}:`, e)
+        return []
+    }
+}
+
 const fetchEventById = cache(async (id: number, organizationId: number) => {
     const supabase = await createClient();
 
