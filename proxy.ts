@@ -23,7 +23,11 @@ function isAdminRoute(pathname: string) {
   if (pathname.startsWith('/events/')) {
     const parts = pathname.split('/').filter(Boolean);
     if (parts.length <= 2) return false; // /events or /events/<slug> — public detail page
-    if (parts.length === 3 && parts[2] === 'register') return false; // /events/<slug>/register — attendee route
+    // Attendee-facing sub-routes under /events/<slug>/
+    const CLIENT_SUBROUTES = new Set(['register', 'review']);
+    if (parts.length === 3 && CLIENT_SUBROUTES.has(parts[2])) return false;
+    // Preview page (static segment, not a slug sub-route)
+    if (parts[1] === 'feedback-preview') return false;
     return parts.length > 2; // e.g., /events/<slug>/overview — admin only
   }
 
@@ -39,12 +43,13 @@ function isAdminRoute(pathname: string) {
  * Organizers attempting to access these are redirected to /dashboard.
  */
 function isAttendeeRoute(pathname: string) {
-  if (pathname === '/home') return true;
+  if (pathname === '/home' || pathname === '/tickets') return true;
 
-  // /events/<slug>/register — attendee-only registration
+  // Attendee-only sub-routes under /events/<slug>/
   if (pathname.startsWith('/events/')) {
     const parts = pathname.split('/').filter(Boolean);
-    if (parts.length === 3 && parts[2] === 'register') return true;
+    const ATTENDEE_SUBROUTES = new Set(['register', 'review']);
+    if (parts.length === 3 && ATTENDEE_SUBROUTES.has(parts[2])) return true;
   }
 
   return false;

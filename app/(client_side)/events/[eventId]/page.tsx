@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation';
 import {
     Calendar, MapPin, Clock, Target, Palette,
     ChevronLeft, ArrowRight, Loader2, AlertTriangle, Ticket, Users, Check,
-    Presentation, Video, Building2, UserRound
+    Presentation, Video, Building2, UserRound, MessageSquareDot
 } from 'lucide-react';
 import ClientHeader from '@/components/client/ClientHeader';
 import { getPublishedEventById, getPublicBreakoutSessions } from '@/lib/actions/events';
@@ -116,6 +116,8 @@ export default function ClientEventDetailPage() {
         if (!b.start_time) return -1;
         return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
     });
+
+    const isEventEnded = event.event_end_at ? new Date() > new Date(event.event_end_at) : false;
 
     return (
         <div className="flex flex-col min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
@@ -431,6 +433,23 @@ export default function ClientEventDetailPage() {
                             <ArrowRight size={18} />
                         </Link>
                     </div>
+
+                    {/* Feedback CTA – shown only after event ends */}
+                    {isEventEnded && (
+                        <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-amber-500/20">
+                            <div>
+                                <h3 className="text-2xl font-extrabold text-white mb-1">How was the event?</h3>
+                                <p className="text-amber-100/80 text-sm">Share your experience with <span className="font-semibold text-white">{event.title}</span>. Your feedback matters!</p>
+                            </div>
+                            <Link
+                                href={`/events/${slug}/review`}
+                                className="flex items-center gap-2.5 bg-white text-orange-600 font-bold px-8 py-3.5 rounded-2xl shadow-lg hover:shadow-xl hover:bg-orange-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+                            >
+                                <MessageSquareDot size={18} />
+                                Give Feedback
+                            </Link>
+                        </div>
+                    )}
 
                 </div>
             </main>
