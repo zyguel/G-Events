@@ -24,7 +24,7 @@ function isAdminRoute(pathname: string) {
     const parts = pathname.split('/').filter(Boolean);
     if (parts.length <= 2) return false; // /events or /events/<slug> — public detail page
     // Attendee-facing sub-routes under /events/<slug>/
-    const CLIENT_SUBROUTES = new Set(['register', 'review']);
+    const CLIENT_SUBROUTES = new Set(['register', 'review', 'my-breakouts']);
     if (parts.length === 3 && CLIENT_SUBROUTES.has(parts[2])) return false;
     // Preview page (static segment, not a slug sub-route)
     if (parts[1] === 'feedback-preview') return false;
@@ -48,7 +48,7 @@ function isAttendeeRoute(pathname: string) {
   // Attendee-only sub-routes under /events/<slug>/
   if (pathname.startsWith('/events/')) {
     const parts = pathname.split('/').filter(Boolean);
-    const ATTENDEE_SUBROUTES = new Set(['register', 'review']);
+    const ATTENDEE_SUBROUTES = new Set(['register', 'review', 'my-breakouts']);
     if (parts.length === 3 && ATTENDEE_SUBROUTES.has(parts[2])) return true;
   }
 

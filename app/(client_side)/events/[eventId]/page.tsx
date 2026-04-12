@@ -12,6 +12,7 @@ import {
 import ClientHeader from '@/components/client/ClientHeader';
 import { getPublishedEventById, getPublicBreakoutSessions } from '@/lib/actions/events';
 import { getTickets, Ticket as TicketType } from '@/lib/eventManagement';
+import { createClient } from '@/lib/supabase-browser';
 
 interface BreakoutSessionItem {
     id: string;
@@ -69,6 +70,7 @@ export default function ClientEventDetailPage() {
     const [tickets, setTickets] = useState<TicketType[]>([]);
     const [breakoutSessions, setBreakoutSessions] = useState<BreakoutSessionItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isRegistered, setIsRegistered] = useState(false);
 
     useEffect(() => {
         if (isNaN(eventId)) { setLoading(false); return; }
@@ -82,6 +84,24 @@ export default function ClientEventDetailPage() {
             setBreakoutSessions(breakoutData as BreakoutSessionItem[]);
             setLoading(false);
         }).catch(() => setLoading(false));
+
+        const checkReg = async () => {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.email) {
+                const { data: userRow } = await supabase.from('User').select('id').ilike('email', user.email).limit(1).maybeSingle();
+                if (userRow?.id) {
+                    const { data: reg } = await supabase.from('Registration')
+                        .select('id')
+                        .eq('event_id', eventId)
+                        .eq('user_id', userRow.id)
+                        .not('status', 'in', '("cancelled","rejected")')
+                        .limit(1);
+                    if (reg && reg.length > 0) setIsRegistered(true);
+                }
+            }
+        };
+        checkReg();
     }, [eventId]);
 
     if (loading) {
@@ -421,17 +441,35 @@ export default function ClientEventDetailPage() {
                     {/* Register CTA */}
 
                     <div className="bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-500/20">
-                        <div>
-                            <h3 className="text-2xl font-extrabold text-white mb-1">Ready to Join?</h3>
-                            <p className="text-blue-100/80 text-sm">Secure your spot at <span className="font-semibold text-white">{event.title}</span> today.</p>
-                        </div>
-                        <Link
-                            href={`/events/${slug}/register`}
-                            className="flex items-center gap-2.5 bg-white text-[#3D518C] font-bold px-8 py-3.5 rounded-2xl shadow-lg hover:shadow-xl hover:bg-blue-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
-                        >
-                            Register for this Event
-                            <ArrowRight size={18} />
-                        </Link>
+                        {isRegistered ? (
+                            <>
+                                <div>
+                                    <h3 className="text-2xl font-extrabold text-white mb-1">You're in!</h3>
+                                    <p className="text-blue-100/80 text-sm">You have secured your spot for <span className="font-semibold text-white">{event.title}</span>.</p>
+                                </div>
+                                <Link
+                                    href={`/events/${slug}/my-breakouts`}
+                                    className="flex items-center gap-2.5 bg-white text-[#3D518C] font-bold px-8 py-3.5 rounded-2xl shadow-lg hover:shadow-xl hover:bg-blue-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+                                >
+                                    View Breakout Sessions
+                                    <ArrowRight size={18} />
+                                </Link>
+                            </>
+                        ) : (
+                            <>
+                                <div>
+                                    <h3 className="text-2xl font-extrabold text-white mb-1">Ready to Join?</h3>
+                                    <p className="text-blue-100/80 text-sm">Secure your spot at <span className="font-semibold text-white">{event.title}</span> today.</p>
+                                </div>
+                                <Link
+                                    href={`/events/${slug}/register`}
+                                    className="flex items-center gap-2.5 bg-white text-[#3D518C] font-bold px-8 py-3.5 rounded-2xl shadow-lg hover:shadow-xl hover:bg-blue-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+                                >
+                                    Register for this Event
+                                    <ArrowRight size={18} />
+                                </Link>
+                            </>
+                        )}
                     </div>
 
                     {/* Feedback CTA – shown only after event ends */}
