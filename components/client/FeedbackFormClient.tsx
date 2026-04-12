@@ -28,6 +28,8 @@ interface FeedbackFormClientProps {
     eventId: number;
     eventTitle: string;
     registrationId: number;
+    submitterName?: string;
+    submitterEmail?: string;
     form: FeedbackFormData;
 }
 
@@ -285,6 +287,8 @@ export default function FeedbackFormClient({
     eventId,
     eventTitle,
     registrationId,
+    submitterName,
+    submitterEmail,
     form,
 }: FeedbackFormClientProps) {
     // Sort questions by display_order / order
@@ -302,6 +306,7 @@ export default function FeedbackFormClient({
     const [submitted, setSubmitted] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [touched, setTouched] = useState<Record<number, boolean>>({});
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     const handleChange = (questionId: number, value: string | string[]) => {
         setAnswers((prev) => ({ ...prev, [questionId]: value }));
@@ -322,6 +327,7 @@ export default function FeedbackFormClient({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setSubmitError(null);
 
         // Mark all required as touched to reveal errors
         const newTouched: Record<number, boolean> = {};
@@ -333,26 +339,39 @@ export default function FeedbackFormClient({
 
         setSubmitting(true);
 
-        // Build payload (for future submission wiring)
-        const payload = {
-            registration_id: registrationId,
-            answers: questions.map((q) => {
-                const val = answers[q.id];
-                return {
-                    question_id: q.id,
-                    answer: Array.isArray(val) ? val.join(", ") : String(val),
-                };
-            }),
-        };
+        try {
+            const payload = {
+                registration_id: registrationId,
+                name: submitterName ?? undefined,
+                email: submitterEmail ?? undefined,
+                answers: questions.map((q) => {
+                    const val = answers[q.id];
+                    return {
+                        question_id: q.id,
+                        answer: Array.isArray(val) ? val.join(", ") : String(val),
+                    };
+                }),
+            };
 
-        // TODO: wire up real submission
-        console.log("[FeedbackFormClient] Submitting payload:", payload);
+            const res = await fetch(`/api/feedback/${eventId}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload),
+            });
 
-        // Simulate network delay for UX
-        await new Promise((res) => setTimeout(res, 800));
+            const json = await res.json();
 
-        setSubmitting(false);
-        setSubmitted(true);
+            if (!res.ok || !json.success) {
+                throw new Error(json?.error || "Failed to submit feedback. Please try again.");
+            }
+
+            setSubmitted(true);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Something went wrong. Please try again.";
+            setSubmitError(msg);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     if (submitted) {
@@ -462,7 +481,17 @@ export default function FeedbackFormClient({
                 })}
 
                 {/* ── Submit ────────────────────────────────────────────────── */}
-                <div className="pb-8">
+                <div className="pb-8 space-y-3">
+                    {/* Error banner */}
+                    {submitError && (
+                        <div className="flex items-start gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-2xl px-4 py-3">
+                            <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                            </svg>
+                            <p className="text-sm text-red-700 dark:text-red-300 font-medium">{submitError}</p>
+                        </div>
+                    )}
+
                     <button
                         type="submit"
                         disabled={submitting}
@@ -496,7 +525,7 @@ export default function FeedbackFormClient({
                             </>
                         )}
                     </button>
-                    <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-3">
+                    <p className="text-center text-xs text-gray-400 dark:text-gray-500">
                         Fields marked with <span className="text-red-500">*</span> are required.
                     </p>
                 </div>

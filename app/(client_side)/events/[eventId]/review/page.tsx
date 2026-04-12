@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, ShieldAlert, Clock, CheckCircle2 } from "lucide-react";
+import { ChevronLeft, ShieldAlert, Clock, CheckCircle2, PartyPopper } from "lucide-react";
 import ClientHeader from "@/components/client/ClientHeader";
 import FeedbackFormClient from "@/components/client/FeedbackFormClient";
 import { getPublishedEventById } from "@/lib/actions/events";
@@ -89,7 +89,7 @@ export default async function FeedbackPage({
   const adminClient = await createAdminClient();
   const { data: userRow } = await adminClient
     .from("User")
-    .select("id")
+    .select("id, name")
     .ilike("email", currentUserEmail)
     .limit(1)
     .maybeSingle();
@@ -124,7 +124,37 @@ export default async function FeedbackPage({
     );
   }
 
-  // ── 5. Load feedback form ──────────────────────────────────────────────────
+  // ── 5. Check for duplicate submission ────────────────────────────────
+  // Look up the form first (if it exists)
+  const { data: existingForm } = await adminClient
+    .from("FeedbackForm")
+    .select("id")
+    .eq("event_id", numericEventId)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (existingForm) {
+    const { data: existingSubmission } = await adminClient
+      .from("FeedbackSubmission")
+      .select("id")
+      .eq("feedback_form_id", existingForm.id)
+      .eq("registration_id", registration.id)
+      .maybeSingle();
+
+    if (existingSubmission) {
+      return (
+        <GateBlock
+          icon={<PartyPopper size={44} className="text-emerald-400" />}
+          title="Feedback Already Submitted"
+          message="You have already submitted feedback for this event. Thank you for sharing your experience!"
+          backHref={backHref}
+          backLabel="Back to Event"
+        />
+      );
+    }
+  }
+
+  // ── 6. Load feedback form ──────────────────────────────────────────────────
   const { data: rawForm } = await adminClient
     .from("FeedbackForm")
     .select(`
@@ -169,7 +199,7 @@ export default async function FeedbackPage({
     );
   }
 
-  // ── 6. Render ──────────────────────────────────────────────────────────────
+  // ── 7. Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
       <ClientHeader />
@@ -188,6 +218,8 @@ export default async function FeedbackPage({
         eventId={numericEventId}
         eventTitle={event.title}
         registrationId={registration.id}
+        submitterName={userRow?.name ?? undefined}
+        submitterEmail={currentUserEmail}
         form={feedbackForm}
       />
     </div>

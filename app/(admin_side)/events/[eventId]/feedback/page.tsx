@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useParams } from "next/navigation";
 import {
   Plus,
   Trash2,
@@ -15,6 +16,8 @@ import {
   Settings2,
   ToggleRight,
   Copy,
+  Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,18 +26,36 @@ import { motion, AnimatePresence } from "framer-motion";
 type QuestionType = "rating" | "text" | "multiple_choice" | "checkbox";
 
 interface Question {
-  id: string;
+  id: string; // local UI id (may be "new-xxx" for unsaved)
+  dbId?: number; // real DB id once saved
   type: QuestionType;
   label: string;
   required: boolean;
-  options?: string[]; // for multiple_choice / checkbox
-  maxRating?: number; // for rating
-  placeholder?: string; // for text
+  options?: string[];
+  maxRating?: number;
+  placeholder?: string;
+  displayOrder: number;
+}
+
+interface FeedbackFormDB {
+  id: number;
+  title: string;
+  description: string | null;
+  is_active: boolean;
+  FeedbackQuestion: {
+    id: number;
+    question_text: string;
+    input_format: string;
+    options: string | null;
+    is_required: boolean;
+    display_order: number;
+    order: number;
+  }[];
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const uid = () => Math.random().toString(36).slice(2, 9);
+const uid = () => "new-" + Math.random().toString(36).slice(2, 9);
 
 const QUESTION_TYPES: { value: QuestionType; label: string; icon: React.ReactNode }[] = [
   { value: "rating", label: "Star Rating", icon: <Star size={15} /> },
@@ -43,7 +64,7 @@ const QUESTION_TYPES: { value: QuestionType; label: string; icon: React.ReactNod
   { value: "checkbox", label: "Checkboxes", icon: <CheckSquare size={15} /> },
 ];
 
-const defaultQuestion = (type: QuestionType): Question => ({
+const defaultQuestion = (type: QuestionType, order: number): Question => ({
   id: uid(),
   type,
   label: "",
@@ -51,7 +72,31 @@ const defaultQuestion = (type: QuestionType): Question => ({
   options: type === "multiple_choice" || type === "checkbox" ? ["Option 1", "Option 2"] : undefined,
   maxRating: type === "rating" ? 5 : undefined,
   placeholder: type === "text" ? "Type your answer here…" : undefined,
+  displayOrder: order,
 });
+
+function dbQuestionToLocal(q: FeedbackFormDB["FeedbackQuestion"][0], idx: number): Question {
+  let options: string[] | undefined;
+  if (q.options) {
+    try {
+      const parsed = JSON.parse(q.options);
+      options = Array.isArray(parsed) ? parsed.map(String) : String(q.options).split(",").map(s => s.trim());
+    } catch {
+      options = String(q.options).split(",").map(s => s.trim());
+    }
+  }
+
+  return {
+    id: String(q.id),
+    dbId: q.id,
+    type: q.input_format as QuestionType,
+    label: q.question_text,
+    required: q.is_required,
+    options,
+    maxRating: q.input_format === "rating" ? 5 : undefined,
+    displayOrder: q.display_order ?? q.order ?? idx,
+  };
+}
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -122,7 +167,6 @@ function QuestionCard({
           {index + 1}
         </span>
 
-        {/* Label input */}
         <input
           type="text"
           value={q.label}
@@ -177,7 +221,7 @@ function QuestionCard({
                   {QUESTION_TYPES.map((t) => (
                     <button
                       key={t.value}
-                      onClick={() => onChange(defaultQuestion(t.value) && { ...defaultQuestion(t.value), id: q.id, label: q.label, required: q.required })}
+                      onClick={() => onChange({ ...defaultQuestion(t.value, q.displayOrder), id: q.id, dbId: q.dbId, label: q.label, required: q.required })}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                         q.type === t.value
                           ? "bg-[#3D518C] text-white shadow-sm"
@@ -191,7 +235,6 @@ function QuestionCard({
                 </div>
               </div>
 
-              {/* Preview / Edit per type */}
               {q.type === "rating" && (
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wider">
@@ -306,7 +349,6 @@ function PreviewModal({ questions, onClose }: { questions: Question[]; onClose: 
         onClick={(e) => e.stopPropagation()}
         className="bg-white dark:bg-gray-900 rounded-3xl shadow-2xl w-full max-w-lg max-h-[85vh] overflow-y-auto"
       >
-        {/* Preview header */}
         <div className="bg-gradient-to-br from-[#3D518C] to-[#091540] px-8 py-6 rounded-t-3xl text-white">
           <p className="text-xs font-semibold uppercase tracking-widest text-indigo-200 mb-1">Post-Event Feedback</p>
           <h2 className="text-xl font-bold">We'd love your feedback! 🎉</h2>
@@ -372,16 +414,82 @@ function PreviewModal({ questions, onClose }: { questions: Question[]; onClose: 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function FeedbackPage() {
-  const [questions, setQuestions] = useState<Question[]>([
-    { ...defaultQuestion("rating"), label: "How would you rate the overall event experience?" },
-    { ...defaultQuestion("text"), label: "What did you enjoy most about the event?", placeholder: "Share your highlights…" },
-  ]);
+  const params = useParams();
+  const rawEventId = params?.eventId as string;
+  // Admin URLs use slugs like "event-name-42" — extract the numeric ID from the end
+  const eventId = rawEventId?.split("-").pop() ?? "";
+
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [formId, setFormId] = useState<number | null>(null);
+  const [formTitle, setFormTitle] = useState("Post-Event Feedback");
+  const [formDescription, setFormDescription] = useState("We value your feedback! Please share your experience.");
   const [isEnabled, setIsEnabled] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
-  const [saved, setSaved] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // ── Load existing form ──────────────────────────────────────────────────────
+
+  const loadForm = useCallback(async () => {
+    if (!eventId) return;
+    setLoading(true);
+    setLoadError(null);
+    try {
+      // GET /api/feedback/form/[eventId] — loads form regardless of is_active
+      const res = await fetch(`/api/feedback/form/${eventId}`);
+      if (res.status === 404) {
+        // No form yet — start with defaults
+        setFormId(null);
+        setQuestions([
+          { ...defaultQuestion("rating", 0), label: "How would you rate the overall event experience?" },
+          { ...defaultQuestion("text", 1), label: "What did you enjoy most about the event?", placeholder: "Share your highlights…" },
+        ]);
+        setLoading(false);
+        return;
+      }
+      if (!res.ok) throw new Error("Failed to load feedback form");
+
+      const json = await res.json();
+      if (!json.success || !json.data) {
+        // No form yet — start with defaults
+        setFormId(null);
+        setQuestions([
+          { ...defaultQuestion("rating", 0), label: "How would you rate the overall event experience?" },
+          { ...defaultQuestion("text", 1), label: "What did you enjoy most about the event?", placeholder: "Share your highlights…" },
+        ]);
+        setLoading(false);
+        return;
+      }
+
+      const form: FeedbackFormDB = json.data;
+      setFormId(form.id);
+      setFormTitle(form.title || "Post-Event Feedback");
+      setFormDescription(form.description || "");
+      setIsEnabled(form.is_active ?? true);
+
+      const sorted = [...(form.FeedbackQuestion || [])].sort(
+        (a, b) => (a.display_order ?? a.order ?? 0) - (b.display_order ?? b.order ?? 0)
+      );
+      setQuestions(sorted.map((q, i) => dbQuestionToLocal(q, i)));
+    } catch (e: any) {
+      setLoadError(e.message || "Failed to load form");
+    } finally {
+      setLoading(false);
+    }
+  }, [eventId]);
+
+  useEffect(() => {
+    loadForm();
+  }, [loadForm]);
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
 
   const addQuestion = (type: QuestionType) => {
-    setQuestions((prev) => [...prev, defaultQuestion(type)]);
+    setQuestions((prev) => [...prev, defaultQuestion(type, prev.length)]);
   };
 
   const updateQuestion = (id: string, updated: Question) =>
@@ -393,16 +501,89 @@ export default function FeedbackPage() {
   const duplicateQuestion = (q: Question) =>
     setQuestions((prev) => {
       const idx = prev.findIndex((item) => item.id === q.id);
-      const clone = { ...q, id: uid() };
+      const clone = { ...q, id: uid(), dbId: undefined, displayOrder: q.displayOrder + 0.5 };
       const next = [...prev];
       next.splice(idx + 1, 0, clone);
-      return next;
+      return next.map((item, i) => ({ ...item, displayOrder: i }));
     });
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  // ── Save ─────────────────────────────────────────────────────────────────────
+
+  const handleSave = async () => {
+    if (!eventId) return;
+    setSaving(true);
+    setSaveStatus("idle");
+    setSaveError(null);
+
+    try {
+      const payload = {
+        title: formTitle.trim() || "Post-Event Feedback",
+        description: formDescription.trim() || null,
+        is_active: isEnabled,
+        questions: questions.map((q, i) => ({
+          question_text: q.label.trim() || "Untitled question",
+          input_format: q.type,
+          options: (q.type === "multiple_choice" || q.type === "checkbox")
+            ? (q.options ?? [])
+            : undefined,
+          is_required: q.required,
+          display_order: i,
+        })),
+      };
+
+      const res = await fetch(`/api/feedback/form/${eventId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json?.error || "Failed to save feedback form");
+      }
+
+      // Reload to get fresh DB ids on all questions
+      await loadForm();
+      setSaveStatus("saved");
+      setTimeout(() => setSaveStatus("idle"), 3000);
+    } catch (e: any) {
+      setSaveStatus("error");
+      setSaveError(e.message || "Failed to save");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // ── Render ───────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="flex flex-col items-center gap-3 text-gray-400">
+          <Loader2 size={32} className="animate-spin" />
+          <p className="text-sm">Loading feedback form…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px] px-4">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertCircle size={32} className="text-red-400" />
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Failed to load feedback form</p>
+          <p className="text-xs text-gray-500">{loadError}</p>
+          <button
+            onClick={loadForm}
+            className="mt-2 px-4 py-2 text-sm font-semibold bg-[#3D518C] text-white rounded-xl hover:bg-[#2d3d6b] transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -415,9 +596,14 @@ export default function FeedbackPage() {
               <div className="flex items-center gap-2 mb-1">
                 <MessageSquareDot size={20} className="text-[#3D518C] dark:text-indigo-400" />
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Feedback Form</h1>
+                {formId && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                    ID #{formId}
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Build a post-event survey — it appears to attendees once the event ends.
+                Build a post-event survey — it appears to checked-in attendees once the event ends.
               </p>
             </div>
 
@@ -430,60 +616,98 @@ export default function FeedbackPage() {
               </button>
               <button
                 onClick={handleSave}
-                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all ${
-                  saved
+                disabled={saving}
+                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed ${
+                  saveStatus === "saved"
                     ? "bg-green-500 text-white"
+                    : saveStatus === "error"
+                    ? "bg-red-500 text-white"
                     : "bg-[#3D518C] hover:bg-[#2d3d6b] text-white"
                 }`}
               >
-                {saved ? "✓ Saved!" : "Save Form"}
+                {saving ? <Loader2 size={14} className="animate-spin" /> : null}
+                {saving ? "Saving…" : saveStatus === "saved" ? "✓ Saved!" : saveStatus === "error" ? "Save Failed" : "Save Form"}
               </button>
             </div>
           </div>
 
-          {/* ── Settings Card ── */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5">
-            <div className="flex items-center gap-3 mb-4">
+          {/* Save error banner */}
+          {saveStatus === "error" && saveError && (
+            <div className="flex items-start gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700/50 rounded-2xl px-4 py-3">
+              <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700 dark:text-red-300">{saveError}</p>
+            </div>
+          )}
+
+          {/* ── Form Metadata ── */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm p-5 space-y-4">
+            <div className="flex items-center gap-3 mb-1">
               <Settings2 size={16} className="text-gray-400" />
               <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-200">Form Settings</h2>
             </div>
 
-            <div className="space-y-3">
-              {/* Enable toggle */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Enable Feedback Form</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                    Attendees will see this form after the event ends.
-                  </p>
-                </div>
-                <button
-                  onClick={() => setIsEnabled(!isEnabled)}
-                  className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
-                    isEnabled ? "bg-[#3D518C]" : "bg-gray-200 dark:bg-gray-600"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
-                      isEnabled ? "translate-x-5" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
+            {/* Title */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                Form Title
+              </label>
+              <input
+                type="text"
+                value={formTitle}
+                onChange={(e) => setFormTitle(e.target.value)}
+                placeholder="Post-Event Feedback"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+              />
+            </div>
 
-              {/* Status pill */}
-              <div className="flex items-center gap-2 pt-1">
-                <ToggleRight size={14} className={isEnabled ? "text-green-500" : "text-gray-400"} />
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    isEnabled
-                      ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
-                  }`}
-                >
-                  {isEnabled ? "Active — will be shown post-event" : "Disabled — form won't be shown"}
-                </span>
+            {/* Description */}
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wider">
+                Description <span className="font-normal normal-case text-gray-400">(optional)</span>
+              </label>
+              <textarea
+                value={formDescription}
+                onChange={(e) => setFormDescription(e.target.value)}
+                rows={2}
+                placeholder="Add a short intro for respondents…"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] resize-none"
+              />
+            </div>
+
+            {/* Enable toggle */}
+            <div className="flex items-center justify-between pt-1 border-t border-gray-100 dark:border-gray-700">
+              <div>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-200">Enable Feedback Form</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                  Checked-in attendees will see this form after the event ends.
+                </p>
               </div>
+              <button
+                onClick={() => setIsEnabled(!isEnabled)}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
+                  isEnabled ? "bg-[#3D518C]" : "bg-gray-200 dark:bg-gray-600"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
+                    isEnabled ? "translate-x-5" : "translate-x-0"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Status pill */}
+            <div className="flex items-center gap-2">
+              <ToggleRight size={14} className={isEnabled ? "text-green-500" : "text-gray-400"} />
+              <span
+                className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  isEnabled
+                    ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                    : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
+                }`}
+              >
+                {isEnabled ? "Active — will be shown post-event" : "Disabled — form won't be shown"}
+              </span>
             </div>
           </div>
 
@@ -545,13 +769,17 @@ export default function FeedbackPage() {
           <div className="flex justify-end gap-3 pb-8">
             <button
               onClick={handleSave}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-semibold shadow-md transition-all ${
-                saved
+              disabled={saving}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-semibold shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed ${
+                saveStatus === "saved"
                   ? "bg-green-500 text-white"
+                  : saveStatus === "error"
+                  ? "bg-red-500 text-white"
                   : "bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
               }`}
             >
-              {saved ? "✓ Form Saved!" : "Save Feedback Form"}
+              {saving && <Loader2 size={14} className="animate-spin" />}
+              {saving ? "Saving…" : saveStatus === "saved" ? "✓ Form Saved!" : saveStatus === "error" ? "Save Failed — Retry" : "Save Feedback Form"}
             </button>
           </div>
         </div>

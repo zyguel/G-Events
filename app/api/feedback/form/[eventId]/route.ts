@@ -29,6 +29,7 @@ export async function GET(
 
         const supabase = getServiceClient();
 
+        // Admin load: return form regardless of is_active status
         const { data: form, error: formError } = await supabase
             .from('FeedbackForm')
             .select(`
@@ -49,7 +50,6 @@ export async function GET(
                 )
             `)
             .eq('event_id', eventNum)
-            .eq('is_active', true)
             .maybeSingle();
 
         if (formError) {
@@ -110,9 +110,10 @@ export async function POST(
         }
 
         const body = await request.json();
-        const { title, description, questions } = body as {
+        const { title, description, is_active, questions } = body as {
             title?: string;
             description?: string;
+            is_active?: boolean;
             questions: {
                 question_text: string;
                 input_format: 'rating' | 'text' | 'multiple_choice' | 'checkbox';
@@ -121,6 +122,8 @@ export async function POST(
                 display_order?: number;
             }[];
         };
+
+        const formIsActive = typeof is_active === 'boolean' ? is_active : true;
 
         if (!questions || questions.length === 0) {
             return NextResponse.json(
@@ -147,7 +150,7 @@ export async function POST(
                 .update({
                     title: title || 'Post-Event Feedback',
                     description: description || null,
-                    is_active: true,
+                    is_active: formIsActive,
                 })
                 .eq('id', existing.id);
 
@@ -167,7 +170,7 @@ export async function POST(
                     event_id: eventNum,
                     title: title || 'Post-Event Feedback',
                     description: description || null,
-                    is_active: true,
+                    is_active: formIsActive,
                 })
                 .select('id')
                 .single();

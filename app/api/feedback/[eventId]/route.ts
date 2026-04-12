@@ -216,6 +216,29 @@ export async function POST(
 
         const supabase = getServiceClient();
 
+        // 0. Verify the event has ended (feedback only available post-event)
+        const { data: eventRow, error: eventError } = await supabase
+            .from('Event')
+            .select('event_end_at')
+            .eq('id', eventNum)
+            .maybeSingle();
+
+        if (eventError || !eventRow) {
+            return NextResponse.json(
+                { success: false, error: 'Event not found' },
+                { status: 404 }
+            );
+        }
+
+        const now = new Date();
+        const eventEnd = eventRow.event_end_at ? new Date(eventRow.event_end_at) : null;
+        if (!eventEnd || now <= eventEnd) {
+            return NextResponse.json(
+                { success: false, error: 'Feedback is only available after the event has ended' },
+                { status: 403 }
+            );
+        }
+
         // 1. Look up active FeedbackForm for this event
         const { data: form, error: formError } = await supabase
             .from('FeedbackForm')
@@ -229,6 +252,40 @@ export async function POST(
                 { success: false, error: 'Feedback form not found or not active for this event' },
                 { status: 404 }
             );
+        }
+
+        // 1b. Validate registration_id if provided (must be checked-in attendee of this event)
+        if (registration_id) {
+            const { data: regRow } = await supabase
+                .from('Registration')
+                .select('id, has_checked_in, status')
+                .eq('id', registration_id)
+                .eq('event_id', eventNum)
+                .eq('has_checked_in', true)
+                .not('status', 'in', '(cancelled,rejected)')
+                .maybeSingle();
+
+            if (!regRow) {
+                return NextResponse.json(
+                    { success: false, error: 'You must have attended this event to submit feedback' },
+                    { status: 403 }
+                );
+            }
+
+            // 1c. Check for duplicate submission
+            const { data: dupCheck } = await supabase
+                .from('FeedbackSubmission')
+                .select('id')
+                .eq('feedback_form_id', form.id)
+                .eq('registration_id', registration_id)
+                .maybeSingle();
+
+            if (dupCheck) {
+                return NextResponse.json(
+                    { success: false, error: 'You have already submitted feedback for this event' },
+                    { status: 409 }
+                );
+            }
         }
 
         // 2. Validate question IDs belong to this form
