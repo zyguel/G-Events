@@ -580,7 +580,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
                 // Redirect
                 setTimeout(() => {
-                    router.push('/events');
+                    router.push('/admin/events');
                 }, 1000);
             } else {
                 setToast({ message: result.error || 'Failed to create event', type: 'error' });

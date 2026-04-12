@@ -87,6 +87,10 @@ export type FieldIdentifierType =
     | "special_needs" 
     | "agree_to_terms" 
     | "newsletter_signup" 
+    /** Proof of payment file — shown only to main registrant; hidden for group invite flow */
+    | "proof_of_payment"
+    /** Payment / bank reference code — main registrant only; hidden for group invite flow */
+    | "payment_reference"
     | "custom";
 
 export interface FormInputField {

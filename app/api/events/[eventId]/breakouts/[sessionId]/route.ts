@@ -139,7 +139,7 @@ export async function PATCH(
         }
 
         const updated = mapRowToSession(data);
-        revalidatePath(`/events/${eventNumericId}/breakouts`);
+        revalidatePath(`/admin/events/${eventNumericId}/breakouts`);
 
         return NextResponse.json({ success: true, data: updated });
     } catch (e: any) {
@@ -183,7 +183,7 @@ export async function DELETE(
             );
         }
 
-        revalidatePath(`/events/${eventNumericId}/breakouts`);
+        revalidatePath(`/admin/events/${eventNumericId}/breakouts`);
 
         return NextResponse.json({ success: true });
     } catch (e: any) {

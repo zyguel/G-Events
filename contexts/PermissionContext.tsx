@@ -10,7 +10,7 @@ import {
 import { getCurrentUserPermissions, UserPermissions } from "@/lib/actions/permissions";
 import { createClient } from "@/lib/supabase-browser";
 
-const ADMIN_ROOTS = ['/dashboard', '/events', '/management', '/profile', '/settings'];
+const ADMIN_ROOTS = ['/dashboard', '/admin/events', '/management', '/profile', '/settings'];
 
 function isAdminAppRoute(pathname: string) {
     return ADMIN_ROOTS.some((root) => pathname === root || pathname.startsWith(`${root}/`));

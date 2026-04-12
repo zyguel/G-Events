@@ -66,7 +66,7 @@ export default function EventSelector({ events, currentEventId, selectedYear, on
     const handleSelect = (event: EventSummary) => {
         const slug = buildEventSlug(event.name, event.id);
         setSearchQuery("");
-        router.push(`/events/${slug}/analytics`);
+        router.push(`/admin/events/${slug}/analytics`);
     };
 
     const handleYearSelect = (year: number | null) => {

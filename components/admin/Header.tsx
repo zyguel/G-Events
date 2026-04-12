@@ -7,6 +7,7 @@ import ThemeToggle from './ThemeToggle';
 import NotificationDropdown from './NotificationDropdown';
 import { createClient } from '@/lib/supabase-browser';
 import { useLocale } from '@/contexts/LocaleContext';
+import { useAdminCompactMode } from '@/contexts/AdminCompactModeContext';
 
 interface UserProfile {
     name: string;
@@ -17,6 +18,7 @@ interface UserProfile {
 const Header = () => {
     const router = useRouter();
     const { t } = useLocale();
+    const { isCompactAdmin } = useAdminCompactMode();
     const [user, setUser] = useState<UserProfile | null>(null);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -85,8 +87,14 @@ const Header = () => {
                         <span className="font-bold text-xl tracking-tight text-[#3D518C] dark:text-white leading-none">
                             G Events
                         </span>
-                        <span className="hidden md:block text-[10px] text-gray-500 dark:text-gray-400 font-medium tracking-wider uppercase">
-                            {t('Event Registration')}
+                        <span
+                            className={`text-[10px] font-medium tracking-wider uppercase ${
+                                isCompactAdmin
+                                    ? "block text-amber-700 dark:text-amber-300"
+                                    : "hidden text-gray-500 dark:text-gray-400 md:block"
+                            }`}
+                        >
+                            {isCompactAdmin ? "Check-in mode" : t('Event Registration')}
                         </span>
                     </div>
                 </div>
@@ -96,16 +104,15 @@ const Header = () => {
                     {/* Theme Toggle */}
                     <ThemeToggle />
 
-                    {/* Notification Dropdown */}
-                    <NotificationDropdown />
+                    {!isCompactAdmin ? <NotificationDropdown /> : null}
 
                     {/* Divider */}
                     <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
 
-                    {/* User Profile — clickable → /profile */}
+                    {/* User Profile — compact admin: back to event list (no full profile) */}
                     <button
-                        onClick={() => router.push('/profile')}
-                        title={t('View profile')}
+                        onClick={() => router.push(isCompactAdmin ? '/admin/events' : '/profile')}
+                        title={isCompactAdmin ? t('Events') : t('View profile')}
                         className="flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all duration-200 group"
                     >
                         <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
@@ -137,7 +144,7 @@ const Header = () => {
                     {/* Switch Session Mode */}
                     <form action="/auth/session-role/choose" method="post">
                         <input type="hidden" name="role" value="attendee" />
-                        <input type="hidden" name="next" value="/dashboard" />
+                        <input type="hidden" name="next" value={isCompactAdmin ? '/home' : '/dashboard'} />
                         <button
                             type="submit"
                             title={t('Switch to attendee mode')}

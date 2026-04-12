@@ -15,7 +15,14 @@ interface UserProfile {
     avatarSeed: string;
 }
 
-const ClientHeader = () => {
+export type ClientHeaderVariant = 'default' | 'guest';
+
+interface ClientHeaderProps {
+    /** `guest`: magic-link pages (e-ticket) — no account menu or sign-out. */
+    variant?: ClientHeaderVariant;
+}
+
+const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
     const router = useRouter();
     const { t } = useLocale();
 
@@ -27,6 +34,8 @@ const ClientHeader = () => {
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
+        if (variant === 'guest') return;
+
         const supabase = createClient();
         const fetchUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
@@ -55,7 +64,7 @@ const ClientHeader = () => {
         });
 
         return () => subscription.unsubscribe();
-    }, []);
+    }, [variant]);
 
     // Close dropdown when clicking outside
     useEffect(() => {
@@ -108,88 +117,100 @@ const ClientHeader = () => {
                 {/* Right Side */}
                 <div className="flex items-center gap-2">
                     <ThemeToggle />
-                    <NotificationDropdown />
+                    {variant === 'default' && (
+                        <>
+                            <NotificationDropdown />
 
-                    <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+                            <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
 
-                    {/* Profile Button with Dropdown */}
-                    <div className="relative" ref={dropdownRef}>
-                        <button
-                            onClick={() => setDropdownOpen((prev) => !prev)}
-                            title={t('Account menu')}
-                            className="flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all duration-200 group"
-                        >
-                            <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
-                                {user ? (
-                                    <img
-                                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`}
-                                        alt={user.name}
-                                        className="object-cover w-full h-full"
+                            {/* Profile Button with Dropdown */}
+                            <div className="relative" ref={dropdownRef}>
+                                <button
+                                    onClick={() => setDropdownOpen((prev) => !prev)}
+                                    title={t('Account menu')}
+                                    className="flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all duration-200 group"
+                                >
+                                    <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
+                                        {user ? (
+                                            <img
+                                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`}
+                                                alt={user.name}
+                                                className="object-cover w-full h-full"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                                        )}
+                                    </div>
+                                    <div className="hidden md:flex flex-col text-left">
+                                        {user ? (
+                                            <>
+                                                <span className="font-semibold text-sm text-gray-800 dark:text-white leading-tight group-hover:text-[#3D518C] dark:group-hover:text-indigo-300 transition-colors">
+                                                    {user.name}
+                                                </span>
+                                                <span className="text-xs text-gray-500 dark:text-gray-400">{user.email}</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1" />
+                                                <div className="h-2.5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                                            </>
+                                        )}
+                                    </div>
+                                    <ChevronDown
+                                        size={14}
+                                        className={`hidden md:block text-gray-400 group-hover:text-[#3D518C] dark:group-hover:text-indigo-300 transition-all duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
                                     />
-                                ) : (
-                                    <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                                </button>
+
+                                {/* Dropdown Menu */}
+                                {dropdownOpen && (
+                                    <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+                                        {navLinks.map(({ label, href, icon: Icon }) => (
+                                            <Link
+                                                key={href}
+                                                href={href}
+                                                onClick={() => setDropdownOpen(false)}
+                                                className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#3D518C] dark:hover:text-indigo-300 transition-colors duration-150 mx-1 rounded-xl"
+                                            >
+                                                <Icon size={16} className="shrink-0 text-gray-400" />
+                                                {label}
+                                            </Link>
+                                        ))}
+                                        <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
+                                        <form action="/auth/session-role/choose" method="post" className="mx-1">
+                                            <input type="hidden" name="role" value="organizer" />
+                                            <input type="hidden" name="next" value="/dashboard" />
+                                            <button
+                                                type="submit"
+                                                className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#3D518C] dark:hover:text-indigo-300 transition-colors duration-150 rounded-xl"
+                                            >
+                                                <ShieldCheck size={16} className="shrink-0 text-gray-400" />
+                                                {t('Switch to organizer')}
+                                            </button>
+                                        </form>
+                                    </div>
                                 )}
                             </div>
-                            <div className="hidden md:flex flex-col text-left">
-                                {user ? (
-                                    <>
-                                        <span className="font-semibold text-sm text-gray-800 dark:text-white leading-tight group-hover:text-[#3D518C] dark:group-hover:text-indigo-300 transition-colors">
-                                            {user.name}
-                                        </span>
-                                        <span className="text-xs text-gray-500 dark:text-gray-400">{user.email}</span>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded animate-pulse mb-1" />
-                                        <div className="h-2.5 w-32 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                                    </>
-                                )}
-                            </div>
-                            <ChevronDown
-                                size={14}
-                                className={`hidden md:block text-gray-400 group-hover:text-[#3D518C] dark:group-hover:text-indigo-300 transition-all duration-200 ${dropdownOpen ? 'rotate-180' : ''}`}
-                            />
-                        </button>
 
-                        {/* Dropdown Menu */}
-                        {dropdownOpen && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-900 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700 py-1.5 z-50 animate-in fade-in zoom-in-95 duration-150">
-                                {navLinks.map(({ label, href, icon: Icon }) => (
-                                    <Link
-                                        key={href}
-                                        href={href}
-                                        onClick={() => setDropdownOpen(false)}
-                                        className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#3D518C] dark:hover:text-indigo-300 transition-colors duration-150 mx-1 rounded-xl"
-                                    >
-                                        <Icon size={16} className="shrink-0 text-gray-400" />
-                                        {label}
-                                    </Link>
-                                ))}
-                                <div className="my-1 border-t border-gray-100 dark:border-gray-700" />
-                                <form action="/auth/session-role/choose" method="post" className="mx-1">
-                                    <input type="hidden" name="role" value="organizer" />
-                                    <input type="hidden" name="next" value="/dashboard" />
-                                    <button
-                                        type="submit"
-                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-[#3D518C] dark:hover:text-indigo-300 transition-colors duration-150 rounded-xl"
-                                    >
-                                        <ShieldCheck size={16} className="shrink-0 text-gray-400" />
-                                        {t('Switch to organizer')}
-                                    </button>
-                                </form>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Sign Out Button */}
-                    <button
-                        onClick={() => setShowLogoutModal(true)}
-                        title={t('Sign out')}
-                        className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
-                    >
-                        <LogOut size={17} />
-                        <span className="hidden md:block text-sm font-medium">{t('Sign out')}</span>
-                    </button>
+                            {/* Sign Out Button */}
+                            <button
+                                onClick={() => setShowLogoutModal(true)}
+                                title={t('Sign out')}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                            >
+                                <LogOut size={17} />
+                                <span className="hidden md:block text-sm font-medium">{t('Sign out')}</span>
+                            </button>
+                        </>
+                    )}
+                    {variant === 'guest' && (
+                        <Link
+                            href="/login"
+                            className="text-sm font-semibold text-[#3D518C] dark:text-indigo-300 hover:underline px-2 py-1.5 rounded-lg"
+                        >
+                            {t('Sign in')}
+                        </Link>
+                    )}
                 </div>
             </header>
 

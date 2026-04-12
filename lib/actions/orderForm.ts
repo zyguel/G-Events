@@ -86,7 +86,7 @@ export async function saveOrderForm(
                 console.warn('OrderForm audit log failed (update):', e)
             }
 
-            revalidatePath(`/events/${eventId}/orderform`)
+            revalidatePath(`/admin/events/${eventId}/orderform`)
 
             return {
                 success: true,
@@ -113,7 +113,7 @@ export async function saveOrderForm(
                 return { error: error.message, success: false }
             }
 
-            revalidatePath(`/events/${eventId}/orderform`)
+            revalidatePath(`/admin/events/${eventId}/orderform`)
 
             try {
                 await logAuditEntry('OrderForm', data.id, 'create', {
@@ -124,7 +124,7 @@ export async function saveOrderForm(
                 console.warn('OrderForm audit log failed (create):', e)
             }
 
-            revalidatePath(`/events/${eventId}/orderform`)
+            revalidatePath(`/admin/events/${eventId}/orderform`)
 
             return {
                 success: true,
@@ -234,7 +234,7 @@ export async function deleteOrderForm(formId: number, eventId: number) {
             console.warn('OrderForm audit log failed (delete):', e)
         }
 
-        revalidatePath(`/events/${eventId}/orderform`)
+        revalidatePath(`/admin/events/${eventId}/orderform`)
 
         return {
             success: true,
@@ -296,7 +296,7 @@ export async function saveOrderFormEntry(
             console.warn('OrderFormEntry audit log failed:', e)
         }
 
-        revalidatePath(`/events/${eventId}/orders`)
+        revalidatePath(`/admin/events/${eventId}/orders`)
 
         return {
             success: true,
@@ -452,7 +452,7 @@ export async function deleteOrderFormEntry(entryId: number, eventId: number) {
             return { error: error.message, success: false }
         }
 
-        revalidatePath(`/events/${eventId}/orders`)
+        revalidatePath(`/admin/events/${eventId}/orders`)
 
         return {
             success: true,
