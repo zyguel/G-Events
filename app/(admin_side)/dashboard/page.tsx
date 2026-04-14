@@ -32,6 +32,31 @@ function parseEventTime(value: string | null): number {
     return value ? Date.parse(value) : Number.NaN;
 }
 
+function formatRelativeDate(value: string | null, nowMs: number): string {
+    if (!value) return 'Date TBD';
+
+    const eventMs = Date.parse(value);
+    if (Number.isNaN(eventMs)) return 'Date TBD';
+
+    const diffMs = nowMs - eventMs;
+    const absMinutes = Math.floor(Math.abs(diffMs) / 60000);
+
+    if (absMinutes < 1) return 'Just now';
+    if (absMinutes < 60) return diffMs >= 0 ? `${absMinutes} min ago` : `In ${absMinutes} min`;
+
+    const absHours = Math.floor(absMinutes / 60);
+    if (absHours < 24) return diffMs >= 0 ? `${absHours} hour${absHours === 1 ? '' : 's'} ago` : `In ${absHours} hour${absHours === 1 ? '' : 's'}`;
+
+    const absDays = Math.floor(absHours / 24);
+    if (absDays < 30) return diffMs >= 0 ? `${absDays} day${absDays === 1 ? '' : 's'} ago` : `In ${absDays} day${absDays === 1 ? '' : 's'}`;
+
+    return new Date(eventMs).toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
 export default async function DashboardPage() {
     const events = await getEvents();
     const nowMs = new Date().getTime();
@@ -57,6 +82,7 @@ export default async function DashboardPage() {
                 })
                 : 'TBD',
             registrations: Number((event as { tickets_sold_count?: number }).tickets_sold_count || 0),
+            pendingOrders: Number((event as { pending_orders_count?: number }).pending_orders_count || 0),
             status,
             image: event.banner_image ?? null,
             rawDate: event.event_start_at ?? null,
@@ -89,6 +115,9 @@ export default async function DashboardPage() {
         });
 
     const nextEvent = upcoming.length > 0 ? upcoming[0] : null;
+    const pendingOrdersCount = mappedEvents
+        .filter((event) => event.status === 'Upcoming')
+        .reduce((sum, event) => sum + event.pendingOrders, 0);
 
     const activities: DashboardActivity[] = [...mappedEvents]
         .sort((a, b) => {
@@ -103,10 +132,10 @@ export default async function DashboardPage() {
         .slice(0, 4)
         .map((event, index) => ({
             id: `event-${index}`,
-            action: 'Event Created',
-            user: 'System',
+            action: event.status === 'Draft' ? 'Draft saved' : event.status === 'Completed' ? 'Event completed' : 'Event updated',
+            user: event.status === 'Draft' ? 'Organizer' : 'Event schedule',
             event: event.name,
-            time: 'Recently',
+            time: formatRelativeDate(event.rawDate, nowMs),
         }));
 
     return (
@@ -115,6 +144,7 @@ export default async function DashboardPage() {
             initialActivities={activities}
             initialNextEvent={nextEvent}
             totalRegistrations={totalRegistrations}
+            pendingOrdersCount={pendingOrdersCount}
         />
     );
 }

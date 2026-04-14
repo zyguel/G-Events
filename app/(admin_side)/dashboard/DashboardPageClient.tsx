@@ -11,6 +11,7 @@ export interface DashboardEvent {
     name: string;
     date: string;
     registrations: number;
+    pendingOrders: number;
     status: 'Draft' | 'Upcoming' | 'Live' | 'Completed';
     image: string | null;
     rawDate: string | null;
@@ -29,6 +30,7 @@ interface DashboardPageClientProps {
     initialActivities: DashboardActivity[];
     initialNextEvent: DashboardEvent | null;
     totalRegistrations: number;
+    pendingOrdersCount: number;
 }
 
 export default function DashboardPageClient({
@@ -36,6 +38,7 @@ export default function DashboardPageClient({
     initialActivities,
     initialNextEvent,
     totalRegistrations,
+    pendingOrdersCount,
 }: DashboardPageClientProps) {
     const dashboardEvents = initialDashboardEvents;
     const activities = initialActivities;
@@ -114,9 +117,9 @@ export default function DashboardPageClient({
                                 <div className="bg-linear-to-br from-rose-500 to-rose-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-rose-100 text-sm font-medium">Pending Reviews</p>
-                                            <h3 className="text-xl font-bold mt-1">0</h3>
-                                            <p className="text-rose-200 text-sm mt-2">All caught up!</p>
+                                            <p className="text-rose-100 text-sm font-medium">Pending Orders</p>
+                                            <h3 className="text-xl font-bold mt-1">{pendingOrdersCount}</h3>
+                                            <p className="text-rose-200 text-sm mt-2">Across upcoming events</p>
                                         </div>
                                         <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                                             <Clock size={24} />

@@ -248,12 +248,16 @@ const fetchEvents = cache(async (organizationId: number) => {
 
     const ticketsSoldByEventId = new Map<number, number>()
     const attendeesByEventId = new Map<number, number>()
+    const pendingOrdersByEventId = new Map<number, number>()
     if (!registrationRowsResult.error) {
         for (const row of registrationRowsResult.data || []) {
             const eventId = Number(row.event_id)
             if (Number.isNaN(eventId)) continue
 
             const normalizedStatus = String(row.status || '').toLowerCase()
+            if (normalizedStatus === 'pending') {
+                pendingOrdersByEventId.set(eventId, (pendingOrdersByEventId.get(eventId) || 0) + 1)
+            }
             if (normalizedStatus === 'cancelled' || normalizedStatus === 'rejected') {
                 continue
             }
@@ -268,6 +272,7 @@ const fetchEvents = cache(async (organizationId: number) => {
         tickets_sold_count: ticketsSoldByEventId.get(event.id) || 0,
         attendees_count: attendeesByEventId.get(event.id) || 0,
         total_tickets_count: totalTicketsByEventId.get(event.id) || 0,
+        pending_orders_count: pendingOrdersByEventId.get(event.id) || 0,
     }))
 })
 
