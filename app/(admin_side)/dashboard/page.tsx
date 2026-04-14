@@ -140,6 +140,7 @@ export default async function DashboardPage() {
 
     return (
         <DashboardPageClient
+            initialAllEvents={mappedEvents}
             initialDashboardEvents={upcoming}
             initialActivities={activities}
             initialNextEvent={nextEvent}

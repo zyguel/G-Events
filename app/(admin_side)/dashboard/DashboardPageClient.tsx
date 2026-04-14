@@ -1,8 +1,12 @@
+"use client";
+
 import Link from 'next/link';
 import Image from 'next/image';
+import { useMemo, useState } from 'react';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
-import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
+import Modal from '@/components/admin/Modal';
+import { Calendar, Users, Clock, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
 
 import { buildEventSlug } from '@/lib/slug';
 
@@ -26,6 +30,7 @@ export interface DashboardActivity {
 }
 
 interface DashboardPageClientProps {
+    initialAllEvents: DashboardEvent[];
     initialDashboardEvents: DashboardEvent[];
     initialActivities: DashboardActivity[];
     initialNextEvent: DashboardEvent | null;
@@ -34,16 +39,95 @@ interface DashboardPageClientProps {
 }
 
 export default function DashboardPageClient({
+    initialAllEvents,
     initialDashboardEvents,
     initialActivities,
     initialNextEvent,
     totalRegistrations,
     pendingOrdersCount,
 }: DashboardPageClientProps) {
+    const allEvents = initialAllEvents;
     const dashboardEvents = initialDashboardEvents;
     const activities = initialActivities;
     const nextEvent = initialNextEvent;
     const isLoading = false;
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    const [calendarMonth, setCalendarMonth] = useState(() => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), 1);
+    });
+
+    const monthLabel = calendarMonth.toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+    });
+
+    const calendarDays = useMemo(() => {
+        const year = calendarMonth.getFullYear();
+        const month = calendarMonth.getMonth();
+        const firstDayOfMonth = new Date(year, month, 1);
+        const startOffset = firstDayOfMonth.getDay();
+        const firstCellDate = new Date(year, month, 1 - startOffset);
+
+        return Array.from({ length: 42 }, (_, index) => {
+            const date = new Date(firstCellDate);
+            date.setDate(firstCellDate.getDate() + index);
+            return date;
+        });
+    }, [calendarMonth]);
+
+    const eventsByDate = useMemo(() => {
+        const map = new Map<string, DashboardEvent[]>();
+
+        const toDateKey = (date: Date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+
+        allEvents.forEach((event) => {
+            if (!event.rawDate) return;
+            const parsed = new Date(event.rawDate);
+            if (Number.isNaN(parsed.getTime())) return;
+
+            const key = toDateKey(parsed);
+            const current = map.get(key) || [];
+            current.push(event);
+            map.set(key, current);
+        });
+
+        for (const [key, rows] of map.entries()) {
+            rows.sort((a, b) => {
+                const aMs = a.rawDate ? Date.parse(a.rawDate) : Number.NaN;
+                const bMs = b.rawDate ? Date.parse(b.rawDate) : Number.NaN;
+                if (Number.isNaN(aMs) && Number.isNaN(bMs)) return 0;
+                if (Number.isNaN(aMs)) return 1;
+                if (Number.isNaN(bMs)) return -1;
+                return aMs - bMs;
+            });
+            map.set(key, rows);
+        }
+
+        return map;
+    }, [allEvents]);
+
+    const toDateKey = (date: Date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const todayKey = toDateKey(new Date());
+
+    const goToPreviousMonth = () => {
+        setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    };
+
+    const goToNextMonth = () => {
+        setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    };
 
     return (
         <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
@@ -67,7 +151,14 @@ export default function DashboardPageClient({
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm">
+                                <button
+                                    onClick={() => {
+                                        const now = new Date();
+                                        setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+                                        setIsCalendarOpen(true);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                                >
                                     <Calendar size={16} />
                                     This Month
                                 </button>
@@ -285,6 +376,85 @@ export default function DashboardPageClient({
                     </div>
                 </main>
             </div>
+
+            <Modal
+                isOpen={isCalendarOpen}
+                onClose={() => setIsCalendarOpen(false)}
+                title="Event Calendar"
+                subtitle="Browse events by date and open their pages directly"
+                size="xl"
+            >
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <button
+                            onClick={goToPreviousMonth}
+                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                            <ChevronLeft size={16} />
+                            Prev
+                        </button>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{monthLabel}</h3>
+                        <button
+                            onClick={goToNextMonth}
+                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                            Next
+                            <ChevronRight size={16} />
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
+                            <div key={label} className="py-1">{label}</div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2">
+                        {calendarDays.map((day) => {
+                            const isCurrentMonth = day.getMonth() === calendarMonth.getMonth();
+                            const key = toDateKey(day);
+                            const isToday = key === todayKey;
+                            const dayEvents = eventsByDate.get(key) || [];
+
+                            return (
+                                <div
+                                    key={key}
+                                    className={`min-h-30 rounded-xl border p-2 ${isToday
+                                        ? 'ring-2 ring-[#3D518C] ring-offset-1 ring-offset-white dark:ring-offset-gray-900'
+                                        : ''
+                                        } ${isCurrentMonth
+                                        ? 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
+                                        : 'border-gray-100 bg-gray-50 text-gray-400 dark:border-gray-800 dark:bg-gray-900/50 dark:text-gray-500'
+                                        }`}
+                                >
+                                    <div className={`mb-1 inline-flex h-6 min-w-6 items-center justify-center rounded-md px-1 text-sm font-medium ${isToday
+                                        ? 'bg-[#3D518C] text-white'
+                                        : ''
+                                        }`}>{day.getDate()}</div>
+                                    <div className="space-y-1">
+                                        {dayEvents.length === 0 ? null : dayEvents.slice(0, 2).map((event) => (
+                                            <Link
+                                                key={`${event.id}-${event.name}`}
+                                                href={`/admin/events/${buildEventSlug(event.name, event.id)}/overview`}
+                                                onClick={() => setIsCalendarOpen(false)}
+                                                className="block truncate rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                                                title={event.name}
+                                            >
+                                                {event.name}
+                                            </Link>
+                                        ))}
+                                        {dayEvents.length > 2 ? (
+                                            <div className="px-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                                +{dayEvents.length - 2} more
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }
