@@ -319,7 +319,8 @@ export async function anchorCertificateIssuesToLedger(
 
 export async function verifyCertificateByToken(
   supabase: SupabaseClient,
-  token: string
+  token: string,
+  options?: { includePayload?: boolean }
 ): Promise<{
   found: boolean;
   isValid: boolean;
@@ -331,6 +332,7 @@ export async function verifyCertificateByToken(
     blockHash: string;
     previousHash: string | null;
     blockTimestamp: string;
+    payload?: Record<string, unknown>;
   };
 }> {
   const { data: issue, error: issueError } = await supabase
@@ -347,7 +349,7 @@ export async function verifyCertificateByToken(
   const issueRow = issue as CertificateIssueRow;
   const { data: ledger, error: ledgerError } = await supabase
     .from("CertificateLedger")
-    .select("issue_id, block_index, previous_hash, certificate_hash, block_hash, block_timestamp")
+    .select("issue_id, block_index, previous_hash, certificate_hash, block_hash, block_timestamp, payload")
     .eq("issue_id", issueRow.id)
     .maybeSingle();
 
@@ -395,6 +397,10 @@ export async function verifyCertificateByToken(
       blockHash: ledger.block_hash,
       previousHash: ledger.previous_hash,
       blockTimestamp: ledger.block_timestamp,
+      payload:
+        options?.includePayload && ledger.payload && typeof ledger.payload === "object"
+          ? (ledger.payload as Record<string, unknown>)
+          : undefined,
     },
   };
 }
