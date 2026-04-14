@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { Eye } from "lucide-react"
+import Modal from "@/components/admin/Modal"
 import TablePaginationControls from "@/components/admin/TablePaginationControls"
 
 interface AuditEntry {
@@ -26,6 +28,8 @@ export default function AuditLogViewer({ entityType, entityId }: AuditLogViewerP
   const [loading, setLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
   const [rowsPerPage, setRowsPerPage] = useState(10)
+  const [selectedEntry, setSelectedEntry] = useState<AuditEntry | null>(null)
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false)
 
   const paginatedEntries = useMemo(() => {
     const start = (currentPage - 1) * rowsPerPage
@@ -67,6 +71,16 @@ export default function AuditLogViewer({ entityType, entityId }: AuditLogViewerP
     }
   }, [entityType, entityId])
 
+  const openDetails = (entry: AuditEntry) => {
+    setSelectedEntry(entry)
+    setIsDetailsOpen(true)
+  }
+
+  const closeDetails = () => {
+    setIsDetailsOpen(false)
+    setSelectedEntry(null)
+  }
+
   return (
     <section className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 shadow-sm mt-6">
       <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">Audit trail</h2>
@@ -89,6 +103,7 @@ export default function AuditLogViewer({ entityType, entityId }: AuditLogViewerP
                   <th className="px-2 py-2">Hash</th>
                   <th className="px-2 py-2">Prev Hash</th>
                   <th className="px-2 py-2">IPFS</th>
+                  <th className="px-2 py-2">View</th>
                 </tr>
               </thead>
               <tbody>
@@ -96,8 +111,8 @@ export default function AuditLogViewer({ entityType, entityId }: AuditLogViewerP
                   <tr key={entry.id} className="border-b border-gray-100 dark:border-gray-700">
                     <td className="px-2 py-2">{new Date(entry.created_at).toLocaleString()}</td>
                     <td className="px-2 py-2 font-medium">{entry.action}</td>
-                    <td className="px-2 py-2 truncate max-w-[250px]" title={entry.audit_hash}>{entry.audit_hash}</td>
-                    <td className="px-2 py-2 truncate max-w-[250px]" title={entry.prev_hash || ''}>{entry.prev_hash || '-'}</td>
+                    <td className="px-2 py-2 truncate max-w-62.5" title={entry.audit_hash}>{entry.audit_hash}</td>
+                    <td className="px-2 py-2 truncate max-w-62.5" title={entry.prev_hash || ''}>{entry.prev_hash || '-'}</td>
                     <td className="px-2 py-2">
                       {entry.ipfs_cid ? (
                         <a
@@ -109,6 +124,17 @@ export default function AuditLogViewer({ entityType, entityId }: AuditLogViewerP
                           {entry.ipfs_cid}
                         </a>
                       ) : '-'}
+                    </td>
+                    <td className="px-2 py-2">
+                      <button
+                        type="button"
+                        onClick={() => openDetails(entry)}
+                        className="inline-flex items-center justify-center p-2 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:text-[#3D518C] dark:hover:text-blue-300 hover:border-[#3D518C]/40 dark:hover:border-blue-400/40 transition-colors"
+                        aria-label={`View audit log ${entry.id} details`}
+                        title="View details"
+                      >
+                        <Eye size={16} />
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -126,6 +152,74 @@ export default function AuditLogViewer({ entityType, entityId }: AuditLogViewerP
               setCurrentPage(1)
             }}
           />
+
+          <Modal
+            isOpen={isDetailsOpen}
+            onClose={closeDetails}
+            title="Audit log details"
+            subtitle={selectedEntry ? `${selectedEntry.entity_type} #${selectedEntry.entity_id ?? '-'}` : undefined}
+            size="lg"
+          >
+            {selectedEntry && (
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Log ID</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{selectedEntry.id}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Created</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{new Date(selectedEntry.created_at).toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Action</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{selectedEntry.action}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Entity</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{selectedEntry.entity_type} #{selectedEntry.entity_id ?? '-'}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Audit Hash</p>
+                  <p className="font-mono text-xs break-all rounded-lg bg-gray-50 dark:bg-gray-900/60 p-3 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                    {selectedEntry.audit_hash}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Previous Hash</p>
+                  <p className="font-mono text-xs break-all rounded-lg bg-gray-50 dark:bg-gray-900/60 p-3 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700">
+                    {selectedEntry.prev_hash || '-'}
+                  </p>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">IPFS CID</p>
+                  {selectedEntry.ipfs_cid ? (
+                    <a
+                      className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+                      href={`https://ipfs.io/ipfs/${selectedEntry.ipfs_cid}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {selectedEntry.ipfs_cid}
+                    </a>
+                  ) : (
+                    <p className="text-gray-600 dark:text-gray-300">-</p>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">Payload</p>
+                  <pre className="font-mono text-xs whitespace-pre-wrap wrap-break-word rounded-lg bg-gray-50 dark:bg-gray-900/60 p-3 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 max-h-64 overflow-auto">
+                    {JSON.stringify(selectedEntry.payload ?? {}, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </Modal>
         </>
       )}
     </section>
