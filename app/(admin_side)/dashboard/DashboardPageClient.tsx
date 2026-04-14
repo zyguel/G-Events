@@ -1,8 +1,12 @@
+"use client";
+
 import Link from 'next/link';
 import Image from 'next/image';
+import { useMemo, useState } from 'react';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
-import { Calendar, Users, Clock, ChevronRight, Bell } from 'lucide-react';
+import Modal from '@/components/admin/Modal';
+import { Calendar, Users, Clock, ChevronLeft, ChevronRight, Bell } from 'lucide-react';
 
 import { buildEventSlug } from '@/lib/slug';
 
@@ -11,6 +15,7 @@ export interface DashboardEvent {
     name: string;
     date: string;
     registrations: number;
+    pendingOrders: number;
     status: 'Draft' | 'Upcoming' | 'Live' | 'Completed';
     image: string | null;
     rawDate: string | null;
@@ -25,20 +30,104 @@ export interface DashboardActivity {
 }
 
 interface DashboardPageClientProps {
+    initialAllEvents: DashboardEvent[];
     initialDashboardEvents: DashboardEvent[];
     initialActivities: DashboardActivity[];
     initialNextEvent: DashboardEvent | null;
+    totalRegistrations: number;
+    pendingOrdersCount: number;
 }
 
 export default function DashboardPageClient({
+    initialAllEvents,
     initialDashboardEvents,
     initialActivities,
     initialNextEvent,
+    totalRegistrations,
+    pendingOrdersCount,
 }: DashboardPageClientProps) {
+    const allEvents = initialAllEvents;
     const dashboardEvents = initialDashboardEvents;
     const activities = initialActivities;
     const nextEvent = initialNextEvent;
     const isLoading = false;
+    const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+    const [calendarMonth, setCalendarMonth] = useState(() => {
+        const now = new Date();
+        return new Date(now.getFullYear(), now.getMonth(), 1);
+    });
+
+    const monthLabel = calendarMonth.toLocaleDateString('en-US', {
+        month: 'long',
+        year: 'numeric',
+    });
+
+    const calendarDays = useMemo(() => {
+        const year = calendarMonth.getFullYear();
+        const month = calendarMonth.getMonth();
+        const firstDayOfMonth = new Date(year, month, 1);
+        const startOffset = firstDayOfMonth.getDay();
+        const firstCellDate = new Date(year, month, 1 - startOffset);
+
+        return Array.from({ length: 42 }, (_, index) => {
+            const date = new Date(firstCellDate);
+            date.setDate(firstCellDate.getDate() + index);
+            return date;
+        });
+    }, [calendarMonth]);
+
+    const eventsByDate = useMemo(() => {
+        const map = new Map<string, DashboardEvent[]>();
+
+        const toDateKey = (date: Date) => {
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        };
+
+        allEvents.forEach((event) => {
+            if (!event.rawDate) return;
+            const parsed = new Date(event.rawDate);
+            if (Number.isNaN(parsed.getTime())) return;
+
+            const key = toDateKey(parsed);
+            const current = map.get(key) || [];
+            current.push(event);
+            map.set(key, current);
+        });
+
+        for (const [key, rows] of map.entries()) {
+            rows.sort((a, b) => {
+                const aMs = a.rawDate ? Date.parse(a.rawDate) : Number.NaN;
+                const bMs = b.rawDate ? Date.parse(b.rawDate) : Number.NaN;
+                if (Number.isNaN(aMs) && Number.isNaN(bMs)) return 0;
+                if (Number.isNaN(aMs)) return 1;
+                if (Number.isNaN(bMs)) return -1;
+                return aMs - bMs;
+            });
+            map.set(key, rows);
+        }
+
+        return map;
+    }, [allEvents]);
+
+    const toDateKey = (date: Date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
+    const todayKey = toDateKey(new Date());
+
+    const goToPreviousMonth = () => {
+        setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+    };
+
+    const goToNextMonth = () => {
+        setCalendarMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+    };
 
     return (
         <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
@@ -62,11 +151,18 @@ export default function DashboardPageClient({
                             </div>
 
                             <div className="flex items-center gap-3">
-                                <button className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm">
+                                <button
+                                    onClick={() => {
+                                        const now = new Date();
+                                        setCalendarMonth(new Date(now.getFullYear(), now.getMonth(), 1));
+                                        setIsCalendarOpen(true);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+                                >
                                     <Calendar size={16} />
                                     This Month
                                 </button>
-                                <Link href="/events/new/overview" className="flex items-center gap-2 px-4 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm">
+                                <Link href="/admin/events/new/overview" className="flex items-center gap-2 px-4 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2d3d6b] transition-all shadow-sm">
                                     <span>+ Create Event</span>
                                 </Link>
                             </div>
@@ -82,7 +178,7 @@ export default function DashboardPageClient({
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div className="bg-linear-to-br from-indigo-500 to-indigo-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
-                                    <Link href={nextEvent ? `/events/${buildEventSlug(nextEvent.name, nextEvent.id)}/overview` : '#'}>
+                                    <Link href={nextEvent ? `/admin/events/${buildEventSlug(nextEvent.name, nextEvent.id)}/overview` : '#'}>
                                         <div className="flex items-center justify-between">
                                             <div>
                                                 <p className="text-indigo-100 text-sm font-medium">Next Event</p>
@@ -99,9 +195,9 @@ export default function DashboardPageClient({
                                 <div className="bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-emerald-100 text-sm font-medium">Today&apos;s Registrations</p>
-                                            <h3 className="text-xl font-bold mt-1">0</h3>
-                                            <p className="text-emerald-200 text-sm mt-2">No data available</p>
+                                            <p className="text-emerald-100 text-sm font-medium">Total Registrations</p>
+                                            <h3 className="text-xl font-bold mt-1">{totalRegistrations}</h3>
+                                            <p className="text-emerald-200 text-sm mt-2">Across your events</p>
                                         </div>
                                         <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                                             <Users size={24} />
@@ -112,9 +208,9 @@ export default function DashboardPageClient({
                                 <div className="bg-linear-to-br from-rose-500 to-rose-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-rose-100 text-sm font-medium">Pending Reviews</p>
-                                            <h3 className="text-xl font-bold mt-1">0</h3>
-                                            <p className="text-rose-200 text-sm mt-2">All caught up!</p>
+                                            <p className="text-rose-100 text-sm font-medium">Pending Orders</p>
+                                            <h3 className="text-xl font-bold mt-1">{pendingOrdersCount}</h3>
+                                            <p className="text-rose-200 text-sm mt-2">Across upcoming events</p>
                                         </div>
                                         <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                                             <Clock size={24} />
@@ -185,7 +281,7 @@ export default function DashboardPageClient({
                                             <h2 className="font-semibold text-gray-900 dark:text-white">Upcoming Events</h2>
                                             <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Your scheduled events</p>
                                         </div>
-                                        <Link href="/events" className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium flex items-center gap-1">
+                                        <Link href="/admin/events" className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium flex items-center gap-1">
                                             View All <ChevronRight size={16} />
                                         </Link>
                                     </div>
@@ -195,7 +291,7 @@ export default function DashboardPageClient({
                                                 <Calendar size={32} className="text-gray-300 dark:text-gray-600 mb-3" />
                                                 <p className="text-gray-500 dark:text-gray-400 font-medium">No upcoming events found</p>
                                                 <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">Get started by creating your first event!</p>
-                                                <Link href="/events/new/overview" className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#3D518C] text-white rounded-lg text-sm font-medium hover:bg-[#2d3d6b] transition-all">
+                                                <Link href="/admin/events/new/overview" className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[#3D518C] text-white rounded-lg text-sm font-medium hover:bg-[#2d3d6b] transition-all">
                                                     Create Event
                                                 </Link>
                                             </div>
@@ -203,7 +299,7 @@ export default function DashboardPageClient({
                                             dashboardEvents.slice(0, 5).map((event) => (
                                                 <Link
                                                     key={event.id}
-                                                    href={`/events/${buildEventSlug(event.name, event.id)}/overview`}
+                                                    href={`/admin/events/${buildEventSlug(event.name, event.id)}/overview`}
                                                     className="block p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
                                                 >
                                                     <div className="flex items-center justify-between">
@@ -280,6 +376,85 @@ export default function DashboardPageClient({
                     </div>
                 </main>
             </div>
+
+            <Modal
+                isOpen={isCalendarOpen}
+                onClose={() => setIsCalendarOpen(false)}
+                title="Event Calendar"
+                subtitle="Browse events by date and open their pages directly"
+                size="xl"
+            >
+                <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <button
+                            onClick={goToPreviousMonth}
+                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                            <ChevronLeft size={16} />
+                            Prev
+                        </button>
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{monthLabel}</h3>
+                        <button
+                            onClick={goToNextMonth}
+                            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        >
+                            Next
+                            <ChevronRight size={16} />
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((label) => (
+                            <div key={label} className="py-1">{label}</div>
+                        ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2">
+                        {calendarDays.map((day) => {
+                            const isCurrentMonth = day.getMonth() === calendarMonth.getMonth();
+                            const key = toDateKey(day);
+                            const isToday = key === todayKey;
+                            const dayEvents = eventsByDate.get(key) || [];
+
+                            return (
+                                <div
+                                    key={key}
+                                    className={`min-h-30 rounded-xl border p-2 ${isToday
+                                        ? 'ring-2 ring-[#3D518C] ring-offset-1 ring-offset-white dark:ring-offset-gray-900'
+                                        : ''
+                                        } ${isCurrentMonth
+                                        ? 'border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800'
+                                        : 'border-gray-100 bg-gray-50 text-gray-400 dark:border-gray-800 dark:bg-gray-900/50 dark:text-gray-500'
+                                        }`}
+                                >
+                                    <div className={`mb-1 inline-flex h-6 min-w-6 items-center justify-center rounded-md px-1 text-sm font-medium ${isToday
+                                        ? 'bg-[#3D518C] text-white'
+                                        : ''
+                                        }`}>{day.getDate()}</div>
+                                    <div className="space-y-1">
+                                        {dayEvents.length === 0 ? null : dayEvents.slice(0, 2).map((event) => (
+                                            <Link
+                                                key={`${event.id}-${event.name}`}
+                                                href={`/admin/events/${buildEventSlug(event.name, event.id)}/overview`}
+                                                onClick={() => setIsCalendarOpen(false)}
+                                                className="block truncate rounded-md bg-indigo-50 px-2 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:text-indigo-300 dark:hover:bg-indigo-900/50"
+                                                title={event.name}
+                                            >
+                                                {event.name}
+                                            </Link>
+                                        ))}
+                                        {dayEvents.length > 2 ? (
+                                            <div className="px-1 text-[11px] text-gray-500 dark:text-gray-400">
+                                                +{dayEvents.length - 2} more
+                                            </div>
+                                        ) : null}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </Modal>
         </div>
     );
 }

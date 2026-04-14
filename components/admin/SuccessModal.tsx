@@ -80,7 +80,7 @@ export default function SuccessModal({ isOpen, onClose, eventName, eventId, onGo
 
                             <div className="grid grid-cols-1 gap-3">
                                 <Link
-                                    href={`/events/${slug}/overview`}
+                                    href={`/admin/events/${slug}/overview`}
                                     className="flex items-center justify-center gap-2 w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-semibold transition-all shadow-md group"
                                 >
                                     <Eye size={18} />

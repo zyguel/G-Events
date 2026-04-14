@@ -20,7 +20,13 @@ interface UseOrderFormSubmitReturn {
     success: boolean;
     successMessage: string | null;
     submissionResult: Record<string, unknown> | null;
-    submit: (formData: OrderFormData, answers: FormAnswers, ticketId?: number | null, groupEmails?: string[]) => Promise<void>;
+    submit: (
+        formData: OrderFormData,
+        answers: FormAnswers,
+        ticketId?: number | null,
+        groupEmails?: string[],
+        breakoutSessionId?: number | null
+    ) => Promise<void>;
 }
 
 export function useOrderFormSubmit({
@@ -39,7 +45,8 @@ export function useOrderFormSubmit({
         formData: OrderFormData,
         answers: FormAnswers,
         ticketId?: number | null,
-        groupEmails?: string[]
+        groupEmails?: string[],
+        breakoutSessionId?: number | null
     ) => {
         setIsSubmitting(true);
         setError(null);
@@ -69,6 +76,7 @@ export function useOrderFormSubmit({
                     registrationId,
                     ticketId,
                     groupEmails,
+                    breakoutSessionId,
                 }),
             });
             const result = await response.json().catch(() => ({}));

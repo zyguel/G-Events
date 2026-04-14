@@ -11,6 +11,55 @@ const DEFAULT_FROM_NAME = "G Events";
 
 type EmailProvider = "auto" | "smtp" | "resend";
 
+const HTML_URL_ATTR_REGEX = /(src|href)=("|')([^"']+)(\2)/gi;
+
+function getAppOrigin(): string | null {
+  const configured = process.env.APP_URL ?? process.env.NEXT_PUBLIC_APP_URL;
+  if (!configured) {
+    return null;
+  }
+
+  try {
+    return new URL(configured).origin;
+  } catch {
+    return null;
+  }
+}
+
+function absolutizeEmailHtmlUrls(html: string): string {
+  const appOrigin = getAppOrigin();
+  if (!appOrigin) {
+    return html;
+  }
+
+  return html.replace(HTML_URL_ATTR_REGEX, (full, attr, quote, url) => {
+    const trimmedUrl = String(url).trim();
+
+    if (!trimmedUrl) {
+      return full;
+    }
+
+    if (
+      trimmedUrl.startsWith("http://") ||
+      trimmedUrl.startsWith("https://") ||
+      trimmedUrl.startsWith("data:") ||
+      trimmedUrl.startsWith("cid:") ||
+      trimmedUrl.startsWith("mailto:") ||
+      trimmedUrl.startsWith("tel:") ||
+      trimmedUrl.startsWith("#")
+    ) {
+      return full;
+    }
+
+    if (trimmedUrl.startsWith("//")) {
+      return `${attr}=${quote}https:${trimmedUrl}${quote}`;
+    }
+
+    const path = trimmedUrl.startsWith("/") ? trimmedUrl : `/${trimmedUrl}`;
+    return `${attr}=${quote}${appOrigin}${path}${quote}`;
+  });
+}
+
 function parseOptionalBoolean(value: string | undefined): boolean | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -86,6 +135,7 @@ async function sendWithResend({ to, subject, html }: SendEmailParams): Promise<v
   }
 
   const from = formatFromAddress(rawFrom);
+  const normalizedHtml = absolutizeEmailHtmlUrls(html);
 
   const response = await fetch(RESEND_API_URL, {
     method: "POST",
@@ -97,7 +147,7 @@ async function sendWithResend({ to, subject, html }: SendEmailParams): Promise<v
       from,
       to,
       subject,
-      html,
+      html: normalizedHtml,
     }),
   });
 
@@ -109,6 +159,7 @@ async function sendWithResend({ to, subject, html }: SendEmailParams): Promise<v
 
 async function sendWithSmtp({ to, subject, html }: SendEmailParams): Promise<void> {
   const from = getRequiredSmtpFromAddress();
+  const normalizedHtml = absolutizeEmailHtmlUrls(html);
   const smtpUrl = process.env.SMTP_URL;
   const smtpService = process.env.SMTP_SERVICE;
 
@@ -155,7 +206,7 @@ async function sendWithSmtp({ to, subject, html }: SendEmailParams): Promise<voi
     from,
     to,
     subject,
-    html,
+    html: normalizedHtml,
   });
 }
 

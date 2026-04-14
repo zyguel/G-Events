@@ -84,22 +84,22 @@ export default function ClientDashboardPage() {
     return (
         <div className="flex flex-col h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300 relative overflow-hidden">
             {/* Ambient Background Glows for Modern Aesthetic */}
-            <div className="absolute top-[-10%] left-[-10%] w-125 h-125 bg-blue-400/20 dark:bg-blue-600/10 rounded-full blur-[100px] pointer-events-none" />
-            <div className="absolute bottom-[-10%] right-[-5%] w-150 h-150 bg-indigo-400/20 dark:bg-purple-600/10 rounded-full blur-[120px] pointer-events-none" />
+            <div className="pointer-events-none absolute left-[-10%] top-[-10%] h-[500px] w-[500px] rounded-full bg-blue-400/20 blur-[100px] dark:bg-blue-600/10" />
+            <div className="pointer-events-none absolute bottom-[-10%] right-[-5%] h-[560px] w-[560px] rounded-full bg-indigo-400/20 blur-[120px] dark:bg-purple-600/10" />
 
             <ClientHeader />
 
             <div className="flex flex-1 overflow-hidden z-10">
 
                 <main className="flex-1 overflow-y-auto w-full">
-                    <div className="max-w-6xl mx-auto p-8 md:p-12 lg:p-16">
+                    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 md:p-12 lg:p-16">
 
                         {/* Greeting Section */}
-                        <div className="mb-14 relative group animate-fade-in-up">
-                            <h1 className="text-[28px] md:text-[34px] font-extrabold text-[#1e293b] dark:text-white tracking-tight leading-tight mb-3 transition-all duration-500">
-                                Hey <span className="text-blue-600 dark:text-blue-400">{firstName}</span>! <br className="md:hidden" /> Here's What Awaits You
+                        <div className="group relative mb-10 animate-fade-in-up sm:mb-14">
+                            <h1 className="mb-3 text-pretty text-[26px] font-extrabold leading-tight tracking-tight text-[#1e293b] transition-all duration-500 dark:text-white sm:text-[28px] md:text-[34px]">
+                                Hey <span className="text-blue-600 dark:text-blue-400">{firstName}</span>! <br className="sm:hidden" /> Here&apos;s what awaits you
                             </h1>
-                            <p className="text-gray-500 dark:text-gray-400 font-medium text-[15px] mt-2 max-w-2xl">
+                            <p className="mt-2 max-w-2xl text-[15px] font-medium text-gray-500 dark:text-gray-400">
                                 Discover and manage your upcoming extraordinary events with real-time updates.
                             </p>
                             <div className="h-1 w-24 bg-linear-to-r from-blue-500 to-indigo-500 rounded-full mt-6 group-hover:w-32 transition-all duration-500"></div>
@@ -110,7 +110,7 @@ export default function ClientDashboardPage() {
                             <div className="space-y-8">
                                 {[...Array(3)].map((_, i) => (
                                     <div key={i} className="animate-pulse bg-white/70 dark:bg-gray-800/40 backdrop-blur-xl rounded-3xl p-6 flex flex-col md:flex-row gap-8 shadow-sm border border-gray-100/50 dark:border-gray-800/50">
-                                        <div className="w-full md:w-[320px] h-50 bg-gray-200 dark:bg-gray-700/50 rounded-2xl"></div>
+                                        <div className="h-44 w-full rounded-2xl bg-gray-200 dark:bg-gray-700/50 md:h-52 md:w-[320px]"></div>
                                         <div className="flex-1 space-y-5 py-4">
                                             <div className="h-10 bg-gray-200 dark:bg-gray-700/50 rounded-lg w-3/4"></div>
                                             <div className="h-5 bg-gray-200 dark:bg-gray-700/50 rounded-md w-1/2"></div>
@@ -136,9 +136,9 @@ export default function ClientDashboardPage() {
                                         className="group relative bg-white/95 dark:bg-[#1a1c23]/95 backdrop-blur-sm rounded-4xl p-5 md:p-6 flex flex-col md:flex-row gap-6 lg:gap-8 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100/80 dark:border-gray-800/80 transition-all duration-300"
                                     >
                                         {/* Event Image Banner (Mockup Style) */}
-                                        <div className="w-full md:w-70 h-45 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl overflow-hidden relative shrink-0 shadow-sm transition-shadow duration-300 flex items-center justify-center">
+                                        <div className="relative flex h-44 w-full shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-sm transition-shadow duration-300 sm:h-48 md:h-52 md:w-72">
                                             {event.imageUrl !== '/placeholder-event.png' ? (
-                                                <Image src={event.imageUrl} alt={event.title} fill sizes="(max-width: 768px) 100vw, 280px" className="object-cover" />
+                                                <Image src={event.imageUrl} alt={event.title} fill sizes="(max-width: 768px) 100vw, 288px" className="object-cover" />
                                             ) : (
                                                 <div className="text-6xl font-black text-white text-opacity-90">{event.title.substring(0, 1)}</div>
                                             )}
@@ -147,7 +147,7 @@ export default function ClientDashboardPage() {
                                         {/* Event Details */}
                                         <div className="flex-1 flex flex-col justify-between py-1 relative">
                                             <div>
-                                                <h2 className="text-[26px] md:text-[30px] font-extrabold text-[#0f172a] dark:text-white mb-3 tracking-tight">
+                                                <h2 className="mb-3 text-pretty text-[22px] font-extrabold tracking-tight text-[#0f172a] dark:text-white sm:text-[26px] md:text-[30px]">
                                                     {event.title}
                                                 </h2>
 
@@ -172,7 +172,7 @@ export default function ClientDashboardPage() {
                                                 </div>
                                             </div>
 
-                                            <div className="mt-4 flex flex-col md:flex-row md:items-end justify-between gap-5 relative z-10 w-full">
+                                            <div className="relative z-10 mt-4 flex w-full flex-col justify-between gap-4 md:flex-row md:items-end md:gap-5">
                                                 {/* Status Indicator */}
                                                 <div className="flex items-center gap-2.5 bg-white dark:bg-gray-800 px-4 py-2 rounded-full border border-gray-200 dark:border-gray-700 shadow-sm w-fit h-fit">
                                                     <span className={`inline-flex rounded-full h-2.5 w-2.5 ${event.statusColor}`}></span>
@@ -184,7 +184,7 @@ export default function ClientDashboardPage() {
                                                 {/* Button placed to bottom right */}
                                                 <Link
                                                     href={`/events/${buildEventSlug(event.title, event.id)}`}
-                                                    className="px-6 py-2.5 bg-[#0f172a] hover:bg-[#1e293b] text-white text-[14px] font-semibold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 min-w-35"
+                                                    className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-[#0f172a] px-6 py-3 text-[14px] font-semibold text-white shadow-md transition-all hover:bg-[#1e293b] md:w-auto md:min-w-[148px] touch-manipulation"
                                                 >
                                                     Check Event
                                                     <ChevronRight size={16} />

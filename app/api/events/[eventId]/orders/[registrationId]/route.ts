@@ -64,8 +64,8 @@ export async function PATCH(
         }
 
         // Revalidate relevant caches
-        revalidatePath(`/events/${id}/orders`);
-        revalidatePath(`/events/${id}/reports`);
+        revalidatePath(`/admin/events/${id}/orders`);
+        revalidatePath(`/admin/events/${id}/reports`);
 
         return NextResponse.json({ success: true });
     } catch (e: any) {
@@ -116,8 +116,8 @@ export async function DELETE(
         }
 
         // Revalidate relevant paths
-        revalidatePath(`/events/${id}/orders`);
-        revalidatePath(`/events/${id}/reports`);
+        revalidatePath(`/admin/events/${id}/orders`);
+        revalidatePath(`/admin/events/${id}/reports`);
 
         return NextResponse.json({ success: true });
     } catch (e: any) {

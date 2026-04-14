@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
+import { getRequestPublicOrigin } from '@/lib/requestPublicOrigin';
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
+  const publicOrigin = getRequestPublicOrigin(request);
   const code = requestUrl.searchParams.get('code');
   const tokenHash = requestUrl.searchParams.get('token_hash');
   const type = requestUrl.searchParams.get('type');
@@ -21,11 +23,11 @@ export async function GET(request: Request) {
 
   // Keep password recovery flow intact.
   if (type === 'recovery' || redirectTo === '/reset-password') {
-    const recoveryUrl = new URL(redirectTo, requestUrl.origin);
+    const recoveryUrl = new URL(redirectTo, publicOrigin);
     return NextResponse.redirect(recoveryUrl);
   }
 
-  const url = new URL('/auth/session-role', requestUrl.origin);
+  const url = new URL('/auth/session-role', publicOrigin);
   url.searchParams.set('next', redirectTo);
   return NextResponse.redirect(url);
 }

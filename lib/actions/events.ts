@@ -183,7 +183,7 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
             }
         }
 
-        revalidatePath('/events')
+        revalidatePath('/admin/events')
         return { success: true, message: 'Event created successfully', eventId }
 
     } catch (e) {
@@ -215,7 +215,65 @@ const fetchEvents = cache(async (organizationId: number) => {
         throw error
     }
 
-    return data || []
+    const events = data || []
+    if (events.length === 0) {
+        return []
+    }
+
+    const eventIds = events.map((event) => event.id)
+
+    const aggregateClient = await getStorageClient()
+
+    const [ticketRowsResult, registrationRowsResult] = await Promise.all([
+        aggregateClient
+            .from('Ticket')
+            .select('event_id, available_quantity')
+            .in('event_id', eventIds),
+        aggregateClient
+            .from('Registration')
+            .select('event_id, status')
+            .in('event_id', eventIds),
+    ])
+
+    const totalTicketsByEventId = new Map<number, number>()
+    if (!ticketRowsResult.error) {
+        for (const row of ticketRowsResult.data || []) {
+            const eventId = Number(row.event_id)
+            if (Number.isNaN(eventId)) continue
+
+            const ticketCapacity = Number(row.available_quantity) || 0
+            totalTicketsByEventId.set(eventId, (totalTicketsByEventId.get(eventId) || 0) + ticketCapacity)
+        }
+    }
+
+    const ticketsSoldByEventId = new Map<number, number>()
+    const attendeesByEventId = new Map<number, number>()
+    const pendingOrdersByEventId = new Map<number, number>()
+    if (!registrationRowsResult.error) {
+        for (const row of registrationRowsResult.data || []) {
+            const eventId = Number(row.event_id)
+            if (Number.isNaN(eventId)) continue
+
+            const normalizedStatus = String(row.status || '').toLowerCase()
+            if (normalizedStatus === 'pending') {
+                pendingOrdersByEventId.set(eventId, (pendingOrdersByEventId.get(eventId) || 0) + 1)
+            }
+            if (normalizedStatus === 'cancelled' || normalizedStatus === 'rejected') {
+                continue
+            }
+
+            ticketsSoldByEventId.set(eventId, (ticketsSoldByEventId.get(eventId) || 0) + 1)
+            attendeesByEventId.set(eventId, (attendeesByEventId.get(eventId) || 0) + 1)
+        }
+    }
+
+    return events.map((event) => ({
+        ...event,
+        tickets_sold_count: ticketsSoldByEventId.get(event.id) || 0,
+        attendees_count: attendeesByEventId.get(event.id) || 0,
+        total_tickets_count: totalTicketsByEventId.get(event.id) || 0,
+        pending_orders_count: pendingOrdersByEventId.get(event.id) || 0,
+    }))
 })
 
 export async function getEvents() {
@@ -316,6 +374,60 @@ export async function getPublishedEventById(id: number) {
     }
 }
 
+/**
+ * Fetch breakout sessions for a published event on the client/attendee side.
+ * Does NOT require authentication.
+ */
+export async function getPublicBreakoutSessions(eventId: number) {
+    try {
+        const storageClient = await getStorageClient()
+
+        const { data, error } = await storageClient
+            .from('BreakoutSession')
+            .select('id, name, description, room_name, room_capacity, speaker_name, BreakoutSessionRegistration(id)')
+            .eq('event_id', eventId)
+            .order('id', { ascending: true })
+
+        if (error) {
+            console.error(`Error fetching breakout sessions for event ${eventId}:`, error)
+            return []
+        }
+
+        return (data || []).map((row: any) => {
+            let meta: any = {}
+            try {
+                meta = row.description ? JSON.parse(row.description) : {}
+            } catch { meta = {} }
+
+            const currentAttendees = Array.isArray(row.BreakoutSessionRegistration)
+                ? row.BreakoutSessionRegistration.length
+                : 0
+
+            const speakers: string[] = row.speaker_name
+                ? String(row.speaker_name).split(',').map((n: string) => n.trim()).filter(Boolean)
+                : []
+
+            return {
+                id: row.id.toString(),
+                name: row.name || '',
+                type: (meta.type === 'In-Person' ? 'In-Person' : 'Online') as 'Online' | 'In-Person',
+                status: (['Ongoing', 'Completed', 'Cancelled'].includes(meta.status) ? meta.status : 'Not Started') as 'Not Started' | 'Ongoing' | 'Completed' | 'Cancelled',
+                date: meta.date || '',
+                time: meta.time || '',
+                location: row.room_name || '',
+                joinLink: meta.joinLink || '',
+                currentAttendees,
+                maxCapacity: row.room_capacity || 0,
+                speakers,
+            }
+        })
+    } catch (e) {
+        if (isDynamicServerUsageError(e)) throw e
+        console.error(`Unexpected error fetching breakout sessions for event ${eventId}:`, e)
+        return []
+    }
+}
+
 const fetchEventById = cache(async (id: number, organizationId: number) => {
     const supabase = await createClient();
 
@@ -405,7 +517,7 @@ export async function updateEvent(id: number, data: Partial<any>) {
             console.warn('Event audit log failed (update):', e)
         }
 
-        revalidatePath('/events')
+        revalidatePath('/admin/events')
         revalidatePath(`/events/${id}`)
         return { success: true }
     } catch (e) {
@@ -633,8 +745,9 @@ export async function getEventAnalytics(eventId: number) {
         percentage: totalRevenue > 0 ? Math.round((value / totalRevenue) * 100) : 0
     }));
 
-    // 7. Satisfaction — two-step, fully isolated
+    // 7. Satisfaction + Comments — handles both new (feedback_submission_id) and old (registration_id) rows
     let avgSatisfaction = 0;
+    let comments: { user: string; rating: number; text: string; time: string }[] = [];
     try {
         const { data: feedbackForms } = await supabase
             .from('FeedbackForm')
@@ -643,12 +756,17 @@ export async function getEventAnalytics(eventId: number) {
 
         const formIds = (feedbackForms || []).map((f: any) => f.id);
         if (formIds.length > 0) {
-            const { data: feedbackAnswers } = await supabase
+            // Fetch all answers for this form (works for both old & new rows)
+            const { data: allAnswers } = await supabase
                 .from('FeedbackAnswer')
-                .select('answer, FeedbackQuestion(input_format)')
-                .in('feedback_form_id', formIds);
+                .select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format)')
+                .in('feedback_form_id', formIds)
+                .limit(200);
 
-            const ratings = (feedbackAnswers || [])
+            const answerRows = (allAnswers || []) as any[];
+
+            // Satisfaction from all rating answers
+            const ratings = answerRows
                 .filter((f: any) => f.FeedbackQuestion?.input_format === 'rating')
                 .map((f: any) => parseFloat(f.answer))
                 .filter((v: number) => !isNaN(v) && v >= 1 && v <= 5);
@@ -658,6 +776,57 @@ export async function getEventAnalytics(eventId: number) {
                     (ratings.reduce((s: number, v: number) => s + v, 0) / ratings.length).toFixed(1)
                 );
             }
+
+            // Fetch FeedbackSubmission rows (new-style) for names + timestamps
+            const { data: submissions } = await supabase
+                .from('FeedbackSubmission')
+                .select('id, submitter_name, submitted_at')
+                .in('feedback_form_id', formIds)
+                .order('submitted_at', { ascending: false })
+                .limit(50);
+
+            const commentMap: Record<string, { user: string; rating: number; text: string; time: string }> = {};
+
+            // Seed new-style entries
+            (submissions || []).forEach((s: any) => {
+                commentMap[`sub_${s.id}`] = {
+                    user: s.submitter_name || 'Anonymous',
+                    rating: 0,
+                    text: '',
+                    time: formatRelativeTime(s.submitted_at),
+                };
+            });
+
+            // Seed old-style entries
+            answerRows
+                .filter((a: any) => !a.feedback_submission_id && a.registration_id)
+                .forEach((a: any) => {
+                    const key = `reg_${a.registration_id}`;
+                    if (!commentMap[key]) {
+                        commentMap[key] = { user: 'Anonymous', rating: 0, text: '', time: 'Previous' };
+                    }
+                });
+
+            answerRows.forEach((a: any) => {
+                const key = a.feedback_submission_id
+                    ? `sub_${a.feedback_submission_id}`
+                    : a.registration_id
+                    ? `reg_${a.registration_id}`
+                    : null;
+                if (!key || !commentMap[key]) return;
+                if (a.FeedbackQuestion?.input_format === 'rating') {
+                    const v = parseFloat(a.answer);
+                    if (!isNaN(v)) commentMap[key].rating = v;
+                } else if (String(a.answer || '').trim()) {
+                    commentMap[key].text = commentMap[key].text
+                        ? `${commentMap[key].text}\n${String(a.answer).trim()}`
+                        : String(a.answer).trim();
+                }
+            });
+
+            comments = Object.values(commentMap)
+                .filter((c) => c.text.length > 0 || c.rating > 0)
+                .slice(0, 20);
         }
     } catch (e) {
         console.warn('Could not fetch satisfaction data:', e);
@@ -676,37 +845,6 @@ export async function getEventAnalytics(eventId: number) {
             : r.status === 'pending' ? 'Pending'
                 : 'Cancelled'
     }));
-
-    // Build feedback comments from non-rating answers.
-    let comments: { user: string; rating: number; text: string; time: string }[] = [];
-    try {
-        const { data: feedbackForms } = await supabase
-            .from('FeedbackForm')
-            .select('id')
-            .eq('event_id', eventId);
-
-        const formIds = (feedbackForms || []).map((f: any) => f.id);
-        if (formIds.length > 0) {
-            const { data: feedbackAnswers } = await supabase
-                .from('FeedbackAnswer')
-                .select('answer, FeedbackQuestion(input_format)')
-                .in('feedback_form_id', formIds)
-                .limit(50);
-
-            comments = (feedbackAnswers || [])
-                .filter((row: any) => row?.FeedbackQuestion?.input_format !== 'rating')
-                .map((row: any) => ({
-                    user: 'Anonymous',
-                    rating: 0,
-                    text: String(row.answer || '').trim(),
-                    time: 'Recent',
-                }))
-                .filter((row: any) => row.text.length > 0)
-                .slice(0, 20);
-        }
-    } catch (e) {
-        console.warn('Could not fetch feedback comments:', e);
-    }
 
     return {
         stats: {
@@ -917,23 +1055,74 @@ export async function getGeneralAnalytics() {
                     : 'Cancelled',
         }));
 
-        // 10. Feedback comments across events
-        const { data: commentRows } = await supabase
-            .from('FeedbackAnswer')
-            .select('answer, FeedbackQuestion(input_format), FeedbackForm(Event(title))')
-            .limit(60);
+        // 10. Feedback comments across events — use FeedbackSubmission for rich data
+        let comments: { user: string; rating: number; text: string; time: string; eventName?: string }[] = [];
+        try {
+            // Fetch all FeedbackAnswer rows with question type + form/event name
+            const { data: allAnswerRows } = await supabase
+                .from('FeedbackAnswer')
+                .select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format), FeedbackForm(Event(title))')
+                .limit(200);
 
-        const comments = (commentRows || [])
-            .filter((row: any) => row?.FeedbackQuestion?.input_format !== 'rating')
-            .map((row: any) => ({
-                user: 'Anonymous',
-                rating: 0,
-                text: String(row.answer || '').trim(),
-                time: 'Recent',
-                eventName: row?.FeedbackForm?.Event?.title || undefined,
-            }))
-            .filter((row: any) => row.text.length > 0)
-            .slice(0, 30);
+            // Fetch FeedbackSubmission rows (new-style) for name + timestamp
+            const { data: submissionRows } = await supabase
+                .from('FeedbackSubmission')
+                .select('id, submitter_name, submitted_at, FeedbackForm(Event(title))')
+                .order('submitted_at', { ascending: false })
+                .limit(60);
+
+            const commentMap: Record<string, { user: string; rating: number; text: string; time: string; eventName?: string }> = {};
+
+            // Seed new-style entries
+            (submissionRows || []).forEach((s: any) => {
+                commentMap[`sub_${s.id}`] = {
+                    user: s.submitter_name || 'Anonymous',
+                    rating: 0,
+                    text: '',
+                    time: formatRelativeTime(s.submitted_at),
+                    eventName: s?.FeedbackForm?.Event?.title || undefined,
+                };
+            });
+
+            // Seed old-style entries
+            (allAnswerRows || []).forEach((a: any) => {
+                if (!a.feedback_submission_id && a.registration_id) {
+                    const key = `reg_${a.registration_id}`;
+                    if (!commentMap[key]) {
+                        commentMap[key] = {
+                            user: 'Anonymous',
+                            rating: 0,
+                            text: '',
+                            time: 'Previous',
+                            eventName: a?.FeedbackForm?.Event?.title || undefined,
+                        };
+                    }
+                }
+            });
+
+            (allAnswerRows || []).forEach((a: any) => {
+                const key = a.feedback_submission_id
+                    ? `sub_${a.feedback_submission_id}`
+                    : a.registration_id
+                    ? `reg_${a.registration_id}`
+                    : null;
+                if (!key || !commentMap[key]) return;
+                if (a.FeedbackQuestion?.input_format === 'rating') {
+                    const v = parseFloat(a.answer);
+                    if (!isNaN(v)) commentMap[key].rating = v;
+                } else if (String(a.answer || '').trim()) {
+                    commentMap[key].text = commentMap[key].text
+                        ? `${commentMap[key].text}\n${String(a.answer).trim()}`
+                        : String(a.answer).trim();
+                }
+            });
+
+            comments = Object.values(commentMap)
+                .filter((c) => c.text.length > 0 || c.rating > 0)
+                .slice(0, 30);
+        } catch (e) {
+            console.warn('Could not fetch general feedback comments:', e);
+        }
 
         return {
             stats: {
@@ -1349,8 +1538,7 @@ export async function deleteEvent(id: number) {
             await supabase.from('FeedbackForm').delete().eq('event_id', id);
         }
 
-        // Delete Registration-related data
-        // RegistrationAddOn depends on Registration and AddOn
+        // Delete Registration-related data (AddOnRedemption references Registration)
         const { data: regs } = await supabase
             .from('Registration')
             .select('id')
@@ -1358,7 +1546,7 @@ export async function deleteEvent(id: number) {
 
         if (regs && regs.length > 0) {
             const regIds = regs.map((r: any) => r.id);
-            await supabase.from('RegistrationAddOn').delete().in('registration_id', regIds);
+            await supabase.from('AddOnRedemption').delete().in('registration_id', regIds);
         }
 
         // Delete other related tables
@@ -1397,7 +1585,7 @@ export async function deleteEvent(id: number) {
             console.warn('Event audit log failed (delete):', e);
         }
 
-        revalidatePath('/events');
+        revalidatePath('/admin/events');
         return { success: true };
     } catch (e: any) {
         console.error('Unexpected error deleting event:', e);

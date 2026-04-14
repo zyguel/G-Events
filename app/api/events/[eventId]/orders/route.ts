@@ -1,6 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
+import { addOnRedemptionRowIsClaimed } from "@/lib/addOnRedemption";
+import { getPublicAppBaseUrl } from "@/lib/appBaseUrl";
+import { sendEmail } from "@/lib/emailProvider";
+import { buildEventSlug } from "@/lib/slug";
+import { newTicketToken } from "@/lib/ticketToken";
+import { buildAndStoreTicketQrImage } from "@/lib/ticketQrStorage";
+import {
+    buildEticketUrl,
+    buildGroupCompleteUrl,
+    buildGroupMemberInviteEmailHtml,
+    buildRegistrationConfirmationEmailHtml,
+} from "@/lib/ticketEmail";
 
 interface ManualRegistrationAttendee {
     name: string;
@@ -57,23 +69,25 @@ export async function GET(
             return NextResponse.json({ success: true, data: [] });
         }
 
-        // 2. Fetch add-on claims for these registrations
+        // 2. Add-on redemption / claim status (table: AddOnRedemption)
         const { data: addOnRows, error: addOnErr } = await supabase
-            .from("AddOnClaim")
-            .select("registration_id, is_claimed")
+            .from("AddOnRedemption")
+            .select("*")
             .in("registration_id", registrationIds);
 
         if (addOnErr) {
-            console.error("ManageOrders GET: add-on query failed", addOnErr);
+            console.error("ManageOrders GET: AddOnRedemption query failed", addOnErr);
         }
 
         const addOnByRegId = new Map<number, boolean>();
-        (addOnRows || []).forEach((row: any) => {
-            if (!row.registration_id) return;
-            if (!addOnByRegId.has(row.registration_id)) {
-                addOnByRegId.set(row.registration_id, !!row.is_claimed);
-            } else if (row.is_claimed) {
-                addOnByRegId.set(row.registration_id, true);
+        (addOnRows || []).forEach((row: Record<string, unknown>) => {
+            const regId = row.registration_id as number | undefined;
+            if (regId == null) return;
+            const line = addOnRedemptionRowIsClaimed(row);
+            if (!addOnByRegId.has(regId)) {
+                addOnByRegId.set(regId, line);
+            } else if (line) {
+                addOnByRegId.set(regId, true);
             }
         });
 
@@ -177,6 +191,16 @@ export async function POST(
 
         const supabase = await createAdminClient();
 
+        const { data: eventRow, error: eventErr } = await supabase
+            .from("Event")
+            .select("id, title, allow_breakout_sessions")
+            .eq("id", numericEventId)
+            .single();
+
+        if (eventErr || !eventRow) {
+            return NextResponse.json({ success: false, error: "Event not found" }, { status: 404 });
+        }
+
         // 1. Fetch Ticket details
         const { data: ticket, error: ticketErr } = await supabase
             .from("Ticket")
@@ -249,38 +273,121 @@ export async function POST(
             groupId = group.id;
         }
 
-        // 4. Create Registrations
+        // 4. Create Registrations (per-row ticket_token + group profile_pending, same as order form)
         const now = new Date();
-        const registrationsToInsert = attendees.map(a => ({
-            event_id: numericEventId,
-            user_id: emailToUserId.get(a.email.toLowerCase()),
-            ticket_id: ticket.id,
-            status: "pending",
-            final_price_paid: ticket.price,
-            registration_group_id: groupId,
-            created_at: now.toISOString()
-        }));
+        const isGroup = registrationType === "Group";
+        const inserted: Array<{ reg: any; token: string; email: string }> = [];
 
-        const { data: newRegs, error: regErr } = await supabase
-            .from("Registration")
-            .insert(registrationsToInsert)
-            .select("id, created_at, user_id, registration_group_id, User(name, email)");
+        for (let i = 0; i < attendees.length; i++) {
+            const a = attendees[i];
+            const email = a.email.toLowerCase().trim();
+            const userId = emailToUserId.get(email);
+            if (userId == null) {
+                return NextResponse.json(
+                    { success: false, error: `Missing user for ${email}` },
+                    { status: 400 }
+                );
+            }
 
-        if (regErr) {
-            console.error("Manual Registration Error:", regErr);
-            return NextResponse.json({ success: false, error: "Failed to create registrations" }, { status: 500 });
+            const token = newTicketToken();
+            const profilePending = isGroup && i > 0;
+
+            const { data: reg, error: regErr } = await supabase
+                .from("Registration")
+                .insert([
+                    {
+                        event_id: numericEventId,
+                        user_id: userId,
+                        ticket_id: ticket.id,
+                        status: "pending",
+                        final_price_paid: ticket.price,
+                        registration_group_id: groupId,
+                        created_at: now.toISOString(),
+                        ticket_token: token,
+                        profile_pending: profilePending,
+                    },
+                ])
+                .select("id, created_at, user_id, registration_group_id, User(name, email)")
+                .single();
+
+            if (regErr || !reg) {
+                console.error("Manual Registration Error:", regErr);
+                return NextResponse.json(
+                    { success: false, error: regErr?.message || "Failed to create registrations" },
+                    { status: 500 }
+                );
+            }
+
+            inserted.push({ reg, token, email });
         }
 
-        // 5. Build response objects (similar to GET)
+        // 5. E-ticket / group invite emails (non-fatal if mail fails)
+        try {
+            const baseUrl = getPublicAppBaseUrl(request);
+            const slug = buildEventSlug(eventRow.title, numericEventId);
+            const breakoutsEnabled = !!(eventRow as { allow_breakout_sessions?: boolean })
+                .allow_breakout_sessions;
+
+            const primary = inserted[0];
+            if (primary) {
+                const ticketUrl = buildEticketUrl(baseUrl, slug, primary.token);
+                const qrImageUrl = await buildAndStoreTicketQrImage({
+                    supabase,
+                    ticketUrl,
+                    folder: `event-${numericEventId}`,
+                });
+                const html = buildRegistrationConfirmationEmailHtml({
+                    attendeeName:
+                        primary.reg.User?.name ||
+                        attendees.find((x) => x.email.toLowerCase().trim() === primary.email)?.name ||
+                        "Attendee",
+                    eventTitle: eventRow.title,
+                    ticketName: ticket.name,
+                    qrImageUrl,
+                    ticketUrl,
+                    isGroupPrimary: isGroup && inserted.length > 1,
+                    breakoutsEnabled,
+                });
+                const to = primary.reg.User?.email || primary.email;
+                await sendEmail({
+                    to,
+                    subject: `Your e-ticket — ${eventRow.title}`,
+                    html,
+                });
+            }
+
+            for (let i = 1; i < inserted.length; i++) {
+                const row = inserted[i];
+                const completeUrl = buildGroupCompleteUrl(baseUrl, slug, row.token);
+                const to = row.reg.User?.email || row.email;
+                await sendEmail({
+                    to,
+                    subject: `Complete your registration — ${eventRow.title}`,
+                    html: buildGroupMemberInviteEmailHtml({
+                        eventTitle: eventRow.title,
+                        completeUrl,
+                    }),
+                });
+            }
+        } catch (emailErr) {
+            console.error("Manual add order: confirmation email failed:", emailErr);
+        }
+
+        // 6. Build response objects (similar to GET)
         const formatterDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" });
         const formatterTime = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
 
-        const mappedNewOrders = (newRegs || []).map((r: any) => {
-            const createdAt = new Date(r.created_at);
+        const mappedNewOrders = inserted.map(({ reg }) => {
+            const createdAt = new Date(reg.created_at);
             return {
-                id: r.id.toString(),
-                name: r.User?.name || attendees.find(a => a.email.toLowerCase() === r.User?.email.toLowerCase())?.name || "Attendee",
-                email: r.User?.email || "",
+                id: reg.id.toString(),
+                name:
+                    reg.User?.name ||
+                    attendees.find(
+                        (x) => x.email.toLowerCase().trim() === (reg.User?.email || "").toLowerCase()
+                    )?.name ||
+                    "Attendee",
+                email: reg.User?.email || "",
                 ticketId: ticket.id.toString(),
                 ticketType: ticket.name,
                 registrationType,
@@ -289,7 +396,7 @@ export async function POST(
                 time: formatterTime.format(createdAt),
                 addOnStatus: "Unclaimed",
                 proofOfPayment: null,
-                groupMemberEmails: emails
+                groupMemberEmails: emails,
             };
         });
 

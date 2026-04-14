@@ -570,7 +570,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                 onClose={() => setShowSuccessModal(false)}
                 eventName={event.name}
                 eventId={event.id}
-                onGoToDashboard={() => router.push('/events')}
+                onGoToDashboard={() => router.push('/admin/events')}
             />
 
             <Modal

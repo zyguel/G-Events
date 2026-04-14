@@ -1,8 +1,10 @@
 "use client";
 import React, { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useLocale } from '@/contexts/LocaleContext';
+import { SidebarNavigateHandler, useSidebarNavigationGuard } from '@/lib/hooks/useSidebarNavigationGuard';
+import GuardedSidebarLink from '@/components/common/GuardedSidebarLink';
 
 interface SidebarItemProps {
     iconSrc: string;
@@ -11,10 +13,31 @@ interface SidebarItemProps {
     href: string;
     label: string;
     isExpanded: boolean;
+    isPending?: boolean;
+    isNavigationLocked?: boolean;
+    onNavigate?: SidebarNavigateHandler;
 }
 
-const SidebarItem = ({ iconSrc, active = false, alt = "icon", href, label, isExpanded }: SidebarItemProps) => (
-    <Link href={href} className="w-full relative z-10">
+const SidebarItem = ({
+    iconSrc,
+    active = false,
+    alt = "icon",
+    href,
+    label,
+    isExpanded,
+    isPending = false,
+    isNavigationLocked = false,
+    onNavigate,
+}: SidebarItemProps) => (
+    <GuardedSidebarLink
+        href={href}
+        isCurrent={active}
+        onNavigate={onNavigate ?? (() => undefined)}
+        isNavigationLocked={isNavigationLocked}
+        isPending={isPending}
+        className="w-full relative z-10"
+        showSpinner
+    >
         <div className={`flex items-center py-3 rounded-xl cursor-pointer transition-all duration-300 ${isExpanded ? 'gap-3 px-3' : 'justify-center'} ${active
             ? ''
             : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
@@ -32,7 +55,7 @@ const SidebarItem = ({ iconSrc, active = false, alt = "icon", href, label, isExp
                 {label}
             </span>
         </div>
-    </Link>
+    </GuardedSidebarLink>
 );
 
 interface ClientSidebarProps {
@@ -42,7 +65,9 @@ interface ClientSidebarProps {
 
 const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: ClientSidebarProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
+    const pathname = usePathname();
     const { t } = useLocale();
+    const { isNavigationLocked, isPendingHref, handleNavigate } = useSidebarNavigationGuard(pathname);
 
     // Calculate the position of the sliding indicator based on active page
     const getIndicatorPosition = () => {
@@ -81,8 +106,8 @@ const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: Clie
                         style={{ top: `${indicatorPos.top - 24}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/home.png" alt={t('Dashboard')} href="/home" active={activePage === 'dashboard'} label={t('Dashboard')} isExpanded={isExpanded} />
-                <SidebarItem iconSrc="/icons/tickets.svg" alt={t('Tickets')} href="/tickets" active={activePage === 'tickets'} label={t('Tickets')} isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/home.png" alt={t('Dashboard')} href="/home" active={activePage === 'dashboard'} label={t('Dashboard')} isExpanded={isExpanded} isPending={isPendingHref('/home')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
+                <SidebarItem iconSrc="/icons/tickets.svg" alt={t('Tickets')} href="/tickets" active={activePage === 'tickets'} label={t('Tickets')} isExpanded={isExpanded} isPending={isPendingHref('/tickets')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
             </div>
 
             {/* Bottom navigation items */}
@@ -94,7 +119,7 @@ const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: Clie
                         style={{ top: `${indicatorPos.top}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/settings.svg" alt={t('Settings')} href="/settings" active={activePage === 'settings'} label={t('Settings')} isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/settings.svg" alt={t('Settings')} href="/settings" active={activePage === 'settings'} label={t('Settings')} isExpanded={isExpanded} isPending={isPendingHref('/settings')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
             </div>
         </aside>
     );

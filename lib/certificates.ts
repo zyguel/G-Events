@@ -2,12 +2,23 @@ import { createHash, randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendEmail } from "@/lib/emailProvider";
 import { escapeHtml } from "@/lib/security";
+import type { CertificatePublicView } from "@/lib/certificateLayout";
+import {
+  CERTIFICATE_CANVAS_HEIGHT,
+  CERTIFICATE_CANVAS_WIDTH,
+} from "@/lib/certificateLayout";
 
 export interface CertificateRecipient {
   registrationId: number | null;
   name: string;
   email: string;
 }
+
+export type { CertificatePublicView } from "@/lib/certificateLayout";
+export {
+  CERTIFICATE_CANVAS_HEIGHT,
+  CERTIFICATE_CANVAS_WIDTH,
+} from "@/lib/certificateLayout";
 
 export interface CertificateTemplateRow {
   id: number;
@@ -45,6 +56,24 @@ function detectImageFormat(dataUrl: string): "PNG" | "JPEG" {
   return "PNG";
 }
 
+function parseHexColorToRgb(hex: string): [number, number, number] {
+  let h = (hex || "#000000").trim();
+  if (!h.startsWith("#")) h = `#${h}`;
+  if (h.length === 4) {
+    const r = parseInt(h[1] + h[1], 16);
+    const g = parseInt(h[2] + h[2], 16);
+    const b = parseInt(h[3] + h[3], 16);
+    return [Number.isNaN(r) ? 0 : r, Number.isNaN(g) ? 0 : g, Number.isNaN(b) ? 0 : b];
+  }
+  if (h.length === 7) {
+    const r = parseInt(h.slice(1, 3), 16);
+    const g = parseInt(h.slice(3, 5), 16);
+    const b = parseInt(h.slice(5, 7), 16);
+    return [Number.isNaN(r) ? 0 : r, Number.isNaN(g) ? 0 : g, Number.isNaN(b) ? 0 : b];
+  }
+  return [0, 0, 0];
+}
+
 async function urlToDataUrl(url: string): Promise<string> {
   if (url.startsWith("data:image/")) return url;
 
@@ -69,26 +98,31 @@ export async function buildCertificatePdfBuffer(
   const doc = new jsPDF({
     orientation: "landscape",
     unit: "px",
-    format: [800, 600],
+    format: [CERTIFICATE_CANVAS_WIDTH, CERTIFICATE_CANVAS_HEIGHT],
   });
 
   const dataUrl = await urlToDataUrl(template.background_image);
   const imageFormat = detectImageFormat(dataUrl);
 
-  doc.addImage(dataUrl, imageFormat, 0, 0, 800, 600);
+  doc.addImage(dataUrl, imageFormat, 0, 0, CERTIFICATE_CANVAS_WIDTH, CERTIFICATE_CANVAS_HEIGHT);
   doc.setFontSize(template.font_size || 28);
 
-  const color = template.font_color || "#000000";
-  const r = parseInt(color.slice(1, 3), 16);
-  const g = parseInt(color.slice(3, 5), 16);
-  const b = parseInt(color.slice(5, 7), 16);
-  doc.setTextColor(Number.isNaN(r) ? 0 : r, Number.isNaN(g) ? 0 : g, Number.isNaN(b) ? 0 : b);
-  doc.text(recipientName, template.name_x || 150, template.name_y || 150);
+  const [r, g, b] = parseHexColorToRgb(template.font_color || "#000000");
+  doc.setTextColor(r, g, b);
+  const nx = Math.min(
+    Math.max(0, template.name_x || 150),
+    CERTIFICATE_CANVAS_WIDTH - 4
+  );
+  const ny = Math.min(
+    Math.max(0, template.name_y || 150),
+    CERTIFICATE_CANVAS_HEIGHT - 4
+  );
+  doc.text(recipientName || "Attendee", nx, ny);
 
   if (verificationText) {
     doc.setFontSize(10);
     doc.setTextColor(90, 90, 90);
-    doc.text(verificationText, 20, 585);
+    doc.text(verificationText, 20, CERTIFICATE_CANVAS_HEIGHT - 15);
   }
 
   const buffer = doc.output("arraybuffer");
@@ -113,9 +147,18 @@ function buildBlockHash(params: {
   certificateHash: string;
   blockTimestamp: string;
 }): string {
+  const canonicalTimestamp = normalizeTimestampForHash(params.blockTimestamp);
   return sha256(
-    `${params.blockIndex}|${params.previousHash || ""}|${params.certificateHash}|${params.blockTimestamp}`
+    `${params.blockIndex}|${params.previousHash || ""}|${params.certificateHash}|${canonicalTimestamp}`
   );
+}
+
+function normalizeTimestampForHash(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toISOString();
 }
 
 export async function getEventCertificateRecipients(
@@ -276,7 +319,8 @@ export async function anchorCertificateIssuesToLedger(
 
 export async function verifyCertificateByToken(
   supabase: SupabaseClient,
-  token: string
+  token: string,
+  options?: { includePayload?: boolean }
 ): Promise<{
   found: boolean;
   isValid: boolean;
@@ -288,6 +332,7 @@ export async function verifyCertificateByToken(
     blockHash: string;
     previousHash: string | null;
     blockTimestamp: string;
+    payload?: Record<string, unknown>;
   };
 }> {
   const { data: issue, error: issueError } = await supabase
@@ -304,7 +349,7 @@ export async function verifyCertificateByToken(
   const issueRow = issue as CertificateIssueRow;
   const { data: ledger, error: ledgerError } = await supabase
     .from("CertificateLedger")
-    .select("issue_id, block_index, previous_hash, certificate_hash, block_hash, block_timestamp")
+    .select("issue_id, block_index, previous_hash, certificate_hash, block_hash, block_timestamp, payload")
     .eq("issue_id", issueRow.id)
     .maybeSingle();
 
@@ -352,6 +397,10 @@ export async function verifyCertificateByToken(
       blockHash: ledger.block_hash,
       previousHash: ledger.previous_hash,
       blockTimestamp: ledger.block_timestamp,
+      payload:
+        options?.includePayload && ledger.payload && typeof ledger.payload === "object"
+          ? (ledger.payload as Record<string, unknown>)
+          : undefined,
     },
   };
 }
@@ -382,6 +431,62 @@ export async function getCertificateLedgerMetaByToken(
     blockHash: ledger.block_hash,
     blockIndex: ledger.block_index,
     certificateHash: ledger.certificate_hash,
+  };
+}
+
+export async function getCertificatePublicMetadata(
+  supabase: SupabaseClient,
+  token: string
+): Promise<CertificatePublicView | null> {
+  const { data: issue, error: issueError } = await supabase
+    .from("CertificateIssue")
+    .select("recipient_name, recipient_email, issued_at, event_id, template_id")
+    .eq("access_token", token)
+    .maybeSingle();
+
+  if (issueError || !issue) return null;
+
+  const row = issue as {
+    recipient_name: string;
+    recipient_email: string;
+    issued_at: string | null;
+    event_id: number;
+    template_id: number;
+  };
+
+  const [{ data: ev }, { data: tmpl }] = await Promise.all([
+    supabase.from("Event").select("title, event_start_at").eq("id", row.event_id).maybeSingle(),
+    supabase
+      .from("CertificateTemplate")
+      .select("name, background_image, name_x, name_y, font_size, font_color")
+      .eq("id", row.template_id)
+      .maybeSingle(),
+  ]);
+
+  const ledgerMeta = await getCertificateLedgerMetaByToken(supabase, token);
+
+  return {
+    recipientName: row.recipient_name || "Attendee",
+    recipientEmail: row.recipient_email || "",
+    issuedAt: row.issued_at,
+    eventTitle: (ev as { title?: string } | null)?.title?.trim() || "Event",
+    eventStartAt: (ev as { event_start_at?: string | null } | null)?.event_start_at ?? null,
+    templateName: (tmpl as { name?: string } | null)?.name?.trim() || "Certificate",
+    backgroundImage: (tmpl as { background_image?: string } | null)?.background_image || "",
+    namePlaced: {
+      x: Number((tmpl as { name_x?: number } | null)?.name_x ?? 150),
+      y: Number((tmpl as { name_y?: number } | null)?.name_y ?? 150),
+      fontSize: Number((tmpl as { font_size?: number } | null)?.font_size ?? 28),
+      fontColor: String((tmpl as { font_color?: string } | null)?.font_color ?? "#000000"),
+    },
+    ledgerAnchored: !!ledgerMeta,
+    ledgerPreview: ledgerMeta
+      ? {
+          blockIndex: ledgerMeta.blockIndex,
+          blockHashShort: ledgerMeta.blockHash.slice(0, 16),
+          certificateHashShort: ledgerMeta.certificateHash.slice(0, 16),
+        }
+      : undefined,
   };
 }
 
@@ -419,23 +524,23 @@ export async function processQueuedCertificateEmails(
 
   for (const issue of issues) {
     try {
-      const downloadUrl = `${origin}/api/certificates/${issue.access_token}/download`;
-      const verifyUrl = `${origin}/api/certificates/${issue.access_token}/verify`;
-      const safeRecipientName = escapeHtml(issue.recipient_name || 'Attendee')
-      const safeDownloadUrl = escapeHtml(downloadUrl)
-      const safeVerifyUrl = escapeHtml(verifyUrl)
+      const viewUrl = `${origin.replace(/\/$/, "")}/certificates/${issue.access_token}`;
+      const downloadUrl = `${origin.replace(/\/$/, "")}/api/certificates/${issue.access_token}/download`;
+      const verifyUrl = `${origin.replace(/\/$/, "")}/api/certificates/${issue.access_token}/verify`;
+      const safeRecipientName = escapeHtml(issue.recipient_name || "Attendee");
+      const safeViewUrl = escapeHtml(viewUrl);
+      const safeDownloadUrl = escapeHtml(downloadUrl);
+      const safeVerifyUrl = escapeHtml(verifyUrl);
 
       await sendEmail({
         to: issue.recipient_email,
         subject: "Your event certificate is ready",
         html: `
           <p>Hi ${safeRecipientName},</p>
-          <p>Your certificate is ready. You can download it using the link below:</p>
-          <p><a href="${safeDownloadUrl}">Download Certificate</a></p>
-          <p>Verification endpoint:</p>
-          <p><a href="${safeVerifyUrl}">${safeVerifyUrl}</a></p>
-          <p>If the link does not open, copy this URL into your browser:</p>
-          <p>${safeDownloadUrl}</p>
+          <p>Your certificate is ready. Open your certificate page to preview it and download the PDF.</p>
+          <p><a href="${safeViewUrl}" style="font-weight:bold">View certificate</a></p>
+          <p style="margin-top:1em;font-size:14px">Or <a href="${safeDownloadUrl}">download PDF directly</a>.</p>
+          <p style="margin-top:1em;font-size:13px;color:#555">Verification (API): <a href="${safeVerifyUrl}">${safeVerifyUrl}</a></p>
         `,
       });
 

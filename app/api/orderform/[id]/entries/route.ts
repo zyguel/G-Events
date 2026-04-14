@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase-server';
+import { createAdminClient, createClient } from '@/lib/supabase-server';
 import { sendEmail } from '@/lib/emailProvider';
 import { generateCheckInPass } from '@/lib/checkinQr';
+import { getPublicAppBaseUrl } from '@/lib/appBaseUrl';
+import { buildEventSlug } from '@/lib/slug';
+import { newTicketToken } from '@/lib/ticketToken';
+import { buildAndStoreTicketQrImage } from '@/lib/ticketQrStorage';
+import {
+    buildBreakoutEticketUrl,
+    buildBreakoutTicketEmailHtml,
+    buildEticketUrl,
+    buildGroupCompleteUrl,
+    buildGroupMemberInviteEmailHtml,
+    buildRegistrationConfirmationEmailHtml,
+} from '@/lib/ticketEmail';
 
 type FormInput = {
     id?: string;
@@ -37,12 +49,20 @@ export async function POST(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { eventId, formData, userEmail, registrationId, ticketId, groupEmails } = body;
+        const { eventId, formData, userEmail, registrationId, ticketId, groupEmails, breakoutSessionId } = body;
 
         const numericFormId = parseInt(id, 10);
         const numericEventId = parseInt(String(eventId), 10);
         const numericRegistrationId = registrationId ? parseInt(String(registrationId), 10) : null;
         const numericTicketId = ticketId ? parseInt(String(ticketId), 10) : null;
+        const numericBreakoutSessionId =
+            breakoutSessionId === null || breakoutSessionId === undefined || breakoutSessionId === ''
+                ? null
+                : parseInt(String(breakoutSessionId), 10);
+
+        if (numericBreakoutSessionId !== null && Number.isNaN(numericBreakoutSessionId)) {
+            return NextResponse.json({ error: 'Invalid breakoutSessionId' }, { status: 400 });
+        }
 
         if (isNaN(numericFormId) || isNaN(numericEventId)) {
             return NextResponse.json(
@@ -59,6 +79,10 @@ export async function POST(
         }
 
         const supabase = await createAdminClient();
+        const sessionClient = await createClient();
+        const {
+            data: { user: authUser },
+        } = await sessionClient.auth.getUser();
 
         // Verify order form belongs to the same event.
         const { data: existingForm, error: formError } = await supabase
@@ -134,7 +158,7 @@ export async function POST(
         // Load event + ticket context
         const { data: eventRow, error: eventError } = await supabase
             .from('Event')
-            .select('id, title, allow_waitlist')
+            .select('id, title, allow_waitlist, allow_breakout_sessions')
             .eq('id', numericEventId)
             .single();
 
@@ -261,6 +285,11 @@ export async function POST(
         const registeredAttendees: Array<{ email: string; registrationId: number }> = [];
         let submissionMode: 'registered' | 'waitlisted' = 'registered';
         let assignedTicketName = selectedTicket?.name || 'General Admission';
+        let primaryTicketToken: string | null = null;
+        let secondaryInvitees: { email: string; token: string }[] = [];
+        let breakoutTicketToken: string | null = null;
+        let breakoutSessionTitle = '';
+        let breakoutSessionLocation = '';
 
         if (selectedTicket) {
             // ── Step 1: Verify ALL emails exist in the User table ────────────
@@ -272,6 +301,40 @@ export async function POST(
                     .limit(1);
 
                 if (!userCheck || userCheck.length === 0) {
+                    const authEmail = authUser?.email?.trim().toLowerCase() || null;
+                    const isPrimaryEmail = email === normalizedPrimaryEmail;
+                    const canAutoProvisionPrimaryUser =
+                        !isGroupRegistration && isPrimaryEmail && authEmail === normalizedPrimaryEmail;
+
+                    if (canAutoProvisionPrimaryUser) {
+                        const fallbackName =
+                            resolvedName && resolvedName !== 'Attendee'
+                                ? resolvedName
+                                : normalizedPrimaryEmail.split('@')[0] || 'Attendee';
+
+                        const { error: insertUserError } = await supabase
+                            .from('User')
+                            .insert([{ name: fallbackName, email: normalizedPrimaryEmail }]);
+
+                        if (!insertUserError) {
+                            console.log('[Registration] Auto-provisioned missing User row for authenticated attendee:', normalizedPrimaryEmail);
+                            continue;
+                        }
+
+                        // If another request created the row concurrently, proceed.
+                        if (insertUserError.code === '23505') {
+                            console.log('[Registration] User row already created concurrently for:', normalizedPrimaryEmail);
+                            continue;
+                        }
+
+                        console.error('[Registration] Failed to auto-provision User row:', insertUserError);
+                        return NextResponse.json(
+                            { error: 'Failed to initialize your attendee profile. Please try again.' },
+                            { status: 500 }
+                        );
+                    }
+
+                    console.warn('[Registration] Rejected registration because email is not a known member:', email);
                     return NextResponse.json(
                         { error: `The email ${email} is not registered in our system. All registrants must have an account.` },
                         { status: 400 }
@@ -307,6 +370,8 @@ export async function POST(
 
             const primaryUserId = pUserRows![0].id;
 
+            primaryTicketToken = newTicketToken();
+
             const { data: pReg, error: pErr } = await supabase
                 .from('Registration')
                 .insert([{
@@ -315,7 +380,9 @@ export async function POST(
                     ticket_id: selectedTicket.id,
                     status: 'pending',
                     final_price_paid: Number(selectedTicket.price ?? 0),
-                    registration_group_id: registrationGroupId
+                    registration_group_id: registrationGroupId,
+                    ticket_token: primaryTicketToken,
+                    profile_pending: false,
                 }])
                 .select('id')
                 .single();
@@ -334,7 +401,8 @@ export async function POST(
             console.log('[Registration] Other members to register:', otherEmails);
 
             for (const memberEmail of otherEmails) {
-                // Look up the User row for this member
+                const memberTicketToken = newTicketToken();
+
                 const { data: memberUserRows } = await supabase
                     .from('User')
                     .select('id')
@@ -357,6 +425,8 @@ export async function POST(
                         status: 'pending',
                         final_price_paid: Number(selectedTicket.price ?? 0),
                         registration_group_id: registrationGroupId,
+                        ticket_token: memberTicketToken,
+                        profile_pending: true,
                     }])
                     .select('id')
                     .single();
@@ -364,12 +434,81 @@ export async function POST(
                 if (memberErr) {
                     console.error('[Registration] Member insert failed for', memberEmail, ':', memberErr);
                     return NextResponse.json({ error: 'DB Member Insert Error: ' + memberErr.message }, { status: 500 });
-                } else {
-                    console.log('[Registration] Member registered:', memberEmail);
-                    if (memberReg?.id) {
-                        registeredAttendees.push({ email: memberEmail, registrationId: memberReg.id });
+                }
+
+                if (memberReg?.id) {
+                    registeredAttendees.push({ email: memberEmail, registrationId: memberReg.id });
+                }
+                secondaryInvitees.push({ email: memberEmail, token: memberTicketToken });
+                console.log('[Registration] Member registered (profile pending):', memberEmail);
+            }
+
+            if (
+                numericBreakoutSessionId !== null &&
+                primaryRegistrationId &&
+                !!(eventRow as { allow_breakout_sessions?: boolean }).allow_breakout_sessions
+            ) {
+                const { data: breakoutRow, error: breakoutError } = await supabase
+                    .from('BreakoutSession')
+                    .select('id, name, description, room_name, room_capacity')
+                    .eq('id', numericBreakoutSessionId)
+                    .eq('event_id', numericEventId)
+                    .maybeSingle();
+
+                if (breakoutError || !breakoutRow) {
+                    return NextResponse.json({ error: 'Selected breakout room was not found.' }, { status: 400 });
+                }
+
+                let breakoutMeta: Record<string, unknown> = {};
+                try {
+                    breakoutMeta = breakoutRow.description ? JSON.parse(String(breakoutRow.description)) : {};
+                } catch {
+                    breakoutMeta = {};
+                }
+
+                const breakoutType = String((breakoutMeta as { type?: string }).type || '').toLowerCase();
+                if (breakoutType && breakoutType !== 'in-person') {
+                    return NextResponse.json({ error: 'Only in-person breakout sessions can be selected.' }, { status: 400 });
+                }
+
+                const breakoutStatus = String((breakoutMeta as { status?: string }).status || '').toLowerCase();
+                if (breakoutStatus === 'completed' || breakoutStatus === 'cancelled') {
+                    return NextResponse.json({ error: 'Selected breakout room is no longer available.' }, { status: 409 });
+                }
+
+                const breakoutCap = Number(breakoutRow.room_capacity ?? 0);
+                if (breakoutCap > 0) {
+                    const { count: breakoutSeats, error: seatCountError } = await supabase
+                        .from('BreakoutSessionRegistration')
+                        .select('id', { count: 'exact', head: true })
+                        .eq('breakout_session_id', numericBreakoutSessionId);
+
+                    if (seatCountError) {
+                        return NextResponse.json({ error: seatCountError.message }, { status: 500 });
+                    }
+
+                    if ((breakoutSeats || 0) >= breakoutCap) {
+                        return NextResponse.json({ error: 'Selected breakout room is full.' }, { status: 409 });
                     }
                 }
+
+                breakoutTicketToken = newTicketToken();
+                const { error: breakoutInsertError } = await supabase
+                    .from('BreakoutSessionRegistration')
+                    .insert([
+                        {
+                            breakout_session_id: numericBreakoutSessionId,
+                            registration_id: primaryRegistrationId,
+                            ticket_token: breakoutTicketToken,
+                        },
+                    ]);
+
+                if (breakoutInsertError) {
+                    return NextResponse.json({ error: breakoutInsertError.message }, { status: 500 });
+                }
+
+                breakoutSessionTitle = String(breakoutRow.name || 'Breakout session');
+                breakoutSessionLocation = String(breakoutRow.room_name || '');
             }
 
         } else if (eventRow.allow_waitlist) {
@@ -401,13 +540,76 @@ export async function POST(
 
         // ── Confirmation email ──────────────────────────────────────────────
         try {
-            await sendEmail({
-                to: resolvedEmail,
-                subject: submissionMode === 'registered'
-                    ? `Your ticket for ${eventRow.title}`
-                    : `Waitlist: ${eventRow.title}`,
-                html: `<p>Hi ${resolvedName}, your ${submissionMode} request for ${eventRow.title} was successful.</p>`
-            });
+            if (submissionMode === 'waitlisted') {
+                await sendEmail({
+                    to: resolvedEmail,
+                    subject: `Waitlist: ${eventRow.title}`,
+                    html: `<p>Hi ${resolvedName}, your waitlist request for ${eventRow.title} was successful.</p>`,
+                });
+            } else if (submissionMode === 'registered' && primaryTicketToken) {
+                const baseUrl = getPublicAppBaseUrl(request);
+                const slug = buildEventSlug(eventRow.title, numericEventId);
+                const ticketUrl = buildEticketUrl(baseUrl, slug, primaryTicketToken);
+                const qrImageUrl = await buildAndStoreTicketQrImage({
+                    supabase,
+                    ticketUrl,
+                    folder: `event-${numericEventId}`,
+                });
+                const html = buildRegistrationConfirmationEmailHtml({
+                    attendeeName: resolvedName,
+                    eventTitle: eventRow.title,
+                    ticketName: assignedTicketName,
+                    qrImageUrl,
+                    ticketUrl,
+                    isGroupPrimary: isGroupRegistration,
+                    breakoutsEnabled: !!(eventRow as { allow_breakout_sessions?: boolean }).allow_breakout_sessions,
+                });
+                await sendEmail({
+                    to: resolvedEmail,
+                    subject: `Your e-ticket — ${eventRow.title}`,
+                    html,
+                });
+
+                if (breakoutTicketToken) {
+                    const breakoutUrl = buildBreakoutEticketUrl(baseUrl, slug, breakoutTicketToken);
+                    const breakoutQrImageUrl = await buildAndStoreTicketQrImage({
+                        supabase,
+                        ticketUrl: breakoutUrl,
+                        folder: `event-${numericEventId}/breakouts`,
+                    });
+
+                    await sendEmail({
+                        to: resolvedEmail,
+                        subject: `Breakout ticket — ${breakoutSessionTitle || eventRow.title}`,
+                        html: buildBreakoutTicketEmailHtml({
+                            attendeeName: resolvedName,
+                            eventTitle: eventRow.title,
+                            sessionTitle: breakoutSessionTitle || 'Breakout session',
+                            sessionLocation: breakoutSessionLocation || undefined,
+                            qrImageUrl: breakoutQrImageUrl,
+                            ticketUrl: breakoutUrl,
+                        }),
+                    });
+                }
+
+                for (const inv of secondaryInvitees) {
+                    const completeUrl = buildGroupCompleteUrl(baseUrl, slug, inv.token);
+                    await sendEmail({
+                        to: inv.email,
+                        subject: `Complete your registration — ${eventRow.title}`,
+                        html: buildGroupMemberInviteEmailHtml({
+                            eventTitle: eventRow.title,
+                            completeUrl,
+                        }),
+                    });
+                }
+            } else {
+                await sendEmail({
+                    to: resolvedEmail,
+                    subject: `Your ticket for ${eventRow.title}`,
+                    html: `<p>Hi ${resolvedName}, your registration for ${eventRow.title} was successful.</p>`,
+                });
+            }
         } catch (err) {
             console.warn('Email failed', err);
         }

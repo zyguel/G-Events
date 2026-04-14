@@ -6,11 +6,28 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
     Calendar, MapPin, Clock, Target, Palette,
-    ChevronLeft, ArrowRight, Loader2, AlertTriangle, Ticket, Users, Check
+    ChevronLeft, ArrowRight, Loader2, AlertTriangle, Ticket, Users, User, Check,
+    Presentation, Video, Building2, UserRound, MessageSquareDot
 } from 'lucide-react';
 import ClientHeader from '@/components/client/ClientHeader';
-import { getPublishedEventById } from '@/lib/actions/events';
+import { BreakoutSessionPicker } from '@/components/public/BreakoutSessionPicker';
+import { getPublishedEventById, getPublicBreakoutSessions } from '@/lib/actions/events';
 import { getTickets, Ticket as TicketType } from '@/lib/eventManagement';
+import { createClient } from '@/lib/supabase-browser';
+
+interface BreakoutSessionItem {
+    id: string;
+    name: string;
+    type: 'Online' | 'In-Person';
+    status: 'Not Started' | 'Ongoing' | 'Completed' | 'Cancelled';
+    date: string;
+    time: string;
+    location: string;
+    joinLink: string;
+    currentAttendees: number;
+    maxCapacity: number;
+    speakers: string[];
+}
 
 interface AgendaSlot {
     id: number;
@@ -31,6 +48,7 @@ interface EventDetail {
     event_end_at?: string;
     theme?: string;
     objectives?: string[];
+    allow_breakout_sessions?: boolean;
     AgendaSlot?: AgendaSlot[];
 }
 
@@ -52,18 +70,40 @@ export default function ClientEventDetailPage() {
 
     const [event, setEvent] = useState<EventDetail | null>(null);
     const [tickets, setTickets] = useState<TicketType[]>([]);
+    const [breakoutSessions, setBreakoutSessions] = useState<BreakoutSessionItem[]>([]);
     const [loading, setLoading] = useState(true);
+    const [isRegistered, setIsRegistered] = useState(false);
 
     useEffect(() => {
         if (isNaN(eventId)) { setLoading(false); return; }
         Promise.all([
             getPublishedEventById(eventId),
             getTickets(String(eventId)).catch(() => []),
-        ]).then(([eventData, ticketData]) => {
+            getPublicBreakoutSessions(eventId).catch(() => []),
+        ]).then(([eventData, ticketData, breakoutData]) => {
             setEvent(eventData ?? null);
             setTickets(ticketData.filter(t => t.visibility === 'visible'));
+            setBreakoutSessions(breakoutData as BreakoutSessionItem[]);
             setLoading(false);
         }).catch(() => setLoading(false));
+
+        const checkReg = async () => {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user?.email) {
+                const { data: userRow } = await supabase.from('User').select('id').ilike('email', user.email).limit(1).maybeSingle();
+                if (userRow?.id) {
+                    const { data: reg } = await supabase.from('Registration')
+                        .select('id')
+                        .eq('event_id', eventId)
+                        .eq('user_id', userRow.id)
+                        .not('status', 'in', '("cancelled","rejected")')
+                        .limit(1);
+                    if (reg && reg.length > 0) setIsRegistered(true);
+                }
+            }
+        };
+        checkReg();
     }, [eventId]);
 
     if (loading) {
@@ -99,18 +139,20 @@ export default function ClientEventDetailPage() {
         return new Date(a.start_time).getTime() - new Date(b.start_time).getTime();
     });
 
+    const isEventEnded = event.event_end_at ? new Date() > new Date(event.event_end_at) : false;
+
     return (
         <div className="flex flex-col min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
             {/* Ambient glows */}
-            <div className="fixed top-[-10%] left-[-10%] w-125 h-125 bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0" />
-            <div className="fixed bottom-[-10%] right-[-5%] w-150 h-150 bg-indigo-400/10 dark:bg-purple-600/10 rounded-full blur-[120px] pointer-events-none z-0" />
+            <div className="pointer-events-none fixed left-[-10%] top-[-10%] z-0 h-[500px] w-[500px] rounded-full bg-blue-400/10 blur-[100px] dark:bg-blue-600/10" />
+            <div className="pointer-events-none fixed bottom-[-10%] right-[-5%] z-0 h-[560px] w-[560px] rounded-full bg-indigo-400/10 blur-[120px] dark:bg-purple-600/10" />
 
             <ClientHeader />
 
             <main className="flex-1 overflow-y-auto relative z-10">
 
                 {/* ── Hero Banner ───────────────────────────────── */}
-                <div className="relative w-full h-72 md:h-96 bg-[#161a2b] overflow-hidden">
+                <div className="relative h-56 w-full overflow-hidden bg-[#161a2b] sm:h-64 md:h-96">
                     {event.banner_image ? (
                         <Image
                             src={event.banner_image}
@@ -139,15 +181,15 @@ export default function ClientEventDetailPage() {
                     </Link>
 
                     {/* Title overlay */}
-                    <div className="absolute bottom-0 left-0 right-0 p-6 md:p-10">
-                        <h1 className="text-3xl md:text-5xl font-extrabold text-white leading-tight drop-shadow-lg">
+                    <div className="absolute bottom-0 left-0 right-0 p-5 md:p-10">
+                        <h1 className="text-pretty text-2xl font-extrabold leading-tight text-white drop-shadow-lg sm:text-3xl md:text-5xl">
                             {event.title}
                         </h1>
                     </div>
                 </div>
 
                 {/* ── Content ───────────────────────────────────── */}
-                <div className="max-w-5xl mx-auto px-4 md:px-8 py-10 space-y-10">
+                <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 sm:space-y-10 sm:py-10 md:px-8">
 
                     {/* Quick Info Row */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -262,6 +304,84 @@ export default function ClientEventDetailPage() {
                         </section>
                     )}
 
+                    {/* Breakout Sessions (public catalog) */}
+                    {breakoutSessions.length > 0 && (
+                        <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                            <div className="flex items-center gap-2 mb-6">
+                                <Presentation size={20} className="text-indigo-500" />
+                                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Breakout Sessions</h2>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {breakoutSessions.map((session) => {
+                                    const isFull = session.maxCapacity > 0 && session.currentAttendees >= session.maxCapacity;
+                                    const statusColors: Record<string, string> = {
+                                        'Not Started': 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
+                                        'Ongoing': 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400',
+                                        'Completed': 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400',
+                                        'Cancelled': 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400',
+                                    };
+                                    return (
+                                        <div
+                                            key={session.id}
+                                            className="relative flex flex-col gap-3 rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/60 dark:bg-gray-900/40 p-5 hover:border-indigo-200 dark:hover:border-indigo-700/50 hover:shadow-md transition-all duration-200"
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <p className="font-bold text-gray-900 dark:text-white text-[15px] leading-snug">{session.name}</p>
+                                                <span className={`shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${statusColors[session.status] ?? statusColors['Not Started']}`}>
+                                                    {session.status}
+                                                </span>
+                                            </div>
+
+                                            <span className={`w-fit inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${
+                                                session.type === 'Online'
+                                                    ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400'
+                                            }`}>
+                                                {session.type === 'Online'
+                                                    ? <><Video size={12} /> Online</>
+                                                    : <><Building2 size={12} /> In-Person</>
+                                                }
+                                            </span>
+
+                                            <div className="space-y-1.5 text-sm text-gray-500 dark:text-gray-400">
+                                                {session.time && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock size={13} className="shrink-0" />
+                                                        <span>{session.time}{session.date ? ` · ${session.date}` : ''}</span>
+                                                    </div>
+                                                )}
+                                                {session.type === 'In-Person' && session.location && (
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin size={13} className="shrink-0" />
+                                                        <span>{session.location}</span>
+                                                    </div>
+                                                )}
+                                                {session.speakers.length > 0 && (
+                                                    <div className="flex items-center gap-2">
+                                                        <UserRound size={13} className="shrink-0" />
+                                                        <span>{session.speakers.join(', ')}</span>
+                                                    </div>
+                                                )}
+                                                {session.maxCapacity > 0 && (
+                                                    <div className="flex items-center gap-2">
+                                                        <Users size={13} className="shrink-0" />
+                                                        <span className={isFull ? 'text-red-500 dark:text-red-400 font-medium' : ''}>
+                                                            {isFull ? 'Full' : `${Math.max(0, session.maxCapacity - session.currentAttendees)} slots available`}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </section>
+                    )}
+
+                    {event.allow_breakout_sessions ? (
+                        <BreakoutSessionPicker eventId={event.id} eventSlug={slug} />
+                    ) : null}
+
                     {/* Tickets */}
                     {tickets.length > 0 && (
                         <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
@@ -323,19 +443,68 @@ export default function ClientEventDetailPage() {
 
                     {/* Register CTA */}
 
-                    <div className="bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-500/20">
-                        <div>
-                            <h3 className="text-2xl font-extrabold text-white mb-1">Ready to Join?</h3>
-                            <p className="text-blue-100/80 text-sm">Secure your spot at <span className="font-semibold text-white">{event.title}</span> today.</p>
-                        </div>
-                        <Link
-                            href={`/events/${slug}/register`}
-                            className="flex items-center gap-2.5 bg-white text-[#3D518C] font-bold px-8 py-3.5 rounded-2xl shadow-lg hover:shadow-xl hover:bg-blue-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
-                        >
-                            Register for this Event
-                            <ArrowRight size={18} />
-                        </Link>
+                    <div className="flex flex-col gap-6 rounded-3xl bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] p-6 shadow-xl shadow-blue-500/20 sm:p-8 md:flex-row md:items-center md:justify-between md:p-10">
+                        {isRegistered ? (
+                            <>
+                                <div className="min-w-0 space-y-2 text-center md:text-left">
+                                    <h3 className="text-xl font-extrabold text-white sm:text-2xl">You&apos;re in!</h3>
+                                    <p className="text-sm text-blue-100/90">
+                                        You have secured your spot for <span className="font-semibold text-white">{event.title}</span>.
+                                    </p>
+                                </div>
+                                <Link
+                                    href={`/events/${slug}/my-breakouts`}
+                                    className="flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-white px-6 py-3.5 text-center text-[15px] font-bold text-[#3D518C] shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-blue-50 hover:shadow-xl active:scale-[0.98] md:w-auto md:px-8 touch-manipulation whitespace-nowrap"
+                                >
+                                    View breakout sessions
+                                    <ArrowRight size={18} />
+                                </Link>
+                            </>
+                        ) : (
+                            <>
+                                <div className="min-w-0 space-y-3 text-center md:text-left">
+                                    <h3 className="text-xl font-extrabold text-white sm:text-2xl">Ready to join?</h3>
+                                    <p className="text-sm text-blue-100/90">
+                                        Secure your spot at <span className="font-semibold text-white">{event.title}</span>.
+                                    </p>
+                                    <div className="flex flex-col gap-2 text-left text-xs leading-snug text-blue-100/85 sm:text-[13px]">
+                                        <span className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+                                            <User size={15} className="mt-0.5 shrink-0 text-white/95" aria-hidden />
+                                            <span><strong className="text-white">Individual</strong> — register yourself only; one form and e-ticket.</span>
+                                        </span>
+                                        <span className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
+                                            <Users size={15} className="mt-0.5 shrink-0 text-white/95" aria-hidden />
+                                            <span><strong className="text-white">Group</strong> — you&apos;re the lead; add member emails on the next screens so each person confirms their profile.</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                <Link
+                                    href={`/events/${slug}/register`}
+                                    className="flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-white px-6 py-3.5 text-center text-[15px] font-bold text-[#3D518C] shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-blue-50 hover:shadow-xl active:scale-[0.98] md:w-auto md:px-8 touch-manipulation"
+                                >
+                                    Register for this event
+                                    <ArrowRight size={18} />
+                                </Link>
+                            </>
+                        )}
                     </div>
+
+                    {/* Feedback CTA – shown only after event ends */}
+                    {isEventEnded && (
+                        <div className="bg-gradient-to-br from-amber-500 to-orange-500 rounded-3xl p-8 md:p-10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl shadow-amber-500/20">
+                            <div>
+                                <h3 className="text-2xl font-extrabold text-white mb-1">How was the event?</h3>
+                                <p className="text-amber-100/80 text-sm">Share your experience with <span className="font-semibold text-white">{event.title}</span>. Your feedback matters!</p>
+                            </div>
+                            <Link
+                                href={`/events/${slug}/review`}
+                                className="flex items-center gap-2.5 bg-white text-orange-600 font-bold px-8 py-3.5 rounded-2xl shadow-lg hover:shadow-xl hover:bg-orange-50 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 whitespace-nowrap"
+                            >
+                                <MessageSquareDot size={18} />
+                                Give Feedback
+                            </Link>
+                        </div>
+                    )}
 
                 </div>
             </main>

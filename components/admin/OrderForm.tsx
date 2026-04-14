@@ -57,6 +57,8 @@ const FIELD_IDENTIFIERS = [
     { value: "special_needs", label: "Special Needs" },
     { value: "agree_to_terms", label: "Agree to Terms" },
     { value: "newsletter_signup", label: "Newsletter Signup" },
+    { value: "proof_of_payment", label: "Proof of payment (file) — group: primary only" },
+    { value: "payment_reference", label: "Payment reference / code — group: primary only" },
     { value: "custom", label: "Custom Field" }
 ];
 
@@ -160,7 +162,7 @@ export default function OrderForm({
 
                 // Keep URL in sync so future navigations have formId
                 try {
-                    router.replace(`/events/${eventPathId}/orderform?formId=${existingForm.id}`);
+                    router.replace(`/admin/events/${eventPathId}/orderform?formId=${existingForm.id}`);
                 } catch {
                     // ignore navigation errors in client hook context
                 }
@@ -230,7 +232,7 @@ export default function OrderForm({
                 if (!currentFormId && result.formId) {
                     setCurrentFormId(result.formId.toString());
                     setTimeout(() => {
-                        router.push(`/events/${eventPathId}/orderform?formId=${result.formId}`);
+                        router.push(`/admin/events/${eventPathId}/orderform?formId=${result.formId}`);
                     }, 1500); // Wait a bit so user sees success message
                 }
                 

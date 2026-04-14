@@ -1,9 +1,12 @@
 "use client";
 import React, { useState } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { usePermissions } from '@/contexts/PermissionContext';
 import { useLocale } from '@/contexts/LocaleContext';
+import { useAdminCompactMode } from '@/contexts/AdminCompactModeContext';
+import { SidebarNavigateHandler, useSidebarNavigationGuard } from '@/lib/hooks/useSidebarNavigationGuard';
+import GuardedSidebarLink from '@/components/common/GuardedSidebarLink';
 
 interface SidebarItemProps {
     iconSrc: string;
@@ -12,10 +15,31 @@ interface SidebarItemProps {
     href: string;
     label: string;
     isExpanded: boolean;
+    isPending?: boolean;
+    isNavigationLocked?: boolean;
+    onNavigate?: SidebarNavigateHandler;
 }
 
-const SidebarItem = ({ iconSrc, active = false, alt = "icon", href, label, isExpanded }: SidebarItemProps) => (
-    <Link href={href} className="w-full relative z-10">
+const SidebarItem = ({
+    iconSrc,
+    active = false,
+    alt = "icon",
+    href,
+    label,
+    isExpanded,
+    isPending = false,
+    isNavigationLocked = false,
+    onNavigate,
+}: SidebarItemProps) => (
+    <GuardedSidebarLink
+        href={href}
+        isCurrent={active}
+        onNavigate={onNavigate ?? (() => undefined)}
+        isNavigationLocked={isNavigationLocked}
+        isPending={isPending}
+        className="w-full relative z-10"
+        showSpinner
+    >
         <div className={`flex items-center py-2 rounded-xl cursor-pointer transition-all duration-300 ${isExpanded ? 'gap-3 px-3' : 'justify-center'} ${active
             ? ''
             : 'hover:bg-gray-100 dark:hover:bg-gray-700'}`}>
@@ -33,7 +57,7 @@ const SidebarItem = ({ iconSrc, active = false, alt = "icon", href, label, isExp
                 {label}
             </span>
         </div>
-    </Link>
+    </GuardedSidebarLink>
 );
 
 interface SidebarProps {
@@ -43,7 +67,9 @@ interface SidebarProps {
 
 const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarProps) => {
     const [isExpanded, setIsExpanded] = useState(false);
-        const { t } = useLocale();
+    const pathname = usePathname();
+    const { t } = useLocale();
+    const { pendingHref, isNavigationLocked, isPendingHref, handleNavigate } = useSidebarNavigationGuard(pathname);
 
     // Calculate the position of the sliding indicator based on active page
     const getIndicatorPosition = () => {
@@ -71,8 +97,38 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
     // permResolved = false (still loading, or lookup failed) → fail-open (show all)
     const permResolved = !loading && role !== '';
     const canViewEvents = !permResolved || isAdmin || hasPermission('Create Event') || hasPermission('Edit Event Details') || hasPermission('View List of Attendees');
+    const canCheckIn = !permResolved || isAdmin || hasPermission('Check In Attendees');
     const canViewAnalytics = !permResolved || isAdmin || hasPermission('View Reports');
     const canViewManagement = !permResolved || isAdmin;
+
+    const { isCompactAdmin } = useAdminCompactMode();
+    const showCompactNav = isCompactAdmin && (canViewEvents || canCheckIn);
+
+    if (showCompactNav) {
+        return (
+            <aside
+                className={`fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-6 pb-6 gap-2 z-40 w-14 transition-all duration-300 ease-in-out`}
+            >
+                <div className="w-full px-3 flex flex-col gap-2 relative">
+                    <div
+                        className="absolute left-3 right-3 h-8.5 bg-[#3D518C] rounded-xl shadow-lg transition-all duration-300 ease-in-out z-0"
+                        style={{ top: '0px' }}
+                    />
+                    <SidebarItem
+                        iconSrc="/icons/calendar.png"
+                        alt={t('Events')}
+                        href="/admin/events"
+                        active={activePage === 'events'}
+                        label={t('Events')}
+                        isExpanded={false}
+                        isPending={isPendingHref('/admin/events')}
+                        isNavigationLocked={isNavigationLocked}
+                        onNavigate={handleNavigate}
+                    />
+                </div>
+            </aside>
+        );
+    }
 
     return (
         <aside
@@ -90,15 +146,15 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
                         style={{ top: `${indicatorPos.top - 24}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/home.png" alt={t('Dashboard')} href="/dashboard" active={activePage === 'dashboard'} label={t('Dashboard')} isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/home.png" alt={t('Dashboard')} href="/dashboard" active={activePage === 'dashboard'} label={t('Dashboard')} isExpanded={isExpanded} isPending={isPendingHref('/dashboard')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
                 {canViewEvents && (
-                    <SidebarItem iconSrc="/icons/calendar.png" alt={t('Events')} href="/events" active={activePage === 'events'} label={t('Events')} isExpanded={isExpanded} />
+                    <SidebarItem iconSrc="/icons/calendar.png" alt={t('Events')} href="/admin/events" active={activePage === 'events'} label={t('Events')} isExpanded={isExpanded} isPending={isPendingHref('/admin/events')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
                 )}
                 {canViewAnalytics && (
-                    <SidebarItem iconSrc="/icons/bar-chart.png" alt={t('Analytics')} href="/analytics/all" active={activePage === 'analytics'} label={t('Analytics')} isExpanded={isExpanded} />
+                    <SidebarItem iconSrc="/icons/bar-chart.png" alt={t('Analytics')} href="/analytics/all" active={activePage === 'analytics'} label={t('Analytics')} isExpanded={isExpanded} isPending={isPendingHref('/analytics/all')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
                 )}
                 {canViewManagement && (
-                    <SidebarItem iconSrc="/icons/team.png" alt={t('Management')} href="/management" active={activePage === 'management'} label={t('Management')} isExpanded={isExpanded} />
+                    <SidebarItem iconSrc="/icons/team.png" alt={t('Management')} href="/management" active={activePage === 'management'} label={t('Management')} isExpanded={isExpanded} isPending={isPendingHref('/management')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
                 )}
             </div>
 
@@ -111,8 +167,8 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
                         style={{ top: `${indicatorPos.top}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/settings.svg" alt={t('Settings')} href="/settings" active={activePage === 'settings'} label={t('Settings')} isExpanded={isExpanded} />
-                <SidebarItem iconSrc="/icons/profile.svg" alt={t('Profile')} href="/profile" active={activePage === 'profile'} label={t('Profile')} isExpanded={isExpanded} />
+                <SidebarItem iconSrc="/icons/settings.svg" alt={t('Settings')} href="/settings" active={activePage === 'settings'} label={t('Settings')} isExpanded={isExpanded} isPending={isPendingHref('/settings')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
+                <SidebarItem iconSrc="/icons/profile.svg" alt={t('Profile')} href="/profile" active={activePage === 'profile'} label={t('Profile')} isExpanded={isExpanded} isPending={isPendingHref('/profile')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
             </div>
         </aside>
     );

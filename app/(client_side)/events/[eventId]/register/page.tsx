@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import ClientHeader from "@/components/client/ClientHeader";
 import RegistrationFlow from "@/components/public/RegistrationFlow";
-import { getPublishedEventById } from "@/lib/actions/events";
+import { getPublicBreakoutSessions, getPublishedEventById } from "@/lib/actions/events";
 import { getOrderFormsByEventPublic } from "@/lib/actions/orderForm";
 import { buildEventSlug } from "@/lib/slug";
 import { createClient, createAdminClient } from "@/lib/supabase-server";
@@ -28,6 +28,9 @@ export default async function PublicEventRegistrationPage({
   const formsResult = await getOrderFormsByEventPublic(numericEventId);
   const form = formsResult?.data?.[0];
   const eventSlug = buildEventSlug(event.title, event.id);
+  const breakoutSessions = event.allow_breakout_sessions
+    ? await getPublicBreakoutSessions(numericEventId)
+    : [];
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -172,6 +175,7 @@ export default async function PublicEventRegistrationPage({
           formData={form.form_data || { sections: [] }}
           userEmail={userEmail}
           tickets={enrichedTickets}
+          breakoutSessions={breakoutSessions}
           existingCheckInPasses={existingCheckInPasses}
           existingTicketNames={existingTicketNames}
         />

@@ -4,14 +4,31 @@ import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, Check, Mail, Lock, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
+import { AuthFormHydrationGate } from '@/components/auth/AuthFormHydrationGate';
 
 export default function LoginPage() {
     return (
         <Suspense fallback={<div className="h-screen w-full flex items-center justify-center bg-[#020617]"><div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>}>
             <LoginContent />
         </Suspense>
+    );
+}
+
+function LoginFormSkeleton() {
+    return (
+        <div className="space-y-6" aria-busy="true" aria-label="Loading sign-in form">
+            <div className="h-[52px] rounded-2xl bg-gray-100 animate-pulse" />
+            <div className="h-[52px] rounded-2xl bg-gray-100 animate-pulse" />
+            <div className="flex items-center justify-between pt-2">
+                <div className="h-5 w-28 rounded bg-gray-100 animate-pulse" />
+                <div className="h-4 w-32 rounded bg-gray-100 animate-pulse" />
+            </div>
+            <div className="h-12 rounded-2xl bg-gray-200/80 animate-pulse" />
+            <div className="relative my-8 h-3" />
+            <div className="h-12 rounded-2xl bg-gray-100 animate-pulse" />
+        </div>
     );
 }
 
@@ -138,11 +155,17 @@ function LoginContent() {
         if (typeof window !== 'undefined') {
             redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
         }
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',
             options: { redirectTo },
         });
-        if (error) setGeneralError(error.message);
+        if (error) {
+            setGeneralError(error.message);
+            return;
+        }
+        if (data?.url) {
+            window.location.assign(data.url);
+        }
     };
 
     return (
@@ -203,17 +226,17 @@ function LoginContent() {
             <div className="w-full md:w-[50%] bg-white relative z-20 flex flex-col justify-start pt-16 md:pt-20 lg:pt-24 p-6 md:p-12 lg:p-24 items-center transition-all duration-500 ease-in-out shadow-[-50px_0_100px_rgba(0,0,0,0.5)]">
 
                 {/* Wave Separator (Gentle Curve attached to the left of the white panel) */}
-                <div className="absolute top-0 bottom-0 left-0 -translate-x-[99%] w-24 hidden md:block z-30 pointer-events-none text-white overflow-hidden">
+                <div className="absolute top-0 bottom-0 left-0 -translate-x-[99%] w-24 hidden md:block z-0 pointer-events-none text-white overflow-hidden">
                     <svg
                         viewBox="0 0 100 100"
                         preserveAspectRatio="none"
-                        className="w-full h-full fill-current"
+                        className="pointer-events-none w-full h-full fill-current"
                     >
                         <path d="M100 0 C 50 0 50 100 100 100 Z" />
                     </svg>
                 </div>
 
-                <div className="w-full max-w-md mx-auto relative z-10">
+                <div className="relative z-10 mx-auto w-full max-w-md">
                     {/* Decoration */}
                     <div className="absolute -top-10 -right-10 w-20 h-20 bg-blue-50 rounded-full blur-2xl opacity-50 pointer-events-none"></div>
 
@@ -233,9 +256,16 @@ function LoginContent() {
                         </div>
                     )}
 
-                    <form className="space-y-6" onSubmit={handleSignIn}>
+                    <form className="relative z-20 space-y-6" onSubmit={handleSignIn}>
+                        <AuthFormHydrationGate skeleton={<LoginFormSkeleton />}>
                         {generalError && (
-                            <p className="text-xs text-red-500 mb-1">{generalError}</p>
+                            <div
+                                className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+                                role="alert"
+                                aria-live="polite"
+                            >
+                                {generalError}
+                            </div>
                         )}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="email">
@@ -250,6 +280,8 @@ function LoginContent() {
                                     <input
                                         type="email"
                                         id="email"
+                                        name="email"
+                                        autoComplete="username"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
@@ -273,6 +305,8 @@ function LoginContent() {
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         id="password"
+                                        name="password"
+                                        autoComplete="current-password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         className="w-full pl-12 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
@@ -292,20 +326,21 @@ function LoginContent() {
 
                         {/* Remember Me + Forgot Password */}
                         <div className="flex items-center justify-between pt-2">
-                            <label className="flex items-center cursor-pointer group">
-                                <div className="relative">
-                                    <input
-                                        type="checkbox"
-                                        className="sr-only"
-                                        checked={rememberMe}
-                                        onChange={() => setRememberMe(!rememberMe)}
-                                    />
-                                    <div className={`w-5 h-5 border-2 rounded transition-all duration-300 flex items-center justify-center ${rememberMe ? 'bg-blue-600 border-blue-600 scale-105' : 'bg-transparent border-gray-300 group-hover:border-blue-400'}`}>
-                                        {rememberMe && <Check size={12} className="text-white stroke-4" />}
-                                    </div>
-                                </div>
-                                <span className="ml-2.5 text-sm font-medium text-gray-600 group-hover:text-gray-800 transition-colors select-none">Remember Me</span>
-                            </label>
+                            <div className="flex items-center gap-2.5">
+                                <input
+                                    type="checkbox"
+                                    id="remember-me"
+                                    checked={rememberMe}
+                                    onChange={(e) => setRememberMe(e.target.checked)}
+                                    className="h-5 w-5 shrink-0 cursor-pointer rounded border-2 border-gray-300 text-blue-600 accent-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                                />
+                                <label
+                                    htmlFor="remember-me"
+                                    className="cursor-pointer text-sm font-medium text-gray-600 hover:text-gray-800"
+                                >
+                                    Remember Me
+                                </label>
+                            </div>
                             <Link href="/forgot-password" className="text-sm font-semibold text-blue-600 hover:text-indigo-600 transition-colors">
                                 Forgot Password?
                             </Link>
@@ -357,6 +392,7 @@ function LoginContent() {
                             </svg>
                             Google
                         </button>
+                        </AuthFormHydrationGate>
                     </form>
 
                     <div className="text-center mt-8">
