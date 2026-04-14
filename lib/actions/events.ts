@@ -215,7 +215,60 @@ const fetchEvents = cache(async (organizationId: number) => {
         throw error
     }
 
-    return data || []
+    const events = data || []
+    if (events.length === 0) {
+        return []
+    }
+
+    const eventIds = events.map((event) => event.id)
+
+    const aggregateClient = await getStorageClient()
+
+    const [ticketRowsResult, registrationRowsResult] = await Promise.all([
+        aggregateClient
+            .from('Ticket')
+            .select('event_id, available_quantity')
+            .in('event_id', eventIds),
+        aggregateClient
+            .from('Registration')
+            .select('event_id, status')
+            .in('event_id', eventIds),
+    ])
+
+    const totalTicketsByEventId = new Map<number, number>()
+    if (!ticketRowsResult.error) {
+        for (const row of ticketRowsResult.data || []) {
+            const eventId = Number(row.event_id)
+            if (Number.isNaN(eventId)) continue
+
+            const ticketCapacity = Number(row.available_quantity) || 0
+            totalTicketsByEventId.set(eventId, (totalTicketsByEventId.get(eventId) || 0) + ticketCapacity)
+        }
+    }
+
+    const ticketsSoldByEventId = new Map<number, number>()
+    const attendeesByEventId = new Map<number, number>()
+    if (!registrationRowsResult.error) {
+        for (const row of registrationRowsResult.data || []) {
+            const eventId = Number(row.event_id)
+            if (Number.isNaN(eventId)) continue
+
+            const normalizedStatus = String(row.status || '').toLowerCase()
+            if (normalizedStatus === 'cancelled' || normalizedStatus === 'rejected') {
+                continue
+            }
+
+            ticketsSoldByEventId.set(eventId, (ticketsSoldByEventId.get(eventId) || 0) + 1)
+            attendeesByEventId.set(eventId, (attendeesByEventId.get(eventId) || 0) + 1)
+        }
+    }
+
+    return events.map((event) => ({
+        ...event,
+        tickets_sold_count: ticketsSoldByEventId.get(event.id) || 0,
+        attendees_count: attendeesByEventId.get(event.id) || 0,
+        total_tickets_count: totalTicketsByEventId.get(event.id) || 0,
+    }))
 })
 
 export async function getEvents() {
