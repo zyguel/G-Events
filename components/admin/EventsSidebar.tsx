@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import { LayoutDashboard, FileText, BarChart3, Ticket, ClipboardList, CheckCircle, Send, Users, Mail, UserCheck, Award, Clock, Presentation, MessageSquareDot } from "lucide-react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { EventSummary } from "@/lib/types";
 import { buildEventSlug } from "@/lib/slug";
 import { usePermissions } from "@/contexts/PermissionContext";
 import { useLocale } from "@/contexts/LocaleContext";
+import { useSidebarNavigationGuard } from "@/lib/hooks/useSidebarNavigationGuard";
+import GuardedSidebarLink from "@/components/common/GuardedSidebarLink";
 
 interface EventsSidebarProps {
     event: EventSummary;
@@ -18,6 +19,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
     const { t } = useLocale();
     const { hasPermission, isAdmin, role, loading } = usePermissions();
     const permResolved = !loading && role !== '';
+    const { isNavigationLocked, isPendingHref, handleNavigate } = useSidebarNavigationGuard(pathname);
     const [eventName, setEventName] = useState(event?.name || '');
     const [eventDate, setEventDate] = useState(event?.date || '');
     const [eventStatus, setEventStatus] = useState(event?.status || 'Draft');
@@ -119,8 +121,17 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                         <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">{t('Event Page')}</h3>
                         <ul className="space-y-1">
                             <li>
-                                <Link
-                                    href={event.id === 'new' ? '#' : `/admin/events/${slug}/overview`}
+                                {(() => {
+                                    const href = event.id === 'new' ? '#' : `/admin/events/${slug}/overview`;
+                                    const active = isActive('overview');
+                                    return (
+                                <GuardedSidebarLink
+                                    href={href}
+                                    isCurrent={active}
+                                    onNavigate={handleNavigate}
+                                    isNavigationLocked={isNavigationLocked}
+                                    isPending={isPendingHref(href)}
+                                    disabled={event.id === 'new'}
                                     className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive('overview')
                                         ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                         : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
@@ -128,7 +139,9 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                 >
                                     <LayoutDashboard size={16} />
                                     {t('Overview')}
-                                </Link>
+                                </GuardedSidebarLink>
+                                    );
+                                })()}
                             </li>
                         </ul>
                     </div>
@@ -141,9 +154,18 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                         <ul className="space-y-1">
                             {['tickets', 'orderform', 'orderconfirmation', 'publish'].map((page) => (
                                 <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
-                                    <Link
-                                        href={event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`}
-                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page)
+                                    {(() => {
+                                        const href = event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`;
+                                        const active = isActive(page);
+                                        return (
+                                    <GuardedSidebarLink
+                                        href={href}
+                                        isCurrent={active}
+                                        onNavigate={handleNavigate}
+                                        isNavigationLocked={isNavigationLocked}
+                                        isPending={isPendingHref(href)}
+                                        disabled={event.id === 'new'}
+                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active
                                             ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                             } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
@@ -155,7 +177,9 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                         {page === 'orderform' && t('Order Form')}
                                         {page === 'orderconfirmation' && t('Order Confirmation')}
                                         {page === 'publish' && t('Publish Event')}
-                                    </Link>
+                                    </GuardedSidebarLink>
+                                        );
+                                    })()}
                                 </li>
                             ))}
                         </ul>
@@ -179,12 +203,23 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                 if (permResolved && !isAdmin && !hasPermission(perm)) return null;
                                 return (
                                     <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
-                                        <Link
-                                            href={event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`}
-                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page) ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        {(() => {
+                                            const href = event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`;
+                                            const active = isActive(page);
+                                            return (
+                                        <GuardedSidebarLink
+                                            href={href}
+                                            isCurrent={active}
+                                            onNavigate={handleNavigate}
+                                            isNavigationLocked={isNavigationLocked}
+                                            isPending={isPendingHref(href)}
+                                            disabled={event.id === 'new'}
+                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                                 } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
                                             {icon}{label}
-                                        </Link>
+                                        </GuardedSidebarLink>
+                                            );
+                                        })()}
                                     </li>
                                 );
                             })}
@@ -204,12 +239,23 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                 if (permResolved && !isAdmin && !hasPermission(perm)) return null;
                                 return (
                                     <li key={page} className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
-                                        <Link
-                                            href={event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`}
-                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive(page) ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        {(() => {
+                                            const href = event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`;
+                                            const active = isActive(page);
+                                            return (
+                                        <GuardedSidebarLink
+                                            href={href}
+                                            isCurrent={active}
+                                            onNavigate={handleNavigate}
+                                            isNavigationLocked={isNavigationLocked}
+                                            isPending={isPendingHref(href)}
+                                            disabled={event.id === 'new'}
+                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                                 } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
                                             {icon}{label}
-                                        </Link>
+                                        </GuardedSidebarLink>
+                                            );
+                                        })()}
                                     </li>
                                 );
                             })}
@@ -224,16 +270,27 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                         <ul className="space-y-1">
                             {(!permResolved || isAdmin || hasPermission('View Reports')) && (
                                 <li className={event.id === 'new' ? 'opacity-50 pointer-events-none' : ''}>
-                                    <Link
-                                        href={event.id === 'new' ? '#' : `/events/${slug}/feedback`}
-                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive('feedback')
+                                    {(() => {
+                                        const href = event.id === 'new' ? '#' : `/events/${slug}/feedback`;
+                                        const active = isActive('feedback');
+                                        return (
+                                    <GuardedSidebarLink
+                                        href={href}
+                                        isCurrent={active}
+                                        onNavigate={handleNavigate}
+                                        isNavigationLocked={isNavigationLocked}
+                                        isPending={isPendingHref(href)}
+                                        disabled={event.id === 'new'}
+                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active
                                             ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
                                             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                         } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}
                                     >
                                         <MessageSquareDot size={16} />
                                         {t('Feedback Form')}
-                                    </Link>
+                                    </GuardedSidebarLink>
+                                        );
+                                    })()}
                                 </li>
                             )}
                         </ul>
