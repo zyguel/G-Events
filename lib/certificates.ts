@@ -147,9 +147,18 @@ function buildBlockHash(params: {
   certificateHash: string;
   blockTimestamp: string;
 }): string {
+  const canonicalTimestamp = normalizeTimestampForHash(params.blockTimestamp);
   return sha256(
-    `${params.blockIndex}|${params.previousHash || ""}|${params.certificateHash}|${params.blockTimestamp}`
+    `${params.blockIndex}|${params.previousHash || ""}|${params.certificateHash}|${canonicalTimestamp}`
   );
+}
+
+function normalizeTimestampForHash(value: string): string {
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return value;
+  }
+  return parsed.toISOString();
 }
 
 export async function getEventCertificateRecipients(
