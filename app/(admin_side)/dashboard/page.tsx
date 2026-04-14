@@ -56,12 +56,14 @@ export default async function DashboardPage() {
                     year: 'numeric',
                 })
                 : 'TBD',
-            registrations: 0,
+            registrations: Number((event as { tickets_sold_count?: number }).tickets_sold_count || 0),
             status,
             image: event.banner_image ?? null,
             rawDate: event.event_start_at ?? null,
         };
     });
+
+    const totalRegistrations = mappedEvents.reduce((sum, event) => sum + event.registrations, 0);
 
     const upcoming = mappedEvents
         .filter((event) => {
@@ -112,6 +114,7 @@ export default async function DashboardPage() {
             initialDashboardEvents={upcoming}
             initialActivities={activities}
             initialNextEvent={nextEvent}
+            totalRegistrations={totalRegistrations}
         />
     );
 }

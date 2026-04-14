@@ -28,12 +28,14 @@ interface DashboardPageClientProps {
     initialDashboardEvents: DashboardEvent[];
     initialActivities: DashboardActivity[];
     initialNextEvent: DashboardEvent | null;
+    totalRegistrations: number;
 }
 
 export default function DashboardPageClient({
     initialDashboardEvents,
     initialActivities,
     initialNextEvent,
+    totalRegistrations,
 }: DashboardPageClientProps) {
     const dashboardEvents = initialDashboardEvents;
     const activities = initialActivities;
@@ -99,9 +101,9 @@ export default function DashboardPageClient({
                                 <div className="bg-linear-to-br from-emerald-500 to-emerald-600 rounded-xl p-6 text-white transition-all duration-300 hover:scale-105 hover:-translate-y-1 hover:shadow-xl cursor-pointer">
                                     <div className="flex items-center justify-between">
                                         <div>
-                                            <p className="text-emerald-100 text-sm font-medium">Today&apos;s Registrations</p>
-                                            <h3 className="text-xl font-bold mt-1">0</h3>
-                                            <p className="text-emerald-200 text-sm mt-2">No data available</p>
+                                            <p className="text-emerald-100 text-sm font-medium">Total Registrations</p>
+                                            <h3 className="text-xl font-bold mt-1">{totalRegistrations}</h3>
+                                            <p className="text-emerald-200 text-sm mt-2">Across your events</p>
                                         </div>
                                         <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                                             <Users size={24} />
