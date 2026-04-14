@@ -1,6 +1,6 @@
 # 🚀 G-Events
 
-![Build Status](https://img.shields.io/badge/build-passing-brightgreen) ![License](https://img.shields.io/badge/license-Proprietary-red) ![Version](https://img.shields.io/badge/version-1.0.0-orange)
+![Build Status](https://img.shields.io/badge/build-passed-brightgreen) ![License](https://img.shields.io/badge/license-Proprietary-red) ![Version](https://img.shields.io/badge/version-0.6.0-orange)
 
 **G-Events** is a **comprehensive event management dashboard** designed to give organizers full control over every stage of an event — from creation and registration to check-in, analytics, and certificate distribution.
 
@@ -41,7 +41,7 @@ G-Events provides a robust solution for **managing the full lifecycle of events*
 | **Styling** | Tailwind CSS v4 |
 | **Database / Auth** | Supabase (PostgreSQL + Row-Level Security) |
 | **Rich Text** | TipTap v3 (StarterKit, Underline, Link, Image, TextAlign, Color, FontFamily, FontSize, Placeholder) |
-| **Charts / Data** | Custom Recharts-based components |
+| **Charts / Data** | Custom analytics/visualization components |
 | **Exports** | jsPDF + jspdf-autotable (PDF), ExcelJS (XLSX), native CSV |
 | **Animations** | Framer Motion v12 |
 | **Icons** | Lucide React |
@@ -88,7 +88,6 @@ We utilize a strict branching workflow to ensure stability while allowing for ra
     NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
     NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
     NEXT_PUBLIC_DEFAULT_ORG_ID=1
-    TS_TRANSLATION_MODEL=Xenova/m2m100_418M
     EMAIL_PROVIDER=smtp
     SMTP_HOST=smtp.gmail.com
     SMTP_PORT=465
@@ -126,7 +125,6 @@ Use this section when handing the project to a new maintainer.
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Yes | Supabase public anon key |
 | `NEXT_PUBLIC_DEFAULT_ORG_ID` | Yes | Default organization id used by app context |
-| `TS_TRANSLATION_MODEL` | Yes | Local translation model identifier |
 | `EMAIL_PROVIDER` | Optional (`auto` default) | Select `smtp`, `resend`, or `auto` |
 | `SMTP_HOST` | Yes (for SMTP host mode) | SMTP server hostname (e.g., `smtp.gmail.com`) |
 | `SMTP_PORT` | Optional (for SMTP host mode) | SMTP port (defaults to `587`) |
@@ -208,7 +206,7 @@ Run this exact smoke test flow once on a clean environment:
    - download endpoint works
    - `/api/certificates/[token]/verify` returns `verified: true`
 7. Open analytics and reports pages and export CSV/XLSX/PDF.
-8. Run `npm run build -- --webpack` and ensure it succeeds.
+8. Run `npm run build` and ensure it succeeds.
 
 ### 📦 Handoff One-Pager
 
@@ -224,12 +222,13 @@ For adviser/panel/new-maintainer quick review, see:
 | `npm run build` | Compile production build |
 | `npm run start` | Serve production build locally |
 | `npm run lint` | Run ESLint checks |
+| `npm run push -- "<message>"` | Stage/commit/pull-merge/push helper for `nightly` |
 | `npm run debug:supabase` | Verify Supabase storage access and list buckets |
 | `npm run check:event-schema` | Check `Event` table schema visibility |
 | `npm run check:objectives` | Verify `Event.objectives` column availability |
 | `npm run check:theme` | Verify `Event.theme` column availability |
 | `npm run debug:login-layout-diff` | Compare login branding sections between auth pages |
-| `npm run translations:split-static` | Split monolithic static translation map into per-language modules |
+| `npm run translations:split-static` | Split static translation map into per-language modules |
 
 ### Maintainability Baseline (Enterprise)
 
@@ -238,48 +237,9 @@ The codebase now includes shared primitives to keep API and server behavior cons
 - **Shared constants:** use `lib/constants.ts` for defaults and HTTP status codes (avoid repeated env parsing).
 - **Structured logging:** use `lib/logger.ts` with scope-based logging (`debug/info/warn/error`) instead of ad-hoc `console.log`.
 - **Typed API responses:** use `lib/utils/apiResponse.ts` for standardized success/error response shape.
-- **Script organization:** non-production utility scripts live under `scripts/debug/` and `scripts/maintenance/` instead of the repo root.
+- **Script organization:** debug and maintenance utilities are primarily under `scripts/debug/` and `scripts/maintenance/`, with additional helper checks under `scripts/`.
 
 When adding or updating routes, prefer these shared modules first to keep behavior predictable across the API surface.
-
-### Self-hosted Translation (TypeScript Engine)
-
-This project exposes internal translation APIs powered by a TypeScript runtime model:
-
-- `GET /api/translate/languages` - returns the fixed 10 supported languages from the TypeScript engine
-- `POST /api/translate` - batch text translation
-- `POST /api/translate/realtime` - translates nested payloads (objects/arrays), useful for DB/API responses
-- `GET /api/translate/health` - reports model status and cache state
-
-The TypeScript engine is currently limited to 10 languages:
-
-- `en` English
-- `zh` Chinese
-- `es` Spanish
-- `fr` French
-- `de` German
-- `ja` Japanese
-- `ko` Korean
-- `pt` Portuguese
-- `hi` Hindi
-- `ar` Arabic
-
-Example realtime payload translation request:
-
-```json
-{
-    "target": "es",
-    "source": "en",
-    "skipKeys": ["id", "email", "slug"],
-    "payload": {
-        "title": "Welcome",
-        "description": "Manage your account settings",
-        "items": [
-            { "name": "Create Event" }
-        ]
-    }
-}
-```
 
 ---
 
