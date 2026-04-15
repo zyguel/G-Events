@@ -58,8 +58,6 @@ const saveDismissedId = (id: string) => {
 
 export const NotificationProvider = ({ children }: { children: React.ReactNode }) => {
     const [notifications, setNotifications] = useState<Notification[]>([]);
-    const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const inFlightRef = useRef(false);
     const hadFetchErrorRef = useRef(false);
     const hasSessionRef = useRef(false);
     const [preferences, setPreferences] = useState<NotificationPreferences>({
@@ -90,7 +88,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         } catch { /* ignore */ }
     }, [preferences]);
 
-    // Fetch notifications from the API and poll every 30 seconds
+    // Fetch notifications using Server-Sent Events (SSE)
     useEffect(() => {
         const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
         if (!isAdminAppRoute(pathname)) {
@@ -98,108 +96,85 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         }
 
         const supabase = createClient();
-
-        const SUCCESS_POLL_MS = 30000;
-        const ERROR_RETRY_MS = 15000;
+        let eventSource: EventSource | null = null;
         let isActive = true;
 
-        const clearScheduledPoll = () => {
-            if (pollTimeoutRef.current) {
-                clearTimeout(pollTimeoutRef.current);
-                pollTimeoutRef.current = null;
-            }
-        };
-
-        const schedulePoll = (delayMs: number) => {
-            if (!isActive || !hasSessionRef.current) {
-                return;
-            }
-            clearScheduledPoll();
-            pollTimeoutRef.current = setTimeout(() => {
-                void fetchNotifications();
-            }, delayMs);
-        };
-
-        const fetchNotifications = async () => {
-            if (!isActive || inFlightRef.current || !hasSessionRef.current) {
+        const connectSSE = () => {
+            if (!isActive || !hasSessionRef.current || eventSource) {
                 return;
             }
 
-            inFlightRef.current = true;
-            try {
-                const res = await fetch('/api/notifications', {
-                    cache: 'no-store',
-                    credentials: 'same-origin',
-                });
+            // Using EventSource relies on next.js automatically resolving the browser's current cookies
+            eventSource = new EventSource('/api/notifications');
 
-                if (!res.ok) {
-                    if (res.status === 401 || res.status === 403) {
-                        hasSessionRef.current = false;
+            eventSource.onmessage = (event) => {
+                if (!isActive) return;
+                try {
+                    const body = JSON.parse(event.data);
+                    const data = body?.data;
+                    if (Array.isArray(data)) {
+                        const dismissed = getDismissedIds();
+                        const parsed: Notification[] = data
+                            .filter((n: any) => !dismissed.has(n.id))
+                            .map((n: any) => ({
+                                ...n,
+                                timestamp: new Date(n.timestamp),
+                            }));
+                        setNotifications(parsed);
                         hadFetchErrorRef.current = false;
-                        clearScheduledPoll();
-                        setNotifications([]);
-                        return;
                     }
-                    throw new Error(`Notifications request failed: ${res.status}`);
+                } catch (err) {
+                    console.error('Error parsing SSE message:', err);
                 }
+            };
 
-                const body = await res.json();
-                const data = body?.data;
-                if (Array.isArray(data)) {
-                    const dismissed = getDismissedIds();
-                    const parsed: Notification[] = data
-                        .filter((n: any) => !dismissed.has(n.id))
-                        .map((n: any) => ({
-                            ...n,
-                            timestamp: new Date(n.timestamp),
-                        }));
-                    setNotifications(parsed);
-                }
-
-                hadFetchErrorRef.current = false;
-                schedulePoll(SUCCESS_POLL_MS);
-            } catch (err) {
+            eventSource.onerror = (err) => {
+                // EventSource automatically attempts to reconnect natively on error
                 if (!hadFetchErrorRef.current) {
-                    console.warn('Could not load notifications:', err);
+                    console.warn('SSE connection error, reconnecting automatically...', err);
                     hadFetchErrorRef.current = true;
                 }
-                schedulePoll(ERROR_RETRY_MS);
-            } finally {
-                inFlightRef.current = false;
+            };
+        };
+
+        const disconnectSSE = () => {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
             }
         };
 
-        const startPollingIfAuthenticated = async () => {
+        const initializeSession = async () => {
             const { data: { session } } = await supabase.auth.getSession();
             hasSessionRef.current = Boolean(session);
 
             if (!hasSessionRef.current) {
-                clearScheduledPoll();
+                disconnectSSE();
                 setNotifications([]);
                 return;
             }
 
-            void fetchNotifications();
+            connectSSE();
         };
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             hasSessionRef.current = Boolean(session);
 
             if (!session) {
-                clearScheduledPoll();
+                disconnectSSE();
                 hadFetchErrorRef.current = false;
                 setNotifications([]);
                 return;
             }
 
-            void fetchNotifications();
+            connectSSE();
         });
 
-        void startPollingIfAuthenticated();
+        void initializeSession();
 
         return () => {
             isActive = false;
-            clearScheduledPoll();
+            disconnectSSE();
             subscription.unsubscribe();
         };
     }, []);
