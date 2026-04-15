@@ -15,6 +15,14 @@ export class UserAlreadyInOrganizationError extends Error {
     }
 }
 
+export interface OrganizationMemberNotificationContext {
+    userId: number;
+    name: string;
+    email: string;
+    roleId: number;
+    roleName: string;
+}
+
 // Users
 export async function getOrganizationUsers(organizationId: number = DEFAULT_ORG_ID): Promise<UserWithRole[]> {
     const supabase = await getSupabase();
@@ -58,6 +66,105 @@ export async function getOrganizationUsers(organizationId: number = DEFAULT_ORG_
             roleId: orgRole?.id ?? 0,
             avatar: '/icons/' + (Math.random() > 0.5 ? 'woman.png' : 'man.png'), // Random avatar for now
         }
+    });
+}
+
+export async function getOrganizationName(organizationId: number = DEFAULT_ORG_ID): Promise<string> {
+    const supabase = await getSupabase();
+
+    const { data, error } = await supabase
+        .from('Organization')
+        .select('name')
+        .eq('id', organizationId)
+        .limit(1)
+        .single();
+
+    if (error || !data) {
+        throw error ?? new Error(`Organization ${organizationId} not found`);
+    }
+
+    return data.name || `Organization ${organizationId}`;
+}
+
+export async function getOrganizationMemberNotificationContext(
+    userId: number,
+    organizationId: number = DEFAULT_ORG_ID
+): Promise<OrganizationMemberNotificationContext> {
+    const supabase = await getSupabase();
+
+    const { data, error } = await supabase
+        .from('OrganizationUserRole')
+        .select(`
+            user_id,
+            organization_role_id,
+            User (
+                name,
+                email
+            ),
+            OrganizationRole (
+                name
+            )
+        `)
+        .eq('organization_id', organizationId)
+        .eq('user_id', userId)
+        .limit(1)
+        .single();
+
+    if (error || !data) {
+        throw error ?? new Error('Organization member not found');
+    }
+
+    const userJoin = Array.isArray(data.User) ? data.User[0] : data.User;
+    const roleJoin = Array.isArray(data.OrganizationRole)
+        ? data.OrganizationRole[0]
+        : data.OrganizationRole;
+
+    return {
+        userId,
+        name: userJoin?.name ?? 'Unknown User',
+        email: userJoin?.email ?? '',
+        roleId: data.organization_role_id ?? 0,
+        roleName: roleJoin?.name ?? 'Unknown',
+    };
+}
+
+export async function getOrganizationMembersByRole(
+    roleId: number,
+    organizationId: number = DEFAULT_ORG_ID
+): Promise<OrganizationMemberNotificationContext[]> {
+    const supabase = await getSupabase();
+
+    const { data, error } = await supabase
+        .from('OrganizationUserRole')
+        .select(`
+            user_id,
+            organization_role_id,
+            User (
+                name,
+                email
+            ),
+            OrganizationRole (
+                name
+            )
+        `)
+        .eq('organization_id', organizationId)
+        .eq('organization_role_id', roleId);
+
+    if (error) throw error;
+
+    return (data || []).map((item) => {
+        const userJoin = Array.isArray(item.User) ? item.User[0] : item.User;
+        const roleJoin = Array.isArray(item.OrganizationRole)
+            ? item.OrganizationRole[0]
+            : item.OrganizationRole;
+
+        return {
+            userId: item.user_id ?? 0,
+            name: userJoin?.name ?? 'Unknown User',
+            email: userJoin?.email ?? '',
+            roleId: item.organization_role_id ?? roleId,
+            roleName: roleJoin?.name ?? 'Unknown',
+        };
     });
 }
 
@@ -194,6 +301,27 @@ export async function getOrganizationRoles(organizationId: number = DEFAULT_ORG_
     if (error) throw error;
 
     return data || [];
+}
+
+export async function getOrganizationRoleById(
+    roleId: number,
+    organizationId: number = DEFAULT_ORG_ID
+): Promise<OrganizationRole> {
+    const supabase = await getSupabase();
+
+    const { data, error } = await supabase
+        .from('OrganizationRole')
+        .select('*')
+        .eq('id', roleId)
+        .eq('organization_id', organizationId)
+        .limit(1)
+        .single();
+
+    if (error || !data) {
+        throw error ?? new Error('Role not found');
+    }
+
+    return data;
 }
 
 export async function createRole(
@@ -362,6 +490,28 @@ export async function getRolePermissionsByOrganization(roleId: number, organizat
     if (error) throw error;
 
     return (data || []).map((item: { organization_permission_id: number }) => item.organization_permission_id);
+}
+
+export async function getRolePermissionNamesByOrganization(
+    roleId: number,
+    organizationId: number
+): Promise<string[]> {
+    const supabase = await getSupabase();
+
+    const permissionIds = await getRolePermissionsByOrganization(roleId, organizationId);
+    if (permissionIds.length === 0) {
+        return [];
+    }
+
+    const { data, error } = await supabase
+        .from('OrganizationPermission')
+        .select('name')
+        .in('id', permissionIds)
+        .order('name', { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map((permission) => permission.name).filter(Boolean);
 }
 
 // ─── Events ───────────────────────────────────────────────────────────────────

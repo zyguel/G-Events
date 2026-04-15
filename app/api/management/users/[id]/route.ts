@@ -1,8 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { updateUser, removeUserFromOrganization } from '@/lib/db';
+import {
+    getOrganizationMemberNotificationContext,
+    getOrganizationName,
+    getRolePermissionNamesByOrganization,
+    removeUserFromOrganization,
+    updateUser,
+} from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
 import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
+import { logger } from '@/lib/logger';
+import { sendManagementAccessChangedEmail, sendManagementRemovalEmail } from '@/lib/managementEmails';
 
 async function getActiveOrganizationId(request: NextRequest): Promise<number | null> {
     const preferredOrganizationId = parseOrganizationId(
@@ -28,6 +36,8 @@ export async function PATCH(
         const activeOrganizationId = await getActiveOrganizationId(request);
         const body = await request.json();
         const { email, roleId } = body;
+        const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+        const parsedRoleId = Number.parseInt(String(roleId), 10);
 
         if (isNaN(userId) || !activeOrganizationId) {
             return NextResponse.json(
@@ -36,19 +46,47 @@ export async function PATCH(
             );
         }
 
-        if (!email || !roleId) {
+        if (!normalizedEmail || Number.isNaN(parsedRoleId)) {
             return NextResponse.json(
                 { success: false, error: 'Missing required fields: email, roleId' },
                 { status: 400 }
             );
         }
 
+        const beforeContext = await getOrganizationMemberNotificationContext(userId, activeOrganizationId);
+
         await updateUser(
             userId,
-            email,
-            parseInt(roleId),
+            normalizedEmail,
+            parsedRoleId,
             activeOrganizationId
         );
+
+        if (beforeContext.roleId !== parsedRoleId) {
+            try {
+                const [organizationName, updatedContext] = await Promise.all([
+                    getOrganizationName(activeOrganizationId),
+                    getOrganizationMemberNotificationContext(userId, activeOrganizationId),
+                ]);
+
+                const permissionNames = await getRolePermissionNamesByOrganization(
+                    updatedContext.roleId,
+                    activeOrganizationId
+                );
+
+                await sendManagementAccessChangedEmail({
+                    to: updatedContext.email,
+                    recipientName: updatedContext.name,
+                    organizationName,
+                    roleName: updatedContext.roleName,
+                    permissionNames,
+                    reason: 'role',
+                    changeSummary: `Your role changed from ${beforeContext.roleName} to ${updatedContext.roleName}.`,
+                });
+            } catch (notificationError: unknown) {
+                logger.warn('api/management/users/[id]', 'Role change email failed to send', notificationError);
+            }
+        }
 
         return NextResponse.json({ success: true, message: 'User updated successfully' });
     } catch (error: unknown) {
@@ -78,7 +116,30 @@ export async function DELETE(
             );
         }
 
+        const [organizationName, memberContext] = await Promise.all([
+            getOrganizationName(activeOrganizationId),
+            getOrganizationMemberNotificationContext(userId, activeOrganizationId),
+        ]);
+
+        const permissionNames = await getRolePermissionNamesByOrganization(
+            memberContext.roleId,
+            activeOrganizationId
+        );
+
         await removeUserFromOrganization(userId, activeOrganizationId);
+
+        try {
+            await sendManagementRemovalEmail({
+                to: memberContext.email,
+                recipientName: memberContext.name,
+                organizationName,
+                roleName: memberContext.roleName,
+                permissionNames,
+                changeSummary: 'Your membership was removed and organization access has been revoked.',
+            });
+        } catch (notificationError: unknown) {
+            logger.warn('api/management/users/[id]', 'Removal email failed to send', notificationError);
+        }
 
         return NextResponse.json({ success: true, message: 'User removed successfully' });
     } catch (error: unknown) {

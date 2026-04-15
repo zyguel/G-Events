@@ -1,9 +1,16 @@
 import { NextRequest } from 'next/server';
-import { getOrganizationUsers, inviteUser, UserAlreadyInOrganizationError } from '@/lib/db';
+import {
+    getOrganizationName,
+    getOrganizationUsers,
+    getRolePermissionNamesByOrganization,
+    inviteUser,
+    UserAlreadyInOrganizationError,
+} from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
 import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
 import { logger } from '@/lib/logger';
+import { sendManagementInvitationEmail } from '@/lib/managementEmails';
 import { badRequest, conflict, created, internalServerError, ok } from '@/lib/utils/apiResponse';
 
 async function getActiveOrganizationId(request: NextRequest): Promise<number | null> {
@@ -57,6 +64,23 @@ export async function POST(request: NextRequest) {
             parsedRoleId,
             activeOrganizationId
         );
+
+        try {
+            const [organizationName, permissionNames] = await Promise.all([
+                getOrganizationName(activeOrganizationId),
+                getRolePermissionNamesByOrganization(parsedRoleId, activeOrganizationId),
+            ]);
+
+            await sendManagementInvitationEmail({
+                to: normalizedEmail,
+                recipientName: normalizedName,
+                organizationName,
+                roleName: newUser.role,
+                permissionNames,
+            });
+        } catch (notificationError: unknown) {
+            logger.warn('api/management/users', 'Invite email failed to send', notificationError);
+        }
 
         return created(newUser);
     } catch (error: unknown) {
