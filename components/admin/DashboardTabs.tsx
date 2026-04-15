@@ -82,9 +82,11 @@ interface DashboardData {
 export default function DashboardTabs({
     data,
     demographics,
+    hideDemographics = false,
 }: {
     data: DashboardData;
     demographics?: DemographicsData;
+    hideDemographics?: boolean;
 }) {
     const [activeTab, setActiveTab] = useState("registrations");
     const [transactionsPage, setTransactionsPage] = useState(1);
@@ -150,6 +152,7 @@ export default function DashboardTabs({
                 >
                     Feedback
                 </button>
+                {!hideDemographics && (
                 <button
                     onClick={() => setActiveTab("demographics")}
                     className={`pb-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "demographics"
@@ -159,6 +162,7 @@ export default function DashboardTabs({
                 >
                     Demographics
                 </button>
+                )}
             </div>
 
             {/* --- Content Area --- */}

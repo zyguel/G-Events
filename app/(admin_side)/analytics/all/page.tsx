@@ -105,7 +105,7 @@ export default async function AggregatedAnalyticsPage() {
                             </div>
 
                             {/* Summary & Trends Section */}
-                            <DashboardTabs data={data} />
+                            <DashboardTabs data={data} hideDemographics />
                         </div>
                     </PermissionGate>
                 </main>
