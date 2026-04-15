@@ -99,6 +99,20 @@ export async function DELETE(
         }
 
         const supabase = await createClient();
+
+        // Remove breakout selections first to satisfy FK constraints on Registration delete.
+        const { error: breakoutDeleteError } = await supabase
+            .from("BreakoutSessionRegistration")
+            .delete()
+            .eq("registration_id", regId);
+
+        if (breakoutDeleteError) {
+            console.error("ManageOrders DELETE: breakout registration cleanup failed", breakoutDeleteError);
+            return NextResponse.json(
+                { success: false, error: breakoutDeleteError.message },
+                { status: 500 }
+            );
+        }
         
         // Delete registration
         const { error } = await supabase
