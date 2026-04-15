@@ -115,6 +115,8 @@ export default async function PublicEventRegistrationPage({
             eventId: numericEventId,
             registrationId: Number(registration.id),
             email: userEmail,
+            eventStartAt: event.event_start_at || null,
+            eventEndAt: event.event_end_at || null,
           }),
         }))
         .filter((pass) => Number.isFinite(pass.registrationId));

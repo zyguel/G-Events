@@ -33,6 +33,7 @@ export function buildRegistrationConfirmationEmailHtml(params: {
   ticketUrl: string;
   isGroupPrimary?: boolean;
   breakoutsEnabled?: boolean;
+  updateReason?: string;
 }): string {
   const name = escapeHtml(params.attendeeName);
   const title = escapeHtml(params.eventTitle);
@@ -50,6 +51,11 @@ export function buildRegistrationConfirmationEmailHtml(params: {
       ? `<p style="margin:12px 0 0;font-size:13px;color:#555;line-height:1.5">Optional in-person breakouts may be available on the event page. If you choose one, you will get a <strong>separate</strong> QR by email for that session.</p>`
       : '';
 
+  const updateReasonNote =
+    params.updateReason && params.updateReason.trim().length > 0
+      ? `<p style="margin:14px 0 0;padding:10px 12px;border:1px solid #dbe5ff;border-radius:10px;background:#f5f8ff;font-size:13px;color:#2f3c68;line-height:1.5"><strong>Update:</strong> ${escapeHtml(params.updateReason)}</p>`
+      : '';
+
   return `
 <!DOCTYPE html>
 <html>
@@ -58,6 +64,7 @@ export function buildRegistrationConfirmationEmailHtml(params: {
     <p style="margin:0 0 8px;font-size:15px">Hi ${name},</p>
     <p style="margin:0 0 16px;font-size:15px;line-height:1.5">You&apos;re registered for <strong>${title}</strong>.</p>
     <p style="margin:0 0 8px;font-size:14px;color:#555">Ticket: <strong>${ticket}</strong></p>
+    ${updateReasonNote}
     ${groupNote}
     ${breakoutNote}
     <div style="margin:24px 0;text-align:center">

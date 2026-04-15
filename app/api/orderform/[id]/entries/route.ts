@@ -158,7 +158,7 @@ export async function POST(
         // Load event + ticket context
         const { data: eventRow, error: eventError } = await supabase
             .from('Event')
-            .select('id, title, allow_waitlist, allow_breakout_sessions')
+            .select('id, title, allow_waitlist, allow_breakout_sessions, event_start_at, event_end_at')
             .eq('id', numericEventId)
             .single();
 
@@ -622,6 +622,8 @@ export async function POST(
                     eventId: numericEventId,
                     registrationId: attendee.registrationId,
                     email: attendee.email,
+                    eventStartAt: eventRow.event_start_at || null,
+                    eventEndAt: eventRow.event_end_at || null,
                 }),
             }))
             : [];

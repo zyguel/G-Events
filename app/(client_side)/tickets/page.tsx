@@ -81,6 +81,8 @@ export default async function TicketsPage() {
           eventId: Number(row.event_id),
           registrationId: Number(row.id),
           email: currentUserEmail,
+          eventStartAt: row.Event?.event_start_at || null,
+          eventEndAt: row.Event?.event_end_at || null,
         });
 
         return {
