@@ -43,16 +43,12 @@ function formatPrice(price: number | null): string {
 
 function TicketPassCard({
   pass,
-  onWithdraw,
 }: {
   pass: TicketPassItem;
-  onWithdraw: (registrationId: number) => Promise<void>;
 }) {
   const isBreakoutPass = pass.passKind === "breakout";
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
-  const [withdrawState, setWithdrawState] = useState<"idle" | "withdrawing" | "error">("idle");
-  const [withdrawError, setWithdrawError] = useState<string>("");
 
   useEffect(() => {
     let active = true;
@@ -94,22 +90,6 @@ function TicketPassCard({
     }
 
     window.setTimeout(() => setCopyState("idle"), 1800);
-  };
-
-  const handleWithdraw = async () => {
-    const confirmed = window.confirm("Withdraw from this event? This keeps your record but marks your registration as cancelled.");
-    if (!confirmed) return;
-
-    setWithdrawState("withdrawing");
-    setWithdrawError("");
-
-    try {
-      await onWithdraw(pass.registrationId);
-      setWithdrawState("idle");
-    } catch (error) {
-      setWithdrawState("error");
-      setWithdrawError(error instanceof Error ? error.message : "Failed to withdraw");
-    }
   };
 
   return (
@@ -177,16 +157,7 @@ function TicketPassCard({
             >
               View event
             </Link>
-            <button
-              type="button"
-              onClick={handleWithdraw}
-              disabled={withdrawState === "withdrawing" || pass.hasCheckedIn || isBreakoutPass}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-700/50 text-xs font-semibold text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/25 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {withdrawState === "withdrawing" ? "Withdrawing..." : "Withdraw"}
-            </button>
           </div>
-          {withdrawError ? <p className="text-xs text-rose-600 dark:text-rose-400">{withdrawError}</p> : null}
         </div>
 
         <div className="rounded-2xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-3 sm:p-4 flex items-center justify-center min-h-55 sm:min-h-60 overflow-hidden">
@@ -209,31 +180,17 @@ function TicketPassCard({
 }
 
 export default function TicketsPageClient({ passes }: { passes: TicketPassItem[] }) {
-  const [items, setItems] = useState<TicketPassItem[]>(passes);
   const [activeTab, setActiveTab] = useState<"event" | "breakout">("event");
 
   const eventItems = useMemo(
-    () => items.filter((item) => (item.passKind || "event") !== "breakout"),
-    [items]
+    () => passes.filter((item) => (item.passKind || "event") !== "breakout"),
+    [passes]
   );
   const breakoutItems = useMemo(
-    () => items.filter((item) => item.passKind === "breakout"),
-    [items]
+    () => passes.filter((item) => item.passKind === "breakout"),
+    [passes]
   );
   const visibleItems = activeTab === "event" ? eventItems : breakoutItems;
-
-  const handleWithdraw = async (registrationId: number): Promise<void> => {
-    const response = await fetch(`/api/tickets/${registrationId}/withdraw`, {
-      method: "POST",
-    });
-
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result?.success) {
-      throw new Error(result?.error || "Failed to withdraw from event.");
-    }
-
-    setItems((current) => current.filter((item) => item.registrationId !== registrationId));
-  };
 
   return (
     <main className="max-w-6xl mx-auto px-4 md:px-8 py-8 pb-24 md:py-10 md:pb-10">
@@ -242,7 +199,7 @@ export default function TicketsPageClient({ passes }: { passes: TicketPassItem[]
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your event passes and present your QR code during check-in.</p>
       </div>
 
-      {items.length > 0 ? (
+      {passes.length > 0 ? (
         <div className="mb-6 inline-flex rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900/70 p-1 gap-1">
           <button
             type="button"
@@ -269,7 +226,7 @@ export default function TicketsPageClient({ passes }: { passes: TicketPassItem[]
         </div>
       ) : null}
 
-      {items.length === 0 ? (
+      {passes.length === 0 ? (
         <section className="bg-white dark:bg-gray-900/70 border border-dashed border-gray-300 dark:border-gray-700 rounded-3xl p-12 text-center">
           <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-gray-800 mx-auto flex items-center justify-center mb-5">
             <Ticket size={28} className="text-gray-400" />
@@ -298,7 +255,6 @@ export default function TicketsPageClient({ passes }: { passes: TicketPassItem[]
             <TicketPassCard
               key={`${pass.passKind || "event"}-${pass.eventId}-${pass.registrationId}-${pass.token}`}
               pass={pass}
-              onWithdraw={handleWithdraw}
             />
           ))}
         </section>
