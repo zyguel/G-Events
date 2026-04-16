@@ -388,6 +388,8 @@ export default function ClientEventDetailPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {tickets.map((ticket) => {
                                     const isFree = ticket.type === 'free' || !ticket.price || ticket.price === 0;
+                                    const reservedForWaitlist = Math.max(ticket.waitlistReservedQuantity || 0, 0);
+                                    const leftForPublic = Math.max(ticket.quantity - ticket.usedQuantity - reservedForWaitlist, 0);
                                     const inclusions = ticket.description
                                         ? ticket.description.split('\n').map(l => l.trim()).filter(Boolean)
                                         : [];
@@ -403,7 +405,7 @@ export default function ClientEventDetailPage() {
                                                     <div className="flex items-center gap-1.5 mt-1.5">
                                                         <Users size={13} className="text-gray-400" />
                                                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                            {Math.max(0, ticket.quantity - ticket.usedQuantity)} slots available
+                                                            {leftForPublic} slots available
                                                         </span>
                                                     </div>
                                                 </div>

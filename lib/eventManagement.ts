@@ -12,6 +12,7 @@ export interface Ticket {
   name: string;
   type: 'paid' | 'free';
   quantity: number;
+  waitlistReservedQuantity: number;
   price?: number;
   currency?: string;
   startDate: string;
@@ -99,6 +100,7 @@ function mapDbTicket(row: any): Ticket {
     name: row.name ?? '',
     type: row.price && Number(row.price) > 0 ? 'paid' : 'free',
     quantity: row.available_quantity ?? 0,
+    waitlistReservedQuantity: Number(row.waitlist_reserved_quantity ?? 0),
     price: row.price ? Number(row.price) : 0,
     currency: 'PHP',
     startDate: row.selling_start_at ?? '',

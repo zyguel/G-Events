@@ -18,6 +18,7 @@ const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
   name: "",
   type: "paid",
   quantity: 0,
+  waitlistReservedQuantity: 0,
   price: 0,
   currency: "PHP",
   startDate: "",
@@ -157,8 +158,9 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   };
 
   const totalCapacity = tickets.reduce((sum, ticket) => sum + Math.max(ticket.quantity || 0, 0), 0);
+  const totalReservedForWaitlist = tickets.reduce((sum, ticket) => sum + Math.max(ticket.waitlistReservedQuantity || 0, 0), 0);
   const totalSold = tickets.reduce((sum, ticket) => sum + Math.max(ticket.usedQuantity || 0, 0), 0);
-  const totalAvailable = Math.max(totalCapacity - totalSold, 0);
+  const totalAvailable = Math.max(totalCapacity - totalSold - totalReservedForWaitlist, 0);
   const hiddenTickets = tickets.filter((ticket) => ticket.visibility === "hidden").length;
 
   const isTicketOnSale = (ticket: Ticket): boolean => {
@@ -249,6 +251,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             </div>
           </div>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{hiddenTickets} hidden ticket {hiddenTickets === 1 ? "type" : "types"}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 inline-flex items-center gap-1">
+            <Users size={12} />
+            Reserved for waitlist: {totalReservedForWaitlist}
+          </p>
         </div>
       </div>
 
@@ -284,15 +290,28 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                       {ticket.type === "paid" ? `₱${ticket.price} ${ticket.currency}` : "Free"}
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
-                        Capacity: {ticket.quantity}
-                      </span>
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                        Sold: {ticket.usedQuantity}
-                      </span>
-                      <span className="inline-flex items-center rounded-full px-2.5 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
-                        Left: {Math.max(ticket.quantity - ticket.usedQuantity, 0)}
-                      </span>
+                      {(() => {
+                        const reservedForWaitlist = Math.max(ticket.waitlistReservedQuantity || 0, 0);
+                        const leftForPublic = Math.max(ticket.quantity - ticket.usedQuantity - reservedForWaitlist, 0);
+
+                        return (
+                          <>
+                            <span className="inline-flex items-center rounded-full px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">
+                              Capacity: {ticket.quantity}
+                            </span>
+                            <span className="inline-flex items-center rounded-full px-2.5 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                              Sold: {ticket.usedQuantity}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300">
+                              <Users size={12} />
+                              Reserved: {reservedForWaitlist}
+                            </span>
+                            <span className="inline-flex items-center rounded-full px-2.5 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300">
+                              Left: {leftForPublic}
+                            </span>
+                          </>
+                        );
+                      })()}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
                       <span>Per order: {ticket.minQuantity} min - {ticket.maxQuantity} max</span>
