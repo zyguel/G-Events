@@ -1,3 +1,4 @@
+import { createClient } from '@/lib/supabase-server';
 import { getEvents } from '@/lib/actions/events';
 import DashboardPageClient, {
     type DashboardActivity,
@@ -119,24 +120,37 @@ export default async function DashboardPage() {
         .filter((event) => event.status === 'Upcoming')
         .reduce((sum, event) => sum + event.pendingOrders, 0);
 
-    const activities: DashboardActivity[] = [...mappedEvents]
-        .sort((a, b) => {
-            const aMs = parseEventTime(a.rawDate);
-            const bMs = parseEventTime(b.rawDate);
+    let activities: DashboardActivity[] = [];
+    if (mappedEvents.length > 0) {
+        const eventIds = mappedEvents.map(e => e.id);
+        const supabase = await createClient();
+        
+        // Fetch recent audit logs for the organization's events
+        const { data: auditLogs } = await supabase
+            .from('AuditLog')
+            .select('*')
+            .eq('entity_type', 'Event')
+            .in('entity_id', eventIds)
+            .order('created_at', { ascending: false })
+            .limit(10);
+            
+        if (auditLogs) {
+            activities = auditLogs.slice(0, 4).map((log, index) => {
+                const event = mappedEvents.find(e => e.id === log.entity_id);
+                let actionName = 'Event updated';
+                if (log.action === 'create') actionName = 'Event created';
+                if (log.action === 'delete') actionName = 'Event deleted';
 
-            if (Number.isNaN(aMs) && Number.isNaN(bMs)) return 0;
-            if (Number.isNaN(aMs)) return 1;
-            if (Number.isNaN(bMs)) return -1;
-            return bMs - aMs;
-        })
-        .slice(0, 4)
-        .map((event, index) => ({
-            id: `event-${index}`,
-            action: event.status === 'Draft' ? 'Draft saved' : event.status === 'Completed' ? 'Event completed' : 'Event updated',
-            user: event.status === 'Draft' ? 'Organizer' : 'Event schedule',
-            event: event.name,
-            time: formatRelativeDate(event.rawDate, nowMs),
-        }));
+                return {
+                    id: `log-${log.audit_hash || index}`,
+                    action: actionName,
+                    user: 'Organizer',
+                    event: event?.name || 'Unknown Event',
+                    time: formatRelativeDate(log.created_at, nowMs),
+                };
+            });
+        }
+    }
 
     return (
         <DashboardPageClient

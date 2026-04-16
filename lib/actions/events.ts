@@ -237,7 +237,7 @@ const fetchEvents = cache(async (organizationId: number) => {
             .in('event_id', eventIds),
         aggregateClient
             .from('Registration')
-            .select('event_id, status')
+            .select('event_id, status, has_checked_in')
             .in('event_id', eventIds),
     ])
 
@@ -269,7 +269,9 @@ const fetchEvents = cache(async (organizationId: number) => {
             }
 
             ticketsSoldByEventId.set(eventId, (ticketsSoldByEventId.get(eventId) || 0) + 1)
-            attendeesByEventId.set(eventId, (attendeesByEventId.get(eventId) || 0) + 1)
+            if (row.has_checked_in) {
+                attendeesByEventId.set(eventId, (attendeesByEventId.get(eventId) || 0) + 1)
+            }
         }
     }
 
