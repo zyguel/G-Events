@@ -471,54 +471,94 @@ export async function POST(
         }
 
         if (selectedTicket) {
-            // ── Step 1: Verify ALL emails exist in the User table ────────────
-            for (const email of uniqueEmails) {
-                const { data: userCheck } = await supabase
-                    .from('User')
-                    .select('id')
-                    .ilike('email', email)
-                    .limit(1);
+            // ── Step 1: Validate against Supabase Auth users and ensure User rows exist ────────────
+            const targetEmailSet = new Set(uniqueEmails.map((e) => String(e).trim().toLowerCase()));
+            const authUserNameByEmail = new Map<string, string | null>();
+            const perPage = 1000;
+            let page = 1;
+            let hasMore = true;
 
-                if (!userCheck || userCheck.length === 0) {
-                    const authEmail = authUser?.email?.trim().toLowerCase() || null;
-                    const isPrimaryEmail = email === normalizedPrimaryEmail;
-                    const canAutoProvisionPrimaryUser =
-                        !isGroupRegistration && isPrimaryEmail && authEmail === normalizedPrimaryEmail;
+            while (hasMore && authUserNameByEmail.size < targetEmailSet.size) {
+                const { data: authPage, error: authLookupError } = await supabase.auth.admin.listUsers({ page, perPage });
 
-                    if (canAutoProvisionPrimaryUser) {
-                        const fallbackName =
-                            resolvedName && resolvedName !== 'Attendee'
-                                ? resolvedName
-                                : normalizedPrimaryEmail.split('@')[0] || 'Attendee';
-
-                        const { error: insertUserError } = await supabase
-                            .from('User')
-                            .insert([{ name: fallbackName, email: normalizedPrimaryEmail }]);
-
-                        if (!insertUserError) {
-                            console.log('[Registration] Auto-provisioned missing User row for authenticated attendee:', normalizedPrimaryEmail);
-                            continue;
-                        }
-
-                        // If another request created the row concurrently, proceed.
-                        if (insertUserError.code === '23505') {
-                            console.log('[Registration] User row already created concurrently for:', normalizedPrimaryEmail);
-                            continue;
-                        }
-
-                        console.error('[Registration] Failed to auto-provision User row:', insertUserError);
-                        return NextResponse.json(
-                            { error: 'Failed to initialize your attendee profile. Please try again.' },
-                            { status: 500 }
-                        );
-                    }
-
-                    console.warn('[Registration] Rejected registration because email is not a known member:', email);
+                if (authLookupError) {
+                    console.error('[Registration] Auth user lookup failed:', authLookupError);
                     return NextResponse.json(
-                        { error: `The email ${email} is not registered in our system. All registrants must have an account.` },
+                        { error: 'Failed to validate registrant accounts. Please try again.' },
+                        { status: 500 }
+                    );
+                }
+
+                const users = authPage?.users || [];
+                for (const auth of users) {
+                    const email = String(auth.email || '').trim().toLowerCase();
+                    if (!email || !targetEmailSet.has(email)) continue;
+
+                    const userMeta = (auth.user_metadata || {}) as Record<string, unknown>;
+                    const fullName = String(userMeta.full_name || userMeta.name || '').trim() || null;
+                    authUserNameByEmail.set(email, fullName);
+                }
+
+                hasMore = users.length === perPage;
+                page += 1;
+            }
+
+            const { data: existingUserRows, error: existingUserLookupError } = await supabase
+                .from('User')
+                .select('id, email')
+                .in('email', uniqueEmails);
+
+            if (existingUserLookupError) {
+                console.error('[Registration] User table lookup failed:', existingUserLookupError);
+                return NextResponse.json({ error: 'Database check failed: ' + existingUserLookupError.message }, { status: 500 });
+            }
+
+            const existingProfileEmailSet = new Set(
+                (existingUserRows || []).map((row: { email: string | null }) => String(row.email || '').trim().toLowerCase()).filter(Boolean)
+            );
+
+            for (const email of uniqueEmails) {
+                const normalizedEmail = String(email).trim().toLowerCase();
+                if (existingProfileEmailSet.has(normalizedEmail)) continue;
+
+                if (!authUserNameByEmail.has(normalizedEmail)) {
+                    console.warn('[Registration] Rejected registration because email is not in Supabase Auth:', normalizedEmail);
+                    return NextResponse.json(
+                        { error: `The email ${normalizedEmail} does not have an account yet. Please sign up first.` },
                         { status: 400 }
                     );
                 }
+
+                const authEmail = authUser?.email?.trim().toLowerCase() || null;
+                const isPrimaryEmail = normalizedEmail === normalizedPrimaryEmail;
+                const nameFromAuth = authUserNameByEmail.get(normalizedEmail) || null;
+                const fallbackName =
+                    (isPrimaryEmail && resolvedName && resolvedName !== 'Attendee' ? resolvedName : null) ||
+                    nameFromAuth ||
+                    normalizedEmail.split('@')[0] ||
+                    'Attendee';
+
+                const canProvision = isPrimaryEmail ? authEmail === normalizedPrimaryEmail : true;
+                if (!canProvision) {
+                    return NextResponse.json(
+                        { error: `Unable to verify account ownership for ${normalizedEmail}. Please sign in with that email.` },
+                        { status: 403 }
+                    );
+                }
+
+                const { error: insertUserError } = await supabase
+                    .from('User')
+                    .insert([{ name: fallbackName, email: normalizedEmail }]);
+
+                if (insertUserError && insertUserError.code !== '23505') {
+                    console.error('[Registration] Failed to auto-provision User row:', insertUserError);
+                    return NextResponse.json(
+                        { error: 'Failed to initialize attendee profiles. Please try again.' },
+                        { status: 500 }
+                    );
+                }
+
+                existingProfileEmailSet.add(normalizedEmail);
             }
 
             let registrationGroupId: number | null = null;

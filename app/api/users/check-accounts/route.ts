@@ -12,26 +12,68 @@ export async function POST(request: NextRequest) {
             return badRequest('Missing or invalid emails array');
         }
 
-        // Normalize emails
-        const normalizedEmails = emails.map(e => String(e).trim().toLowerCase());
+        // Normalize and dedupe emails to reduce auth admin pagination work.
+        const normalizedEmails = Array.from(
+            new Set(emails.map((e) => String(e).trim().toLowerCase()).filter(Boolean))
+        );
+
+        if (normalizedEmails.length === 0) {
+            return badRequest('At least one valid email is required');
+        }
         
         const supabase = await createAdminClient();
-        
-        // Check "User" table (public schema) using service role to bypass RLS
-        const { data, error } = await supabase
-            .from('User')
-            .select('email')
-            .in('email', normalizedEmails);
 
-        if (error) {
-            logger.error('api/users/check-accounts', 'Error checking accounts', error);
-            return internalServerError('Failed to check accounts');
+        const foundEmails = new Set<string>();
+
+        // Source of truth: Supabase Auth users.
+        // listUsers is paginated, so continue until all targets are found or there are no more pages.
+        const targetEmails = new Set(normalizedEmails);
+        const perPage = 1000;
+        let page = 1;
+        let hasMore = true;
+
+        while (hasMore && foundEmails.size < targetEmails.size) {
+            const { data: authData, error: authError } = await supabase.auth.admin.listUsers({ page, perPage });
+
+            if (authError) {
+                logger.error('api/users/check-accounts', 'Error checking auth users', authError);
+                return internalServerError('Failed to check accounts');
+            }
+
+            const users = authData?.users || [];
+            for (const user of users) {
+                const email = String(user.email || '').trim().toLowerCase();
+                if (email && targetEmails.has(email)) {
+                    foundEmails.add(email);
+                }
+            }
+
+            hasMore = users.length === perPage;
+            page += 1;
+        }
+        
+        // Compatibility fallback: include existing app User rows as valid too.
+        if (foundEmails.size < targetEmails.size) {
+            const { data, error } = await supabase
+                .from('User')
+                .select('email')
+                .in('email', normalizedEmails);
+
+            if (error) {
+                logger.error('api/users/check-accounts', 'Error checking user profiles fallback', error);
+                return internalServerError('Failed to check accounts');
+            }
+
+            for (const row of data || []) {
+                const email = String(row.email || '').trim().toLowerCase();
+                if (email && targetEmails.has(email)) {
+                    foundEmails.add(email);
+                }
+            }
         }
 
-        // Create a map of email -> exists
-        const foundEmails = new Set((data || []).map(u => u.email.toLowerCase()));
         const results = emails.reduce((acc, email) => {
-            acc[email] = foundEmails.has(email.toLowerCase());
+            acc[email] = foundEmails.has(String(email).trim().toLowerCase());
             return acc;
         }, {} as Record<string, boolean>);
 
