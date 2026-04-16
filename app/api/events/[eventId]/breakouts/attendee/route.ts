@@ -386,17 +386,22 @@ export async function POST(
       const baseUrl = getPublicAppBaseUrl(request);
       const slug = buildEventSlug(eventRow.title, id);
       const ticketUrl = buildBreakoutEticketUrl(baseUrl, slug, token);
-      const qrImageUrl = await buildAndStoreTicketQrImage({
-        supabase: admin,
-        ticketUrl,
-        folder: `event-${id}/breakouts`,
-      });
+      let qrImageUrl = '';
+      try {
+        qrImageUrl = await buildAndStoreTicketQrImage({
+          supabase: admin,
+          ticketUrl,
+          folder: `event-${id}/breakouts`,
+        });
+      } catch (breakoutQrError) {
+        console.warn('Breakout QR image generation failed; sending link-only breakout ticket email.', breakoutQrError);
+      }
       const html = buildBreakoutTicketEmailHtml({
         attendeeName: String(attendeeName),
         eventTitle: eventRow.title,
         sessionTitle: sessionRow.name || 'Breakout session',
         sessionLocation: sessionRow.room_name || undefined,
-        qrImageUrl,
+        qrImageUrl: qrImageUrl || undefined,
         ticketUrl,
       });
       const to = user.email!;

@@ -83,7 +83,7 @@ export function buildBreakoutTicketEmailHtml(params: {
   eventTitle: string;
   sessionTitle: string;
   sessionLocation?: string;
-  qrImageUrl: string;
+  qrImageUrl?: string;
   ticketUrl: string;
 }): string {
   const name = escapeHtml(params.attendeeName);
@@ -91,11 +91,23 @@ export function buildBreakoutTicketEmailHtml(params: {
   const session = escapeHtml(params.sessionTitle);
   const loc = params.sessionLocation ? escapeHtml(params.sessionLocation) : '';
   const ticketUrl = escapeHtml(params.ticketUrl);
-  const qrImageUrl = escapeHtml(params.qrImageUrl);
+  const qrImageUrl =
+    typeof params.qrImageUrl === 'string' && params.qrImageUrl.trim().length > 0
+      ? escapeHtml(params.qrImageUrl)
+      : '';
 
   const locLine = loc
     ? `<p style="margin:8px 0 0;font-size:14px;color:#555">Location: <strong>${loc}</strong></p>`
     : '';
+
+  const qrSection = qrImageUrl
+    ? `<div style="margin:24px 0;text-align:center">
+      <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#6366F1;text-transform:uppercase;letter-spacing:0.06em">Breakout e-ticket</p>
+      <img src="${qrImageUrl}" alt="Breakout QR code" width="280" height="280" style="display:inline-block;border-radius:12px;border:1px solid #e8e8fc" />
+    </div>`
+    : `<div style="margin:20px 0;padding:12px 14px;border:1px solid #e8e8fc;border-radius:12px;background:#f8f9ff;font-size:13px;color:#4b4f68;line-height:1.5">
+      QR image is temporarily unavailable. Please use the breakout ticket link below at check-in.
+    </div>`;
 
   return `
 <!DOCTYPE html>
@@ -106,10 +118,7 @@ export function buildBreakoutTicketEmailHtml(params: {
     <p style="margin:0 0 12px;font-size:15px;line-height:1.5">Your breakout session for <strong>${title}</strong> is confirmed.</p>
     <p style="margin:0;font-size:14px;color:#555">Session: <strong>${session}</strong></p>
     ${locLine}
-    <div style="margin:24px 0;text-align:center">
-      <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#6366F1;text-transform:uppercase;letter-spacing:0.06em">Breakout e-ticket</p>
-      <img src="${qrImageUrl}" alt="Breakout QR code" width="280" height="280" style="display:inline-block;border-radius:12px;border:1px solid #e8e8fc" />
-    </div>
+    ${qrSection}
     <p style="margin:0;font-size:13px;color:#666;line-height:1.5">Show this QR at the breakout check-in (separate from your main event ticket).</p>
     <p style="margin:12px 0 0"><a href="${ticketUrl}" style="color:#6366F1;font-weight:600;font-size:14px;word-break:break-all">${ticketUrl}</a></p>
   </div>

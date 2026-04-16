@@ -766,11 +766,16 @@ export async function POST(
 
                 if (breakoutTicketToken) {
                     const breakoutUrl = buildBreakoutEticketUrl(baseUrl, slug, breakoutTicketToken);
-                    const breakoutQrImageUrl = await buildAndStoreTicketQrImage({
-                        supabase,
-                        ticketUrl: breakoutUrl,
-                        folder: `event-${numericEventId}/breakouts`,
-                    });
+                    let breakoutQrImageUrl = '';
+                    try {
+                        breakoutQrImageUrl = await buildAndStoreTicketQrImage({
+                            supabase,
+                            ticketUrl: breakoutUrl,
+                            folder: `event-${numericEventId}/breakouts`,
+                        });
+                    } catch (breakoutQrError) {
+                        console.warn('Breakout QR image generation failed; sending link-only breakout ticket email.', breakoutQrError);
+                    }
 
                     await sendEmail({
                         to: resolvedEmail,
@@ -780,7 +785,7 @@ export async function POST(
                             eventTitle: eventRow.title,
                             sessionTitle: breakoutSessionTitle || 'Breakout session',
                             sessionLocation: breakoutSessionLocation || undefined,
-                            qrImageUrl: breakoutQrImageUrl,
+                            qrImageUrl: breakoutQrImageUrl || undefined,
                             ticketUrl: breakoutUrl,
                         }),
                     });
