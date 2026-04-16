@@ -465,15 +465,21 @@ export default function ClientEventDetailPage() {
                                     <p className="text-sm text-blue-100/90">
                                         Secure your spot at <span className="font-semibold text-white">{event.title}</span>.
                                     </p>
-                                    <div className="flex flex-col gap-2 text-left text-xs leading-snug text-blue-100/85 sm:text-[13px]">
-                                        <span className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-                                            <User size={15} className="mt-0.5 shrink-0 text-white/95" aria-hidden />
-                                            <span><strong className="text-white">Individual</strong> — register yourself only; one form and e-ticket.</span>
-                                        </span>
-                                        <span className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-                                            <Users size={15} className="mt-0.5 shrink-0 text-white/95" aria-hidden />
-                                            <span><strong className="text-white">Group</strong> — you&apos;re the lead; add member emails on the next screens so each person confirms their profile.</span>
-                                        </span>
+                                    <div className="flex flex-col gap-2.5 text-left text-xs leading-relaxed text-blue-100/90 sm:text-[13px]">
+                                        <div className="flex items-start gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/5">
+                                            <User size={16} className="mt-[2px] shrink-0 text-white/90" aria-hidden />
+                                            <div><strong className="text-white font-semibold">Individual</strong> &mdash; register yourself only; one form and e-ticket.</div>
+                                        </div>
+                                        {event.allow_group_registration !== false ? (
+                                            <div className="flex items-start gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/5">
+                                                <Users size={16} className="mt-[2px] shrink-0 text-white/90" aria-hidden />
+                                                <div><strong className="text-white font-semibold">Group</strong> &mdash; you&apos;re the lead; add member emails on the next screens so each person confirms their profile.</div>
+                                            </div>
+                                        ) : (
+                                            <div className="px-1 pt-1 text-blue-200/80 italic text-[11px] sm:text-xs">
+                                                * Group registration is disabled for this event.
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <Link

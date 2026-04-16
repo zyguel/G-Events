@@ -6,6 +6,7 @@ export interface EventSummary {
     name: string;
     date: string;
     status: EventStatus;
+    allowWaitlist?: boolean;
 }
 
 export interface EventData {

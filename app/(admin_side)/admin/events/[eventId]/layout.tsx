@@ -48,7 +48,8 @@ export default async function EventLayout({
         id: data.id.toString(),
         name: data.title,
         date: data.event_start_at || '',
-        status: status
+        status: status,
+        allowWaitlist: data.allow_waitlist ?? false
     };
 
     return (
