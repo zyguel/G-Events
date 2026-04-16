@@ -41,6 +41,8 @@ export default async function PublicEventRegistrationPage({
       .from("Ticket")
       .select("id, name, price, available_quantity")
       .eq("event_id", numericEventId)
+      .eq("is_deleted", false)
+      .eq("is_hidden", false)
       .order("price", { ascending: true })
       .order("id", { ascending: true });
 
@@ -167,7 +169,7 @@ export default async function PublicEventRegistrationPage({
             </p>
             <Link
               href={`/events/${eventSlug}`}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
               <ChevronLeft size={15} />
               Back to Event
