@@ -61,6 +61,27 @@ async function getLatestAvatarPath(adminClient: Awaited<ReturnType<typeof create
   return `${userId}/${imageFile.name}`
 }
 
+async function listUserAvatarPaths(
+  adminClient: Awaited<ReturnType<typeof createAdminClient>>,
+  userId: string
+): Promise<string[]> {
+  const { data: files, error } = await adminClient.storage
+    .from(PROFILE_IMAGE_BUCKET)
+    .list(userId, {
+      limit: 1000,
+      sortBy: { column: 'created_at', order: 'desc' },
+    })
+
+  if (error || !files?.length) {
+    return []
+  }
+
+  return files
+    .map((file) => file.name?.trim())
+    .filter((name): name is string => Boolean(name))
+    .map((name) => `${userId}/${name}`)
+}
+
 export async function GET(request: NextRequest) {
   try {
     const sessionClient = await createClient()
@@ -133,6 +154,8 @@ export async function POST(request: NextRequest) {
     const filePath = `${user.id}/avatar-${Date.now()}.${extension}`
 
     const adminClient = await createAdminClient()
+    const previousAvatarPaths = await listUserAvatarPaths(adminClient, user.id)
+
     const { error: uploadError } = await adminClient.storage
       .from(PROFILE_IMAGE_BUCKET)
       .upload(filePath, image, {
@@ -155,6 +178,11 @@ export async function POST(request: NextRequest) {
 
     if (updateUserError) {
       return internalServerError(updateUserError.message || 'Failed to update profile image metadata.')
+    }
+
+    const pathsToDelete = previousAvatarPaths.filter((path) => path !== filePath)
+    if (pathsToDelete.length > 0) {
+      await adminClient.storage.from(PROFILE_IMAGE_BUCKET).remove(pathsToDelete)
     }
 
     return ok({ avatarUrl, filePath })
