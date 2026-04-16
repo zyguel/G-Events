@@ -82,9 +82,11 @@ interface DashboardData {
 export default function DashboardTabs({
     data,
     demographics,
+    hideDemographics = false,
 }: {
     data: DashboardData;
     demographics?: DemographicsData;
+    hideDemographics?: boolean;
 }) {
     const [activeTab, setActiveTab] = useState("registrations");
     const [transactionsPage, setTransactionsPage] = useState(1);
@@ -100,9 +102,7 @@ export default function DashboardTabs({
         ? Math.round((data.trends.attendance.waitlisted / attendanceTotal) * 100)
         : 0;
     const noShowPct = Math.max(0, 100 - checkedInPct - waitlistedPct);
-    const profitMarginPct = data.stats.revenue > 0
-        ? Math.round((data.stats.netProfit / data.stats.revenue) * 100)
-        : 0;
+
 
     const paginatedTransactions = data.recentTransactions.slice(
         (transactionsPage - 1) * transactionsRowsPerPage,
@@ -150,6 +150,7 @@ export default function DashboardTabs({
                 >
                     Feedback
                 </button>
+                {!hideDemographics && (
                 <button
                     onClick={() => setActiveTab("demographics")}
                     className={`pb-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "demographics"
@@ -159,6 +160,7 @@ export default function DashboardTabs({
                 >
                     Demographics
                 </button>
+                )}
             </div>
 
             {/* --- Content Area --- */}
@@ -233,37 +235,16 @@ export default function DashboardTabs({
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
 
                         {/* 1. Financial Summary Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 gap-4">
                             {/* Gross Revenue */}
-                            <div className="p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm">
+                            <div className="p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm mb-2">
                                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Gross Revenue</p>
-                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
+                                <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
                                     ${data.stats.revenue.toLocaleString()}
                                 </h3>
                                 <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400">
                                     Based on confirmed registrations
                                 </span>
-                            </div>
-
-                            {/* Expenses */}
-                            <div className="p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm">
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Total Expenses</p>
-                                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                                    ${data.stats.expenses.toLocaleString()}
-                                </h3>
-                                <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Includes venue, food, & marketing</p>
-                            </div>
-
-                            {/* Net Profit */}
-                            <div className="p-5 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl shadow-sm">
-                                <p className="text-sm font-medium text-indigo-600 dark:text-indigo-400">Net Profit</p>
-                                <h3 className="text-2xl font-bold text-indigo-900 dark:text-indigo-200 mt-1">
-                                    ${data.stats.netProfit.toLocaleString()}
-                                </h3>
-                                <div className="w-full bg-indigo-200 dark:bg-indigo-900/50 rounded-full h-1.5 mt-3">
-                                    <div className="bg-indigo-600 dark:bg-indigo-400 h-1.5 rounded-full" style={{ width: `${profitMarginPct}%` }}></div>
-                                </div>
-                                <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-2">{profitMarginPct}% Profit Margin</p>
                             </div>
                         </div>
 

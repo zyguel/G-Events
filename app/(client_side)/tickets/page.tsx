@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import ClientHeader from "@/components/client/ClientHeader";
+import ClientMobileNav from "@/components/client/ClientMobileNav";
 import TicketsPageClient, { type TicketPassItem } from "@/components/client/TicketsPageClient";
 import { createAdminClient, createClient } from "@/lib/supabase-server";
 import { generateCheckInPass } from "@/lib/checkinQr";
@@ -81,6 +82,8 @@ export default async function TicketsPage() {
           eventId: Number(row.event_id),
           registrationId: Number(row.id),
           email: currentUserEmail,
+          eventStartAt: row.Event?.event_start_at || null,
+          eventEndAt: row.Event?.event_end_at || null,
         });
 
         return {
@@ -163,6 +166,7 @@ export default async function TicketsPage() {
     <div className="min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
       <ClientHeader />
       <TicketsPageClient passes={passes} />
+      <ClientMobileNav activePage="tickets" />
     </div>
   );
 }

@@ -7,6 +7,12 @@ import { revalidatePath } from "next/cache"
 import { cookies } from 'next/headers'
 import { logAuditEntry } from '@/lib/actions/audit'
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants'
+import { sendEmail } from '@/lib/emailProvider'
+import { buildEticketUrl, buildRegistrationConfirmationEmailHtml } from '@/lib/ticketEmail'
+import { buildAndStoreTicketQrImage } from '@/lib/ticketQrStorage'
+import { getPublicAppBaseUrl } from '@/lib/appBaseUrl'
+import { buildEventSlug } from '@/lib/slug'
+import { newTicketToken } from '@/lib/ticketToken'
 import {
     getCurrentUserActiveOrganization,
     parseOrganizationId,
@@ -231,7 +237,7 @@ const fetchEvents = cache(async (organizationId: number) => {
             .in('event_id', eventIds),
         aggregateClient
             .from('Registration')
-            .select('event_id, status')
+            .select('event_id, status, has_checked_in')
             .in('event_id', eventIds),
     ])
 
@@ -263,7 +269,9 @@ const fetchEvents = cache(async (organizationId: number) => {
             }
 
             ticketsSoldByEventId.set(eventId, (ticketsSoldByEventId.get(eventId) || 0) + 1)
-            attendeesByEventId.set(eventId, (attendeesByEventId.get(eventId) || 0) + 1)
+            if (row.has_checked_in) {
+                attendeesByEventId.set(eventId, (attendeesByEventId.get(eventId) || 0) + 1)
+            }
         }
     }
 
@@ -291,7 +299,7 @@ export async function getEvents() {
 
 /**
  * Fetch all published events for the client/attendee side.
- * This does NOT require organization membership — any authenticated user can see published events.
+ * This does NOT require organization membership ΓÇö any authenticated user can see published events.
  */
 export async function getPublishedEvents() {
     try {
@@ -478,6 +486,155 @@ export async function getEventById(id: number) {
     }
 }
 
+function normalizeIsoDate(value: unknown): string | null {
+    if (!value || typeof value !== 'string') return null
+    const ms = Date.parse(value)
+    if (!Number.isFinite(ms)) return null
+    return new Date(ms).toISOString()
+}
+
+function eventDatesChanged(beforeEvent: any, afterEvent: any): boolean {
+    const beforeStart = normalizeIsoDate(beforeEvent?.event_start_at)
+    const afterStart = normalizeIsoDate(afterEvent?.event_start_at)
+    const beforeEnd = normalizeIsoDate(beforeEvent?.event_end_at)
+    const afterEnd = normalizeIsoDate(afterEvent?.event_end_at)
+    return beforeStart !== afterStart || beforeEnd !== afterEnd
+}
+
+function formatDateForEmail(value: unknown): string | null {
+    const iso = normalizeIsoDate(value)
+    if (!iso) return null
+    return new Date(iso).toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZoneName: 'short',
+    })
+}
+
+function buildEventDateChangeReason(beforeEvent: any, afterEvent: any): string {
+    const oldStart = formatDateForEmail(beforeEvent?.event_start_at)
+    const oldEnd = formatDateForEmail(beforeEvent?.event_end_at)
+    const newStart = formatDateForEmail(afterEvent?.event_start_at)
+    const newEnd = formatDateForEmail(afterEvent?.event_end_at)
+
+    const newRange = [newStart, newEnd].filter(Boolean).join(' to ')
+    const oldRange = [oldStart, oldEnd].filter(Boolean).join(' to ')
+
+    if (newRange && oldRange) {
+        return `Event has changed date to ${newRange} (previously ${oldRange}).`
+    }
+
+    if (newRange) {
+        return `Event has changed date to ${newRange}.`
+    }
+
+    return 'Event schedule has changed. Please use this updated QR code for check-in.'
+}
+
+async function reissueEventTicketQrs(params: {
+    eventId: number
+    eventTitle: string
+    eventSlug: string
+    breakoutsEnabled?: boolean
+    updateReason?: string
+}): Promise<{ reissued: number; emailed: number; failed: number }> {
+    const supabase = await getStorageClient()
+
+    const { data: registrations, error } = await supabase
+        .from('Registration')
+        .select('id, profile_pending, User(name, email), Ticket(name)')
+        .eq('event_id', params.eventId)
+        .not('status', 'in', '(cancelled,rejected)')
+
+    if (error) {
+        throw new Error(`Failed loading registrations for QR reissue: ${error.message}`)
+    }
+
+    const baseUrl = getPublicAppBaseUrl()
+    let reissued = 0
+    let emailed = 0
+    let failed = 0
+
+    for (const reg of registrations || []) {
+        const row = reg as {
+            id?: number
+            profile_pending?: boolean | null
+            User?: { name?: string | null; email?: string | null } | Array<{ name?: string | null; email?: string | null }> | null
+            Ticket?: { name?: string | null } | Array<{ name?: string | null }> | null
+        }
+
+        const user = Array.isArray(row.User) ? row.User[0] : row.User
+        const ticket = Array.isArray(row.Ticket) ? row.Ticket[0] : row.Ticket
+
+        const registrationId = Number(row.id)
+        if (!Number.isFinite(registrationId)) {
+            failed += 1
+            continue
+        }
+
+        // Keep group member completion links stable until profiles are completed.
+        if (row.profile_pending === true) {
+            continue
+        }
+
+        const attendeeEmail = String(user?.email || '').trim().toLowerCase()
+        if (!attendeeEmail) {
+            failed += 1
+            continue
+        }
+
+        const token = newTicketToken()
+        const { error: updateError } = await supabase
+            .from('Registration')
+            .update({ ticket_token: token })
+            .eq('id', registrationId)
+            .eq('event_id', params.eventId)
+
+        if (updateError) {
+            failed += 1
+            continue
+        }
+
+        reissued += 1
+
+        try {
+            const ticketUrl = buildEticketUrl(baseUrl, params.eventSlug, token)
+            const qrImageUrl = await buildAndStoreTicketQrImage({
+                supabase,
+                ticketUrl,
+                folder: `event-${params.eventId}/tickets`,
+            })
+
+            const attendeeName = String(user?.name || '').trim() || 'Attendee'
+            const ticketName = String(ticket?.name || '').trim() || 'General Admission'
+
+            await sendEmail({
+                to: attendeeEmail,
+                subject: `Updated e-ticket QR ΓÇö ${params.eventTitle}`,
+                html: buildRegistrationConfirmationEmailHtml({
+                    attendeeName,
+                    eventTitle: params.eventTitle,
+                    ticketName,
+                    qrImageUrl,
+                    ticketUrl,
+                    breakoutsEnabled: !!params.breakoutsEnabled,
+                    updateReason: params.updateReason,
+                }),
+            })
+
+            emailed += 1
+        } catch (sendError) {
+            console.error('Failed sending updated ticket email:', sendError)
+            failed += 1
+        }
+    }
+
+    return { reissued, emailed, failed }
+}
+
 export async function updateEvent(id: number, data: Partial<any>) {
     const supabase = await createClient();
 
@@ -508,6 +665,23 @@ export async function updateEvent(id: number, data: Partial<any>) {
             return { success: false, error: error.message }
         }
 
+        let qrRefreshStats: { reissued: number; emailed: number; failed: number } | null = null
+        if (eventDatesChanged(beforeData, updatedEvent)) {
+            try {
+                const eventSlug = buildEventSlug(String(updatedEvent.title || ''), id)
+                const updateReason = buildEventDateChangeReason(beforeData, updatedEvent)
+                qrRefreshStats = await reissueEventTicketQrs({
+                    eventId: id,
+                    eventTitle: String(updatedEvent.title || `Event #${id}`),
+                    eventSlug,
+                    breakoutsEnabled: !!updatedEvent.allow_breakout_sessions,
+                    updateReason,
+                })
+            } catch (refreshError) {
+                console.error('Failed to reissue attendee QR codes after event date change:', refreshError)
+            }
+        }
+
         try {
             await logAuditEntry('Event', id, 'update', {
                 before: beforeData,
@@ -519,7 +693,7 @@ export async function updateEvent(id: number, data: Partial<any>) {
 
         revalidatePath('/admin/events')
         revalidatePath(`/events/${id}`)
-        return { success: true }
+        return { success: true, qrRefreshStats }
     } catch (e) {
         console.error('Unexpected error updating event:', e)
         return { success: false, error: 'Failed to update event' }
@@ -745,7 +919,7 @@ export async function getEventAnalytics(eventId: number) {
         percentage: totalRevenue > 0 ? Math.round((value / totalRevenue) * 100) : 0
     }));
 
-    // 7. Satisfaction + Comments — handles both new (feedback_submission_id) and old (registration_id) rows
+    // 7. Satisfaction + Comments ΓÇö handles both new (feedback_submission_id) and old (registration_id) rows
     let avgSatisfaction = 0;
     let comments: { user: string; rating: number; text: string; time: string }[] = [];
     try {
@@ -864,7 +1038,7 @@ export async function getEventAnalytics(eventId: number) {
     };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 
 function buildWeeklyTrend(registrations: { created_at: string }[]) {
@@ -927,7 +1101,7 @@ function formatRelativeTime(isoString: string): string {
     return past.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-// ─── General (All-Events) Analytics ──────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ General (All-Events) Analytics ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export async function getGeneralAnalytics() {
     const supabase = await createClient();
@@ -1005,7 +1179,7 @@ export async function getGeneralAnalytics() {
             percentage: totalRevenue > 0 ? Math.round((value / totalRevenue) * 100) : 0
         }));
 
-        // 8. Top performing events — registrations + revenue + attendance per event
+        // 8. Top performing events ΓÇö registrations + revenue + attendance per event
         const { data: topEventsData } = await supabase
             .from('Registration')
             .select('event_id, status, final_price_paid, has_checked_in, Event(title)')
@@ -1030,7 +1204,7 @@ export async function getGeneralAnalytics() {
                 name,
                 registrations,
                 revenue,
-                satisfaction: 0,     // would need per-event feedback query — defaulting to 0
+                satisfaction: 0,     // would need per-event feedback query ΓÇö defaulting to 0
                 attendance: registrations > 0 ? Math.round((checkedIn / registrations) * 100) : 0,
             }))
             .sort((a, b) => b.registrations - a.registrations)
@@ -1055,7 +1229,7 @@ export async function getGeneralAnalytics() {
                     : 'Cancelled',
         }));
 
-        // 10. Feedback comments across events — use FeedbackSubmission for rich data
+        // 10. Feedback comments across events ΓÇö use FeedbackSubmission for rich data
         let comments: { user: string; rating: number; text: string; time: string; eventName?: string }[] = [];
         try {
             // Fetch all FeedbackAnswer rows with question type + form/event name
@@ -1169,7 +1343,7 @@ function buildMonthlyTrend(registrations: { created_at: string }[]) {
     return { monthly: counts, monthLabels: months };
 }
 
-// ─── Event Reports ────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Event Reports ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 export interface ReportRegistrant {
     id: string;
@@ -1269,7 +1443,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
             return result;
         };
 
-        // ── 1. Registrations with User + Ticket ──────────────────────────────
+        // ΓöÇΓöÇ 1. Registrations with User + Ticket ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         const { data: regRows, error: regErr } = await supabase
             .from('Registration')
             .select('id, status, has_checked_in, registration_group_id, created_at, final_price_paid, ticket_id, User(name, email), Ticket(name)')
@@ -1283,7 +1457,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
 
         const rows = regRows || [];
 
-        // ── 2. Order form entries for demographics enrichment ────────────────
+        // ΓöÇΓöÇ 2. Order form entries for demographics enrichment ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         const { data: formEntries } = await supabase
             .from('OrderFormEntries')
             .select('registration_id, user_email, form_data')
@@ -1346,7 +1520,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
             return {
                 id: r.id.toString(),
                 name: r.User?.name || 'Unknown',
-                email: r.User?.email || '—',
+                email: r.User?.email || 'ΓÇö',
                 gender: fields.gender || 'N/A',
                 age,
                 birthdate,
@@ -1359,7 +1533,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
             };
         });
 
-        // ── 3. Aggregate stats ───────────────────────────────────────────────
+        // ΓöÇΓöÇ 3. Aggregate stats ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         const nonCancelled = rows.filter((r: any) => r.status !== 'cancelled');
         const total = nonCancelled.length;
         const confirmed = nonCancelled.filter((r: any) => r.status === 'confirmed').length;
@@ -1382,7 +1556,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
         const premiumAttended = premiumRows.filter((r: any) => r.has_checked_in).length;
         const premiumTotal = premiumRows.length;
 
-        // ── 4. Breakout Sessions ─────────────────────────────────────────────
+        // ΓöÇΓöÇ 4. Breakout Sessions ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         const { data: bsRows } = await supabase
             .from('BreakoutSession')
             .select('id, name, speaker_name, room_name, room_capacity, BreakoutSessionRegistration(id, check_in_time, status)')
@@ -1395,8 +1569,8 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
             return {
                 id: s.id.toString(),
                 name: s.name || `Session ${s.id}`,
-                speaker: s.speaker_name || '—',
-                room: s.room_name || '—',
+                speaker: s.speaker_name || 'ΓÇö',
+                room: s.room_name || 'ΓÇö',
                 capacity: s.room_capacity || 0,
                 registered: registeredCount,
                 checkedIn: checkedInCount,
@@ -1420,7 +1594,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
     }
 }
 
-// ─── Demographics ─────────────────────────────────────────────────────────────
+// ΓöÇΓöÇΓöÇ Demographics ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 const DEMOGRAPHIC_FIELDS: { identifier: string; label: string }[] = [
     { identifier: 'gender', label: 'Gender' },

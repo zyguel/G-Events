@@ -1,11 +1,13 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { useRouter } from 'next/navigation';
 import Header from '@/components/admin/Header';
 import Sidebar from '@/components/admin/Sidebar';
 import { useAdminCompactMode } from '@/contexts/AdminCompactModeContext';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Search, Plus, Calendar, List, Grid, MoreVertical, Users, Ticket, MapPin } from 'lucide-react';
+import { Search, Plus, Calendar, List, Grid, MoreVertical, Users, Ticket, MapPin, Eye, Trash2 } from 'lucide-react';
 
 import { deleteEvent } from '@/lib/actions/events';
 import { buildEventSlug } from '@/lib/slug';
@@ -32,6 +34,7 @@ interface EventsPageClientProps {
 }
 
 export default function EventsPageClient({ initialEvents }: EventsPageClientProps) {
+    const router = useRouter();
     const [events, setEvents] = useState<Event[]>(initialEvents);
     const [selectedFilter, setSelectedFilter] = useState<FilterOption>('all');
     const [searchQuery, setSearchQuery] = useState('');
@@ -40,13 +43,56 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [eventToDelete, setEventToDelete] = useState<Event | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [openMenuId, setOpenMenuId] = useState<string | number | null>(null);
+    const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
     const { isCompactAdmin } = useAdminCompactMode();
+
+    // Close dropdown on outside click or scroll
+    useEffect(() => {
+        if (openMenuId === null) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setOpenMenuId(null);
+            }
+        };
+        const handleScroll = () => setOpenMenuId(null);
+        document.addEventListener('mousedown', handleClickOutside);
+        window.addEventListener('scroll', handleScroll, true);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            window.removeEventListener('scroll', handleScroll, true);
+        };
+    }, [openMenuId]);
+
+    const toggleMenu = useCallback((e: React.MouseEvent, eventId: string | number) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (openMenuId === eventId) {
+            setOpenMenuId(null);
+            setMenuPos(null);
+            return;
+        }
+        const btn = e.currentTarget as HTMLElement;
+        const rect = btn.getBoundingClientRect();
+        setMenuPos({ top: rect.bottom + 4, left: rect.right - 176 }); // 176 = w-44 (11rem)
+        setOpenMenuId(eventId);
+    }, [openMenuId]);
 
     const handleDeleteClick = (e: React.MouseEvent, event: Event) => {
         e.preventDefault();
         e.stopPropagation();
+        setOpenMenuId(null);
         setEventToDelete(event);
         setIsDeleteModalOpen(true);
+    };
+
+    const handleOverviewClick = (e: React.MouseEvent, event: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpenMenuId(null);
+        const slug = buildEventSlug(event.name, event.id);
+        router.push(`/admin/events/${slug}/overview`);
     };
 
     const confirmDelete = async () => {
@@ -290,68 +336,74 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredEvents.map((event) => {
                                         return (
-                                            <Link key={event.id} href={eventListHref(event)} className="block">
-                                                <div className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
-                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-xl flex-shrink-0 relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600">
-                                                                {event.image ? (
-                                                                    <Image
-                                                                        src={event.image}
-                                                                        alt={event.name}
-                                                                        fill
-                                                                        sizes="(max-width: 768px) 48px, 56px"
-                                                                        className="object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    event.name.charAt(0)
-                                                                )}
-                                                            </div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Image
-                                                                        src={getStatusIcon(event.status)}
-                                                                        alt={event.status}
-                                                                        width={16}
-                                                                        height={16}
-                                                                        className="w-4 h-4 md:w-[18px] md:h-[18px]"
-                                                                    />
-                                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm md:text-base">{event.name}</h3>
-                                                                </div>
-                                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                                                                    <span className="flex items-center gap-1">
-                                                                        <MapPin size={12} className="md:w-[14px] md:h-[14px]" /> {event.location}
-                                                                    </span>
-                                                                    <span className="flex items-center gap-1">
-                                                                        <Calendar size={12} className="md:w-[14px] md:h-[14px]" /> {formatDate(event.date)}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
+                                            <div
+                                                key={event.id}
+                                                onClick={() => router.push(eventListHref(event))}
+                                                className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
+                                            >
+                                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                        <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-xl flex-shrink-0 relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600">
+                                                            {event.image ? (
+                                                                <Image
+                                                                    src={event.image}
+                                                                    alt={event.name}
+                                                                    fill
+                                                                    sizes="(max-width: 768px) 48px, 56px"
+                                                                    className="object-cover"
+                                                                />
+                                                            ) : (
+                                                                event.name.charAt(0)
+                                                            )}
                                                         </div>
-
-                                                        <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 pl-16 md:pl-0">
-                                                            <div className="text-center hidden md:block w-32">
-                                                                <p className="text-xs text-gray-500 dark:text-gray-400">Tickets</p>
-                                                                <p className="font-semibold text-gray-900 dark:text-white">{event.ticketsSold}/{event.totalTickets}</p>
+                                                        <div className="min-w-0 flex-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <Image
+                                                                    src={getStatusIcon(event.status)}
+                                                                    alt={event.status}
+                                                                    width={16}
+                                                                    height={16}
+                                                                    className="w-4 h-4 md:w-[18px] md:h-[18px]"
+                                                                />
+                                                                <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm md:text-base">{event.name}</h3>
                                                             </div>
-                                                            <div className="text-center hidden md:block w-24">
-                                                                <p className="text-xs text-gray-500 dark:text-gray-400">Attendees</p>
-                                                                <p className="font-semibold text-gray-900 dark:text-white">{event.attendees}</p>
-                                                            </div>
-                                                            <div className="min-w-[80px] md:w-28 flex justify-center">
-                                                                <span className={`px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium ${getStatusColor(event.status)}`}>
-                                                                    {getDisplayStatus(event.status)}
+                                                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
+                                                                <span className="flex items-center gap-1">
+                                                                    <MapPin size={12} className="md:w-[14px] md:h-[14px]" /> {event.location}
+                                                                </span>
+                                                                <span className="flex items-center gap-1">
+                                                                    <Calendar size={12} className="md:w-[14px] md:h-[14px]" /> {formatDate(event.date)}
                                                                 </span>
                                                             </div>
-                                                            {!isCompactAdmin ? (
-                                                                <button onClick={(e) => handleDeleteClick(e, event)} className="p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors group/delete relative z-10" title="Delete event">
-                                                                    <MoreVertical size={18} className="text-gray-400 group-hover/delete:text-red-500 transition-colors" />
-                                                                </button>
-                                                            ) : null}
                                                         </div>
                                                     </div>
+
+                                                    <div className="flex items-center justify-between md:justify-end gap-4 md:gap-6 pl-16 md:pl-0">
+                                                        <div className="text-center hidden md:block w-32">
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Registered</p>
+                                                            <p className="font-semibold text-gray-900 dark:text-white">{event.ticketsSold}</p>
+                                                        </div>
+                                                        <div className="text-center hidden md:block w-24">
+                                                            <p className="text-xs text-gray-500 dark:text-gray-400">Attendees</p>
+                                                            <p className="font-semibold text-gray-900 dark:text-white">{event.attendees}</p>
+                                                        </div>
+                                                        <div className="min-w-[80px] md:w-28 flex justify-center">
+                                                            <span className={`px-2.5 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-medium ${getStatusColor(event.status)}`}>
+                                                                {getDisplayStatus(event.status)}
+                                                            </span>
+                                                        </div>
+                                                        {!isCompactAdmin ? (
+                                                            <button
+                                                                onClick={(e) => toggleMenu(e, event.id)}
+                                                                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                                                title="More options"
+                                                            >
+                                                                <MoreVertical size={18} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors" />
+                                                            </button>
+                                                        ) : null}
+                                                    </div>
                                                 </div>
-                                            </Link>
+                                            </div>
                                         )
                                     })}
                                 </div>
@@ -362,54 +414,67 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
 
                                 {filteredEvents.map((event) => {
                                     return (
-                                        <Link key={event.id} href={eventListHref(event)} className="block">
-                                            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1">
-                                                <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
-                                                    {event.image ? (
-                                                        <Image
-                                                            src={event.image}
-                                                            alt={event.name}
-                                                            fill
-                                                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                                                            className="object-cover"
-                                                        />
-                                                    ) : (
-                                                        <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
-                                                    )}
-                                                    <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
-                                                    <span className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-medium z-10 ${getStatusColor(event.status)}`}>
-                                                        {getDisplayStatus(event.status)}
-                                                    </span>
-                                                </div>
-                                                <div className="p-5">
-                                                    <div className="flex items-center gap-2">
-                                                        <Image
-                                                            src={getStatusIcon(event.status)}
-                                                            alt={event.status}
-                                                            width={18}
-                                                            height={18}
-                                                        />
-                                                        <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
+                                        <div
+                                            key={event.id}
+                                            onClick={() => router.push(eventListHref(event))}
+                                            className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 cursor-pointer group hover:scale-105 hover:-translate-y-1"
+                                        >
+                                            <div className="h-32 bg-gradient-to-br from-indigo-500 to-purple-600 relative">
+                                                {event.image ? (
+                                                    <Image
+                                                        src={event.image}
+                                                        alt={event.name}
+                                                        fill
+                                                        sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                                                        className="object-cover"
+                                                    />
+                                                ) : (
+                                                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition-colors"></div>
+                                                )}
+                                                <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                                                <span className={`absolute top-3 right-3 px-3 py-1.5 rounded-full text-xs font-medium z-10 ${getStatusColor(event.status)}`}>
+                                                    {getDisplayStatus(event.status)}
+                                                </span>
+                                                {!isCompactAdmin && (
+                                                    <div className="absolute top-3 left-3 z-20">
+                                                        <button
+                                                            onClick={(e) => toggleMenu(e, event.id)}
+                                                            className="p-1.5 bg-black/40 hover:bg-black/60 backdrop-blur-sm rounded-lg transition-colors"
+                                                            title="More options"
+                                                        >
+                                                            <MoreVertical size={16} className="text-white" />
+                                                        </button>
                                                     </div>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                                                        <MapPin size={14} /> {event.location}
-                                                    </p>
-                                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                                                        <Calendar size={14} /> {formatDate(event.date)}
-                                                    </p>
-                                                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                                                        <div className="flex items-center gap-1 text-sm">
-                                                            <Ticket size={14} className="text-gray-400" />
-                                                            <span className="text-gray-600 dark:text-gray-300">{event.ticketsSold}/{event.totalTickets}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1 text-sm">
-                                                            <Users size={14} className="text-gray-400" />
-                                                            <span className="text-gray-600 dark:text-gray-300">{event.attendees} attended</span>
-                                                        </div>
+                                                )}
+                                            </div>
+                                            <div className="p-5">
+                                                <div className="flex items-center gap-2">
+                                                    <Image
+                                                        src={getStatusIcon(event.status)}
+                                                        alt={event.status}
+                                                        width={18}
+                                                        height={18}
+                                                    />
+                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate">{event.name}</h3>
+                                                </div>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                                    <MapPin size={14} /> {event.location}
+                                                </p>
+                                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                                                    <Calendar size={14} /> {formatDate(event.date)}
+                                                </p>
+                                                <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                                    <div className="flex items-center gap-1 text-sm">
+                                                        <Ticket size={14} className="text-gray-400" />
+                                                        <span className="text-gray-600 dark:text-gray-300">{event.ticketsSold} registered</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1 text-sm">
+                                                        <Users size={14} className="text-gray-400" />
+                                                        <span className="text-gray-600 dark:text-gray-300">{event.attendees} attended</span>
                                                     </div>
                                                 </div>
                                             </div>
-                                        </Link>
+                                        </div>
                                     )
                                 })}
                             </div>
@@ -418,6 +483,39 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                     </div>
                 </main>
             </div>
+
+            {/* Portal-rendered dropdown menu */}
+            {openMenuId !== null && menuPos && typeof document !== 'undefined' && createPortal(
+                <div
+                    ref={menuRef}
+                    className="fixed w-44 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 py-1.5"
+                    style={{ top: menuPos.top, left: menuPos.left, zIndex: 9999 }}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        onClick={(e) => {
+                            const event = events.find(ev => ev.id === openMenuId);
+                            if (event) handleOverviewClick(e, event);
+                        }}
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors rounded-t-lg"
+                    >
+                        <Eye size={15} className="text-gray-400" />
+                        Overview
+                    </button>
+                    <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
+                    <button
+                        onClick={(e) => {
+                            const event = events.find(ev => ev.id === openMenuId);
+                            if (event) handleDeleteClick(e, event);
+                        }}
+                        className="flex items-center gap-2.5 w-full px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors rounded-b-lg"
+                    >
+                        <Trash2 size={15} />
+                        Delete Event
+                    </button>
+                </div>,
+                document.body
+            )}
 
             <Modal
                 isOpen={isDeleteModalOpen}

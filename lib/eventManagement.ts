@@ -12,6 +12,7 @@ export interface Ticket {
   name: string;
   type: 'paid' | 'free';
   quantity: number;
+  waitlistReservedQuantity: number;
   price?: number;
   currency?: string;
   startDate: string;
@@ -19,6 +20,7 @@ export interface Ticket {
   timezone: string;
   description?: string;
   visibility: 'visible' | 'hidden';
+  isDeleted?: boolean;
   minQuantity: number;
   maxQuantity: number;
   usedQuantity: number;
@@ -98,13 +100,15 @@ function mapDbTicket(row: any): Ticket {
     name: row.name ?? '',
     type: row.price && Number(row.price) > 0 ? 'paid' : 'free',
     quantity: row.available_quantity ?? 0,
+    waitlistReservedQuantity: Number(row.waitlist_reserved_quantity ?? 0),
     price: row.price ? Number(row.price) : 0,
     currency: 'PHP',
     startDate: row.selling_start_at ?? '',
     endDate: row.selling_end_at ?? '',
     timezone: 'Asia/Manila',
     description: row.description ?? '',
-    visibility: 'visible',
+    visibility: row.is_hidden ? 'hidden' : 'visible',
+    isDeleted: !!row.is_deleted,
     minQuantity: row.min_per_user ?? 1,
     maxQuantity: row.max_per_user ?? 1,
     usedQuantity: row.used_quantity ?? 0,
@@ -182,6 +186,8 @@ function ticketToDb(ticket: Partial<Omit<Ticket, 'id' | 'createdAt' | 'usedQuant
   if (ticket.maxQuantity !== undefined) fields.max_per_user = ticket.maxQuantity;
   if (ticket.startDate !== undefined) fields.selling_start_at = ticket.startDate || null;
   if (ticket.endDate !== undefined) fields.selling_end_at = ticket.endDate || null;
+  if (ticket.visibility !== undefined) fields.is_hidden = ticket.visibility === 'hidden';
+  if (ticket.isDeleted !== undefined) fields.is_deleted = ticket.isDeleted;
   return fields;
 }
 
@@ -237,9 +243,10 @@ function promoTicketIds(appliedTo: 'all' | string[] | undefined): number[] | und
 // TICKETS CRUD
 // ============================================================================
 
-export async function getTickets(eventId: string): Promise<Ticket[]> {
+export async function getTickets(eventId: string, options?: { includeDeleted?: boolean }): Promise<Ticket[]> {
   const numId = resolveEventId(eventId);
-  const rows = await apiFetch<any[]>(`/api/events/${numId}/tickets`);
+  const query = options?.includeDeleted ? '?includeDeleted=1' : '';
+  const rows = await apiFetch<any[]>(`/api/events/${numId}/tickets${query}`);
   return rows.map(mapDbTicket);
 }
 
@@ -271,6 +278,16 @@ export async function deleteTicket(eventId: string, ticketId: string): Promise<b
     method: 'DELETE',
   });
   return true;
+}
+
+export async function restoreTicket(eventId: string, ticketId: string): Promise<Ticket> {
+  const numEventId = resolveEventId(eventId);
+  const row = await apiFetch<any>(`/api/events/${numEventId}/tickets/${ticketId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'restore' }),
+  });
+  return mapDbTicket(row);
 }
 
 // ============================================================================

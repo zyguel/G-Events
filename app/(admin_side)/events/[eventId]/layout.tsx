@@ -1,13 +1,11 @@
-
 import Header from "@/components/admin/Header";
 import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
 import CompactEventMobileBar from "@/components/admin/CompactEventMobileBar";
 import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
-import { EventDataProvider } from "./EventDataContext";
 
-export default async function EventLayout({
+export default async function EventFeedbackLayout({
     children,
     params,
 }: {
@@ -16,7 +14,6 @@ export default async function EventLayout({
 }) {
     const { eventId } = await params;
 
-    // Treat the route segment as a slug like "event-name-123"
     if (!eventId) return notFound();
 
     const slug = eventId;
@@ -25,31 +22,28 @@ export default async function EventLayout({
     if (isNaN(numericId)) return notFound();
 
     const data = await getEventById(numericId);
-
     if (!data) return notFound();
 
-    // Derive status from is_published and dates
     const now = new Date();
     const startDate = data.event_start_at ? new Date(data.event_start_at) : null;
     const endDate = data.event_end_at ? new Date(data.event_end_at) : null;
 
-    let status: "Draft" | "Completed" | "Ongoing" | "Published" | "Not Yet Published" | "Not Started" | "Cancelled" = 'Draft';
+    let status: "Draft" | "Completed" | "Ongoing" | "Published" | "Not Yet Published" | "Not Started" | "Cancelled" = "Draft";
     if (data.is_published) {
         if (endDate && endDate < now) {
-            status = 'Completed';
+            status = "Completed";
         } else if (startDate && startDate <= now && endDate && endDate >= now) {
-            status = 'Ongoing';
+            status = "Ongoing";
         } else {
-            status = 'Published';
+            status = "Published";
         }
     }
 
     const sidebarEvent = {
         id: data.id.toString(),
         name: data.title,
-        date: data.event_start_at || '',
-        status: status,
-        allowWaitlist: data.allow_waitlist ?? false
+        date: data.event_start_at || "",
+        status,
     };
 
     return (
@@ -67,11 +61,9 @@ export default async function EventLayout({
                     <EventsSidebar event={sidebarEvent} />
                 </div>
 
-                {/* Main Content Area — ml-14 below lg: primary Sidebar is fixed; EventsSidebar is hidden so content must clear the rail */}
+                {/* Main Content Area */}
                 <main className="flex-1 min-w-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable] ml-14 lg:ml-0">
-                    <EventDataProvider initialEvent={data}>
-                        {children}
-                    </EventDataProvider>
+                    {children}
                 </main>
             </div>
         </div>

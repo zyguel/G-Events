@@ -13,6 +13,8 @@ interface UserProfile {
     name: string;
     email: string;
     avatarSeed: string;
+    metadataAvatarUrl: string | null;
+    bucketAvatarUrl: string | null;
 }
 
 export type ClientHeaderVariant = 'default' | 'guest';
@@ -30,8 +32,73 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
+    const [avatarSourceIndex, setAvatarSourceIndex] = useState(0);
 
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const getMetadataAvatarUrl = (metadata: Record<string, unknown> | undefined): string | null => {
+        if (!metadata) return null;
+        const candidates = [metadata.avatar_url, metadata.picture, metadata.photo_url, metadata.image, metadata.profile_image_url];
+        const firstUrl = candidates.find((value) => {
+            if (typeof value !== 'string') return false;
+            const trimmed = value.trim();
+            if (!trimmed) return false;
+            return !trimmed.startsWith('storage:');
+        });
+        return typeof firstUrl === 'string' ? firstUrl : null;
+    };
+
+    const getStoredAvatarPath = (metadata: Record<string, unknown> | undefined): string | null => {
+        if (!metadata) return null;
+        const profilePath = typeof metadata.profile_image_path === 'string' ? metadata.profile_image_path.trim() : '';
+        if (profilePath) return profilePath;
+
+        const avatarValue = typeof metadata.avatar_url === 'string' ? metadata.avatar_url.trim() : '';
+        if (avatarValue.startsWith('storage:')) {
+            return avatarValue.slice('storage:'.length).trim() || null;
+        }
+
+        return null;
+    };
+
+    const getBucketAvatarUrlFromApi = async (path?: string): Promise<string | null> => {
+        const query = path ? `?path=${encodeURIComponent(path)}` : '';
+        const response = await fetch(`/api/profile/avatar${query}`, { method: 'GET' });
+        if (!response.ok) {
+            return null;
+        }
+
+        const payload = await response.json();
+        if (!payload?.success) {
+            return null;
+        }
+
+        return (payload?.data?.avatarUrl as string | null) ?? null;
+    };
+
+    const buildUserProfile = async (
+        rawUser: {
+            email?: string;
+            user_metadata?: Record<string, unknown>;
+        }
+    ): Promise<UserProfile> => {
+        const name = (rawUser.user_metadata?.name as string | undefined)
+            || (rawUser.user_metadata?.full_name as string | undefined)
+            || rawUser.email?.split('@')[0]
+            || 'User';
+
+        const metadataAvatarUrl = getMetadataAvatarUrl(rawUser.user_metadata);
+        const storedAvatarPath = getStoredAvatarPath(rawUser.user_metadata);
+        const bucketAvatarUrl = await getBucketAvatarUrlFromApi(storedAvatarPath ?? undefined);
+
+        return {
+            name,
+            email: rawUser.email ?? '',
+            avatarSeed: encodeURIComponent(name),
+            metadataAvatarUrl,
+            bucketAvatarUrl,
+        };
+    };
 
     useEffect(() => {
         if (variant === 'guest') return;
@@ -40,24 +107,41 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
         const fetchUser = async () => {
             const { data: { user } } = await supabase.auth.getUser();
             if (user) {
-                const name =
-                    user.user_metadata?.name ||
-                    user.user_metadata?.full_name ||
-                    user.email?.split('@')[0] ||
-                    'User';
-                setUser({ name, email: user.email ?? '', avatarSeed: encodeURIComponent(name) });
+                const nextUser = await buildUserProfile({
+                    email: user.email,
+                    user_metadata: user.user_metadata as Record<string, unknown> | undefined,
+                });
+                setUser(nextUser);
+                setAvatarSourceIndex(0);
             }
         };
         fetchUser();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             if (session?.user) {
-                const name =
-                    session.user.user_metadata?.name ||
-                    session.user.user_metadata?.full_name ||
-                    session.user.email?.split('@')[0] ||
-                    'User';
-                setUser({ name, email: session.user.email ?? '', avatarSeed: encodeURIComponent(name) });
+                buildUserProfile({
+                    email: session.user.email,
+                    user_metadata: session.user.user_metadata as Record<string, unknown> | undefined,
+                })
+                    .then((nextUser) => {
+                        setUser(nextUser);
+                        setAvatarSourceIndex(0);
+                    })
+                    .catch(() => {
+                        const name =
+                            session.user.user_metadata?.name ||
+                            session.user.user_metadata?.full_name ||
+                            session.user.email?.split('@')[0] ||
+                            'User';
+                        setUser({
+                            name,
+                            email: session.user.email ?? '',
+                            avatarSeed: encodeURIComponent(name),
+                            metadataAvatarUrl: null,
+                            bucketAvatarUrl: null,
+                        });
+                        setAvatarSourceIndex(0);
+                    });
             } else {
                 setUser(null);
             }
@@ -87,8 +171,22 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
     const navLinks = [
         { label: t('Home'), href: '/home', icon: Home },
         { label: t('Tickets'), href: '/tickets', icon: Ticket },
-        { label: t('Settings'), href: '/settings', icon: Settings },
+        { label: t('Settings'), href: '/home/settings', icon: Settings },
     ];
+
+    const avatarSources = user
+        ? [
+            user.metadataAvatarUrl,
+            user.bucketAvatarUrl,
+            `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`,
+        ].filter((source): source is string => Boolean(source && source.trim().length > 0))
+        : [];
+
+    const activeAvatarSrc = avatarSources[Math.min(avatarSourceIndex, Math.max(avatarSources.length - 1, 0))] ?? null;
+
+    const handleAvatarImageError = () => {
+        setAvatarSourceIndex((prev) => (prev < avatarSources.length - 1 ? prev + 1 : prev));
+    };
 
     return (
         <>
@@ -116,12 +214,14 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
 
                 {/* Right Side */}
                 <div className="flex items-center gap-2">
-                    <ThemeToggle />
+                    <div className="hidden md:block">
+                        <ThemeToggle />
+                    </div>
                     {variant === 'default' && (
                         <>
                             <NotificationDropdown />
 
-                            <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+                            <div className="hidden md:block w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
 
                             {/* Profile Button with Dropdown */}
                             <div className="relative" ref={dropdownRef}>
@@ -131,11 +231,12 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
                                     className="flex items-center gap-3 px-3 py-1.5 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-all duration-200 group"
                                 >
                                     <div className="w-9 h-9 rounded-full bg-linear-to-br from-[#3D518C] to-[#5C6BC0] overflow-hidden relative ring-2 ring-gray-200 dark:ring-gray-700 group-hover:ring-[#3D518C]/40 shadow-sm shrink-0 transition-all duration-200">
-                                        {user ? (
+                                        {user && activeAvatarSrc ? (
                                             <img
-                                                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`}
+                                                src={activeAvatarSrc}
                                                 alt={user.name}
                                                 className="object-cover w-full h-full"
+                                                onError={handleAvatarImageError}
                                             />
                                         ) : (
                                             <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
@@ -196,7 +297,7 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
                             <button
                                 onClick={() => setShowLogoutModal(true)}
                                 title={t('Sign out')}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
                             >
                                 <LogOut size={17} />
                                 <span className="hidden md:block text-sm font-medium">{t('Sign out')}</span>
@@ -233,11 +334,16 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
                         </div>
                         {user && (
                             <div className="w-full flex items-center gap-3 bg-gray-50 dark:bg-gray-800 rounded-xl px-4 py-3 border border-gray-100 dark:border-gray-700">
-                                <img
-                                    src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatarSeed}`}
-                                    alt={user.name}
-                                    className="w-9 h-9 rounded-full shrink-0"
-                                />
+                                {activeAvatarSrc ? (
+                                    <img
+                                        src={activeAvatarSrc}
+                                        alt={user.name}
+                                        className="w-9 h-9 rounded-full shrink-0 object-cover"
+                                        onError={handleAvatarImageError}
+                                    />
+                                ) : (
+                                    <div className="w-9 h-9 rounded-full shrink-0 bg-gray-200 dark:bg-gray-700" />
+                                )}
                                 <div className="flex flex-col min-w-0">
                                     <span className="text-sm font-semibold text-gray-800 dark:text-white truncate">{user.name}</span>
                                     <span className="text-xs text-gray-500 dark:text-gray-400 truncate">{user.email}</span>

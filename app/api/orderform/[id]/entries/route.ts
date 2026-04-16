@@ -14,6 +14,7 @@ import {
     buildGroupMemberInviteEmailHtml,
     buildRegistrationConfirmationEmailHtml,
 } from '@/lib/ticketEmail';
+import { verifyWaitlistInviteToken } from '@/lib/waitlistInviteToken';
 
 type FormInput = {
     id?: string;
@@ -38,6 +39,51 @@ function isValidSubmittedFormData(value: unknown): value is SubmittedFormData {
     return maybe.sections.every((section) => Array.isArray(section?.inputs));
 }
 
+const toSafeNonNegativeInt = (value: unknown): number => {
+    const n = Number(value ?? 0);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.trunc(n));
+};
+
+async function adjustTicketReservation(
+    supabase: any,
+    ticketId: number,
+    delta: { reserved: number; available: number }
+): Promise<{ success: boolean; error?: string }> {
+    const { data: ticketRow, error: ticketError } = await supabase
+        .from('Ticket')
+        .select('id, available_quantity, waitlist_reserved_quantity')
+        .eq('id', ticketId)
+        .single();
+
+    if (ticketError || !ticketRow) {
+        return { success: false, error: ticketError?.message || 'Ticket not found' };
+    }
+
+    const nextReserved = Math.max(
+        0,
+        toSafeNonNegativeInt(ticketRow.waitlist_reserved_quantity) + delta.reserved
+    );
+    const nextAvailable = Math.max(
+        0,
+        toSafeNonNegativeInt(ticketRow.available_quantity) + delta.available
+    );
+
+    const { error: updateError } = await supabase
+        .from('Ticket')
+        .update({
+            waitlist_reserved_quantity: nextReserved,
+            available_quantity: nextAvailable,
+        })
+        .eq('id', ticketId);
+
+    if (updateError) {
+        return { success: false, error: updateError.message };
+    }
+
+    return { success: true };
+}
+
 /**
  * POST /api/orderform/[id]/entries
  * Submit a form entry — supports both Individual and Group registrations.
@@ -49,7 +95,7 @@ export async function POST(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { eventId, formData, userEmail, registrationId, ticketId, groupEmails, breakoutSessionId } = body;
+        const { eventId, formData, userEmail, registrationId, ticketId, groupEmails, breakoutSessionId, promotionCode, waitlistInviteToken } = body;
 
         const numericFormId = parseInt(id, 10);
         const numericEventId = parseInt(String(eventId), 10);
@@ -158,7 +204,7 @@ export async function POST(
         // Load event + ticket context
         const { data: eventRow, error: eventError } = await supabase
             .from('Event')
-            .select('id, title, allow_waitlist, allow_breakout_sessions')
+            .select('id, title, capacity, allow_waitlist, allow_breakout_sessions, event_start_at, event_end_at')
             .eq('id', numericEventId)
             .single();
 
@@ -168,7 +214,7 @@ export async function POST(
 
         const { data: ticketRows, error: ticketError } = await supabase
             .from('Ticket')
-            .select('id, name, price, available_quantity')
+            .select('id, name, price, available_quantity, waitlist_reserved_quantity')
             .eq('event_id', numericEventId);
 
         if (ticketError) {
@@ -200,9 +246,88 @@ export async function POST(
         console.log('[Registration] API Request Body - userEmail:', userEmail, 'groupEmails:', groupEmails);
         
         const normalizedPrimaryEmail = resolvedEmail.trim().toLowerCase();
+
+        let waitlistInviteEntry: {
+            id: number;
+            email: string;
+            ticket_id: number | null;
+            invite_expires_at: string | null;
+        } | null = null;
+
+        if (waitlistInviteToken && typeof waitlistInviteToken === 'string') {
+            const verification = verifyWaitlistInviteToken(waitlistInviteToken);
+            if (!verification.valid || !verification.claims) {
+                return NextResponse.json({ error: verification.reason || 'Invalid waitlist invite link' }, { status: 400 });
+            }
+
+            const claims = verification.claims;
+            if (claims.eid !== numericEventId) {
+                return NextResponse.json({ error: 'Waitlist invite link is for a different event' }, { status: 400 });
+            }
+
+            if (claims.email !== normalizedPrimaryEmail) {
+                return NextResponse.json({ error: 'This invite link belongs to a different email address' }, { status: 403 });
+            }
+
+            const { data: inviteRow, error: inviteError } = await supabase
+                .from('WaitlistEntry')
+                .select('id, email, ticket_id, status, invite_expires_at')
+                .eq('id', claims.wid)
+                .eq('event_id', numericEventId)
+                .single();
+
+            if (inviteError || !inviteRow) {
+                return NextResponse.json({ error: 'Waitlist invite entry not found' }, { status: 404 });
+            }
+
+            if (String(inviteRow.email || '').trim().toLowerCase() !== normalizedPrimaryEmail) {
+                return NextResponse.json({ error: 'Waitlist invite email mismatch' }, { status: 403 });
+            }
+
+            if (String(inviteRow.status || '').toLowerCase() !== 'invited') {
+                return NextResponse.json({ error: 'Waitlist invite is no longer active' }, { status: 409 });
+            }
+
+            if (inviteRow.invite_expires_at && new Date(inviteRow.invite_expires_at).getTime() < Date.now()) {
+                if (inviteRow.ticket_id !== null) {
+                    await adjustTicketReservation(supabase, Number(inviteRow.ticket_id), {
+                        reserved: -1,
+                        available: -1,
+                    });
+                }
+
+                await supabase
+                    .from('WaitlistEntry')
+                    .update({
+                        status: 'pending',
+                        invite_sent_at: null,
+                        invite_expires_at: null,
+                    })
+                    .eq('id', inviteRow.id)
+                    .eq('event_id', numericEventId);
+
+                return NextResponse.json({ error: 'Waitlist invite link has expired' }, { status: 410 });
+            }
+
+            if (claims.tid !== null && inviteRow.ticket_id !== null && Number(claims.tid) !== Number(inviteRow.ticket_id)) {
+                return NextResponse.json({ error: 'Waitlist invite ticket mismatch' }, { status: 400 });
+            }
+
+            waitlistInviteEntry = {
+                id: Number(inviteRow.id),
+                email: String(inviteRow.email),
+                ticket_id: inviteRow.ticket_id === null ? null : Number(inviteRow.ticket_id),
+                invite_expires_at: inviteRow.invite_expires_at,
+            };
+        }
+
         const groupEmailsList: string[] = Array.isArray(groupEmails)
             ? groupEmails.map((e: string) => e?.trim().toLowerCase()).filter(Boolean)
             : [];
+
+        if (waitlistInviteEntry && groupEmailsList.length > 0) {
+            return NextResponse.json({ error: 'Waitlist invite registrations must be individual only' }, { status: 400 });
+        }
 
         const uniqueEmails = Array.from(
             new Set([normalizedPrimaryEmail, ...groupEmailsList])
@@ -210,6 +335,55 @@ export async function POST(
 
         const totalRequested = uniqueEmails.length;
         const isGroupRegistration = totalRequested > 1;
+
+        // Enforce event-wide capacity so group submissions cannot overbook the event.
+        const eventCapacity = Number((eventRow as { capacity?: number | null }).capacity ?? 0);
+        if (eventCapacity > 0) {
+            const { count: activeRegistrationCount, error: activeCountError } = await supabase
+                .from('Registration')
+                .select('id', { count: 'exact', head: true })
+                .eq('event_id', numericEventId)
+                .not('status', 'in', '(cancelled,rejected)');
+
+            if (activeCountError) {
+                console.error('[Registration] Event capacity check failed:', activeCountError);
+                return NextResponse.json({ error: 'Failed to validate event capacity. Please try again.' }, { status: 500 });
+            }
+
+            const { data: reserveRows, error: reserveError } = await supabase
+                .from('Ticket')
+                .select('waitlist_reserved_quantity')
+                .eq('event_id', numericEventId);
+
+            if (reserveError) {
+                console.error('[Registration] Waitlist reserve capacity check failed:', reserveError);
+                return NextResponse.json({ error: 'Failed to validate event capacity. Please try again.' }, { status: 500 });
+            }
+
+            const reservedFromTickets = (reserveRows || []).reduce(
+                (sum: number, row: { waitlist_reserved_quantity?: number | null }) =>
+                    sum + Math.max(0, Number(row.waitlist_reserved_quantity ?? 0)),
+                0
+            );
+
+            // If this request redeems an invite, treat that reserved slot as consumed by this submission.
+            const reserveAdjustment = waitlistInviteEntry ? 1 : 0;
+            const activeReservedSeats = Math.max(0, reservedFromTickets - reserveAdjustment);
+            const effectiveCapacity = Math.max(0, eventCapacity - activeReservedSeats);
+
+            const nextTotal = Number(activeRegistrationCount || 0) + totalRequested;
+            if (nextTotal > effectiveCapacity) {
+                const remaining = Math.max(0, effectiveCapacity - Number(activeRegistrationCount || 0));
+                return NextResponse.json(
+                    {
+                        error: isGroupRegistration
+                            ? `Group size exceeds remaining event capacity. Only ${remaining} seat(s) are left.`
+                            : 'Event capacity has been reached.',
+                    },
+                    { status: 409 }
+                );
+            }
+        }
 
         console.log('[Registration] Normalized Primary:', normalizedPrimaryEmail);
         console.log('[Registration] Group Emails List (Cleaned):', groupEmailsList);
@@ -261,23 +435,41 @@ export async function POST(
         }
 
         // ── Ticket selection ────────────────────────────────────────────────
+        const effectiveTicketId = waitlistInviteEntry?.ticket_id ?? numericTicketId;
+
         let selectedTicket = null;
-        if (numericTicketId) {
-            selectedTicket = tickets.find((t: any) => t.id === numericTicketId) || null;
+        if (effectiveTicketId) {
+            selectedTicket = tickets.find((t: any) => t.id === effectiveTicketId) || null;
             if (selectedTicket) {
                 const total = Number(selectedTicket.available_quantity ?? 0);
+                const reservedForWaitlist = Number(selectedTicket.waitlist_reserved_quantity ?? 0);
+                const publicTotal = Math.max(0, total - Math.max(0, reservedForWaitlist));
                 const used = usageByTicket.get(Number(selectedTicket.id)) || 0;
-                if (total > 0 && (used + totalRequested) > total) {
+                if (
+                    !waitlistInviteEntry &&
+                    ((publicTotal <= 0 && total > 0) || (publicTotal > 0 && (used + totalRequested) > publicTotal))
+                ) {
                     selectedTicket = null; // No space for whole group
                 }
             }
         }
 
-        if (!selectedTicket && !numericTicketId) {
+        if (!selectedTicket && !effectiveTicketId) {
             selectedTicket = tickets.find((t: any) => {
                 const total = Number(t.available_quantity ?? 0);
+                const reservedForWaitlist = Number(t.waitlist_reserved_quantity ?? 0);
+                const publicTotal = Math.max(0, total - Math.max(0, reservedForWaitlist));
                 const used = usageByTicket.get(Number(t.id)) || 0;
-                return total === 0 || (used + totalRequested) <= total;
+
+                if (total === 0) {
+                    return true;
+                }
+
+                if (publicTotal <= 0) {
+                    return false;
+                }
+
+                return (used + totalRequested) <= publicTotal;
             }) || null;
         }
 
@@ -291,55 +483,131 @@ export async function POST(
         let breakoutSessionTitle = '';
         let breakoutSessionLocation = '';
 
-        if (selectedTicket) {
-            // ── Step 1: Verify ALL emails exist in the User table ────────────
-            for (const email of uniqueEmails) {
-                const { data: userCheck } = await supabase
-                    .from('User')
-                    .select('id')
-                    .ilike('email', email)
-                    .limit(1);
+        let finalPricePaid = selectedTicket ? Number(selectedTicket.price ?? 0) : 0;
+        let validPromotionId: number | null = null;
 
-                if (!userCheck || userCheck.length === 0) {
-                    const authEmail = authUser?.email?.trim().toLowerCase() || null;
-                    const isPrimaryEmail = email === normalizedPrimaryEmail;
-                    const canAutoProvisionPrimaryUser =
-                        !isGroupRegistration && isPrimaryEmail && authEmail === normalizedPrimaryEmail;
+        if (selectedTicket && promotionCode && typeof promotionCode === 'string') {
+            const { data: promoData } = await supabase
+                .from('Promotion')
+                .select(`id, discount_type, discount_value, max_uses, current_uses, start_at, end_at, PromotionTicket(ticket_id)`)
+                .eq('event_id', numericEventId)
+                .ilike('code', promotionCode.trim())
+                .single();
 
-                    if (canAutoProvisionPrimaryUser) {
-                        const fallbackName =
-                            resolvedName && resolvedName !== 'Attendee'
-                                ? resolvedName
-                                : normalizedPrimaryEmail.split('@')[0] || 'Attendee';
+            if (promoData) {
+                const now = new Date();
+                const isValidTime = 
+                    (!promoData.start_at || new Date(promoData.start_at) <= now) &&
+                    (!promoData.end_at || new Date(promoData.end_at) >= now);
+                
+                const currentUses = Number(promoData.current_uses ?? 0);
+                const maxUses = Number(promoData.max_uses ?? 0);
+                const isUnderLimit = maxUses === 0 || (currentUses + totalRequested) <= maxUses;
 
-                        const { error: insertUserError } = await supabase
-                            .from('User')
-                            .insert([{ name: fallbackName, email: normalizedPrimaryEmail }]);
-
-                        if (!insertUserError) {
-                            console.log('[Registration] Auto-provisioned missing User row for authenticated attendee:', normalizedPrimaryEmail);
-                            continue;
-                        }
-
-                        // If another request created the row concurrently, proceed.
-                        if (insertUserError.code === '23505') {
-                            console.log('[Registration] User row already created concurrently for:', normalizedPrimaryEmail);
-                            continue;
-                        }
-
-                        console.error('[Registration] Failed to auto-provision User row:', insertUserError);
-                        return NextResponse.json(
-                            { error: 'Failed to initialize your attendee profile. Please try again.' },
-                            { status: 500 }
-                        );
+                const allowedTicketIds = promoData.PromotionTicket?.map((pt: any) => pt.ticket_id) || [];
+                const isTicketAllowed = allowedTicketIds.length === 0 || allowedTicketIds.includes(selectedTicket.id);
+                
+                if (isValidTime && isUnderLimit && isTicketAllowed) {
+                    const discountVal = Number(promoData.discount_value || 0);
+                    if (promoData.discount_type === 'percentage') {
+                        finalPricePaid = Math.max(0, finalPricePaid * (100 - discountVal) / 100);
+                    } else {
+                        finalPricePaid = Math.max(0, finalPricePaid - discountVal);
                     }
+                    validPromotionId = promoData.id;
+                }
+            }
+        }
 
-                    console.warn('[Registration] Rejected registration because email is not a known member:', email);
+        if (selectedTicket) {
+            // ── Step 1: Validate against Supabase Auth users and ensure User rows exist ────────────
+            const targetEmailSet = new Set(uniqueEmails.map((e) => String(e).trim().toLowerCase()));
+            const authUserNameByEmail = new Map<string, string | null>();
+            const perPage = 1000;
+            let page = 1;
+            let hasMore = true;
+
+            while (hasMore && authUserNameByEmail.size < targetEmailSet.size) {
+                const { data: authPage, error: authLookupError } = await supabase.auth.admin.listUsers({ page, perPage });
+
+                if (authLookupError) {
+                    console.error('[Registration] Auth user lookup failed:', authLookupError);
                     return NextResponse.json(
-                        { error: `The email ${email} is not registered in our system. All registrants must have an account.` },
+                        { error: 'Failed to validate registrant accounts. Please try again.' },
+                        { status: 500 }
+                    );
+                }
+
+                const users = authPage?.users || [];
+                for (const auth of users) {
+                    const email = String(auth.email || '').trim().toLowerCase();
+                    if (!email || !targetEmailSet.has(email)) continue;
+
+                    const userMeta = (auth.user_metadata || {}) as Record<string, unknown>;
+                    const fullName = String(userMeta.full_name || userMeta.name || '').trim() || null;
+                    authUserNameByEmail.set(email, fullName);
+                }
+
+                hasMore = users.length === perPage;
+                page += 1;
+            }
+
+            const { data: existingUserRows, error: existingUserLookupError } = await supabase
+                .from('User')
+                .select('id, email')
+                .in('email', uniqueEmails);
+
+            if (existingUserLookupError) {
+                console.error('[Registration] User table lookup failed:', existingUserLookupError);
+                return NextResponse.json({ error: 'Database check failed: ' + existingUserLookupError.message }, { status: 500 });
+            }
+
+            const existingProfileEmailSet = new Set(
+                (existingUserRows || []).map((row: { email: string | null }) => String(row.email || '').trim().toLowerCase()).filter(Boolean)
+            );
+
+            for (const email of uniqueEmails) {
+                const normalizedEmail = String(email).trim().toLowerCase();
+                if (existingProfileEmailSet.has(normalizedEmail)) continue;
+
+                if (!authUserNameByEmail.has(normalizedEmail)) {
+                    console.warn('[Registration] Rejected registration because email is not in Supabase Auth:', normalizedEmail);
+                    return NextResponse.json(
+                        { error: `The email ${normalizedEmail} does not have an account yet. Please sign up first.` },
                         { status: 400 }
                     );
                 }
+
+                const authEmail = authUser?.email?.trim().toLowerCase() || null;
+                const isPrimaryEmail = normalizedEmail === normalizedPrimaryEmail;
+                const nameFromAuth = authUserNameByEmail.get(normalizedEmail) || null;
+                const fallbackName =
+                    (isPrimaryEmail && resolvedName && resolvedName !== 'Attendee' ? resolvedName : null) ||
+                    nameFromAuth ||
+                    normalizedEmail.split('@')[0] ||
+                    'Attendee';
+
+                const canProvision = isPrimaryEmail ? authEmail === normalizedPrimaryEmail : true;
+                if (!canProvision) {
+                    return NextResponse.json(
+                        { error: `Unable to verify account ownership for ${normalizedEmail}. Please sign in with that email.` },
+                        { status: 403 }
+                    );
+                }
+
+                const { error: insertUserError } = await supabase
+                    .from('User')
+                    .insert([{ name: fallbackName, email: normalizedEmail }]);
+
+                if (insertUserError && insertUserError.code !== '23505') {
+                    console.error('[Registration] Failed to auto-provision User row:', insertUserError);
+                    return NextResponse.json(
+                        { error: 'Failed to initialize attendee profiles. Please try again.' },
+                        { status: 500 }
+                    );
+                }
+
+                existingProfileEmailSet.add(normalizedEmail);
             }
 
             let registrationGroupId: number | null = null;
@@ -379,7 +647,7 @@ export async function POST(
                     user_id: primaryUserId,
                     ticket_id: selectedTicket.id,
                     status: 'pending',
-                    final_price_paid: Number(selectedTicket.price ?? 0),
+                    final_price_paid: finalPricePaid,
                     registration_group_id: registrationGroupId,
                     ticket_token: primaryTicketToken,
                     profile_pending: false,
@@ -423,7 +691,7 @@ export async function POST(
                         user_id: memberUserId,
                         ticket_id: selectedTicket.id,
                         status: 'pending',
-                        final_price_paid: Number(selectedTicket.price ?? 0),
+                        final_price_paid: finalPricePaid,
                         registration_group_id: registrationGroupId,
                         ticket_token: memberTicketToken,
                         profile_pending: true,
@@ -538,6 +806,21 @@ export async function POST(
 
         if (eErr) return NextResponse.json({ error: eErr.message }, { status: 500 });
 
+        if (submissionMode === 'registered' && waitlistInviteEntry) {
+            if (waitlistInviteEntry.ticket_id !== null) {
+                await adjustTicketReservation(supabase, Number(waitlistInviteEntry.ticket_id), {
+                    reserved: -1,
+                    available: 0,
+                });
+            }
+
+            await supabase
+                .from('WaitlistEntry')
+                .delete()
+                .eq('id', waitlistInviteEntry.id)
+                .eq('event_id', numericEventId);
+        }
+
         // ── Confirmation email ──────────────────────────────────────────────
         try {
             if (submissionMode === 'waitlisted') {
@@ -572,11 +855,16 @@ export async function POST(
 
                 if (breakoutTicketToken) {
                     const breakoutUrl = buildBreakoutEticketUrl(baseUrl, slug, breakoutTicketToken);
-                    const breakoutQrImageUrl = await buildAndStoreTicketQrImage({
-                        supabase,
-                        ticketUrl: breakoutUrl,
-                        folder: `event-${numericEventId}/breakouts`,
-                    });
+                    let breakoutQrImageUrl = '';
+                    try {
+                        breakoutQrImageUrl = await buildAndStoreTicketQrImage({
+                            supabase,
+                            ticketUrl: breakoutUrl,
+                            folder: `event-${numericEventId}/breakouts`,
+                        });
+                    } catch (breakoutQrError) {
+                        console.warn('Breakout QR image generation failed; sending link-only breakout ticket email.', breakoutQrError);
+                    }
 
                     await sendEmail({
                         to: resolvedEmail,
@@ -586,7 +874,7 @@ export async function POST(
                             eventTitle: eventRow.title,
                             sessionTitle: breakoutSessionTitle || 'Breakout session',
                             sessionLocation: breakoutSessionLocation || undefined,
-                            qrImageUrl: breakoutQrImageUrl,
+                            qrImageUrl: breakoutQrImageUrl || undefined,
                             ticketUrl: breakoutUrl,
                         }),
                     });
@@ -622,9 +910,19 @@ export async function POST(
                     eventId: numericEventId,
                     registrationId: attendee.registrationId,
                     email: attendee.email,
+                    eventStartAt: eventRow.event_start_at || null,
+                    eventEndAt: eventRow.event_end_at || null,
                 }),
             }))
             : [];
+
+        if (validPromotionId && submissionMode === 'registered') {
+            const { data: currentPromo } = await supabase.from('Promotion').select('current_uses').eq('id', validPromotionId).single();
+            if (currentPromo) {
+                const newUses = Number(currentPromo.current_uses || 0) + totalRequested;
+                await supabase.from('Promotion').update({ current_uses: newUses }).eq('id', validPromotionId);
+            }
+        }
 
         return NextResponse.json({
             success: true,

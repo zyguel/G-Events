@@ -40,6 +40,9 @@ export interface Order {
     addOnStatus: string;
     proofOfPayment?: string | null;
     groupMemberEmails?: string[];
+    ticketDeleted?: boolean;
+    ticketPrice?: number;
+    finalPricePaid?: number;
 }
 
 // Type for Filter options
@@ -121,16 +124,16 @@ function FilterDropdown({ label, value, options, onChange, placeholder }: Filter
                                 ref={refs.setFloating}
                                 style={floatingStyles}
                                 {...getFloatingProps()}
-                                className="z-[100]"
+                                className="z-100"
                             >
                                 <motion.div
                                     initial={{ opacity: 0, scale: 0.95, y: -10 }}
                                     animate={{ opacity: 1, scale: 1, y: 0 }}
                                     exit={{ opacity: 0, scale: 0.95, y: -10 }}
                                     transition={{ duration: 0.15, ease: "easeOut" }}
-                                    className="min-w-[200px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl overflow-hidden focus:outline-none"
+                                    className="min-w-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-xl overflow-hidden focus:outline-none"
                                 >
-                                    <div className="p-1.5 overflow-y-auto max-h-[300px] scrollbar-hide">
+                                    <div className="p-1.5 overflow-y-auto max-h-75 scrollbar-hide">
                                         {options.map((option) => (
                                             <button
                                                 key={option.value}
@@ -228,7 +231,7 @@ function AttendeeSearch({
                 <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest ml-1">{label}</label>
                 <div className="group relative p-4 bg-white dark:bg-gray-800/60 backdrop-blur-md border border-[#3D518C]/20 dark:border-blue-500/20 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md transition-all duration-300">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 bg-gradient-to-br from-[#3D518C]/10 to-[#5C6BC0]/10 dark:from-blue-500/10 dark:to-indigo-500/10 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-linear-to-br from-[#3D518C]/10 to-[#5C6BC0]/10 dark:from-blue-500/10 dark:to-indigo-500/10 rounded-xl flex items-center justify-center">
                             <User className="w-5 h-5 text-[#3D518C] dark:text-blue-400" />
                         </div>
                         <div className="flex flex-col">
@@ -280,7 +283,7 @@ function AttendeeSearch({
                         exit={{ opacity: 0, y: 5, scale: 0.98 }}
                         className="absolute top-full left-0 right-0 mt-2 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-2xl z-50 overflow-hidden backdrop-blur-xl"
                     >
-                        <div className="p-1.5 max-h-[240px] overflow-y-auto scrollbar-hide">
+                        <div className="p-1.5 max-h-60 overflow-y-auto scrollbar-hide">
                             {results.length > 0 ? (
                                 results.map((user) => (
                                     <button
@@ -373,7 +376,7 @@ function AddOrderModal({
                         animate={{ opacity: 1, y: 0 }}
                         className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800/30 rounded-2xl flex items-start gap-3"
                     >
-                        <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                        <XCircle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <p className="text-sm font-bold text-red-800 dark:text-red-300">Registration Error</p>
                             <p className="text-xs text-red-600 dark:text-red-400/80 mt-1 leading-relaxed">{error}</p>
@@ -461,7 +464,7 @@ function AddOrderModal({
                         {registrationType === "Group" && (
                             <button
                                 onClick={addUserSlot}
-                                className="flex items-center gap-2 text-[10px] font-black text-[#3D518C] dark:text-blue-400 uppercase tracking-[0.1em] hover:opacity-70 transition-opacity"
+                                className="flex items-center gap-2 text-[10px] font-black text-[#3D518C] dark:text-blue-400 uppercase tracking-widest hover:opacity-70 transition-opacity"
                             >
                                 <Plus size={14} /> Add Attendee
                             </button>
@@ -555,17 +558,17 @@ function EditOrderModal({
         >
             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-7">
                 {/* Attendee Info Card */}
-                <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-gradient-to-br from-gray-50 via-white to-gray-50 dark:from-gray-800/70 dark:via-gray-800/50 dark:to-gray-800/70">
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#3D518C]/5 to-transparent rounded-bl-full" />
+                <div className="relative overflow-hidden rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-linear-to-br from-gray-50 via-white to-gray-50 dark:from-gray-800/70 dark:via-gray-800/50 dark:to-gray-800/70">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-linear-to-bl from-[#3D518C]/5 to-transparent rounded-bl-full" />
                     <div className="p-5 flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#3D518C] to-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-[#3D518C]/20 flex-shrink-0">
+                        <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-[#3D518C] to-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-[#3D518C]/20 shrink-0">
                             {order?.name?.charAt(0)?.toUpperCase() || "?"}
                         </div>
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{order?.name}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{order?.email}</p>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider flex-shrink-0 ${
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
                             order?.status === "Confirmed"
                                 ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
                                 : order?.status === "Rejected"
@@ -649,6 +652,119 @@ function EditOrderModal({
     );
 }
 
+function IssueRefundModal({
+    isOpen,
+    onClose,
+    order,
+    availableTickets,
+    onSave,
+    isSaving,
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    order: Order | null;
+    availableTickets: any[];
+    onSave: (orderId: string, ticketId: string) => Promise<{ success: boolean; error?: string }>;
+    isSaving: boolean;
+}) {
+    const [selectedTicketId, setSelectedTicketId] = useState("");
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (!order) {
+            setSelectedTicketId("");
+            setError(null);
+            return;
+        }
+        setError(null);
+        const firstAvailable = availableTickets.find((t) => !t.is_deleted && String(t.id) !== order.ticketId);
+        setSelectedTicketId(firstAvailable ? String(firstAvailable.id) : "");
+    }, [order, availableTickets]);
+
+    const selectedTicket = availableTickets.find((ticket) => String(ticket.id) === selectedTicketId);
+    const oldAmount = Number(order?.finalPricePaid || 0);
+    const newAmount = Number(selectedTicket?.price || 0);
+    const returnableAmount = Math.max(oldAmount - newAmount, 0);
+    const additionalAmountDue = Math.max(newAmount - oldAmount, 0);
+
+    return (
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title="Issue Refund & Reassign Ticket"
+            subtitle={order ? `Registration #${order.id}` : undefined}
+            size="md"
+            bodyClassName="p-0 flex flex-col overflow-hidden"
+        >
+            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-5">
+                {error && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+                        {error}
+                    </div>
+                )}
+
+                <div className="rounded-2xl border border-gray-100 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/40">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Current Deleted Ticket</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{order?.ticketType || "Unknown"}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Paid Amount: PHP {oldAmount.toFixed(2)}</p>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400">Assign Replacement Ticket</label>
+                    <div className="grid grid-cols-1 gap-2">
+                        {availableTickets
+                            .filter((ticket) => !ticket.is_deleted)
+                            .map((ticket) => {
+                                const isSelected = String(ticket.id) === selectedTicketId;
+                                return (
+                                    <button
+                                        key={ticket.id}
+                                        onClick={() => setSelectedTicketId(String(ticket.id))}
+                                        className={`text-left rounded-xl border px-3 py-2 transition-colors ${isSelected
+                                            ? "border-[#3D518C] bg-[#3D518C]/10 dark:border-[#ABD2FA]"
+                                            : "border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                                            }`}
+                                    >
+                                        <p className="text-sm font-medium text-gray-900 dark:text-white">{ticket.name}</p>
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">PHP {Number(ticket.price || 0).toFixed(2)}</p>
+                                    </button>
+                                );
+                            })}
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 bg-white dark:bg-gray-800">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Adjustment Summary</p>
+                    <div className="mt-2 space-y-1 text-sm">
+                        <p className="text-gray-700 dark:text-gray-300">New Ticket Cost: PHP {newAmount.toFixed(2)}</p>
+                        <p className="text-green-700 dark:text-green-400 font-medium">Returnable Amount: PHP {returnableAmount.toFixed(2)}</p>
+                        <p className="text-amber-700 dark:text-amber-400 font-medium">Additional Amount Due: PHP {additionalAmountDue.toFixed(2)}</p>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">
+                        Attendee will receive an email notification for this ticket change and amount adjustment.
+                    </p>
+                </div>
+            </div>
+
+            <ModalFooter
+                onCancel={onClose}
+                onSave={async () => {
+                    if (!order || !selectedTicketId) return;
+                    setError(null);
+                    const result = await onSave(order.id, selectedTicketId);
+                    if (!result.success) {
+                        setError(result.error || "Failed to process refund reassignment.");
+                    }
+                }}
+                isSubmitting={isSaving}
+                saveText="Apply Refund Action"
+                submitType="button"
+                disableSave={!order || !selectedTicketId}
+            />
+        </Modal>
+    );
+}
+
 
 
 
@@ -661,7 +777,7 @@ interface ManageOrdersClientProps {
 
 export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
     const { t } = useLocale();
-    const [activeTab, setActiveTab] = useState<"all" | "review">("all");
+    const [activeTab, setActiveTab] = useState<"all" | "review" | "refunds">("all");
     const [orders, setOrders] = useState<Order[]>([]);
     const [searchQuery, setSearchQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
@@ -674,6 +790,8 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [orderToEdit, setOrderToEdit] = useState<Order | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+    const [orderToRefund, setOrderToRefund] = useState<Order | null>(null);
 
     const [appliedFilters, setAppliedFilters] = useState({
         status: "All",
@@ -792,6 +910,8 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
         (allOrdersPage - 1) * allOrdersRowsPerPage,
         allOrdersPage * allOrdersRowsPerPage
     );
+
+    const refundCandidates = orders.filter((order) => order.ticketDeleted && order.status !== "Rejected");
 
     useEffect(() => {
         setAllOrdersPage(1);
@@ -979,6 +1099,43 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
         }
     };
 
+    const handleIssueRefund = async (orderId: string, newTicketId: string) => {
+        setIsSaving(true);
+        try {
+            const res = await fetch(`/api/events/${event.id}/orders/${orderId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "refund_reassign", ticketId: newTicketId }),
+            });
+            const json = await res.json();
+            if (!res.ok || !json?.success) {
+                return { success: false, error: json?.error || "Failed to process refund action" };
+            }
+
+            const replacement = availableTickets.find((ticket) => String(ticket.id) === newTicketId);
+            setOrders((prev) => prev.map((order) => {
+                if (order.id !== orderId) return order;
+                return {
+                    ...order,
+                    ticketId: newTicketId,
+                    ticketType: replacement?.name || order.ticketType,
+                    ticketDeleted: false,
+                    ticketPrice: Number(replacement?.price || 0),
+                    finalPricePaid: Number(replacement?.price || 0),
+                };
+            }));
+
+            setIsRefundModalOpen(false);
+            setOrderToRefund(null);
+            return { success: true };
+        } catch (error) {
+            console.error("Error issuing refund:", error);
+            return { success: false, error: error instanceof Error ? error.message : "Failed to process refund action" };
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     return (
         <div className="flex flex-col h-screen text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
@@ -988,7 +1145,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                     {/* Page Header */}
                     <div className="mb-8">
                         <div className="flex items-center gap-4 mb-6">
-                            <div className="w-14 h-14 bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
+                            <div className="w-14 h-14 bg-linear-to-br from-[#3D518C] to-[#5C6BC0] rounded-2xl flex items-center justify-center shadow-lg">
                                 <Users className="w-7 h-7 text-white" />
                             </div>
                             <div>
@@ -1024,6 +1181,23 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                         >
                             {t('All Orders')}
                             {activeTab === "all" && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("refunds")}
+                            className={`pb-3 px-1 text-sm font-medium transition-colors relative ${activeTab === "refunds"
+                                ? "text-[#3D518C] dark:text-[#ABD2FA]"
+                                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                                }`}
+                        >
+                            {t('Issue Refunds')}
+                            {refundCandidates.length > 0 && (
+                                <span className="ml-2 inline-flex items-center justify-center rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300 text-[10px] px-2 py-0.5">
+                                    {refundCandidates.length}
+                                </span>
+                            )}
+                            {activeTab === "refunds" && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
                             )}
                         </button>
@@ -1092,7 +1266,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                 {/* Add Order Button */}
                                 <button 
                                     onClick={() => setIsAddModalOpen(true)}
-                                    className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all"
+                                    className="flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all"
                                 >
                                     <Plus size={18} />
                                     {t('Add Order')}
@@ -1160,7 +1334,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                                 </button>
                                                 <button
                                                     onClick={handleApplyFilters}
-                                                    className="px-8 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#3D518C]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                                                    className="px-8 py-2.5 bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#3D518C]/20 hover:scale-[1.02] active:scale-[0.98] transition-all"
                                                 >
                                                     {t('Apply Filters')}
                                                 </button>
@@ -1286,7 +1460,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                                                     top: menuPosition.top,
                                                                     left: menuPosition.left,
                                                                 }}
-                                                                className="w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl z-[100] overflow-hidden animate-fade-in"
+                                                                className="w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl z-100 overflow-hidden animate-fade-in"
                                                                 onClick={(e) => e.stopPropagation()}
                                                             >
                                                                 <div className="p-1.5">
@@ -1357,6 +1531,54 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                             onReject={handleRejectOrder}
                         />
                     )}
+
+                    {activeTab === "refunds" && (
+                        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+                            {refundCandidates.length === 0 ? (
+                                <div className="p-8 text-center">
+                                    <p className="text-gray-600 dark:text-gray-400 text-sm">No refund actions are currently needed.</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full">
+                                        <thead>
+                                            <tr className="bg-red-50 dark:bg-red-900/20">
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Registration ID</th>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Attendee</th>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Deleted Ticket</th>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Paid Amount</th>
+                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                            {refundCandidates.map((order) => (
+                                                <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                                    <td className="px-6 py-4 text-sm font-medium text-gray-900 dark:text-white">{order.id}</td>
+                                                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">
+                                                        <p className="font-medium">{order.name}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{order.email}</p>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">{order.ticketType}</td>
+                                                    <td className="px-6 py-4 text-sm text-gray-700 dark:text-gray-300">PHP {Number(order.finalPricePaid || 0).toFixed(2)}</td>
+                                                    <td className="px-6 py-4">
+                                                        <button
+                                                            onClick={() => {
+                                                                setOrderToRefund(order);
+                                                                setIsRefundModalOpen(true);
+                                                            }}
+                                                            className="inline-flex items-center gap-2 rounded-lg bg-[#3D518C] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#2f406f] transition-colors"
+                                                        >
+                                                            Reassign & Refund
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
             </main>
 
@@ -1382,6 +1604,18 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                 isSaving={isAddingOrder}
             />
 
+            <IssueRefundModal
+                isOpen={isRefundModalOpen}
+                onClose={() => {
+                    setIsRefundModalOpen(false);
+                    setOrderToRefund(null);
+                }}
+                order={orderToRefund}
+                availableTickets={availableTickets}
+                onSave={handleIssueRefund}
+                isSaving={isSaving}
+            />
+
             {/* Delete Confirmation Modal */}
 
 
@@ -1394,7 +1628,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
             >
                 <div className="space-y-4">
                     <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-100 dark:border-red-900/30 flex items-start gap-4">
-                        <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center flex-shrink-0">
+                        <div className="w-10 h-10 bg-red-100 dark:bg-red-900/40 rounded-full flex items-center justify-center shrink-0">
                             <Trash2 size={20} className="text-red-600 dark:text-red-400" />
                         </div>
                         <div>

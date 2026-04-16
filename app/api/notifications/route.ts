@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { requireUser } from '@/lib/apiAuth';
+import { requireUser, getAuthErrorResponse } from '@/lib/apiAuth';
 import {
     ACTIVE_ORGANIZATION_COOKIE_NAME,
     SESSION_ROLE,
@@ -8,13 +8,186 @@ import {
 } from '@/lib/constants';
 import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
 
+export const dynamic = 'force-dynamic';
+
+async function getNotificationsData(activeOrganizationId: number | null) {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+    const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+
+    const supabase = await createClient();
+
+    let registrationsTodayQuery = supabase
+        .from('Registration')
+        .select('id, event_id, Event!inner(title, organization_id)', { count: 'exact' })
+        .gte('created_at', todayStart)
+        .neq('status', 'cancelled');
+
+    let pendingOrdersQuery = supabase
+        .from('Registration')
+        .select('id, Event!inner(title, organization_id)', { count: 'exact' })
+        .eq('status', 'pending');
+
+    let upcomingEventsQuery = supabase
+        .from('Event')
+        .select('id, title, event_start_at')
+        .eq('is_published', true)
+        .gte('event_start_at', now.toISOString())
+        .lte('event_start_at', in24h)
+        .order('event_start_at', { ascending: true });
+
+    let waitlistEntriesQuery = supabase
+        .from('WaitlistEntry')
+        .select('id, event_id, Event!inner(title, organization_id)', { count: 'exact' })
+        .eq('status', 'pending');
+
+    let updatedEventsQuery = supabase
+        .from('Event')
+        .select('id, title, updated_at')
+        .gte('updated_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
+        .order('updated_at', { ascending: false });
+
+    if (activeOrganizationId) {
+        registrationsTodayQuery = registrationsTodayQuery.eq('Event.organization_id', activeOrganizationId);
+        pendingOrdersQuery = pendingOrdersQuery.eq('Event.organization_id', activeOrganizationId);
+        waitlistEntriesQuery = waitlistEntriesQuery.eq('Event.organization_id', activeOrganizationId);
+        upcomingEventsQuery = upcomingEventsQuery.eq('organization_id', activeOrganizationId);
+        updatedEventsQuery = updatedEventsQuery.eq('organization_id', activeOrganizationId);
+    }
+
+    const [regsToday, pendingOrders, upcomingEvents, waitlistEntries, updatedEvents] = await Promise.allSettled([
+        registrationsTodayQuery,
+        pendingOrdersQuery,
+        upcomingEventsQuery,
+        waitlistEntriesQuery,
+        updatedEventsQuery,
+    ]);
+
+    const notifications: Array<{
+        id: string;
+        type: 'info' | 'success' | 'warning' | 'alert';
+        title: string;
+        message: string;
+        timestamp: string;
+        read: boolean;
+    }> = [];
+
+    type EventTitleJoinRow = {
+        event_id?: number | null;
+        Event?: { title?: string | null } | null;
+    };
+
+    type EventSoonRow = {
+        id: number;
+        title: string;
+        event_start_at: string;
+    };
+
+    type EventUpdatedRow = {
+        id: number;
+        title: string;
+        updated_at: string;
+    };
+
+    if (regsToday.status === 'fulfilled' && (regsToday.value.count ?? 0) > 0) {
+        const count = regsToday.value.count!;
+        const rows = (regsToday.value.data || []) as EventTitleJoinRow[];
+        const eventCounts: Record<string, { name: string; count: number }> = {};
+        rows.forEach((r) => {
+            const eid = r.event_id?.toString();
+            if (!eid) return;
+            if (!eventCounts[eid]) eventCounts[eid] = { name: r.Event?.title || 'an event', count: 0 };
+            eventCounts[eid].count++;
+        });
+        const topEvent = Object.values(eventCounts).sort((a, b) => b.count - a.count)[0];
+        notifications.push({
+            id: 'regs-today',
+            type: 'success',
+            title: 'New Registrations',
+            message: `${count} registration${count !== 1 ? 's' : ''} today${topEvent ? ` for ${topEvent.name}` : ''}!`,
+            timestamp: now.toISOString(),
+            read: false,
+        });
+    }
+
+    if (pendingOrders.status === 'fulfilled' && (pendingOrders.value.count ?? 0) > 0) {
+        const count = pendingOrders.value.count!;
+        const rows = (pendingOrders.value.data || []) as EventTitleJoinRow[];
+        const eventCounts: Record<string, { name: string; count: number }> = {};
+        rows.forEach((r) => {
+            const title = r.Event?.title;
+            if (!title) return;
+            if (!eventCounts[title]) eventCounts[title] = { name: title, count: 0 };
+            eventCounts[title].count++;
+        });
+        const topEvent = Object.values(eventCounts).sort((a, b) => b.count - a.count)[0];
+        notifications.push({
+            id: 'pending-orders',
+            type: 'warning',
+            title: 'Orders Pending Review',
+            message: `${count} order${count !== 1 ? 's' : ''} need${count === 1 ? 's' : ''} review${topEvent ? ` for ${topEvent.name}` : ''}`,
+            timestamp: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
+            read: false,
+        });
+    }
+
+    if (upcomingEvents.status === 'fulfilled' && (upcomingEvents.value.data?.length ?? 0) > 0) {
+        const events = upcomingEvents.value.data as EventSoonRow[];
+        events.forEach((event, i) => {
+            const startAt = new Date(event.event_start_at);
+            const diffHours = Math.round((startAt.getTime() - now.getTime()) / 3600000);
+            const timeStr = diffHours < 1 ? 'less than an hour' : `${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+            notifications.push({
+                id: `event-soon-${event.id}`,
+                type: 'info',
+                title: 'Event Starting Soon',
+                message: `${event.title} starts in ${timeStr}!`,
+                timestamp: new Date(now.getTime() - (i + 1) * 30 * 60 * 1000).toISOString(),
+                read: false,
+            });
+        });
+    }
+
+    if (waitlistEntries.status === 'fulfilled' && (waitlistEntries.value.count ?? 0) > 0) {
+        const count = waitlistEntries.value.count!;
+        const rows = (waitlistEntries.value.data || []) as EventTitleJoinRow[];
+        const eventCounts: Record<string, { name: string; count: number }> = {};
+        rows.forEach((r) => {
+            const title = r.Event?.title;
+            if (!title) return;
+            if (!eventCounts[title]) eventCounts[title] = { name: title, count: 0 };
+            eventCounts[title].count++;
+        });
+        const topEvent = Object.values(eventCounts).sort((a, b) => b.count - a.count)[0];
+        notifications.push({
+            id: 'waitlist',
+            type: 'warning',
+            title: 'Waitlist Growing',
+            message: `${count} attendee${count !== 1 ? 's' : ''} on the waitlist${topEvent ? ` for ${topEvent.name}` : ''}`,
+            timestamp: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
+            read: false,
+        });
+    }
+
+    if (updatedEvents.status === 'fulfilled' && (updatedEvents.value.data?.length ?? 0) > 0) {
+        const events = updatedEvents.value.data as EventUpdatedRow[];
+        events.forEach((event) => {
+            notifications.push({
+                id: `event-update-${event.id}-${event.updated_at}`,
+                type: 'info',
+                title: 'Event Updated',
+                message: `Details for ${event.title} were recently modified`,
+                timestamp: event.updated_at,
+                read: false,
+            });
+        });
+    }
+
+    return notifications;
+}
+
 export async function GET(request: NextRequest) {
     try {
-        const now = new Date();
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-        const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
-
-        const supabase = await createClient();
         await requireUser();
 
         const sessionRole = request.cookies.get(SESSION_ROLE_COOKIE_NAME)?.value;
@@ -26,197 +199,59 @@ export async function GET(request: NextRequest) {
             );
             const orgContext = await getCurrentUserActiveOrganization(preferredOrganizationId);
             activeOrganizationId = orgContext.activeOrganizationId;
+        }
 
-            if (!activeOrganizationId) {
-                return NextResponse.json({ success: true, data: [] });
+        const encoder = new TextEncoder();
+        let intervalId: NodeJS.Timeout;
+
+        const stream = new ReadableStream({
+            async start(controller) {
+                const sendUpdate = async () => {
+                    try {
+                        // Stop if organizer has no active organization but keep connection open
+                        if (sessionRole === SESSION_ROLE.ORGANIZER && !activeOrganizationId) {
+                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ success: true, data: [] })}\n\n`));
+                            return;
+                        }
+                        
+                        const data = await getNotificationsData(activeOrganizationId);
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ success: true, data })}\n\n`));
+                    } catch (error) {
+                        console.error('SSE Update error:', error);
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ success: false, data: [] })}\n\n`));
+                    }
+                };
+
+                // 1. Send the initial payload immediately
+                await sendUpdate();
+
+                // 2. Poll locally server-side every 15 seconds 
+                intervalId = setInterval(sendUpdate, 15000);
+
+                // 3. Cleanup on client disconnect
+                request.signal.addEventListener('abort', () => {
+                    clearInterval(intervalId);
+                });
+            },
+            cancel() {
+                clearInterval(intervalId);
             }
+        });
+
+        return new Response(stream, {
+            headers: {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache, no-transform',
+                'Connection': 'keep-alive',
+            },
+        });
+    } catch (error: unknown) {
+        const authResponse = getAuthErrorResponse(error);
+        if (authResponse) {
+            return authResponse;
         }
 
-        let registrationsTodayQuery = supabase
-            .from('Registration')
-            .select('id, event_id, Event!inner(title, organization_id)', { count: 'exact' })
-            .gte('created_at', todayStart)
-            .neq('status', 'cancelled');
-
-        let pendingOrdersQuery = supabase
-            .from('Registration')
-            .select('id, Event!inner(title, organization_id)', { count: 'exact' })
-            .eq('status', 'pending');
-
-        let upcomingEventsQuery = supabase
-            .from('Event')
-            .select('id, title, event_start_at')
-            .eq('is_published', true)
-            .gte('event_start_at', now.toISOString())
-            .lte('event_start_at', in24h)
-            .order('event_start_at', { ascending: true });
-
-        let waitlistEntriesQuery = supabase
-            .from('WaitlistEntry')
-            .select('id, event_id, Event!inner(title, organization_id)', { count: 'exact' })
-            .eq('status', 'pending');
-
-        let updatedEventsQuery = supabase
-            .from('Event')
-            .select('id, title, updated_at')
-            .gte('updated_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
-            .order('updated_at', { ascending: false });
-
-        if (activeOrganizationId) {
-            registrationsTodayQuery = registrationsTodayQuery.eq('Event.organization_id', activeOrganizationId);
-            pendingOrdersQuery = pendingOrdersQuery.eq('Event.organization_id', activeOrganizationId);
-            waitlistEntriesQuery = waitlistEntriesQuery.eq('Event.organization_id', activeOrganizationId);
-            upcomingEventsQuery = upcomingEventsQuery.eq('organization_id', activeOrganizationId);
-            updatedEventsQuery = updatedEventsQuery.eq('organization_id', activeOrganizationId);
-        }
-
-        const [regsToday, pendingOrders, upcomingEvents, waitlistEntries, updatedEvents] = await Promise.allSettled([
-            // 1. Registrations created today
-            registrationsTodayQuery,
-
-            // 2. Pending registrations (need review)
-            pendingOrdersQuery,
-
-            // 3. Events starting within next 24 hours
-            upcomingEventsQuery,
-
-            // 4. Pending waitlist entries
-            waitlistEntriesQuery,
-
-            // 5. Events updated in the last 24 hours
-            updatedEventsQuery,
-        ]);
-
-        const notifications: Array<{
-            id: string;
-            type: 'info' | 'success' | 'warning' | 'alert';
-            title: string;
-            message: string;
-            timestamp: string;
-            read: boolean;
-        }> = [];
-
-        type EventTitleJoinRow = {
-            event_id?: number | null;
-            Event?: { title?: string | null } | null;
-        };
-
-        type EventSoonRow = {
-            id: number;
-            title: string;
-            event_start_at: string;
-        };
-
-        type EventUpdatedRow = {
-            id: number;
-            title: string;
-            updated_at: string;
-        };
-
-        // New registrations today
-        if (regsToday.status === 'fulfilled' && (regsToday.value.count ?? 0) > 0) {
-            const count = regsToday.value.count!;
-            // Get most common event name from today's regs
-            const rows = (regsToday.value.data || []) as EventTitleJoinRow[];
-            const eventCounts: Record<string, { name: string; count: number }> = {};
-            rows.forEach((r) => {
-                const eid = r.event_id?.toString();
-                if (!eid) return;
-                if (!eventCounts[eid]) eventCounts[eid] = { name: r.Event?.title || 'an event', count: 0 };
-                eventCounts[eid].count++;
-            });
-            const topEvent = Object.values(eventCounts).sort((a, b) => b.count - a.count)[0];
-            notifications.push({
-                id: 'regs-today',
-                type: 'success',
-                title: 'New Registrations',
-                message: `${count} registration${count !== 1 ? 's' : ''} today${topEvent ? ` for ${topEvent.name}` : ''}!`,
-                timestamp: now.toISOString(),
-                read: false,
-            });
-        }
-
-        // Pending orders
-        if (pendingOrders.status === 'fulfilled' && (pendingOrders.value.count ?? 0) > 0) {
-            const count = pendingOrders.value.count!;
-            const rows = (pendingOrders.value.data || []) as EventTitleJoinRow[];
-            // Most common pending event
-            const eventCounts: Record<string, { name: string; count: number }> = {};
-            rows.forEach((r) => {
-                const title = r.Event?.title;
-                if (!title) return;
-                if (!eventCounts[title]) eventCounts[title] = { name: title, count: 0 };
-                eventCounts[title].count++;
-            });
-            const topEvent = Object.values(eventCounts).sort((a, b) => b.count - a.count)[0];
-            notifications.push({
-                id: 'pending-orders',
-                type: 'warning',
-                title: 'Orders Pending Review',
-                message: `${count} order${count !== 1 ? 's' : ''} need${count === 1 ? 's' : ''} review${topEvent ? ` for ${topEvent.name}` : ''}`,
-                timestamp: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
-                read: false,
-            });
-        }
-
-        // Events starting soon
-        if (upcomingEvents.status === 'fulfilled' && (upcomingEvents.value.data?.length ?? 0) > 0) {
-            const events = upcomingEvents.value.data as EventSoonRow[];
-            events.forEach((event, i) => {
-                const startAt = new Date(event.event_start_at);
-                const diffHours = Math.round((startAt.getTime() - now.getTime()) / 3600000);
-                const timeStr = diffHours < 1 ? 'less than an hour' : `${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
-                notifications.push({
-                    id: `event-soon-${event.id}`,
-                    type: 'info',
-                    title: 'Event Starting Soon',
-                    message: `${event.title} starts in ${timeStr}!`,
-                    timestamp: new Date(now.getTime() - (i + 1) * 30 * 60 * 1000).toISOString(),
-                    read: false,
-                });
-            });
-        }
-
-        // Waitlist entries
-        if (waitlistEntries.status === 'fulfilled' && (waitlistEntries.value.count ?? 0) > 0) {
-            const count = waitlistEntries.value.count!;
-            const rows = (waitlistEntries.value.data || []) as EventTitleJoinRow[];
-            const eventCounts: Record<string, { name: string; count: number }> = {};
-            rows.forEach((r) => {
-                const title = r.Event?.title;
-                if (!title) return;
-                if (!eventCounts[title]) eventCounts[title] = { name: title, count: 0 };
-                eventCounts[title].count++;
-            });
-            const topEvent = Object.values(eventCounts).sort((a, b) => b.count - a.count)[0];
-            notifications.push({
-                id: 'waitlist',
-                type: 'warning',
-                title: 'Waitlist Growing',
-                message: `${count} attendee${count !== 1 ? 's' : ''} on the waitlist${topEvent ? ` for ${topEvent.name}` : ''}`,
-                timestamp: new Date(now.getTime() - 60 * 60 * 1000).toISOString(),
-                read: false,
-            });
-        }
-
-        // Updated events
-        if (updatedEvents.status === 'fulfilled' && (updatedEvents.value.data?.length ?? 0) > 0) {
-            const events = updatedEvents.value.data as EventUpdatedRow[];
-            events.forEach((event) => {
-                notifications.push({
-                    id: `event-update-${event.id}-${event.updated_at}`,
-                    type: 'info',
-                    title: 'Event Updated',
-                    message: `Details for ${event.title} were recently modified`,
-                    timestamp: event.updated_at,
-                    read: false,
-                });
-            });
-        }
-
-        return NextResponse.json({ success: true, data: notifications });
-    } catch (e: unknown) {
-        console.error('Notifications API error:', e);
+        console.error('Notifications API error:', error);
         return NextResponse.json({ success: false, data: [] }, { status: 500 });
     }
 }

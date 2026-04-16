@@ -32,12 +32,12 @@ function isAdminRoute(pathname: string) {
  * Organizers attempting to access these are redirected to /dashboard.
  */
 function isAttendeeRoute(pathname: string) {
-  if (pathname === '/home' || pathname === '/tickets') return true;
+  if (pathname === '/home' || pathname.startsWith('/home/') || pathname === '/tickets') return true;
 
   if (pathname.startsWith('/events/')) {
     const parts = pathname.split('/').filter(Boolean);
     const third = parts[2];
-    if (parts.length === 3 && third && ['register', 'review', 'my-breakouts'].includes(third)) {
+    if (parts.length === 3 && third && ['register', 'review', 'my-breakouts', 'breakout-sessions'].includes(third)) {
       return true;
     }
     if (parts.length === 4 && third === 'register' && parts[3] === 'complete') {

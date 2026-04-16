@@ -45,6 +45,12 @@ interface RegistrationFlowProps {
     }[];
     existingCheckInPasses?: CheckInPass[];
     existingTicketNames?: string[];
+    hasPromotions?: boolean;
+    allowGroupRegistration?: boolean;
+    allowWaitlist?: boolean;
+    waitlistInviteToken?: string;
+    waitlistInviteTicketId?: number | null;
+    waitlistInviteEmail?: string;
 }
 
 type CheckInPass = {
@@ -149,14 +155,30 @@ function CheckInPassCard({ pass }: { pass: CheckInPass }) {
 
 // ─── Step Indicator ──────────────────────────────────────────────────────────
 
-function StepIndicator({ currentStep, type, userEmail }: { currentStep: Step; type: RegistrationType; userEmail?: string }) {
-    const steps = type === 'group'
-        ? (userEmail ? ['Tickets', 'Mode', 'Members', 'Form'] : ['Identify', 'Tickets', 'Mode', 'Members', 'Form'])
-        : (userEmail ? ['Tickets', 'Mode', 'Form'] : ['Identify', 'Tickets', 'Mode', 'Form']);
+function StepIndicator({ currentStep, type, userEmail, allowGroupRegistration = true }: { currentStep: Step; type: RegistrationType; userEmail?: string; allowGroupRegistration?: boolean }) {
+    const steps: string[] = [];
+    const stepKeys: Step[] = [];
 
-    const stepKeys: Step[] = type === 'group'
-        ? (userEmail ? ['choose-ticket', 'choose-type', 'group-members', 'fill-form'] : ['identify', 'choose-ticket', 'choose-type', 'group-members', 'fill-form'])
-        : (userEmail ? ['choose-ticket', 'choose-type', 'fill-form'] : ['identify', 'choose-ticket', 'choose-type', 'fill-form']);
+    if (!userEmail) {
+        steps.push('Identify');
+        stepKeys.push('identify' as Step);
+    }
+
+    steps.push('Tickets');
+    stepKeys.push('choose-ticket' as Step);
+
+    if (allowGroupRegistration) {
+        steps.push('Mode');
+        stepKeys.push('choose-type' as Step);
+
+        if (type === 'group') {
+            steps.push('Members');
+            stepKeys.push('group-members' as Step);
+        }
+    }
+
+    steps.push('Form');
+    stepKeys.push('fill-form' as Step);
 
     const currentIndex = stepKeys.indexOf(currentStep);
 
@@ -376,13 +398,174 @@ function IdentifyStep({
 
 // ─── Step 0: Choose Ticket Type ────────────────────────────────────────────────
 function ChooseTicketStep({
+    eventId,
+    eventTitle,
+    userEmail,
     tickets,
+    hasPromotions,
+    allowWaitlist = false,
     onSelect,
 }: {
+    eventId: number;
+    eventTitle: string;
+    userEmail?: string;
     tickets: RegistrationFlowProps['tickets'];
-    onSelect: (ticketId: number) => void;
+    hasPromotions?: boolean;
+    allowWaitlist?: boolean;
+    onSelect: (ticketId: number, appliedPromoCode?: string) => void;
 }) {
     const [hovered, setHovered] = useState<number | null>(null);
+    const [promoCodeInput, setPromoCodeInput] = useState('');
+    const [isCheckingPromo, setIsCheckingPromo] = useState(false);
+    const [promoError, setPromoError] = useState('');
+    const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount_type: string; discount_value: number; ticket_ids: number[] } | null>(null);
+    const [isJoiningWaitlist, setIsJoiningWaitlist] = useState<number | null>(null);
+    const [waitlistFeedback, setWaitlistFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    const allTicketsUnavailable = tickets.length === 0 || tickets.every((ticket) => ticket.is_sold_out);
+
+    const handleJoinWaitlist = async (ticketId?: number) => {
+        if (!userEmail) {
+            setWaitlistFeedback({ type: 'error', message: 'Please verify your email first.' });
+            return;
+        }
+
+        setWaitlistFeedback(null);
+        setIsJoiningWaitlist(ticketId ?? -1);
+        try {
+            const res = await fetch(`/api/events/${eventId}/waitlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: userEmail, ticketId }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data?.success) {
+                throw new Error(data?.error || 'Failed to join waitlist');
+            }
+
+            setWaitlistFeedback({
+                type: 'success',
+                message: 'You were added to the waitlist. Watch your email for invitation updates.',
+            });
+        } catch (error) {
+            setWaitlistFeedback({
+                type: 'error',
+                message: error instanceof Error ? error.message : 'Failed to join waitlist',
+            });
+        } finally {
+            setIsJoiningWaitlist(null);
+        }
+    };
+
+    if (allTicketsUnavailable) {
+        return (
+            <div className="animate-fade-in">
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
+                        Tickets Are Currently Unavailable
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {allowWaitlist
+                            ? `All tickets for ${eventTitle} are sold out. Join the waitlist to get invited when a slot opens.`
+                            : 'All tickets are sold out right now.'}
+                    </p>
+                </div>
+
+                {allowWaitlist ? (
+                    <div className="space-y-4">
+                        {tickets.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-3">
+                                {tickets.map((ticket) => (
+                                    <div key={ticket.id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-900 dark:text-white">{ticket.name}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Sold out</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleJoinWaitlist(ticket.id)}
+                                            disabled={isJoiningWaitlist !== null}
+                                            className="min-h-11 px-4 py-2 rounded-xl bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-semibold hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            {isJoiningWaitlist === ticket.id ? 'Joining...' : 'Join Waitlist'}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 p-5 text-center">
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">No active ticket tiers are available right now.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => handleJoinWaitlist(undefined)}
+                                    disabled={isJoiningWaitlist !== null}
+                                    className="min-h-11 px-5 py-2 rounded-xl bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-semibold hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {isJoiningWaitlist === -1 ? 'Joining...' : 'Join Event Waitlist'}
+                                </button>
+                            </div>
+                        )}
+
+                        {waitlistFeedback && (
+                            <div className={`rounded-xl border px-4 py-3 text-sm ${waitlistFeedback.type === 'success'
+                                ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/30 dark:bg-green-900/20 dark:text-green-300'
+                                : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-300'
+                                }`}>
+                                {waitlistFeedback.message}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-5 text-center text-sm text-gray-600 dark:text-gray-300">
+                        Waitlist is not enabled for this event. Please check again later.
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    const handleApplyPromo = async () => {
+        if (!promoCodeInput.trim()) return;
+        setIsCheckingPromo(true);
+        setPromoError('');
+        try {
+            const res = await fetch(`/api/events/${eventId}/promotions/validate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code: promoCodeInput.trim() })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) {
+                setPromoError(data.error || 'Invalid promo code');
+                setAppliedPromo(null);
+            } else {
+                setAppliedPromo(data.data);
+                setPromoCodeInput('');
+            }
+        } catch (e) {
+            setPromoError('Failed to validate promo code');
+        } finally {
+            setIsCheckingPromo(false);
+        }
+    };
+
+    const removePromo = () => {
+        setAppliedPromo(null);
+        setPromoCodeInput('');
+        setPromoError('');
+    };
+
+    const getDiscountedPrice = (ticket: any) => {
+        if (!appliedPromo) return ticket.price;
+        if (appliedPromo.ticket_ids.length > 0 && !appliedPromo.ticket_ids.includes(ticket.id)) return ticket.price;
+        
+        const val = Number(appliedPromo.discount_value);
+        if (appliedPromo.discount_type === 'percentage') {
+            return Math.max(0, ticket.price * (100 - val) / 100);
+        } else {
+            return Math.max(0, ticket.price - val);
+        }
+    };
 
     return (
         <div className="animate-fade-in">
@@ -399,7 +582,7 @@ function ChooseTicketStep({
                 {tickets.map((ticket) => (
                     <button
                         key={ticket.id}
-                        onClick={() => !ticket.is_sold_out && onSelect(ticket.id)}
+                        onClick={() => !ticket.is_sold_out && onSelect(ticket.id, appliedPromo?.code)}
                         onMouseEnter={() => setHovered(ticket.id)}
                         onMouseLeave={() => setHovered(null)}
                         disabled={ticket.is_sold_out}
@@ -435,9 +618,20 @@ function ChooseTicketStep({
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="text-lg font-black text-[#3D518C] dark:text-blue-400">
-                                {ticket.price === 0 ? 'FREE' : `$${ticket.price}`}
-                            </p>
+                            {appliedPromo && getDiscountedPrice(ticket) < ticket.price ? (
+                                <div className="flex flex-col items-end">
+                                    <span className="text-sm line-through text-gray-400 dark:text-gray-500">
+                                        {ticket.price === 0 ? 'FREE' : `$${ticket.price}`}
+                                    </span>
+                                    <p className="text-lg font-black text-green-600 dark:text-green-400">
+                                        {getDiscountedPrice(ticket) === 0 ? 'FREE' : `$${getDiscountedPrice(ticket).toFixed(2)}`}
+                                    </p>
+                                </div>
+                            ) : (
+                                <p className="text-lg font-black text-[#3D518C] dark:text-blue-400">
+                                    {ticket.price === 0 ? 'FREE' : `$${ticket.price}`}
+                                </p>
+                            )}
                             {!ticket.is_sold_out && (
                                 <div className={`
                                     flex items-center gap-1 text-xs font-bold transition-all duration-300
@@ -450,6 +644,59 @@ function ChooseTicketStep({
                     </button>
                 ))}
             </div>
+
+            {hasPromotions && (
+                <div className="mt-8 pt-5 border-t border-gray-100 dark:border-gray-800">
+                    <div className="w-full max-w-[260px] mx-auto sm:mx-0">
+                    <label className="block text-[11px] font-extrabold text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5 text-left">
+                        Promo Code
+                    </label>
+                    
+                    {appliedPromo ? (
+                        <div className="flex items-center justify-between p-2.5 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/30 rounded-lg">
+                            <div className="flex items-center gap-2">
+                                <CheckCircle size={14} className="text-green-600 dark:text-green-400" />
+                                <div>
+                                    <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">{appliedPromo.code}</p>
+                                    <p className="text-[10px] font-medium text-green-600 dark:text-green-500">
+                                        {appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}% off` : `$${appliedPromo.discount_value} off`} applied
+                                    </p>
+                                </div>
+                            </div>
+                            <button onClick={removePromo} className="text-gray-400 hover:text-red-500 transition-colors p-1" title="Remove promo code">
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ) : (
+                        <div>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={promoCodeInput}
+                                    onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+                                    placeholder="ENTER CODE"
+                                    className="flex-1 bg-white dark:bg-gray-800/80 border-2 border-[#3D518C]/80 dark:border-blue-500/50 focus:border-[#3D518C] dark:focus:border-blue-400 rounded-lg px-3 py-1.5 text-xs font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wider outline-none transition-all placeholder:text-gray-400 placeholder:font-medium"
+                                    disabled={isCheckingPromo}
+                                />
+                                <button
+                                    onClick={handleApplyPromo}
+                                    disabled={!promoCodeInput.trim() || isCheckingPromo}
+                                    className="px-4 py-1.5 bg-[#8C939A] hover:bg-[#727981] dark:bg-gray-600 dark:hover:bg-gray-500 text-white text-xs font-bold rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                >
+                                    {isCheckingPromo ? <Loader size={12} className="animate-spin" /> : 'Apply'}
+                                </button>
+                            </div>
+                            {promoError && (
+                                <p className="mt-1.5 text-[10px] font-semibold text-red-500 flex items-center gap-1 justify-start">
+                                    <AlertCircle size={12} />
+                                    {promoError}
+                                </p>
+                            )}
+                        </div>
+                    )}
+                </div>
+            </div>
+            )}
         </div>
     );
 }
@@ -838,9 +1085,9 @@ function OrderFormStep({
     eventSlug,
     userEmail,
     ticketId,
-    breakoutSessions,
-    breakoutSessionId,
-    onBreakoutSessionChange,
+    tickets,
+    promotionCode,
+    waitlistInviteToken,
 }: {
     formData: OrderFormData;
     eventId: number;
@@ -851,14 +1098,15 @@ function OrderFormStep({
     eventSlug: string;
     userEmail?: string;
     ticketId: number | null;
-    breakoutSessions: RegistrationFlowProps['breakoutSessions'];
-    breakoutSessionId: number | null;
-    onBreakoutSessionChange: (sessionId: number | null) => void;
+    tickets: RegistrationFlowProps['tickets'];
+    promotionCode?: string;
+    waitlistInviteToken?: string;
 }) {
     const router = useRouter();
     const [answers, setAnswers] = useState<FormAnswers>({});
     const [touched, setTouched] = useState<Set<string>>(new Set());
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+    const [capacityPrecheckError, setCapacityPrecheckError] = useState<string | null>(null);
 
     const { isSubmitting, error, success, successMessage, submissionResult, submit } = useOrderFormSubmit({
         eventId,
@@ -882,6 +1130,21 @@ function OrderFormStep({
 
     const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
+        setCapacityPrecheckError(null);
+
+        const requestedSeats = registrationType === 'group' ? groupEmails.length + 1 : 1;
+        if (ticketId && requestedSeats > 0) {
+            const selectedTicket = tickets.find((t) => t.id === ticketId) || null;
+            if (selectedTicket && selectedTicket.available_quantity > 0) {
+                const remaining = Math.max(0, selectedTicket.available_quantity - selectedTicket.used_quantity);
+                if (requestedSeats > remaining) {
+                    setCapacityPrecheckError(
+                        `This group needs ${requestedSeats} seat(s), but only ${remaining} seat(s) remain for ${selectedTicket.name}.`
+                    );
+                    return;
+                }
+            }
+        }
 
         // Mark all as touched
         const allIds = new Set<string>();
@@ -900,13 +1163,8 @@ function OrderFormStep({
         setValidationErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
 
-        await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : [], breakoutSessionId);
-    }, [formData, answers, submit, ticketId, registrationType, groupEmails, breakoutSessionId]);
-
-    const inPersonBreakouts = (breakoutSessions || []).filter((session) => session.type === 'In-Person');
-    const selectedBreakout = breakoutSessionId == null
-        ? null
-        : inPersonBreakouts.find((session) => Number(session.id) === breakoutSessionId) || null;
+        await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : [], null, promotionCode, waitlistInviteToken || null);
+    }, [formData, answers, submit, ticketId, tickets, registrationType, groupEmails, promotionCode, waitlistInviteToken]);
 
     if (success) {
         return (
@@ -920,25 +1178,7 @@ function OrderFormStep({
                 <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mx-auto mb-2">
                     {successMessage || 'Your registration has been submitted successfully.'}
                 </p>
-                {selectedBreakout && (
-                    <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-left max-w-sm mx-auto border border-indigo-100 dark:border-indigo-800/40">
-                        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">
-                            Selected breakout room
-                        </p>
-                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{selectedBreakout.name}</p>
-                        {selectedBreakout.location ? (
-                            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">{selectedBreakout.location}</p>
-                        ) : null}
-                        {selectedBreakout.date || selectedBreakout.time ? (
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                                {[selectedBreakout.date, selectedBreakout.time].filter(Boolean).join(' • ')}
-                            </p>
-                        ) : null}
-                        <p className="text-xs text-indigo-800/90 dark:text-indigo-200/90 mt-2 leading-relaxed">
-                            A separate breakout QR ticket has been prepared for this session.
-                        </p>
-                    </div>
-                )}
+
                 {registrationType === 'group' && groupEmails.length > 0 && (
                     <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-left max-w-sm mx-auto border border-indigo-100 dark:border-indigo-800/40">
                         <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">Group members</p>
@@ -1024,6 +1264,13 @@ function OrderFormStep({
             )}
 
             {/* Error banner */}
+            {capacityPrecheckError && (
+                <div className="mb-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex gap-3">
+                    <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700 dark:text-red-300">{capacityPrecheckError}</p>
+                </div>
+            )}
+
             {error && (
                 <div className="mb-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex gap-3">
                     <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
@@ -1042,45 +1289,6 @@ function OrderFormStep({
             )}
 
             <form id="event-order-form" onSubmit={handleSubmit} className="space-y-6">
-                {inPersonBreakouts.length > 0 && (
-                    <div className="rounded-2xl border border-gray-100 dark:border-gray-700/60 bg-gray-50/80 dark:bg-gray-800/40 p-4">
-                        <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
-                            Breakout room (optional)
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                            Select one in-person breakout now, or leave it as Main Event Only.
-                        </p>
-                        <select
-                            value={breakoutSessionId == null ? '' : String(breakoutSessionId)}
-                            onChange={(e) => {
-                                const value = e.target.value;
-                                onBreakoutSessionChange(value ? Number(value) : null);
-                            }}
-                            className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700/60 text-sm text-gray-900 dark:text-white"
-                        >
-                            <option value="">Main Event Only</option>
-                            {inPersonBreakouts.map((session) => {
-                                const maxCapacity = Number(session.maxCapacity || 0);
-                                const currentAttendees = Number(session.currentAttendees || 0);
-                                const full = maxCapacity > 0 && currentAttendees >= maxCapacity;
-                                const unavailable = session.status === 'Completed' || session.status === 'Cancelled';
-                                const disabled = full || unavailable;
-                                const suffix = full
-                                    ? ' (Full)'
-                                    : unavailable
-                                        ? ` (${session.status})`
-                                        : '';
-
-                                return (
-                                    <option key={session.id} value={session.id} disabled={disabled}>
-                                        {session.name}{session.location ? ` - ${session.location}` : ''}{suffix}
-                                    </option>
-                                );
-                            })}
-                        </select>
-                    </div>
-                )}
-
                 <PublicOrderForm
                     formData={formData}
                     answers={answers}
@@ -1137,14 +1345,26 @@ export default function RegistrationFlow({
     breakoutSessions = [],
     existingCheckInPasses = [],
     existingTicketNames = [],
+    hasPromotions = false,
+    allowGroupRegistration = true,
+    allowWaitlist = false,
+    waitlistInviteToken,
+    waitlistInviteTicketId = null,
+    waitlistInviteEmail,
 }: RegistrationFlowProps) {
     const router = useRouter();
-    const [userEmail, setUserEmail] = useState<string | undefined>(initialUserEmail);
-    const [step, setStep] = useState<Step>(initialUserEmail ? 'choose-ticket' : 'identify');
+    const [userEmail, setUserEmail] = useState<string | undefined>(waitlistInviteEmail || initialUserEmail);
+    const [step, setStep] = useState<Step>(
+        waitlistInviteToken
+            ? 'fill-form'
+            : (waitlistInviteEmail || initialUserEmail)
+                ? 'choose-ticket'
+                : 'identify'
+    );
     const [registrationType, setRegistrationType] = useState<RegistrationType>('individual');
-    const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+    const [selectedTicketId, setSelectedTicketId] = useState<number | null>(waitlistInviteTicketId ?? null);
     const [groupEmails, setGroupEmails] = useState<string[]>([]);
-    const [selectedBreakoutSessionId, setSelectedBreakoutSessionId] = useState<number | null>(null);
+    const [promotionCode, setPromotionCode] = useState<string | undefined>(undefined);
 
     if (existingCheckInPasses.length > 0) {
         return (
@@ -1209,9 +1429,15 @@ export default function RegistrationFlow({
         );
     }
 
-    const handleTicketSelect = (ticketId: number) => {
+    const handleTicketSelect = (ticketId: number, appliedPromoCode?: string) => {
         setSelectedTicketId(ticketId);
-        setStep('choose-type');
+        setPromotionCode(appliedPromoCode);
+        if (!allowGroupRegistration) {
+            setRegistrationType('individual');
+            setStep('fill-form');
+        } else {
+            setStep('choose-type');
+        }
     };
 
     const handleTypeSelect = (type: RegistrationType) => {
@@ -1233,7 +1459,7 @@ export default function RegistrationFlow({
             if (registrationType === 'group') {
                 setStep('group-members');
             } else {
-                setStep('choose-type');
+                setStep(allowGroupRegistration ? 'choose-type' : 'choose-ticket');
             }
         } else if (step === 'group-members') {
             setStep('choose-type');
@@ -1263,7 +1489,7 @@ export default function RegistrationFlow({
                 </div>
 
                 {/* Step indicator */}
-                <StepIndicator currentStep={step} type={registrationType} userEmail={userEmail} />
+                <StepIndicator currentStep={step} type={registrationType} userEmail={userEmail} allowGroupRegistration={allowGroupRegistration} />
 
                 <RegistrationModeBanner step={step} registrationType={registrationType} />
 
@@ -1278,7 +1504,15 @@ export default function RegistrationFlow({
                         />
                     )}
                     {step === 'choose-ticket' && (
-                        <ChooseTicketStep tickets={tickets} onSelect={handleTicketSelect} />
+                        <ChooseTicketStep
+                            eventId={eventId}
+                            eventTitle={eventTitle}
+                            userEmail={userEmail}
+                            tickets={tickets}
+                            hasPromotions={hasPromotions}
+                            allowWaitlist={allowWaitlist}
+                            onSelect={handleTicketSelect}
+                        />
                     )}
                     {step === 'choose-type' && (
                         <ChooseTypeStep onSelect={handleTypeSelect} onBack={handleBack} />
@@ -1301,9 +1535,9 @@ export default function RegistrationFlow({
                             eventSlug={eventSlug}
                             userEmail={userEmail}
                             ticketId={selectedTicketId}
-                            breakoutSessions={breakoutSessions}
-                            breakoutSessionId={selectedBreakoutSessionId}
-                            onBreakoutSessionChange={setSelectedBreakoutSessionId}
+                            tickets={tickets}
+                            promotionCode={promotionCode}
+                            waitlistInviteToken={waitlistInviteToken}
                         />
                     )}
                 </div>

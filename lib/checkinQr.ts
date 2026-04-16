@@ -3,6 +3,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 const CHECKIN_QR_PREFIX = "gevents-checkin:";
 const CHECKIN_QR_VERSION = 1;
 const DEFAULT_QR_TTL_HOURS = 24 * 365;
+const EVENT_END_GRACE_HOURS = 24;
 
 type CheckInTokenClaims = {
   v: number;
@@ -87,10 +88,26 @@ export function generateCheckInPass(params: {
   eventId: number;
   registrationId: number;
   email: string;
+  eventStartAt?: string | null;
+  eventEndAt?: string | null;
   ttlHours?: number;
 }): GeneratedCheckInPass {
   const nowSeconds = Math.floor(Date.now() / 1000);
-  const ttlHours = params.ttlHours ?? DEFAULT_QR_TTL_HOURS;
+
+  // Prefer event-aware expiry so changing event dates automatically changes newly generated QR validity.
+  const eventEndMs = params.eventEndAt ? Date.parse(params.eventEndAt) : Number.NaN;
+  const eventStartMs = params.eventStartAt ? Date.parse(params.eventStartAt) : Number.NaN;
+  const eventReferenceMs = Number.isFinite(eventEndMs)
+    ? eventEndMs
+    : Number.isFinite(eventStartMs)
+      ? eventStartMs
+      : Number.NaN;
+  const fallbackTtlHours = params.ttlHours ?? DEFAULT_QR_TTL_HOURS;
+  const fallbackExpSeconds =
+    nowSeconds + Math.max(1, Math.floor(fallbackTtlHours * 3600));
+  const expSeconds = Number.isFinite(eventReferenceMs)
+    ? Math.floor(eventReferenceMs / 1000) + EVENT_END_GRACE_HOURS * 3600
+    : fallbackExpSeconds;
 
   const claims: CheckInTokenClaims = {
     v: CHECKIN_QR_VERSION,
@@ -98,7 +115,7 @@ export function generateCheckInPass(params: {
     rid: params.registrationId,
     email: params.email.trim().toLowerCase(),
     iat: nowSeconds,
-    exp: nowSeconds + Math.max(1, Math.floor(ttlHours * 3600)),
+    exp: expSeconds,
     nonce: randomBytes(12).toString("base64url"),
   };
 

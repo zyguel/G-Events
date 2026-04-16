@@ -49,7 +49,7 @@ export async function GET(
         const { data: regRows, error: regErr } = await supabase
             .from("Registration")
             .select(
-                "id, status, created_at, registration_group_id, ticket_id, User(name, email), Ticket(name)"
+                "id, status, created_at, registration_group_id, ticket_id, final_price_paid, User(name, email), Ticket(name, price, is_deleted)"
             )
             .eq("event_id", id)
             .order("created_at", { ascending: false });
@@ -146,6 +146,9 @@ export async function GET(
                 email: r.User?.email || "",
                 ticketId: r.ticket_id?.toString() || "",
                 ticketType: r.Ticket?.name || "General Admission",
+                ticketDeleted: !!r.Ticket?.is_deleted,
+                ticketPrice: Number(r.Ticket?.price || 0),
+                finalPricePaid: Number(r.final_price_paid || r.Ticket?.price || 0),
                 registrationType: isGroup ? "Group" : "Individual",
                 status: mapStatusToUi(r.status || ""),
                 date: createdAt ? formatterDate.format(createdAt) : "",

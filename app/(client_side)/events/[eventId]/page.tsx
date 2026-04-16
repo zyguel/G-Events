@@ -49,6 +49,7 @@ interface EventDetail {
     theme?: string;
     objectives?: string[];
     allow_breakout_sessions?: boolean;
+    allow_group_registration?: boolean;
     AgendaSlot?: AgendaSlot[];
 }
 
@@ -378,10 +379,6 @@ export default function ClientEventDetailPage() {
                         </section>
                     )}
 
-                    {event.allow_breakout_sessions ? (
-                        <BreakoutSessionPicker eventId={event.id} eventSlug={slug} />
-                    ) : null}
-
                     {/* Tickets */}
                     {tickets.length > 0 && (
                         <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
@@ -392,6 +389,8 @@ export default function ClientEventDetailPage() {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {tickets.map((ticket) => {
                                     const isFree = ticket.type === 'free' || !ticket.price || ticket.price === 0;
+                                    const reservedForWaitlist = Math.max(ticket.waitlistReservedQuantity || 0, 0);
+                                    const leftForPublic = Math.max(ticket.quantity - ticket.usedQuantity - reservedForWaitlist, 0);
                                     const inclusions = ticket.description
                                         ? ticket.description.split('\n').map(l => l.trim()).filter(Boolean)
                                         : [];
@@ -407,7 +406,7 @@ export default function ClientEventDetailPage() {
                                                     <div className="flex items-center gap-1.5 mt-1.5">
                                                         <Users size={13} className="text-gray-400" />
                                                         <span className="text-xs text-gray-500 dark:text-gray-400">
-                                                            {Math.max(0, ticket.quantity - ticket.usedQuantity)} slots available
+                                                            {leftForPublic} slots available
                                                         </span>
                                                     </div>
                                                 </div>
@@ -453,7 +452,7 @@ export default function ClientEventDetailPage() {
                                     </p>
                                 </div>
                                 <Link
-                                    href={`/events/${slug}/my-breakouts`}
+                                    href={`/events/${slug}/breakout-sessions`}
                                     className="flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-white px-6 py-3.5 text-center text-[15px] font-bold text-[#3D518C] shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-blue-50 hover:shadow-xl active:scale-[0.98] md:w-auto md:px-8 touch-manipulation whitespace-nowrap"
                                 >
                                     View breakout sessions
@@ -467,15 +466,21 @@ export default function ClientEventDetailPage() {
                                     <p className="text-sm text-blue-100/90">
                                         Secure your spot at <span className="font-semibold text-white">{event.title}</span>.
                                     </p>
-                                    <div className="flex flex-col gap-2 text-left text-xs leading-snug text-blue-100/85 sm:text-[13px]">
-                                        <span className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-                                            <User size={15} className="mt-0.5 shrink-0 text-white/95" aria-hidden />
-                                            <span><strong className="text-white">Individual</strong> — register yourself only; one form and e-ticket.</span>
-                                        </span>
-                                        <span className="flex items-start gap-2 rounded-xl bg-white/10 px-3 py-2 backdrop-blur-sm">
-                                            <Users size={15} className="mt-0.5 shrink-0 text-white/95" aria-hidden />
-                                            <span><strong className="text-white">Group</strong> — you&apos;re the lead; add member emails on the next screens so each person confirms their profile.</span>
-                                        </span>
+                                    <div className="flex flex-col gap-2.5 text-left text-xs leading-relaxed text-blue-100/90 sm:text-[13px]">
+                                        <div className="flex items-start gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/5">
+                                            <User size={16} className="mt-[2px] shrink-0 text-white/90" aria-hidden />
+                                            <div><strong className="text-white font-semibold">Individual</strong> &mdash; register yourself only; one form and e-ticket.</div>
+                                        </div>
+                                        {event.allow_group_registration !== false ? (
+                                            <div className="flex items-start gap-3 rounded-xl bg-white/10 px-4 py-3 backdrop-blur-sm border border-white/5">
+                                                <Users size={16} className="mt-[2px] shrink-0 text-white/90" aria-hidden />
+                                                <div><strong className="text-white font-semibold">Group</strong> &mdash; you&apos;re the lead; add member emails on the next screens so each person confirms their profile.</div>
+                                            </div>
+                                        ) : (
+                                            <div className="px-1 pt-1 text-blue-200/80 italic text-[11px] sm:text-xs">
+                                                * Group registration is disabled for this event.
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <Link

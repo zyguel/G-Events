@@ -38,7 +38,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "promo_code" | "discount">("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [addPromoTypeOpen, setAddPromoTypeOpen] = useState(false);
+
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
@@ -74,11 +74,10 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleAddPromo = (type: "promo_code" | "discount") => {
+  const handleAddPromo = () => {
     setEditingPromoId(null);
-    setFormData({ ...initialPromoForm, type });
+    setFormData(initialPromoForm);
     setErrors({});
-    setAddPromoTypeOpen(false);
     setIsModalOpen(true);
   };
 
@@ -211,33 +210,14 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
             )}
           </div>
 
-          {/* Add Promotion Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setAddPromoTypeOpen(!addPromoTypeOpen)}
-              className="px-4 py-2 text-sm bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.05] transition-all duration-200 text-white font-medium rounded-lg flex items-center gap-2"
-            >
-              <Plus size={18} />
-              Add Promotion
-            </button>
-
-            {addPromoTypeOpen && (
-              <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-50">
-                <button
-                  onClick={() => handleAddPromo("promo_code")}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-sm font-medium"
-                >
-                  Promo Code
-                </button>
-                <button
-                  onClick={() => handleAddPromo("discount")}
-                  className="w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-sm font-medium border-t border-gray-300 dark:border-gray-600"
-                >
-                  Discount
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Add Promotion */}
+          <button
+            onClick={handleAddPromo}
+            className="px-4 py-2 text-sm bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.05] transition-all duration-200 text-white font-medium rounded-lg flex items-center gap-2"
+          >
+            <Plus size={18} />
+            Add Promotion
+          </button>
         </div>
       </div>
 

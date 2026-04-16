@@ -8,15 +8,19 @@ import { createClient, createAdminClient } from "@/lib/supabase-server";
 import { generateCheckInPass } from "@/lib/checkinQr";
 import Link from "next/link";
 import { ChevronLeft, ClipboardX } from "lucide-react";
+import { verifyWaitlistInviteToken } from '@/lib/waitlistInviteToken';
 
 export const dynamic = "force-dynamic";
 
 export default async function PublicEventRegistrationPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { eventId } = await params;
+  const query = await searchParams;
   if (!eventId || eventId === "undefined") return notFound();
 
   const numericEventId = parseInt(eventId.split("-").pop() ?? "", 10);
@@ -24,6 +28,20 @@ export default async function PublicEventRegistrationPage({
 
   const event = await getPublishedEventById(numericEventId);
   if (!event) return notFound();
+
+  const waitlistInviteRaw = query?.waitlistInvite;
+  const waitlistInviteToken = Array.isArray(waitlistInviteRaw)
+    ? String(waitlistInviteRaw[0] || '')
+    : String(waitlistInviteRaw || '');
+
+  const waitlistInviteVerification = waitlistInviteToken
+    ? verifyWaitlistInviteToken(waitlistInviteToken)
+    : { valid: false as const };
+
+  const validWaitlistInviteClaims =
+    waitlistInviteVerification.valid && waitlistInviteVerification.claims?.eid === numericEventId
+      ? waitlistInviteVerification.claims
+      : null;
 
   const formsResult = await getOrderFormsByEventPublic(numericEventId);
   const form = formsResult?.data?.[0];
@@ -34,13 +52,15 @@ export default async function PublicEventRegistrationPage({
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const userEmail = user?.email || undefined;
+  const userEmail = validWaitlistInviteClaims?.email || user?.email || undefined;
 
   const adminClient = await createAdminClient();
   const { data: ticketRows } = await adminClient
       .from("Ticket")
-      .select("id, name, price, available_quantity")
+      .select("id, name, price, available_quantity, waitlist_reserved_quantity")
       .eq("event_id", numericEventId)
+      .eq("is_deleted", false)
+      .eq("is_hidden", false)
       .order("price", { ascending: true })
       .order("id", { ascending: true });
 
@@ -64,16 +84,24 @@ export default async function PublicEventRegistrationPage({
       }
   }
 
+  const { count: promoCount } = await adminClient
+      .from("Promotion")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", numericEventId);
+  const hasPromotions = (promoCount || 0) > 0;
+
   const enrichedTickets = eventTickets.map((t: any) => {
       const total = Number(t.available_quantity ?? 0);
+      const reservedForWaitlist = Number(t.waitlist_reserved_quantity ?? 0);
+      const publicTotal = Math.max(0, total - Math.max(0, reservedForWaitlist));
       const used = usageByTicket.get(Number(t.id)) || 0;
       return {
           id: t.id,
           name: t.name,
           price: t.price,
-          available_quantity: total,
+        available_quantity: publicTotal,
           used_quantity: used,
-          is_sold_out: total > 0 && used >= total,
+          is_sold_out: publicTotal <= 0 ? true : used >= publicTotal,
       };
   });
 
@@ -115,6 +143,8 @@ export default async function PublicEventRegistrationPage({
             eventId: numericEventId,
             registrationId: Number(registration.id),
             email: userEmail,
+            eventStartAt: event.event_start_at || null,
+            eventEndAt: event.event_end_at || null,
           }),
         }))
         .filter((pass) => Number.isFinite(pass.registrationId));
@@ -159,7 +189,7 @@ export default async function PublicEventRegistrationPage({
             </p>
             <Link
               href={`/events/${eventSlug}`}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
             >
               <ChevronLeft size={15} />
               Back to Event
@@ -178,6 +208,12 @@ export default async function PublicEventRegistrationPage({
           breakoutSessions={breakoutSessions}
           existingCheckInPasses={existingCheckInPasses}
           existingTicketNames={existingTicketNames}
+          hasPromotions={hasPromotions}
+          allowGroupRegistration={event.allow_group_registration ?? true}
+          allowWaitlist={event.allow_waitlist ?? false}
+          waitlistInviteToken={waitlistInviteToken || undefined}
+          waitlistInviteTicketId={validWaitlistInviteClaims?.tid ?? null}
+          waitlistInviteEmail={validWaitlistInviteClaims?.email || undefined}
         />
       )}
     </div>

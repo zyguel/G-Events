@@ -1,12 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown, Ticket } from 'lucide-react';
+import { Clock, Settings, Users, Check, Mail, RefreshCw, ChevronDown, Ticket, XCircle, Trash2 } from 'lucide-react';
 import { EventSummary } from '@/lib/types';
 import TablePaginationControls from '@/components/admin/TablePaginationControls';
 
 // Waitlist entry type and mock data (used only for local draft events)
-type WaitlistStatus = 'Invited' | 'Waiting';
+type WaitlistStatus = 'Invited' | 'Waiting' | 'Rejected';
 
 interface WaitlistEntryRow {
     id: string;
@@ -15,6 +15,7 @@ interface WaitlistEntryRow {
     ticketType: string;
     queue: number;
     status: WaitlistStatus;
+    inviteSentAt?: string | null;
 }
 
 const mockWaitlistEntries: WaitlistEntryRow[] = [
@@ -87,6 +88,38 @@ const RadioButton = ({ label, checked, onChange }: { label: string; checked: boo
     </div>
 );
 
+const IconActionButton = ({
+    onClick,
+    disabled,
+    tooltip,
+    className,
+    children,
+}: {
+    onClick: () => void;
+    disabled?: boolean;
+    tooltip: string;
+    className: string;
+    children: React.ReactNode;
+}) => (
+    <div className="relative group">
+        <button
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={tooltip}
+            className={className}
+        >
+            {children}
+        </button>
+
+        {!disabled && (
+            <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 px-2.5 py-1 rounded-lg bg-gray-900 dark:bg-gray-700 text-white text-xs font-semibold whitespace-nowrap shadow-lg opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-200 z-50">
+                {tooltip}
+                <span className="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700" />
+            </span>
+        )}
+    </div>
+);
+
 interface WaitlistClientProps {
     event: EventSummary;
 }
@@ -111,7 +144,21 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     const [isLoadingEntries, setIsLoadingEntries] = useState(false);
     const [isSavingSettings, setIsSavingSettings] = useState(false);
     const [invitingEntryId, setInvitingEntryId] = useState<string | null>(null);
+    const [rejectingEntryId, setRejectingEntryId] = useState<string | null>(null);
+    const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
+    const [resendCooldownByEntryId, setResendCooldownByEntryId] = useState<Record<string, number>>({});
     const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Collapsed by default
+    const [rejectModalEntryId, setRejectModalEntryId] = useState<string | null>(null);
+    const [rejectReasonMode, setRejectReasonMode] = useState<'preset' | 'custom'>('preset');
+    const [rejectReasonPreset, setRejectReasonPreset] = useState('No slots are currently available.');
+    const [rejectReasonCustom, setRejectReasonCustom] = useState('');
+
+    const rejectReasonOptions = [
+        'No slots are currently available.',
+        'Your account is already registered for this event.',
+        'Ticket eligibility requirements were not met.',
+        'The registration request details were incomplete.',
+    ];
 
     // Waitlist settings state
     const [expiryDays, setExpiryDays] = useState('7');
@@ -166,6 +213,43 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
 
         return () => controller.abort();
     }, [eventId]);
+
+    useEffect(() => {
+        const now = Date.now();
+        const nextCooldowns: Record<string, number> = {};
+
+        entries.forEach((entry) => {
+            if (!entry.inviteSentAt) return;
+            const sentAtMs = new Date(entry.inviteSentAt).getTime();
+            if (Number.isNaN(sentAtMs)) return;
+
+            const elapsed = Math.floor((now - sentAtMs) / 1000);
+            const remaining = Math.max(60 - elapsed, 0);
+            if (remaining > 0) {
+                nextCooldowns[entry.id] = remaining;
+            }
+        });
+
+        setResendCooldownByEntryId(nextCooldowns);
+    }, [entries]);
+
+    useEffect(() => {
+        const hasCooldown = Object.keys(resendCooldownByEntryId).length > 0;
+        if (!hasCooldown) return;
+
+        const timer = window.setInterval(() => {
+            setResendCooldownByEntryId((prev) => {
+                const next: Record<string, number> = {};
+                Object.entries(prev).forEach(([entryId, seconds]) => {
+                    const newValue = seconds - 1;
+                    if (newValue > 0) next[entryId] = newValue;
+                });
+                return next;
+            });
+        }, 1000);
+
+        return () => window.clearInterval(timer);
+    }, [resendCooldownByEntryId]);
 
     // Extract unique ticket types from entries
     const ticketTypes = Array.from(new Set(entries.map(e => e.ticketType)));
@@ -244,14 +328,15 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
         }
     };
 
-    const handleInvite = async (entryId: string) => {
+    const handleInvite = async (entryId: string, action: 'invite' | 'resend_invite' = 'invite') => {
         if (eventId.startsWith('evt-')) {
             setEntries(prev =>
                 prev.map(entry =>
-                    entry.id === entryId ? { ...entry, status: 'Invited' } : entry
+                    entry.id === entryId ? { ...entry, status: 'Invited', inviteSentAt: new Date().toISOString() } : entry
                 )
             );
-            setToast({ message: `Invitation marked for entry #${entryId}.`, type: 'success' });
+            setResendCooldownByEntryId(prev => ({ ...prev, [entryId]: 60 }));
+            setToast({ message: `${action === 'resend_invite' ? 'Invitation resent' : 'Invitation sent'} for entry #${entryId}.`, type: 'success' });
             return;
         }
 
@@ -260,19 +345,27 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
             const res = await fetch(`/api/events/${eventId}/waitlist`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'invite', entryId }),
+                body: JSON.stringify({ action, entryId }),
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok || !json?.success) {
                 throw new Error(json?.error || `Failed to invite waitlist entry (${res.status})`);
             }
 
+            const inviteSentAt = typeof json?.data?.inviteSentAt === 'string'
+                ? json.data.inviteSentAt
+                : new Date().toISOString();
+
             setEntries(prev =>
                 prev.map(entry =>
-                    entry.id === entryId ? { ...entry, status: 'Invited' } : entry
+                    entry.id === entryId ? { ...entry, status: 'Invited', inviteSentAt } : entry
                 )
             );
-            setToast({ message: `Invitation sent to ${entries.find(e => e.id === entryId)?.email || 'waitlist attendee'}.`, type: 'success' });
+            setResendCooldownByEntryId(prev => ({ ...prev, [entryId]: 60 }));
+            setToast({
+                message: `${action === 'resend_invite' ? 'Invitation resent' : 'Invitation sent'} to ${entries.find(e => e.id === entryId)?.email || 'waitlist attendee'}.`,
+                type: 'success'
+            });
         } catch (e) {
             console.error('Error sending invite:', e);
             setToast({ message: e instanceof Error ? e.message : 'Failed to send invite', type: 'error' });
@@ -281,12 +374,122 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
         }
     };
 
-    const getStatusBadge = (status: 'Invited' | 'Waiting') => {
+    const handleOpenRejectModal = (entryId: string) => {
+        setRejectModalEntryId(entryId);
+        setRejectReasonMode('preset');
+        setRejectReasonPreset(rejectReasonOptions[0]);
+        setRejectReasonCustom('');
+    };
+
+    const handleReject = async () => {
+        if (!rejectModalEntryId) return;
+
+        const reason = rejectReasonMode === 'custom'
+            ? rejectReasonCustom.trim()
+            : rejectReasonPreset.trim();
+
+        if (!reason) {
+            setToast({ message: 'Please provide a rejection reason.', type: 'error' });
+            return;
+        }
+
+        if (eventId.startsWith('evt-')) {
+            setEntries(prev =>
+                prev.map(entry =>
+                    entry.id === rejectModalEntryId ? { ...entry, status: 'Rejected', inviteSentAt: null } : entry
+                )
+            );
+            setResendCooldownByEntryId(prev => {
+                const next = { ...prev };
+                delete next[rejectModalEntryId];
+                return next;
+            });
+            setRejectModalEntryId(null);
+            setToast({ message: 'Waitlist entry rejected.', type: 'success' });
+            return;
+        }
+
+        try {
+            setRejectingEntryId(rejectModalEntryId);
+            const res = await fetch(`/api/events/${eventId}/waitlist`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'reject',
+                    entryId: rejectModalEntryId,
+                    reason,
+                }),
+            });
+
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to reject waitlist entry (${res.status})`);
+            }
+
+            setEntries(prev =>
+                prev.map(entry =>
+                    entry.id === rejectModalEntryId ? { ...entry, status: 'Rejected', inviteSentAt: null } : entry
+                )
+            );
+            setResendCooldownByEntryId(prev => {
+                const next = { ...prev };
+                delete next[rejectModalEntryId];
+                return next;
+            });
+            setRejectModalEntryId(null);
+            setToast({ message: `Rejection email sent to ${entries.find(e => e.id === rejectModalEntryId)?.email || 'waitlist attendee'}.`, type: 'success' });
+        } catch (e) {
+            console.error('Error rejecting waitlist entry:', e);
+            setToast({ message: e instanceof Error ? e.message : 'Failed to reject waitlist entry', type: 'error' });
+        } finally {
+            setRejectingEntryId(null);
+        }
+    };
+
+    const handleDeleteRejected = async (entryId: string) => {
+        if (eventId.startsWith('evt-')) {
+            setEntries(prev => prev.filter(entry => entry.id !== entryId));
+            setToast({ message: 'Rejected entry removed from queue.', type: 'success' });
+            return;
+        }
+
+        try {
+            setDeletingEntryId(entryId);
+            const res = await fetch(`/api/events/${eventId}/waitlist`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'delete', entryId }),
+            });
+            const json = await res.json().catch(() => ({}));
+
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to delete rejected waitlist entry (${res.status})`);
+            }
+
+            setEntries(prev => prev.filter(entry => entry.id !== entryId));
+            setToast({ message: 'Rejected entry removed from queue.', type: 'success' });
+        } catch (e) {
+            console.error('Error deleting rejected waitlist entry:', e);
+            setToast({ message: e instanceof Error ? e.message : 'Failed to delete rejected entry', type: 'error' });
+        } finally {
+            setDeletingEntryId(null);
+        }
+    };
+
+    const getStatusBadge = (status: WaitlistStatus) => {
         if (status === 'Invited') {
             return (
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">
                     <Check size={12} />
                     Invited
+                </span>
+            );
+        }
+        if (status === 'Rejected') {
+            return (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400">
+                    <XCircle size={12} />
+                    Rejected
                 </span>
             );
         }
@@ -302,6 +505,85 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
         <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Toast Notification */}
             {toast && <Toast {...toast} onClose={() => setToast(null)} />}
+
+            {rejectModalEntryId && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-lg rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-2xl">
+                        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center gap-2">
+                            <XCircle size={18} className="text-red-500" />
+                            <h3 className="text-base font-semibold text-gray-900 dark:text-white">Reject Waitlist Entry</h3>
+                        </div>
+
+                        <div className="px-6 py-5 space-y-4">
+                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                                Choose a reason to include in the rejection email.
+                            </p>
+
+                            <div className="space-y-3">
+                                <RadioButton
+                                    label="Use default reason"
+                                    checked={rejectReasonMode === 'preset'}
+                                    onChange={() => setRejectReasonMode('preset')}
+                                />
+                                {rejectReasonMode === 'preset' && (
+                                    <select
+                                        value={rejectReasonPreset}
+                                        onChange={(e) => setRejectReasonPreset(e.target.value)}
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
+                                    >
+                                        {rejectReasonOptions.map((reason) => (
+                                            <option key={reason} value={reason}>{reason}</option>
+                                        ))}
+                                    </select>
+                                )}
+                            </div>
+
+                            <div className="space-y-3">
+                                <RadioButton
+                                    label="Type custom reason"
+                                    checked={rejectReasonMode === 'custom'}
+                                    onChange={() => setRejectReasonMode('custom')}
+                                />
+                                {rejectReasonMode === 'custom' && (
+                                    <textarea
+                                        value={rejectReasonCustom}
+                                        onChange={(e) => setRejectReasonCustom(e.target.value)}
+                                        rows={4}
+                                        placeholder="Type reason to include in email..."
+                                        className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100"
+                                    />
+                                )}
+                            </div>
+                        </div>
+
+                        <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-2">
+                            <button
+                                onClick={() => setRejectModalEntryId(null)}
+                                className="px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-600 text-sm text-gray-700 dark:text-gray-300"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleReject}
+                                disabled={rejectingEntryId === rejectModalEntryId}
+                                className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-70 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                            >
+                                {rejectingEntryId === rejectModalEntryId ? (
+                                    <>
+                                        <RefreshCw size={14} className="animate-spin" />
+                                        Rejecting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <XCircle size={14} />
+                                        Confirm Reject
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <style jsx global>{`
                 @keyframes slide-up {
@@ -534,23 +816,70 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                                             </td>
                                             <td className="px-6 py-4 text-center">
                                                 {entry.status === 'Waiting' && (
-                                                    <button
-                                                        onClick={() => handleInvite(entry.id)}
-                                                        disabled={invitingEntryId === entry.id}
-                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-xs font-medium rounded-lg hover:shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-                                                    >
-                                                        {invitingEntryId === entry.id ? (
-                                                            <>
-                                                                <RefreshCw size={12} className="animate-spin" />
-                                                                Sending...
-                                                            </>
-                                                        ) : (
-                                                            <>
-                                                                <Mail size={12} />
-                                                                Send Invite
-                                                            </>
-                                                        )}
-                                                    </button>
+                                                    <div className="inline-flex items-center gap-2">
+                                                        <IconActionButton
+                                                            onClick={() => handleInvite(entry.id)}
+                                                            disabled={invitingEntryId === entry.id || rejectingEntryId === entry.id}
+                                                            tooltip={invitingEntryId === entry.id ? 'Sending invite...' : 'Send invite'}
+                                                            className="inline-flex items-center justify-center h-8 w-8 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white rounded-lg hover:shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                                        >
+                                                            {invitingEntryId === entry.id ? (
+                                                                <RefreshCw size={14} className="animate-spin" />
+                                                            ) : (
+                                                                <Mail size={14} />
+                                                            )}
+                                                        </IconActionButton>
+                                                        <IconActionButton
+                                                            onClick={() => handleOpenRejectModal(entry.id)}
+                                                            disabled={invitingEntryId === entry.id || rejectingEntryId === entry.id}
+                                                            tooltip="Reject"
+                                                            className="inline-flex items-center justify-center h-8 w-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg hover:shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                                        >
+                                                            <XCircle size={14} />
+                                                        </IconActionButton>
+                                                    </div>
+                                                )}
+                                                {entry.status === 'Invited' && (
+                                                    <div className="inline-flex items-center gap-2">
+                                                        <IconActionButton
+                                                            onClick={() => handleInvite(entry.id, 'resend_invite')}
+                                                            disabled={invitingEntryId === entry.id || rejectingEntryId === entry.id || (resendCooldownByEntryId[entry.id] || 0) > 0}
+                                                            tooltip={invitingEntryId === entry.id ? 'Resending invite...' : (resendCooldownByEntryId[entry.id] || 0) > 0 ? `Resend in ${resendCooldownByEntryId[entry.id]}s` : 'Resend invite'}
+                                                            className="inline-flex items-center justify-center h-8 w-8 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-lg hover:shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                                        >
+                                                            {invitingEntryId === entry.id ? (
+                                                                <RefreshCw size={14} className="animate-spin" />
+                                                            ) : (resendCooldownByEntryId[entry.id] || 0) > 0 ? (
+                                                                <Clock size={14} />
+                                                            ) : (
+                                                                <Mail size={14} />
+                                                            )}
+                                                        </IconActionButton>
+                                                        <IconActionButton
+                                                            onClick={() => handleOpenRejectModal(entry.id)}
+                                                            disabled={invitingEntryId === entry.id || rejectingEntryId === entry.id}
+                                                            tooltip="Reject"
+                                                            className="inline-flex items-center justify-center h-8 w-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg hover:shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                                        >
+                                                            <XCircle size={14} />
+                                                        </IconActionButton>
+                                                    </div>
+                                                )}
+                                                {entry.status === 'Rejected' && (
+                                                    <div className="inline-flex items-center gap-2">
+                                                        <IconActionButton
+                                                            onClick={() => handleDeleteRejected(entry.id)}
+                                                            disabled={deletingEntryId === entry.id}
+                                                            tooltip={deletingEntryId === entry.id ? 'Deleting...' : 'Delete from queue'}
+                                                            className="inline-flex items-center justify-center h-8 w-8 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 text-red-700 dark:text-red-300 rounded-lg hover:shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                                        >
+                                                            {deletingEntryId === entry.id ? (
+                                                                <RefreshCw size={14} className="animate-spin" />
+                                                            ) : (
+                                                                <Trash2 size={14} />
+                                                            )}
+                                                        </IconActionButton>
+                                                    </div>
                                                 )}
                                             </td>
                                         </tr>

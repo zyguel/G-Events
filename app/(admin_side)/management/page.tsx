@@ -7,6 +7,7 @@ import { ToastContainer, useToast } from '@/components/admin/Toast';
 import { usePermissions } from '@/contexts/PermissionContext';
 import { useLocale } from '@/contexts/LocaleContext';
 import AccessDenied from '@/components/admin/AccessDenied';
+import { createClient } from '@/lib/supabase-browser';
 
 interface TeamMember {
     id: number;
@@ -74,6 +75,8 @@ function ManagementPageInner() {
     // Data state
     const [members, setMembers] = useState<TeamMember[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
+    const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
+    const [currentUserAvatarUrl, setCurrentUserAvatarUrl] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeFilter, setActiveFilter] = useState<'Team' | 'Role'>('Team');
     const [openMenuId, setOpenMenuId] = useState<number | null>(null);
@@ -140,6 +143,64 @@ function ManagementPageInner() {
         fetchUsers();
         fetchRoles();
     }, []);
+
+    useEffect(() => {
+        const supabase = createClient();
+
+        const fetchCurrentUserAvatar = async () => {
+            const {
+                data: { user },
+            } = await supabase.auth.getUser();
+
+            const normalizedEmail = user?.email?.trim().toLowerCase() || null;
+            setCurrentUserEmail(normalizedEmail);
+
+            if (!normalizedEmail) {
+                setCurrentUserAvatarUrl(null);
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/profile/avatar', { method: 'GET' });
+                if (!response.ok) {
+                    setCurrentUserAvatarUrl(null);
+                    return;
+                }
+
+                const payload = await response.json();
+                const avatarUrl = payload?.success ? (payload?.data?.avatarUrl as string | null) : null;
+                setCurrentUserAvatarUrl(avatarUrl || null);
+            } catch {
+                setCurrentUserAvatarUrl(null);
+            }
+        };
+
+        fetchCurrentUserAvatar();
+    }, []);
+
+    useEffect(() => {
+        if (!currentUserEmail || !currentUserAvatarUrl) {
+            return;
+        }
+
+        setMembers((currentMembers) => {
+            let changed = false;
+            const nextMembers = currentMembers.map((member) => {
+                const memberEmail = member.email.trim().toLowerCase();
+                if (memberEmail === currentUserEmail && member.avatar !== currentUserAvatarUrl) {
+                    changed = true;
+                    return {
+                        ...member,
+                        avatar: currentUserAvatarUrl,
+                    };
+                }
+
+                return member;
+            });
+
+            return changed ? nextMembers : currentMembers;
+        });
+    }, [currentUserEmail, currentUserAvatarUrl]);
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
@@ -771,18 +832,19 @@ function ManagementPageInner() {
                                         >
                                             {/* Avatar and Name */}
                                             <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0">
+                                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                                                    <span className="text-white font-bold text-sm">{member.name.charAt(0).toUpperCase()}</span>
                                                     {member.avatar ? (
-                                                        <Image
+                                                        <img
                                                             src={member.avatar}
                                                             alt={member.name}
-                                                            width={40}
-                                                            height={40}
-                                                            className="object-cover"
+                                                            className="object-cover w-full h-full absolute"
+                                                            loading="lazy"
+                                                            onError={(event) => {
+                                                                event.currentTarget.style.display = 'none';
+                                                            }}
                                                         />
-                                                    ) : (
-                                                        <span className="text-white font-bold text-sm">{member.name.charAt(0).toUpperCase()}</span>
-                                                    )}
+                                                    ) : null}
                                                 </div>
                                                 <div>
                                                     <p className="text-xs text-gray-500 dark:text-gray-400">{t('Name')}</p>

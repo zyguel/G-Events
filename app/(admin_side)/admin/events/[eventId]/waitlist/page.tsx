@@ -24,6 +24,17 @@ export default async function WaitlistPage({ params }: { params: Promise<{ event
         return notFound();
     }
 
+    if (!data.allow_waitlist) {
+        return (
+            <div className="flex items-center justify-center h-full min-h-[50vh]">
+                <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
+                    <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Waitlist Disabled</h2>
+                    <p className="text-gray-500 dark:text-gray-400">The waitlist feature is currently disabled for this event. You can enable it in the Publish Settings.</p>
+                </div>
+            </div>
+        );
+    }
+
     // Derive status
     const now = new Date();
     const startDate = data.event_start_at ? new Date(data.event_start_at) : null;

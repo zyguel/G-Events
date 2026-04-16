@@ -95,14 +95,11 @@ export default function EventOverviewPage() {
     }
 
     return (
-        <div className="flex flex-col h-screen text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth">
-                <EventOverview initialData={eventData} />
-                <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
-                    <AuditLogViewer entityType="Event" entityId={parseInt(eventData.id, 10)} />
-                </div>
-            </main>
-        </div>
+        <>
+            <EventOverview initialData={eventData} />
+            <div className="max-w-5xl mx-auto px-4 md:px-8 py-6">
+                <AuditLogViewer entityType="Event" entityId={parseInt(eventData.id, 10)} />
+            </div>
+        </>
     );
 }
