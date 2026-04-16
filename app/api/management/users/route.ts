@@ -18,6 +18,28 @@ import type { UserWithRole } from '@/lib/supabase';
 const PROFILE_IMAGE_BUCKET = 'ProfileIMG';
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7;
 
+function getMetadataAvatarUrl(metadata: unknown): string | null {
+    const value = metadata as Record<string, unknown> | null;
+    if (!value) return null;
+
+    const candidates = [
+        value.avatar_url,
+        value.picture,
+        value.photo_url,
+        value.image,
+        value.profile_image_url,
+    ];
+
+    const firstUrl = candidates.find((candidate) => {
+        if (typeof candidate !== 'string') return false;
+        const trimmed = candidate.trim();
+        if (!trimmed) return false;
+        return !trimmed.startsWith('storage:');
+    });
+
+    return typeof firstUrl === 'string' ? firstUrl : null;
+}
+
 function getStoragePathFromMetadata(metadata: unknown): string | null {
     const value = metadata as Record<string, unknown> | null;
     if (!value) return null;
@@ -64,17 +86,21 @@ async function enrichUsersWithAvatars(users: UserWithRole[]): Promise<UserWithRo
             if (!email || !emailToMember.has(email)) return;
 
             const path = getStoragePathFromMetadata(authUser.user_metadata);
-            if (!path) return;
+            if (path) {
+                const { data, error } = await adminClient.storage
+                    .from(PROFILE_IMAGE_BUCKET)
+                    .createSignedUrl(path, SIGNED_URL_EXPIRES_IN_SECONDS);
 
-            const { data, error } = await adminClient.storage
-                .from(PROFILE_IMAGE_BUCKET)
-                .createSignedUrl(path, SIGNED_URL_EXPIRES_IN_SECONDS);
-
-            if (error || !data?.signedUrl) {
-                return;
+                if (!error && data?.signedUrl) {
+                    avatarByEmail.set(email, `${data.signedUrl}&t=${Date.now()}`);
+                    return;
+                }
             }
 
-            avatarByEmail.set(email, `${data.signedUrl}&t=${Date.now()}`);
+            const metadataAvatarUrl = getMetadataAvatarUrl(authUser.user_metadata);
+            if (metadataAvatarUrl) {
+                avatarByEmail.set(email, metadataAvatarUrl);
+            }
         })
     );
 
