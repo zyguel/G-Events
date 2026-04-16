@@ -40,8 +40,9 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [editData, setEditData] = useState({ phone: '', location: '', department: '' });
+    const [editData, setEditData] = useState({ name: '', phone: '', location: '', department: '' });
     const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
+    const [organizationName, setOrganizationName] = useState('Organization');
     const [isLoading, setIsLoading] = useState(true);
     const [avatarError, setAvatarError] = useState<string | null>(null);
     const [avatarSourceIndex, setAvatarSourceIndex] = useState(0);
@@ -285,6 +286,14 @@ export default function ProfilePage() {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
+                const organizationResponse = await fetch('/api/profile/organization', { method: 'GET' });
+                if (organizationResponse.ok) {
+                    const payload = await organizationResponse.json();
+                    if (payload?.success && payload?.data?.organizationName) {
+                        setOrganizationName(String(payload.data.organizationName));
+                    }
+                }
+
                 const name = user.user_metadata?.name
                     || user.user_metadata?.full_name
                     || user.email?.split('@')[0]
@@ -344,7 +353,7 @@ export default function ProfilePage() {
                     totalAttendees: totalAttendees ?? 0,
                     emailConfirmed: !!user.email_confirmed_at,
                 });
-                setEditData({ phone, location, department });
+                setEditData({ name, phone, location, department });
                 setAvatarSourceIndex(0);
             } finally {
                 setIsLoading(false);
@@ -360,20 +369,26 @@ export default function ProfilePage() {
         const supabase = createClient();
         const { error } = await supabase.auth.updateUser({
             data: {
+                name: editData.name,
+                full_name: editData.name,
                 phone: editData.phone,
                 location: editData.location,
                 department: editData.department,
             },
         });
         if (!error) {
-            setProfile(prev => prev ? { ...prev, ...editData } : prev);
+            setProfile(prev => prev ? {
+                ...prev,
+                ...editData,
+                avatarSeed: encodeURIComponent(editData.name || prev.name),
+            } : prev);
             setIsEditing(false);
         }
         setIsSaving(false);
     };
 
     const handleCancelEdit = () => {
-        if (profile) setEditData({ phone: profile.phone, location: profile.location, department: profile.department });
+        if (profile) setEditData({ name: profile.name, phone: profile.phone, location: profile.location, department: profile.department });
         setIsEditing(false);
     };
 
@@ -464,14 +479,14 @@ export default function ProfilePage() {
 
                         {/* Profile Header Card */}
                         <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg">
-                            <div className="h-32 bg-linear-to-r from-indigo-500 via-purple-500 to-pink-500 relative">
-                                <button
-                                    onClick={openAvatarPicker}
-                                    disabled={isUploadingAvatar}
-                                    className="absolute bottom-3 right-3 p-2 bg-white/20 hover:bg-white/30 rounded-lg transition-colors backdrop-blur-sm disabled:opacity-70 disabled:cursor-not-allowed"
-                                >
-                                    <Camera size={18} className="text-white" />
-                                </button>
+                            <div className="h-32 relative bg-linear-to-r from-slate-100 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-gray-800 dark:to-slate-800 border-b border-gray-200/70 dark:border-gray-700/70">
+                                <div className="absolute inset-0 opacity-50" style={{ backgroundImage: 'radial-gradient(circle at 20% 30%, rgba(59,130,246,0.18) 0, transparent 35%), radial-gradient(circle at 80% 70%, rgba(99,102,241,0.22) 0, transparent 35%)' }} />
+                                <div className="absolute inset-0 px-6 py-5 flex flex-col items-center justify-center text-center">
+                                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Workspace</p>
+                                    <p className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white mt-1">
+                                        Currently managing: "{organizationName}"
+                                    </p>
+                                </div>
                             </div>
 
                             <div className="px-6 pb-6 -mt-12 relative">
@@ -505,6 +520,25 @@ export default function ProfilePage() {
                                             <div className="space-y-2">
                                                 <SkeletonLine w="w-40" />
                                                 <SkeletonLine w="w-28" />
+                                            </div>
+                                        ) : profile && isEditing ? (
+                                            <div className="space-y-3 max-w-md">
+                                                <div>
+                                                    <label className="text-xs text-gray-500 dark:text-gray-400">Name</label>
+                                                    <input
+                                                        type="text"
+                                                        value={editData.name}
+                                                        onChange={e => setEditData(d => ({ ...d, name: e.target.value }))}
+                                                        placeholder="Your name"
+                                                        className="mt-1 w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                                    />
+                                                </div>
+                                                <p className="text-gray-500 dark:text-gray-400 flex items-center gap-2 mt-1">
+                                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400">
+                                                        {profile.role}
+                                                    </span>
+                                                    <span className="text-sm">{profile.department}</span>
+                                                </p>
                                             </div>
                                         ) : profile ? (
                                             <>
