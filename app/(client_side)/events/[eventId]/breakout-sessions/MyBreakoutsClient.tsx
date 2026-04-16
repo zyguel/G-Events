@@ -45,6 +45,7 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
     const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [confirmSession, setConfirmSession] = useState<BreakoutSession | null>(null);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const filteredSessions = useMemo(() => {
         if (activeTab === 'joined') {
@@ -116,8 +117,12 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
                 return s;
             }));
 
-            // Refresh to ensure full sync
-            router.refresh();
+            if (action === 'join') {
+                setShowSuccessModal(true);
+            } else {
+                // Refresh to ensure full sync on leave
+                router.refresh();
+            }
 
         } catch (err: any) {
             console.error('Error toggling join status:', err);
@@ -463,6 +468,31 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
                 </div>
                 );
             })()}
+
+            {/* Success Modal */}
+            {showSuccessModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    <div
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                    />
+                    <div className="relative w-full max-w-sm bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden text-center p-8">
+                        <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <CheckCircle2 size={32} className="text-emerald-500" />
+                        </div>
+                        <h3 className="text-xl font-extrabold text-gray-900 dark:text-white mb-3">Success!</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400 mb-8 leading-relaxed">
+                            You have successfully registered for the breakout session. You can find your e-ticket in email and the tickets tab.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => router.push('/home')}
+                            className="w-full py-3 px-4 bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-600 hover:to-teal-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-500/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            Okay
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
