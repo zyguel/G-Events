@@ -49,6 +49,7 @@ interface EventDetail {
     theme?: string;
     objectives?: string[];
     allow_breakout_sessions?: boolean;
+    allow_group_registration?: boolean;
     AgendaSlot?: AgendaSlot[];
 }
 
