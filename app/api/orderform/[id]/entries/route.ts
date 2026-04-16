@@ -204,7 +204,7 @@ export async function POST(
         // Load event + ticket context
         const { data: eventRow, error: eventError } = await supabase
             .from('Event')
-            .select('id, title, allow_waitlist, allow_breakout_sessions, event_start_at, event_end_at')
+            .select('id, title, capacity, allow_waitlist, allow_breakout_sessions, event_start_at, event_end_at')
             .eq('id', numericEventId)
             .single();
 
@@ -335,6 +335,55 @@ export async function POST(
 
         const totalRequested = uniqueEmails.length;
         const isGroupRegistration = totalRequested > 1;
+
+        // Enforce event-wide capacity so group submissions cannot overbook the event.
+        const eventCapacity = Number((eventRow as { capacity?: number | null }).capacity ?? 0);
+        if (eventCapacity > 0) {
+            const { count: activeRegistrationCount, error: activeCountError } = await supabase
+                .from('Registration')
+                .select('id', { count: 'exact', head: true })
+                .eq('event_id', numericEventId)
+                .not('status', 'in', '(cancelled,rejected)');
+
+            if (activeCountError) {
+                console.error('[Registration] Event capacity check failed:', activeCountError);
+                return NextResponse.json({ error: 'Failed to validate event capacity. Please try again.' }, { status: 500 });
+            }
+
+            const { data: reserveRows, error: reserveError } = await supabase
+                .from('Ticket')
+                .select('waitlist_reserved_quantity')
+                .eq('event_id', numericEventId);
+
+            if (reserveError) {
+                console.error('[Registration] Waitlist reserve capacity check failed:', reserveError);
+                return NextResponse.json({ error: 'Failed to validate event capacity. Please try again.' }, { status: 500 });
+            }
+
+            const reservedFromTickets = (reserveRows || []).reduce(
+                (sum: number, row: { waitlist_reserved_quantity?: number | null }) =>
+                    sum + Math.max(0, Number(row.waitlist_reserved_quantity ?? 0)),
+                0
+            );
+
+            // If this request redeems an invite, treat that reserved slot as consumed by this submission.
+            const reserveAdjustment = waitlistInviteEntry ? 1 : 0;
+            const activeReservedSeats = Math.max(0, reservedFromTickets - reserveAdjustment);
+            const effectiveCapacity = Math.max(0, eventCapacity - activeReservedSeats);
+
+            const nextTotal = Number(activeRegistrationCount || 0) + totalRequested;
+            if (nextTotal > effectiveCapacity) {
+                const remaining = Math.max(0, effectiveCapacity - Number(activeRegistrationCount || 0));
+                return NextResponse.json(
+                    {
+                        error: isGroupRegistration
+                            ? `Group size exceeds remaining event capacity. Only ${remaining} seat(s) are left.`
+                            : 'Event capacity has been reached.',
+                    },
+                    { status: 409 }
+                );
+            }
+        }
 
         console.log('[Registration] Normalized Primary:', normalizedPrimaryEmail);
         console.log('[Registration] Group Emails List (Cleaned):', groupEmailsList);

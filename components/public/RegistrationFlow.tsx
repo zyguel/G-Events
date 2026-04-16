@@ -1085,6 +1085,7 @@ function OrderFormStep({
     eventSlug,
     userEmail,
     ticketId,
+    tickets,
     promotionCode,
     waitlistInviteToken,
 }: {
@@ -1097,6 +1098,7 @@ function OrderFormStep({
     eventSlug: string;
     userEmail?: string;
     ticketId: number | null;
+    tickets: RegistrationFlowProps['tickets'];
     promotionCode?: string;
     waitlistInviteToken?: string;
 }) {
@@ -1104,6 +1106,7 @@ function OrderFormStep({
     const [answers, setAnswers] = useState<FormAnswers>({});
     const [touched, setTouched] = useState<Set<string>>(new Set());
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+    const [capacityPrecheckError, setCapacityPrecheckError] = useState<string | null>(null);
 
     const { isSubmitting, error, success, successMessage, submissionResult, submit } = useOrderFormSubmit({
         eventId,
@@ -1127,6 +1130,21 @@ function OrderFormStep({
 
     const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
+        setCapacityPrecheckError(null);
+
+        const requestedSeats = registrationType === 'group' ? groupEmails.length + 1 : 1;
+        if (ticketId && requestedSeats > 0) {
+            const selectedTicket = tickets.find((t) => t.id === ticketId) || null;
+            if (selectedTicket && selectedTicket.available_quantity > 0) {
+                const remaining = Math.max(0, selectedTicket.available_quantity - selectedTicket.used_quantity);
+                if (requestedSeats > remaining) {
+                    setCapacityPrecheckError(
+                        `This group needs ${requestedSeats} seat(s), but only ${remaining} seat(s) remain for ${selectedTicket.name}.`
+                    );
+                    return;
+                }
+            }
+        }
 
         // Mark all as touched
         const allIds = new Set<string>();
@@ -1146,7 +1164,7 @@ function OrderFormStep({
         if (Object.keys(newErrors).length > 0) return;
 
         await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : [], null, promotionCode, waitlistInviteToken || null);
-    }, [formData, answers, submit, ticketId, registrationType, groupEmails, promotionCode, waitlistInviteToken]);
+    }, [formData, answers, submit, ticketId, tickets, registrationType, groupEmails, promotionCode, waitlistInviteToken]);
 
     if (success) {
         return (
@@ -1246,6 +1264,13 @@ function OrderFormStep({
             )}
 
             {/* Error banner */}
+            {capacityPrecheckError && (
+                <div className="mb-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex gap-3">
+                    <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-700 dark:text-red-300">{capacityPrecheckError}</p>
+                </div>
+            )}
+
             {error && (
                 <div className="mb-5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex gap-3">
                     <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
@@ -1510,6 +1535,7 @@ export default function RegistrationFlow({
                             eventSlug={eventSlug}
                             userEmail={userEmail}
                             ticketId={selectedTicketId}
+                            tickets={tickets}
                             promotionCode={promotionCode}
                             waitlistInviteToken={waitlistInviteToken}
                         />
