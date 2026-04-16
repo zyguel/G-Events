@@ -44,6 +44,7 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
     const [activeTab, setActiveTab] = useState<'all' | 'joined'>('all');
     const [loadingSessionId, setLoadingSessionId] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [confirmSession, setConfirmSession] = useState<BreakoutSession | null>(null);
 
     const filteredSessions = useMemo(() => {
         if (activeTab === 'joined') {
@@ -82,7 +83,12 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
     const hasJoinedSession = useMemo(() => sessions.some(s => s.isJoined), [sessions]);
 
     const handleToggleJoin = async (session: BreakoutSession) => {
+        setConfirmSession(session);
+    };
+
+    const executeToggle = async (session: BreakoutSession) => {
         setError(null);
+        setConfirmSession(null);
         setLoadingSessionId(session.id);
         const action = session.isJoined ? 'leave' : 'join';
 
@@ -334,6 +340,129 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
                     </div>
                 )}
             </main>
+
+            {/* Confirmation Modal (Join / Leave) */}
+            {confirmSession && (() => {
+                const isLeaving = confirmSession.isJoined;
+                return (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                    {/* Backdrop */}
+                    <div
+                        className="absolute inset-0 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+                        onClick={() => setConfirmSession(null)}
+                    />
+                    {/* Modal */}
+                    <div className="relative w-full max-w-md bg-white dark:bg-gray-800 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 animate-in fade-in zoom-in-95 slide-in-from-bottom-4 duration-300 overflow-hidden">
+                        {/* Accent bar */}
+                        <div className={`h-1 bg-gradient-to-r ${isLeaving ? 'from-rose-500 to-red-400' : 'from-[#3D518C] to-[#5C6BC0]'}`} />
+
+                        <div className="p-6 sm:p-8">
+                            {/* Icon */}
+                            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-lg ${
+                                isLeaving
+                                    ? 'bg-gradient-to-br from-rose-500 to-red-400 shadow-rose-500/20'
+                                    : 'bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] shadow-[#3D518C]/20'
+                            }`}>
+                                {isLeaving
+                                    ? <AlertCircle size={26} className="text-white" />
+                                    : <Users size={26} className="text-white" />
+                                }
+                            </div>
+
+                            <h3 className="text-xl font-extrabold text-gray-900 dark:text-white text-center mb-2 tracking-tight">
+                                {isLeaving ? 'Leave this session?' : 'Join this session?'}
+                            </h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 text-center mb-6">
+                                {isLeaving
+                                    ? 'Are you sure you want to leave the following breakout session?'
+                                    : 'Are you sure you want to join the following breakout session?'}
+                            </p>
+
+                            {/* Session Info Card */}
+                            <div className="bg-gray-50 dark:bg-gray-700/40 rounded-2xl p-4 border border-gray-100 dark:border-gray-700 mb-6">
+                                <h4 className="text-base font-bold text-[#2e3e6b] dark:text-white mb-2">
+                                    {confirmSession.title}
+                                </h4>
+                                <div className="flex flex-col gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+                                    {confirmSession.time && (
+                                        <div className="flex items-center gap-2">
+                                            <Clock size={12} className="text-[#3D518C] dark:text-blue-400 shrink-0" />
+                                            <span className="font-medium">{confirmSession.time}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {confirmSession.type === 'Online'
+                                            ? <Video size={12} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                            : <Building2 size={12} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                                        }
+                                        <span className="font-semibold">{confirmSession.type}</span>
+                                        {confirmSession.location && (
+                                            <span className="text-gray-400">· {confirmSession.location}</span>
+                                        )}
+                                    </div>
+                                    {confirmSession.speakers.length > 0 && (
+                                        <div className="flex items-center gap-2">
+                                            <UserRound size={12} className="text-gray-400 shrink-0" />
+                                            <span>{confirmSession.speakers.map(s => s.name).join(', ')}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <Users size={12} className="text-gray-400 shrink-0" />
+                                        <span>{confirmSession.currentAttendees} / {confirmSession.maxCapacity > 0 ? confirmSession.maxCapacity : '∞'} attending</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Note */}
+                            <div className={`rounded-xl px-4 py-2.5 mb-6 border ${
+                                isLeaving
+                                    ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800/40'
+                                    : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/40'
+                            }`}>
+                                <p className={`text-xs font-medium ${
+                                    isLeaving
+                                        ? 'text-rose-700 dark:text-rose-300'
+                                        : 'text-amber-700 dark:text-amber-300'
+                                }`}>
+                                    {isLeaving
+                                        ? 'Your spot will be freed for other attendees. You can rejoin later if there’s still capacity.'
+                                        : 'You can only join one breakout session per event. You may leave and switch sessions later.'}
+                                </p>
+                            </div>
+
+                            {/* Buttons */}
+                            <div className="flex gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setConfirmSession(null)}
+                                    className="flex-1 px-5 py-3 rounded-2xl border border-gray-200 dark:border-gray-600 text-sm font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => executeToggle(confirmSession)}
+                                    disabled={loadingSessionId === confirmSession.id}
+                                    className={`flex-1 px-5 py-3 rounded-2xl text-white text-sm font-bold shadow-lg hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed ${
+                                        isLeaving
+                                            ? 'bg-gradient-to-r from-rose-500 to-red-400 shadow-rose-500/20 hover:from-rose-600 hover:to-red-500'
+                                            : 'bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] shadow-[#3D518C]/20 hover:from-[#2e3d6e] hover:to-[#4a57a1]'
+                                    }`}
+                                >
+                                    {loadingSessionId === confirmSession.id ? (
+                                        <><Loader2 size={15} className="animate-spin" /> {isLeaving ? 'Leaving...' : 'Joining...'}</>
+                                    ) : isLeaving ? (
+                                        <><AlertCircle size={15} /> Confirm Leave</>
+                                    ) : (
+                                        <><CheckCircle2 size={15} /> Confirm Join</>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                );
+            })()}
         </div>
     );
 }
