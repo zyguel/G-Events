@@ -6,12 +6,13 @@ import { getPublicAppBaseUrl } from '@/lib/appBaseUrl';
 import { buildEventSlug } from '@/lib/slug';
 import { generateWaitlistInviteToken } from '@/lib/waitlistInviteToken';
 
-type UiStatus = "Invited" | "Waiting";
+type UiStatus = "Invited" | "Waiting" | "Rejected";
 
 const mapStatusToUi = (s: string | null): UiStatus => {
     if (!s) return "Waiting";
     const normalized = s.toLowerCase();
     if (normalized === "invited") return "Invited";
+    if (normalized === "rejected") return "Rejected";
     return "Waiting";
 };
 
@@ -402,7 +403,7 @@ export async function PATCH(
             return NextResponse.json({ success: true, message: "Waitlist settings saved" });
         }
 
-        if (action !== "invite" && action !== "resend_invite") {
+        if (action !== "invite" && action !== "resend_invite" && action !== "reject" && action !== "delete") {
             return NextResponse.json(
                 { success: false, error: "Unsupported action" },
                 { status: 400 }
@@ -446,6 +447,39 @@ export async function PATCH(
             );
         }
 
+        if (action === "reject" && currentStatus === "rejected") {
+            return NextResponse.json(
+                { success: true, message: "Entry already rejected" }
+            );
+        }
+
+        if (action === "delete") {
+            if (currentStatus !== "rejected") {
+                return NextResponse.json(
+                    { success: false, error: "Only rejected entries can be deleted" },
+                    { status: 400 }
+                );
+            }
+
+            const { error: deleteError } = await supabase
+                .from("WaitlistEntry")
+                .delete()
+                .eq("id", entryId)
+                .eq("event_id", id);
+
+            if (deleteError) {
+                return NextResponse.json(
+                    { success: false, error: deleteError.message },
+                    { status: 500 }
+                );
+            }
+
+            return NextResponse.json({
+                success: true,
+                message: "Rejected entry deleted",
+            });
+        }
+
         const { data: eventMeta, error: eventMetaError } = await supabase
             .from("Event")
             .select("id, title, Organization(name)")
@@ -459,6 +493,89 @@ export async function PATCH(
             );
         }
 
+        const organizationName = getOrganizationName(eventMeta);
+        const recipientEmail = String(existing.email || "").trim();
+
+        if (!isValidEmail(recipientEmail)) {
+            return NextResponse.json(
+                { success: false, error: "Waitlist entry does not have a valid email" },
+                { status: 400 }
+            );
+        }
+
+        if (action === "reject") {
+            const reason = String(body?.reason || "").trim();
+            if (!reason) {
+                return NextResponse.json(
+                    { success: false, error: "Rejection reason is required" },
+                    { status: 400 }
+                );
+            }
+
+            const ticketIdForReservation = existing.ticket_id === null ? null : Number(existing.ticket_id);
+            const shouldReleaseReservedSlot = currentStatus === "invited" && !!ticketIdForReservation && !Number.isNaN(ticketIdForReservation);
+
+            if (shouldReleaseReservedSlot && ticketIdForReservation) {
+                const releaseResult = await adjustTicketReservation(supabase, ticketIdForReservation, {
+                    reserved: -1,
+                    available: -1,
+                });
+
+                if (!releaseResult.success) {
+                    return NextResponse.json(
+                        { success: false, error: releaseResult.error || "Failed to release reserved waitlist slot" },
+                        { status: 500 }
+                    );
+                }
+            }
+
+            const { error: rejectError } = await supabase
+                .from("WaitlistEntry")
+                .update({
+                    status: "rejected",
+                    invite_sent_at: null,
+                    invite_expires_at: null,
+                })
+                .eq("id", entryId)
+                .eq("event_id", id);
+
+            if (rejectError) {
+                if (shouldReleaseReservedSlot && ticketIdForReservation) {
+                    await adjustTicketReservation(supabase, ticketIdForReservation, {
+                        reserved: 1,
+                        available: 1,
+                    });
+                }
+
+                return NextResponse.json(
+                    { success: false, error: rejectError.message },
+                    { status: 500 }
+                );
+            }
+
+            try {
+                await sendEmail({
+                    to: recipientEmail,
+                    subject: `Waitlist update — ${eventMeta.title}`,
+                    html: `
+                      <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
+                        <p>Hi,</p>
+                        <p>Your waitlist request for <strong>${eventMeta.title}</strong> was not approved.</p>
+                        <p><strong>Reason:</strong> ${reason}</p>
+                        <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">This message is from <strong>${organizationName}</strong>.</p>
+                      </div>
+                    `,
+                });
+            } catch (emailError: any) {
+                console.error("ManageWaitlist PATCH: rejection email failed", emailError);
+            }
+
+            return NextResponse.json({
+                success: true,
+                message: "Entry rejected",
+            });
+        }
+
         const { data: settingsRow } = await supabase
             .from("EventWaitlistSettings")
             .select("expiry_days")
@@ -468,8 +585,6 @@ export async function PATCH(
         const expiryDays = Number(settingsRow?.expiry_days || 7);
         const inviteSentAt = new Date();
         const inviteExpiresAt = new Date(inviteSentAt.getTime() + expiryDays * 24 * 60 * 60 * 1000);
-        const organizationName = getOrganizationName(eventMeta);
-        const recipientEmail = String(existing.email || "").trim();
         const baseUrl = getPublicAppBaseUrl(request);
         const eventSlug = buildEventSlug(String(eventMeta.title || 'event'), id);
         const inviteToken = generateWaitlistInviteToken({
@@ -480,13 +595,6 @@ export async function PATCH(
             expiresAt: inviteExpiresAt,
         });
         const orderFormInviteUrl = `${baseUrl}/events/${eventSlug}/register?waitlistInvite=${encodeURIComponent(inviteToken)}`;
-
-        if (!isValidEmail(recipientEmail)) {
-            return NextResponse.json(
-                { success: false, error: "Waitlist entry does not have a valid email" },
-                { status: 400 }
-            );
-        }
 
         try {
             await sendEmail({

@@ -94,6 +94,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       name: ticket.name,
       type: ticket.type,
       quantity: ticket.quantity,
+      waitlistReservedQuantity: ticket.waitlistReservedQuantity || 0,
       price: ticket.price,
       currency: ticket.currency,
       startDate: ticket.startDate,
