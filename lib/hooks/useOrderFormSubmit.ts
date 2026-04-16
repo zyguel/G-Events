@@ -26,7 +26,8 @@ interface UseOrderFormSubmitReturn {
         ticketId?: number | null,
         groupEmails?: string[],
         breakoutSessionId?: number | null,
-        promotionCode?: string | null
+        promotionCode?: string | null,
+        waitlistInviteToken?: string | null
     ) => Promise<void>;
 }
 
@@ -48,7 +49,8 @@ export function useOrderFormSubmit({
         ticketId?: number | null,
         groupEmails?: string[],
         breakoutSessionId?: number | null,
-        promotionCode?: string | null
+        promotionCode?: string | null,
+        waitlistInviteToken?: string | null
     ) => {
         setIsSubmitting(true);
         setError(null);
@@ -80,6 +82,7 @@ export function useOrderFormSubmit({
                     groupEmails,
                     breakoutSessionId,
                     promotionCode,
+                    waitlistInviteToken,
                 }),
             });
             const result = await response.json().catch(() => ({}));

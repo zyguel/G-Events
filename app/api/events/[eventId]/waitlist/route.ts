@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase-server";
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 import { sendEmail } from "@/lib/emailProvider";
+import { getPublicAppBaseUrl } from '@/lib/appBaseUrl';
+import { buildEventSlug } from '@/lib/slug';
+import { generateWaitlistInviteToken } from '@/lib/waitlistInviteToken';
 
 type UiStatus = "Invited" | "Waiting";
 
@@ -17,6 +20,51 @@ const isValidEmail = (email: string): boolean => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.te
 const getOrganizationName = (eventRow: any): string => {
     return String(eventRow?.Organization?.name || "G-Events Organization");
 };
+
+const toSafeNonNegativeInt = (value: unknown): number => {
+    const n = Number(value ?? 0);
+    if (!Number.isFinite(n)) return 0;
+    return Math.max(0, Math.trunc(n));
+};
+
+async function adjustTicketReservation(
+    supabase: any,
+    ticketId: number,
+    delta: { reserved: number; available: number }
+): Promise<{ success: boolean; error?: string }> {
+    const { data: ticketRow, error: ticketError } = await supabase
+        .from("Ticket")
+        .select("id, available_quantity, waitlist_reserved_quantity")
+        .eq("id", ticketId)
+        .single();
+
+    if (ticketError || !ticketRow) {
+        return { success: false, error: ticketError?.message || "Ticket not found" };
+    }
+
+    const nextReserved = Math.max(
+        0,
+        toSafeNonNegativeInt(ticketRow.waitlist_reserved_quantity) + delta.reserved
+    );
+    const nextAvailable = Math.max(
+        0,
+        toSafeNonNegativeInt(ticketRow.available_quantity) + delta.available
+    );
+
+    const { error: updateError } = await supabase
+        .from("Ticket")
+        .update({
+            waitlist_reserved_quantity: nextReserved,
+            available_quantity: nextAvailable,
+        })
+        .eq("id", ticketId);
+
+    if (updateError) {
+        return { success: false, error: updateError.message };
+    }
+
+    return { success: true };
+}
 
 export async function POST(
     request: NextRequest,
@@ -422,6 +470,16 @@ export async function PATCH(
         const inviteExpiresAt = new Date(inviteSentAt.getTime() + expiryDays * 24 * 60 * 60 * 1000);
         const organizationName = getOrganizationName(eventMeta);
         const recipientEmail = String(existing.email || "").trim();
+        const baseUrl = getPublicAppBaseUrl(request);
+        const eventSlug = buildEventSlug(String(eventMeta.title || 'event'), id);
+        const inviteToken = generateWaitlistInviteToken({
+            eventId: id,
+            waitlistEntryId: entryId,
+            email: recipientEmail,
+            ticketId: existing.ticket_id ?? null,
+            expiresAt: inviteExpiresAt,
+        });
+        const orderFormInviteUrl = `${baseUrl}/events/${eventSlug}/register?waitlistInvite=${encodeURIComponent(inviteToken)}`;
 
         if (!isValidEmail(recipientEmail)) {
             return NextResponse.json(
@@ -438,7 +496,13 @@ export async function PATCH(
                   <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
                     <p>Hi,</p>
                     <p>A slot may now be available for <strong>${eventMeta.title}</strong>.</p>
-                    <p>Please complete your registration before <strong>${inviteExpiresAt.toLocaleString()}</strong>.</p>
+                                        <p>Please complete your registration before <strong>${inviteExpiresAt.toLocaleString()}</strong>.</p>
+                                        <p>
+                                            <a href="${orderFormInviteUrl}" style="display:inline-block; margin-top: 8px; padding: 10px 14px; border-radius: 8px; text-decoration: none; background: #3D518C; color: #ffffff; font-weight: 600;">
+                                                Complete Registration (Exclusive Link)
+                                            </a>
+                                        </p>
+                                        <p style="font-size: 12px; color: #6b7280;">If the button doesn't work, use this link: <a href="${orderFormInviteUrl}">${orderFormInviteUrl}</a></p>
                     <p style="margin-top: 20px; font-size: 12px; color: #6b7280;">This invitation is from <strong>${organizationName}</strong>.</p>
                   </div>
                 `,
@@ -449,6 +513,23 @@ export async function PATCH(
                 { success: false, error: emailError?.message || "Failed to send invite email" },
                 { status: 500 }
             );
+        }
+
+        const shouldReserveSlot = action === "invite" && currentStatus !== "invited";
+        const ticketIdForReservation = existing.ticket_id === null ? null : Number(existing.ticket_id);
+
+        if (shouldReserveSlot && ticketIdForReservation && !Number.isNaN(ticketIdForReservation)) {
+            const reserveResult = await adjustTicketReservation(supabase, ticketIdForReservation, {
+                reserved: 1,
+                available: 1,
+            });
+
+            if (!reserveResult.success) {
+                return NextResponse.json(
+                    { success: false, error: reserveResult.error || "Failed to reserve waitlist slot" },
+                    { status: 500 }
+                );
+            }
         }
 
         const { error } = await supabase
@@ -462,6 +543,13 @@ export async function PATCH(
             .eq("event_id", id);
 
         if (error) {
+            if (shouldReserveSlot && ticketIdForReservation && !Number.isNaN(ticketIdForReservation)) {
+                await adjustTicketReservation(supabase, ticketIdForReservation, {
+                    reserved: -1,
+                    available: -1,
+                });
+            }
+
             return NextResponse.json(
                 { success: false, error: error.message },
                 { status: 500 }

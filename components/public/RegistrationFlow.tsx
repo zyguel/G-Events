@@ -48,6 +48,9 @@ interface RegistrationFlowProps {
     hasPromotions?: boolean;
     allowGroupRegistration?: boolean;
     allowWaitlist?: boolean;
+    waitlistInviteToken?: string;
+    waitlistInviteTicketId?: number | null;
+    waitlistInviteEmail?: string;
 }
 
 type CheckInPass = {
@@ -1083,6 +1086,7 @@ function OrderFormStep({
     userEmail,
     ticketId,
     promotionCode,
+    waitlistInviteToken,
 }: {
     formData: OrderFormData;
     eventId: number;
@@ -1094,6 +1098,7 @@ function OrderFormStep({
     userEmail?: string;
     ticketId: number | null;
     promotionCode?: string;
+    waitlistInviteToken?: string;
 }) {
     const router = useRouter();
     const [answers, setAnswers] = useState<FormAnswers>({});
@@ -1140,8 +1145,8 @@ function OrderFormStep({
         setValidationErrors(newErrors);
         if (Object.keys(newErrors).length > 0) return;
 
-        await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : [], null, promotionCode);
-    }, [formData, answers, submit, ticketId, registrationType, groupEmails, promotionCode]);
+        await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : [], null, promotionCode, waitlistInviteToken || null);
+    }, [formData, answers, submit, ticketId, registrationType, groupEmails, promotionCode, waitlistInviteToken]);
 
     if (success) {
         return (
@@ -1318,12 +1323,21 @@ export default function RegistrationFlow({
     hasPromotions = false,
     allowGroupRegistration = true,
     allowWaitlist = false,
+    waitlistInviteToken,
+    waitlistInviteTicketId = null,
+    waitlistInviteEmail,
 }: RegistrationFlowProps) {
     const router = useRouter();
-    const [userEmail, setUserEmail] = useState<string | undefined>(initialUserEmail);
-    const [step, setStep] = useState<Step>(initialUserEmail ? 'choose-ticket' : 'identify');
+    const [userEmail, setUserEmail] = useState<string | undefined>(waitlistInviteEmail || initialUserEmail);
+    const [step, setStep] = useState<Step>(
+        waitlistInviteToken
+            ? 'fill-form'
+            : (waitlistInviteEmail || initialUserEmail)
+                ? 'choose-ticket'
+                : 'identify'
+    );
     const [registrationType, setRegistrationType] = useState<RegistrationType>('individual');
-    const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+    const [selectedTicketId, setSelectedTicketId] = useState<number | null>(waitlistInviteTicketId ?? null);
     const [groupEmails, setGroupEmails] = useState<string[]>([]);
     const [promotionCode, setPromotionCode] = useState<string | undefined>(undefined);
 
@@ -1497,6 +1511,7 @@ export default function RegistrationFlow({
                             userEmail={userEmail}
                             ticketId={selectedTicketId}
                             promotionCode={promotionCode}
+                            waitlistInviteToken={waitlistInviteToken}
                         />
                     )}
                 </div>
