@@ -123,6 +123,11 @@ export async function POST(
                 throw insertError;
             }
 
+            // Sync Registration table
+            await supabase.from('Registration')
+                .update({ has_breakout_session_registration: true })
+                .eq('id', registrationId);
+
         } else if (body.action === 'leave') {
             const { error: deleteError } = await supabase.from('BreakoutSessionRegistration')
                 .delete()
@@ -130,6 +135,11 @@ export async function POST(
                 .eq('breakout_session_id', breakoutId);
             
             if (deleteError) throw deleteError;
+
+            // Sync Registration table
+            await supabase.from('Registration')
+                .update({ has_breakout_session_registration: false })
+                .eq('id', registrationId);
         } else {
             return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
         }

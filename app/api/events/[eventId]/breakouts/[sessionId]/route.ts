@@ -169,6 +169,13 @@ export async function DELETE(
         }
 
         const supabase = await createClient();
+
+        // Find affected registrations before deletion
+        const { data: affectedRegs } = await supabase
+            .from("BreakoutSessionRegistration")
+            .select("registration_id")
+            .eq("breakout_session_id", breakoutId);
+
         const { error } = await supabase
             .from("BreakoutSession")
             .delete()
@@ -181,6 +188,15 @@ export async function DELETE(
                 { success: false, error: error.message },
                 { status: 500 }
             );
+        }
+
+        // Sync Registration table for affected attendees
+        if (affectedRegs && affectedRegs.length > 0) {
+            const regIds = affectedRegs.map(r => r.registration_id);
+            await supabase
+                .from("Registration")
+                .update({ has_breakout_session_registration: false })
+                .in("id", regIds);
         }
 
         revalidatePath(`/admin/events/${eventNumericId}/breakouts`);

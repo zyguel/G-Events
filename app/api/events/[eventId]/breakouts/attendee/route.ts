@@ -310,6 +310,11 @@ export async function POST(
         return NextResponse.json({ success: false, error: delErr.message }, { status: 500 });
       }
 
+      // Sync Registration table
+      await admin.from('Registration')
+          .update({ has_breakout_session_registration: false })
+          .eq('id', reg.id);
+
       return NextResponse.json({
         success: true,
         message: 'Breakout cleared. You are signed up for the main session only.',
@@ -368,6 +373,11 @@ export async function POST(
         return NextResponse.json({ success: false, error: insErr.message }, { status: 500 });
       }
     }
+
+    // Sync Registration table
+    await admin.from('Registration')
+        .update({ has_breakout_session_registration: true })
+        .eq('id', reg.id);
 
     const attendeeName =
       [userRow.name, userRow.email].find((v) => typeof v === 'string' && v.trim().length > 0) || 'Attendee';
