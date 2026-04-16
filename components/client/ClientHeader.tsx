@@ -214,12 +214,14 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
 
                 {/* Right Side */}
                 <div className="flex items-center gap-2">
-                    <ThemeToggle />
+                    <div className="hidden md:block">
+                        <ThemeToggle />
+                    </div>
                     {variant === 'default' && (
                         <>
                             <NotificationDropdown />
 
-                            <div className="w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
+                            <div className="hidden md:block w-px h-6 bg-gray-200 dark:bg-gray-700 mx-1" />
 
                             {/* Profile Button with Dropdown */}
                             <div className="relative" ref={dropdownRef}>
@@ -295,7 +297,7 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
                             <button
                                 onClick={() => setShowLogoutModal(true)}
                                 title={t('Sign out')}
-                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                                className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
                             >
                                 <LogOut size={17} />
                                 <span className="hidden md:block text-sm font-medium">{t('Sign out')}</span>

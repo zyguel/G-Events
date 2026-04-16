@@ -3,6 +3,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import ClientHeader from '@/components/client/ClientHeader';
 import ClientSidebar from '@/components/client/ClientSidebar';
+import ClientMobileNav from '@/components/client/ClientMobileNav';
+import ThemeToggle from '@/components/admin/ThemeToggle';
 import { createClient } from '@/lib/supabase-browser';
 import { useLocale } from '@/contexts/LocaleContext';
 import { getLanguageLabel } from '@/lib/i18n';
@@ -434,7 +436,7 @@ export default function ClientSettingsPage() {
             <div className="flex flex-1 min-h-0 overflow-hidden">
                 <ClientSidebar activePage="settings" />
 
-                <main className="flex-1 min-h-0 ml-20 overflow-y-auto p-4 sm:p-6 lg:p-10">
+                <main className="flex-1 min-h-0 ml-0 md:ml-20 overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-24 lg:p-10">
                     <div className="mx-auto max-w-4xl space-y-6">
                         <div>
                             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">{t('Settings')}</h1>
@@ -658,6 +660,16 @@ export default function ClientSettingsPage() {
                             </div>
                         </section>
 
+                        <section className="md:hidden bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
+                            <div className="flex items-center justify-between gap-4">
+                                <div>
+                                    <h2 className="font-semibold text-gray-900 dark:text-white">{t('Appearance')}</h2>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('Switch between light and dark mode')}</p>
+                                </div>
+                                <ThemeToggle />
+                            </div>
+                        </section>
+
                         <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm p-6">
                             <div className="flex items-center gap-3 mb-4">
                                 <div className="w-10 h-10 rounded-xl bg-linear-to-br from-emerald-500 to-teal-500 text-white flex items-center justify-center">
@@ -683,6 +695,8 @@ export default function ClientSettingsPage() {
                     </div>
                 </main>
             </div>
+
+            <ClientMobileNav activePage="settings" />
         </div>
     );
 }

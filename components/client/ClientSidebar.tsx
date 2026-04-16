@@ -92,7 +92,7 @@ const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: Clie
 
     return (
         <aside
-            className={`fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-6 pb-6 gap-2 z-40 transition-all duration-300 ease-in-out ${!disableExpand && isExpanded ? 'w-52' : 'w-20'
+            className={`hidden md:flex fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-col items-center pt-6 pb-6 gap-2 z-40 transition-all duration-300 ease-in-out ${!disableExpand && isExpanded ? 'w-52' : 'w-20'
                 }`}
             onMouseEnter={() => !disableExpand && setIsExpanded(true)}
             onMouseLeave={() => setIsExpanded(false)}

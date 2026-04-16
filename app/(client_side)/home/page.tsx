@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import ClientHeader from '@/components/client/ClientHeader';
+import ClientMobileNav from '@/components/client/ClientMobileNav';
 import { getPublishedEvents } from '@/lib/actions/events';
 import { buildEventSlug } from '@/lib/slug';
 import Link from 'next/link';
@@ -92,7 +93,7 @@ export default function ClientDashboardPage() {
             <div className="flex flex-1 overflow-hidden z-10">
 
                 <main className="flex-1 overflow-y-auto w-full">
-                    <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8 md:p-12 lg:p-16">
+                    <div className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-8 sm:pb-24 md:p-12 md:pb-12 lg:p-16">
 
                         {/* Greeting Section */}
                         <div className="group relative mb-10 animate-fade-in-up sm:mb-14">
@@ -198,6 +199,8 @@ export default function ClientDashboardPage() {
                     </div>
                 </main>
             </div>
+
+            <ClientMobileNav activePage="dashboard" />
         </div>
     );
 }

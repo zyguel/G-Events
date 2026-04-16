@@ -236,7 +236,7 @@ export default function TicketsPageClient({ passes }: { passes: TicketPassItem[]
   };
 
   return (
-    <main className="max-w-6xl mx-auto px-4 md:px-8 py-8 md:py-10">
+    <main className="max-w-6xl mx-auto px-4 md:px-8 py-8 pb-24 md:py-10 md:pb-10">
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white">My Tickets</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Manage your event passes and present your QR code during check-in.</p>
