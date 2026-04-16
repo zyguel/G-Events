@@ -119,7 +119,7 @@ const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: Clie
                         style={{ top: `${indicatorPos.top}px` }}
                     />
                 )}
-                <SidebarItem iconSrc="/icons/settings.svg" alt={t('Settings')} href="/settings" active={activePage === 'settings'} label={t('Settings')} isExpanded={isExpanded} isPending={isPendingHref('/settings')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
+                <SidebarItem iconSrc="/icons/settings.svg" alt={t('Settings')} href="/home/settings" active={activePage === 'settings'} label={t('Settings')} isExpanded={isExpanded} isPending={isPendingHref('/home/settings')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
             </div>
         </aside>
     );

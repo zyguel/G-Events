@@ -32,7 +32,7 @@ function isAdminRoute(pathname: string) {
  * Organizers attempting to access these are redirected to /dashboard.
  */
 function isAttendeeRoute(pathname: string) {
-  if (pathname === '/home' || pathname === '/tickets') return true;
+  if (pathname === '/home' || pathname.startsWith('/home/') || pathname === '/tickets') return true;
 
   if (pathname.startsWith('/events/')) {
     const parts = pathname.split('/').filter(Boolean);
