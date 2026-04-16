@@ -37,7 +37,7 @@ function isAttendeeRoute(pathname: string) {
   if (pathname.startsWith('/events/')) {
     const parts = pathname.split('/').filter(Boolean);
     const third = parts[2];
-    if (parts.length === 3 && third && ['register', 'review', 'my-breakouts'].includes(third)) {
+    if (parts.length === 3 && third && ['register', 'review', 'my-breakouts', 'breakout-sessions'].includes(third)) {
       return true;
     }
     if (parts.length === 4 && third === 'register' && parts[3] === 'complete') {

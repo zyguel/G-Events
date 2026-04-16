@@ -49,7 +49,7 @@ export async function POST(
     try {
         const { id } = await params;
         const body = await request.json();
-        const { eventId, formData, userEmail, registrationId, ticketId, groupEmails, breakoutSessionId } = body;
+        const { eventId, formData, userEmail, registrationId, ticketId, groupEmails, breakoutSessionId, promotionCode } = body;
 
         const numericFormId = parseInt(id, 10);
         const numericEventId = parseInt(String(eventId), 10);
@@ -291,6 +291,42 @@ export async function POST(
         let breakoutSessionTitle = '';
         let breakoutSessionLocation = '';
 
+        let finalPricePaid = selectedTicket ? Number(selectedTicket.price ?? 0) : 0;
+        let validPromotionId: number | null = null;
+
+        if (selectedTicket && promotionCode && typeof promotionCode === 'string') {
+            const { data: promoData } = await supabase
+                .from('Promotion')
+                .select(`id, discount_type, discount_value, max_uses, current_uses, start_at, end_at, PromotionTicket(ticket_id)`)
+                .eq('event_id', numericEventId)
+                .ilike('code', promotionCode.trim())
+                .single();
+
+            if (promoData) {
+                const now = new Date();
+                const isValidTime = 
+                    (!promoData.start_at || new Date(promoData.start_at) <= now) &&
+                    (!promoData.end_at || new Date(promoData.end_at) >= now);
+                
+                const currentUses = Number(promoData.current_uses ?? 0);
+                const maxUses = Number(promoData.max_uses ?? 0);
+                const isUnderLimit = maxUses === 0 || (currentUses + totalRequested) <= maxUses;
+
+                const allowedTicketIds = promoData.PromotionTicket?.map((pt: any) => pt.ticket_id) || [];
+                const isTicketAllowed = allowedTicketIds.length === 0 || allowedTicketIds.includes(selectedTicket.id);
+                
+                if (isValidTime && isUnderLimit && isTicketAllowed) {
+                    const discountVal = Number(promoData.discount_value || 0);
+                    if (promoData.discount_type === 'percentage') {
+                        finalPricePaid = Math.max(0, finalPricePaid * (100 - discountVal) / 100);
+                    } else {
+                        finalPricePaid = Math.max(0, finalPricePaid - discountVal);
+                    }
+                    validPromotionId = promoData.id;
+                }
+            }
+        }
+
         if (selectedTicket) {
             // ── Step 1: Verify ALL emails exist in the User table ────────────
             for (const email of uniqueEmails) {
@@ -379,7 +415,7 @@ export async function POST(
                     user_id: primaryUserId,
                     ticket_id: selectedTicket.id,
                     status: 'pending',
-                    final_price_paid: Number(selectedTicket.price ?? 0),
+                    final_price_paid: finalPricePaid,
                     registration_group_id: registrationGroupId,
                     ticket_token: primaryTicketToken,
                     profile_pending: false,
@@ -423,7 +459,7 @@ export async function POST(
                         user_id: memberUserId,
                         ticket_id: selectedTicket.id,
                         status: 'pending',
-                        final_price_paid: Number(selectedTicket.price ?? 0),
+                        final_price_paid: finalPricePaid,
                         registration_group_id: registrationGroupId,
                         ticket_token: memberTicketToken,
                         profile_pending: true,
@@ -627,6 +663,14 @@ export async function POST(
                 }),
             }))
             : [];
+
+        if (validPromotionId && submissionMode === 'registered') {
+            const { data: currentPromo } = await supabase.from('Promotion').select('current_uses').eq('id', validPromotionId).single();
+            if (currentPromo) {
+                const newUses = Number(currentPromo.current_uses || 0) + totalRequested;
+                await supabase.from('Promotion').update({ current_uses: newUses }).eq('id', validPromotionId);
+            }
+        }
 
         return NextResponse.json({
             success: true,

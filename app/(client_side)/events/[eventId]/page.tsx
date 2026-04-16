@@ -378,10 +378,6 @@ export default function ClientEventDetailPage() {
                         </section>
                     )}
 
-                    {event.allow_breakout_sessions ? (
-                        <BreakoutSessionPicker eventId={event.id} eventSlug={slug} />
-                    ) : null}
-
                     {/* Tickets */}
                     {tickets.length > 0 && (
                         <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
@@ -453,7 +449,7 @@ export default function ClientEventDetailPage() {
                                     </p>
                                 </div>
                                 <Link
-                                    href={`/events/${slug}/my-breakouts`}
+                                    href={`/events/${slug}/breakout-sessions`}
                                     className="flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-white px-6 py-3.5 text-center text-[15px] font-bold text-[#3D518C] shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-blue-50 hover:shadow-xl active:scale-[0.98] md:w-auto md:px-8 touch-manipulation whitespace-nowrap"
                                 >
                                     View breakout sessions

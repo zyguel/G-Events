@@ -151,19 +151,19 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
 
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div>
-                            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-2">
+                            <h1 className="text-2xl font-extrabold text-gray-900 dark:text-white tracking-tight mb-1">
                                 Breakout Sessions
                             </h1>
-                            <p className="text-gray-600 dark:text-gray-400 text-lg max-w-2xl">
+                            <p className="text-gray-600 dark:text-gray-400 text-sm max-w-2xl">
                                 Select and manage the smaller interactive sessions you want to attend during <span className="font-semibold text-gray-900 dark:text-gray-200">{event.title}</span>.
                             </p>
                         </div>
 
                         {/* Tabs */}
-                        <div className="flex p-1 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm w-fit">
+                        <div className="flex p-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm w-fit">
                             <button
                                 onClick={() => setActiveTab('all')}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'all'
+                                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'all'
                                     ? 'bg-[#3D518C] text-white shadow-md'
                                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                                     }`}
@@ -172,7 +172,7 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
                             </button>
                             <button
                                 onClick={() => setActiveTab('joined')}
-                                className={`px-6 py-2.5 rounded-xl text-sm font-semibold transition-all ${activeTab === 'joined'
+                                className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${activeTab === 'joined'
                                     ? 'bg-emerald-500 text-white shadow-md'
                                     : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50'
                                     }`}
@@ -210,13 +210,13 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
 
                             return (
                             <div key={date} className="space-y-6">
-                                <div className="flex items-center gap-4">
-                                    <div className="bg-[#3D518C] dark:bg-blue-900 px-6 py-2.5 rounded-full shadow-md shadow-[#3D518C]/20 text-white">
-                                        <h2 className="text-xl font-black tracking-wide">{displayDate}</h2>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-[#3D518C] dark:bg-blue-900 px-4 py-1.5 rounded-full shadow-sm shadow-[#3D518C]/20 text-white">
+                                        <h2 className="text-sm font-bold tracking-wide">{displayDate}</h2>
                                     </div>
                                     <div className="h-px bg-gradient-to-r from-[#3D518C]/40 to-transparent flex-1"></div>
                                 </div>
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                     {groupSessions.map(session => {
                                         const isFull = session.maxCapacity > 0 && session.currentAttendees >= session.maxCapacity;
                                         const isUnavailable = session.status === "Completed" || session.status === "Cancelled";
@@ -226,130 +226,102 @@ export default function MyBreakoutsClient({ event, initialSessions }: MyBreakout
                                         return (
                                             <div
                                                 key={session.id}
-                                                className={`bg-white dark:bg-gray-800/70 rounded-3xl p-6 sm:p-8 border-2 transition-all duration-300 relative overflow-hidden group
+                                                className={`bg-white dark:bg-gray-800/70 rounded-2xl p-4 border-2 transition-all duration-300 relative overflow-hidden group
                                                     ${session.isJoined
-                                                        ? 'border-emerald-500 shadow-xl shadow-emerald-500/10 dark:shadow-emerald-900/20 bg-gradient-to-br from-white to-emerald-50/50 dark:from-gray-800 dark:to-emerald-900/10'
-                                                        : 'border-transparent shadow-lg shadow-gray-200/40 dark:shadow-black/20 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-xl hover:-translate-y-1 bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-800/80'
+                                                        ? 'border-emerald-500 shadow-md shadow-emerald-500/10 dark:shadow-emerald-900/20 bg-gradient-to-br from-white to-emerald-50/50 dark:from-gray-800 dark:to-emerald-900/10'
+                                                        : 'border-transparent shadow-md shadow-gray-200/40 dark:shadow-black/20 hover:border-blue-200 dark:hover:border-blue-900/50 hover:shadow-lg hover:-translate-y-0.5 bg-gradient-to-br from-white to-gray-50/50 dark:from-gray-800 dark:to-gray-800/80'
                                                     }
                                                 `}
                                             >
                                                 {/* Joined Indicator Banner */}
                                                 {session.isJoined && (
-                                                    <div className="absolute top-0 right-0 bg-emerald-500 text-white text-xs font-bold px-4 py-1.5 rounded-bl-xl flex items-center gap-1.5">
-                                                        <CheckCircle2 size={14} /> Joined
+                                                    <div className="absolute top-0 right-0 bg-emerald-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-lg flex items-center gap-1">
+                                                        <CheckCircle2 size={11} /> Joined
                                                     </div>
                                                 )}
 
                                                 <div className="flex flex-col h-full">
-                                                    <div className="flex items-start justify-between gap-4 mb-6">
-                                                        <h3 className="text-2xl font-black text-[#2e3e6b] dark:text-white leading-tight line-clamp-2">
+                                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                                        <h3 className="text-base font-bold text-[#2e3e6b] dark:text-white leading-tight line-clamp-2">
                                                             {session.title || "Untitled Session"}
                                                         </h3>
                                                     </div>
 
                                                     {/* Details Grid */}
-                                                    <div className="grid grid-cols-2 gap-y-4 gap-x-2 text-sm text-gray-600 dark:text-gray-300 mb-6 flex-1">
-                                                        {session.time ? (
-                                                            <div className="flex items-center gap-2.5">
-                                                                <div className="w-8 h-8 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
-                                                                    <Clock size={16} className="text-[#3D518C] dark:text-blue-400" />
-                                                                </div>
-                                                                <span dangerouslySetInnerHTML={{ __html: session.time.replace('–', '<br/>') }} className="leading-snug font-medium text-gray-700 dark:text-gray-200" />
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2.5">
-                                                                <div className="w-8 h-8 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center shrink-0">
-                                                                    <Clock size={16} className="text-gray-400" />
-                                                                </div>
-                                                                <span className="leading-snug text-gray-400 font-medium italic">Time TBD</span>
-                                                            </div>
-                                                        )}
-                                                        <div className="flex items-start gap-2.5">
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${session.type === 'Online' ? 'bg-emerald-50 dark:bg-emerald-900/20' : 'bg-purple-50 dark:bg-purple-900/20'}`}>
-                                                                {session.type === 'Online' ? (
-                                                                    <Video size={16} className="text-emerald-600 dark:text-emerald-400" />
-                                                                ) : (
-                                                                    <Building2 size={16} className="text-purple-600 dark:text-purple-400" />
-                                                                )}
-                                                            </div>
-                                                            <span className="leading-snug flex-1">
-                                                                <span className="font-bold text-gray-900 dark:text-white block">{session.type}</span>
-                                                                {session.type === 'In-Person' && (
-                                                                    <span className="text-sm text-gray-500 max-w-full truncate block">{session.location || <span className="italic opacity-60">Location TBD</span>}</span>
-                                                                )}
-                                                            </span>
+                                                    <div className="flex flex-col gap-1.5 text-xs text-gray-600 dark:text-gray-300 mb-3 flex-1">
+                                                        <div className="flex items-center gap-2">
+                                                            <Clock size={12} className="text-[#3D518C] dark:text-blue-400 shrink-0" />
+                                                            {session.time
+                                                                ? <span className="font-medium text-gray-700 dark:text-gray-200">{session.time}</span>
+                                                                : <span className="text-gray-400 italic">Time TBD</span>
+                                                            }
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                            {session.type === 'Online'
+                                                                ? <Video size={12} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+                                                                : <Building2 size={12} className="text-purple-600 dark:text-purple-400 shrink-0" />
+                                                            }
+                                                            <span className="font-semibold text-gray-800 dark:text-white">{session.type}</span>
+                                                            {session.type === 'In-Person' && session.location && (
+                                                                <span className="text-gray-400 truncate">· {session.location}</span>
+                                                            )}
                                                         </div>
                                                         {session.speakers.length > 0 && (
-                                                            <div className="col-span-2 flex items-start gap-2 pt-2 border-t border-gray-100 dark:border-gray-700/50 mt-2">
-                                                                <UserRound size={16} className="text-gray-400 shrink-0 mt-0.5" />
-                                                                <div>
-                                                                    <span className="text-xs text-gray-400 uppercase tracking-wider font-semibold block mb-0.5">Speakers</span>
-                                                                    <div className="flex flex-wrap gap-2">
-                                                                        {session.speakers.map((s, i) => (
-                                                                            <span key={i} className="bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded text-gray-800 dark:text-gray-200 text-xs font-medium">
-                                                                                {s.name}
-                                                                            </span>
-                                                                        ))}
-                                                                    </div>
-                                                                </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <UserRound size={12} className="text-gray-400 shrink-0" />
+                                                                <span>{session.speakers.map(s => s.name).join(', ')}</span>
                                                             </div>
                                                         )}
                                                     </div>
 
                                                     {/* Footer Actions & Capacity */}
-                                                    <div className="pt-6 border-t border-gray-100 dark:border-gray-700/50 flex flex-col sm:flex-row items-center justify-between gap-4 mt-auto">
-
+                                                    <div className="pt-3 border-t border-gray-100 dark:border-gray-700/50 flex items-center justify-between gap-3 mt-auto">
                                                         {/* Capacity */}
-                                                        <div className="w-full sm:w-1/2">
-                                                            <div className="flex justify-between text-xs font-semibold mb-1.5">
-                                                                <span className={isFull && !session.isJoined ? 'text-red-500' : 'text-gray-500'}>
-                                                                    {session.currentAttendees} / {session.maxCapacity > 0 ? session.maxCapacity : 'Unlimited'} attending
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex justify-between text-[11px] font-semibold mb-1">
+                                                                <span className={isFull && !session.isJoined ? 'text-red-500' : 'text-gray-400'}>
+                                                                    {session.currentAttendees} / {session.maxCapacity > 0 ? session.maxCapacity : '∞'} attending
                                                                 </span>
                                                                 {isFull && !session.isJoined && <span className="text-red-500">Full</span>}
                                                             </div>
                                                             {session.maxCapacity > 0 && (
-                                                                <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                <div className="h-1 w-full bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
                                                                     <div
-                                                                        className={`h-full rounded-full transition-all duration-500 ${isFull && !session.isJoined ? 'bg-red-500' : 'bg-blue-500'
-                                                                            }`}
+                                                                        className={`h-full rounded-full transition-all duration-500 ${isFull && !session.isJoined ? 'bg-red-500' : 'bg-blue-500'}`}
                                                                         style={{ width: `${progressPercentage}%` }}
                                                                     />
                                                                 </div>
                                                             )}
                                                         </div>
-
                                                         {/* Actions */}
-                                                        <div className="w-full sm:w-auto flex flex-col gap-2 shrink-0">
-
+                                                        <div className="flex flex-col gap-1.5 shrink-0">
                                                             {session.isJoined && session.type === 'Online' && session.joinLink && (
                                                                 <a
                                                                     href={session.joinLink}
                                                                     target="_blank"
                                                                     rel="noopener noreferrer"
-                                                                    className="w-full sm:w-auto flex items-center justify-center gap-2 bg-[#ABD2FA] text-[#3D518C] hover:bg-[#9AC2EA] px-6 py-3 rounded-full text-sm font-bold transition-all shadow-sm group-hover:shadow"
+                                                                    className="flex items-center gap-1.5 bg-[#ABD2FA] text-[#3D518C] hover:bg-[#9AC2EA] px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                                                                 >
-                                                                    Join Meeting <ExternalLink size={16} />
+                                                                    Join Meeting <ExternalLink size={12} />
                                                                 </a>
                                                             )}
-
                                                             <button
                                                                 onClick={() => handleToggleJoin(session)}
                                                                 disabled={loadingSessionId === session.id || (isUnavailable && !session.isJoined) || (!session.isJoined && (isFull || hasJoinedSession))}
-                                                                className={`w-full sm:w-auto px-8 py-3 rounded-full text-sm font-extrabold transition-all duration-300 flex items-center justify-center gap-2
+                                                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 flex items-center justify-center gap-1.5
                                                                     ${loadingSessionId === session.id ? 'opacity-70 cursor-not-allowed' : ''}
                                                                     ${session.isJoined
-                                                                        ? 'bg-white text-rose-500 hover:bg-rose-50 dark:bg-gray-800 dark:hover:bg-rose-900/20 border-2 border-rose-500 shadow-md'
+                                                                        ? 'bg-white text-rose-500 hover:bg-rose-50 dark:bg-gray-800 dark:hover:bg-rose-900/20 border border-rose-400'
                                                                         : isFull || isUnavailable || hasJoinedSession
-                                                                            ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed border-2 border-transparent'
-                                                                            : 'bg-[#3D518C] text-white hover:bg-[#2b3a66] shadow-lg shadow-blue-500/20 hover:shadow-xl hover:-translate-y-0.5 border-2 border-[#3D518C]'
+                                                                            ? 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 cursor-not-allowed border border-transparent'
+                                                                            : 'bg-[#3D518C] text-white hover:bg-[#2b3a66] border border-[#3D518C]'
                                                                     }
                                                                 `}
                                                             >
-                                                                {loadingSessionId === session.id && <Loader2 size={16} className="animate-spin" />}
-                                                                {!session.isJoined && hasJoinedSession && !isFull && !isUnavailable && <Lock size={16} />}
+                                                                {loadingSessionId === session.id && <Loader2 size={12} className="animate-spin" />}
+                                                                {!session.isJoined && hasJoinedSession && !isFull && !isUnavailable && <Lock size={12} />}
                                                                 {session.isJoined ? 'Leave Session' : isFull ? 'Session Full' : isUnavailable ? 'Unavailable' : hasJoinedSession ? 'Max 1 Session' : 'Join Session'}
                                                             </button>
-
                                                         </div>
                                                     </div>
                                                 </div>

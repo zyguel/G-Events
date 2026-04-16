@@ -64,6 +64,12 @@ export default async function PublicEventRegistrationPage({
       }
   }
 
+  const { count: promoCount } = await adminClient
+      .from("Promotion")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", numericEventId);
+  const hasPromotions = (promoCount || 0) > 0;
+
   const enrichedTickets = eventTickets.map((t: any) => {
       const total = Number(t.available_quantity ?? 0);
       const used = usageByTicket.get(Number(t.id)) || 0;
@@ -180,6 +186,8 @@ export default async function PublicEventRegistrationPage({
           breakoutSessions={breakoutSessions}
           existingCheckInPasses={existingCheckInPasses}
           existingTicketNames={existingTicketNames}
+          hasPromotions={hasPromotions}
+          allowGroupRegistration={event.allow_group_registration ?? true}
         />
       )}
     </div>
