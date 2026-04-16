@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTicket, updateTicket, deleteTicket } from '@/lib/db';
+import { getTicket, updateTicket, deleteTicket, restoreTicket } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
 
 // GET /api/events/[eventId]/tickets/[ticketId] - Get a single ticket
@@ -43,15 +43,21 @@ export async function PATCH(
 ) {
     try {
         await requireUser();
-        const { ticketId } = await params;
+        const { eventId, ticketId } = await params;
+        const eventNumId = parseInt(eventId, 10);
         const id = parseInt(ticketId);
         const body = await request.json();
 
-        if (isNaN(id)) {
+        if (isNaN(eventNumId) || isNaN(id)) {
             return NextResponse.json(
-                { success: false, error: 'Invalid ticket ID' },
+                { success: false, error: 'Invalid event or ticket ID' },
                 { status: 400 }
             );
+        }
+
+        if (body?.action === 'restore') {
+            const restoredTicket = await restoreTicket(id, eventNumId);
+            return NextResponse.json({ success: true, data: restoredTicket });
         }
 
         if (Object.keys(body).length === 0) {
@@ -79,23 +85,25 @@ export async function DELETE(
 ) {
     try {
         await requireUser();
-        const { ticketId } = await params;
+        const { eventId, ticketId } = await params;
+        const eventNumId = parseInt(eventId, 10);
         const id = parseInt(ticketId);
 
-        if (isNaN(id)) {
+        if (isNaN(eventNumId) || isNaN(id)) {
             return NextResponse.json(
-                { success: false, error: 'Invalid ticket ID' },
+                { success: false, error: 'Invalid event or ticket ID' },
                 { status: 400 }
             );
         }
 
-        await deleteTicket(id);
+        await deleteTicket(id, eventNumId);
         return NextResponse.json({ success: true, message: 'Ticket deleted successfully' });
     } catch (error: any) {
         console.error('Error deleting ticket:', error);
+        const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
         return NextResponse.json(
             { success: false, error: error.message || 'Failed to delete ticket' },
-            { status: 500 }
+            { status }
         );
     }
 }

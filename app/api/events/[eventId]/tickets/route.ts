@@ -11,6 +11,7 @@ export async function GET(
         await requireUser();
         const { eventId } = await params;
         const id = parseInt(eventId);
+        const includeDeleted = request.nextUrl.searchParams.get('includeDeleted') === '1';
 
         if (isNaN(id)) {
             return NextResponse.json(
@@ -19,7 +20,7 @@ export async function GET(
             );
         }
 
-        const tickets = await getTickets(id);
+        const tickets = await getTickets(id, { includeDeleted });
         return NextResponse.json({ success: true, data: tickets });
     } catch (error: any) {
         console.error('Error fetching tickets:', error);

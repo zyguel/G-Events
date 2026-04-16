@@ -688,16 +688,23 @@ export async function deleteEvent(eventId: number, organizationId?: number) {
 
 // ─── Tickets ──────────────────────────────────────────────────────────────────
 
-export async function getTickets(eventId: number) {
+export async function getTickets(eventId: number, options?: { includeDeleted?: boolean }) {
     const supabase = await createClient();
     const adminSupabase = await createAdminClient();
+    const includeDeleted = options?.includeDeleted === true;
 
     // 1. Fetch tickets (use standard client)
-    const { data: tickets, error: ticketError } = await supabase
+    let ticketQuery = supabase
         .from('Ticket')
         .select('*')
         .eq('event_id', eventId)
         .order('id', { ascending: true });
+
+    if (!includeDeleted) {
+        ticketQuery = ticketQuery.eq('is_deleted', false);
+    }
+
+    const { data: tickets, error: ticketError } = await ticketQuery;
 
     if (ticketError) throw ticketError;
     if (!tickets || tickets.length === 0) return [];
@@ -762,7 +769,7 @@ export async function createTicket(
 
     const { data, error } = await supabase
         .from('Ticket')
-        .insert([{ event_id: eventId, ...fields }])
+        .insert([{ event_id: eventId, is_hidden: false, is_deleted: false, deleted_at: null, ...fields }])
         .select()
         .single();
 
@@ -790,6 +797,9 @@ export async function updateTicket(
         selling_end_at: string;
         selling_start_time: string;
         selling_end_time: string;
+        is_hidden: boolean;
+        is_deleted: boolean;
+        deleted_at: string | null;
     }>
 ) {
     const supabase = await getSupabase();
@@ -820,21 +830,37 @@ export async function updateTicket(
     return data;
 }
 
-export async function deleteTicket(ticketId: number) {
+export async function deleteTicket(ticketId: number, eventId?: number) {
     const supabase = await getSupabase();
 
-    const { data: beforeData, error: beforeError } = await supabase
+    let beforeQuery = supabase
         .from('Ticket')
         .select('*')
-        .eq('id', ticketId)
-        .single();
+        .eq('id', ticketId);
+
+    if (typeof eventId === 'number' && !Number.isNaN(eventId)) {
+        beforeQuery = beforeQuery.eq('event_id', eventId);
+    }
+
+    const { data: beforeData, error: beforeError } = await beforeQuery.single();
 
     if (beforeError) throw beforeError;
 
-    const { error } = await supabase
+    // Soft-delete ticket so historical registrations remain intact.
+    let softDeleteQuery = supabase
         .from('Ticket')
-        .delete()
+        .update({
+            is_hidden: true,
+            is_deleted: true,
+            deleted_at: new Date().toISOString(),
+        })
         .eq('id', ticketId);
+
+    if (typeof eventId === 'number' && !Number.isNaN(eventId)) {
+        softDeleteQuery = softDeleteQuery.eq('event_id', eventId);
+    }
+
+    const { error } = await softDeleteQuery;
 
     if (error) throw error;
 
@@ -843,6 +869,36 @@ export async function deleteTicket(ticketId: number) {
     } catch (e) {
       console.warn('Ticket audit log failed:', e);
     }
+}
+
+export async function restoreTicket(ticketId: number, eventId?: number) {
+        const supabase = await getSupabase();
+
+        let restoreQuery = supabase
+                .from('Ticket')
+                .update({
+                        is_deleted: false,
+                        deleted_at: null,
+                })
+                .eq('id', ticketId);
+
+        if (typeof eventId === 'number' && !Number.isNaN(eventId)) {
+                restoreQuery = restoreQuery.eq('event_id', eventId);
+        }
+
+        const { data, error } = await restoreQuery
+                .select()
+                .single();
+
+        if (error) throw error;
+
+        try {
+            await logAuditEntry('Ticket', ticketId, 'update', { before: null, after: data });
+        } catch (e) {
+            console.warn('Ticket audit log failed:', e);
+        }
+
+        return data;
 }
 
 // ─── Add-Ons ──────────────────────────────────────────────────────────────────

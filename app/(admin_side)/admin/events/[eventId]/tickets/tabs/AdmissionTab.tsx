@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Edit2, Plus, Trash2, AlertCircle, Ticket as TicketIcon, Users, ShoppingCart, Archive, EyeOff, CalendarRange } from "lucide-react";
+import { Edit2, Plus, Trash2, AlertCircle, Ticket as TicketIcon, Users, ShoppingCart, Archive, EyeOff, CalendarRange, Undo2, Trash } from "lucide-react";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import DateInput from "@/components/admin/DateInput";
 import TimeInput from "@/components/admin/TimeInput";
-import { getTickets, createTicket, updateTicket, deleteTicket, Ticket } from "@/lib/eventManagement";
+import { getTickets, createTicket, updateTicket, deleteTicket, restoreTicket, Ticket } from "@/lib/eventManagement";
 import { motion, AnimatePresence } from "framer-motion";
 import { EventSummary } from "@/lib/types";
 
@@ -25,16 +25,19 @@ const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
   timezone: "Asia/Manila",
   description: "",
   visibility: "visible",
+  isDeleted: false,
   minQuantity: 1,
   maxQuantity: 1,
 };
 
 export default function AdmissionTab({ event }: AdmissionTabProps) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [deletedTickets, setDeletedTickets] = useState<Ticket[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [editingTicketId, setEditingTicketId] = useState<string | null>(null);
   const [formData, setFormData] = useState(initialTicketForm);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -47,8 +50,9 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   const loadTickets = async () => {
     setLoading(true);
     try {
-      const data = await getTickets(event.id);
-      setTickets(data);
+      const data = await getTickets(event.id, { includeDeleted: true });
+      setTickets(data.filter((ticket) => !ticket.isDeleted));
+      setDeletedTickets(data.filter((ticket) => ticket.isDeleted));
     } catch (error) {
       console.error("Failed to load tickets:", error);
     } finally {
@@ -96,6 +100,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       timezone: ticket.timezone,
       description: ticket.description,
       visibility: ticket.visibility,
+      isDeleted: ticket.isDeleted,
       minQuantity: ticket.minQuantity,
       maxQuantity: ticket.maxQuantity,
     });
@@ -122,6 +127,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
 
   const handleDeleteClick = (ticketId: string) => {
     setDeleteTarget(ticketId);
+    setDeleteError(null);
     setIsConfirmDeleteOpen(true);
   };
 
@@ -133,8 +139,20 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       await loadTickets();
       setIsConfirmDeleteOpen(false);
       setDeleteTarget(null);
+      setDeleteError(null);
     } catch (error) {
       console.error("Failed to delete ticket:", error);
+      const message = error instanceof Error ? error.message : "Failed to delete ticket";
+      setDeleteError(message);
+    }
+  };
+
+  const handleRestoreTicket = async (ticketId: string) => {
+    try {
+      await restoreTicket(event.id, ticketId);
+      await loadTickets();
+    } catch (error) {
+      console.error("Failed to restore ticket:", error);
     }
   };
 
@@ -306,6 +324,47 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             ))
           )}
         </AnimatePresence>
+      </div>
+
+      {/* Deleted Tickets Bin */}
+      <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+              <Trash size={16} className="text-gray-600 dark:text-gray-300" />
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Deleted Tickets Bin</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Archived tickets can be restored anytime.</p>
+            </div>
+          </div>
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">{deletedTickets.length} item{deletedTickets.length === 1 ? "" : "s"}</span>
+        </div>
+
+        {deletedTickets.length === 0 ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">No deleted tickets.</p>
+        ) : (
+          <div className="space-y-2">
+            {deletedTickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                className="flex items-center justify-between rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30 px-3 py-2"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{ticket.name}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Capacity {ticket.quantity} • Sold {ticket.usedQuantity}</p>
+                </div>
+                <button
+                  onClick={() => handleRestoreTicket(ticket.id)}
+                  className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium bg-[#3D518C] text-white hover:bg-[#2f406f] transition-colors"
+                >
+                  <Undo2 size={12} />
+                  Restore
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Add/Edit Modal */}
@@ -538,14 +597,24 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       {/* Delete Confirmation Modal */}
       < Modal
         isOpen={isConfirmDeleteOpen}
-        onClose={() => setIsConfirmDeleteOpen(false)
-        }
+        onClose={() => {
+          setIsConfirmDeleteOpen(false);
+          setDeleteError(null);
+        }}
         title="Delete Ticket"
       >
         <div className="space-y-4">
           <p className="text-gray-600 dark:text-gray-400">Are you sure you want to delete this ticket?</p>
+          {deleteError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+              {deleteError}
+            </div>
+          )}
           <ModalFooter
-            onCancel={() => setIsConfirmDeleteOpen(false)}
+            onCancel={() => {
+              setIsConfirmDeleteOpen(false);
+              setDeleteError(null);
+            }}
             onSave={handleConfirmDelete}
             saveText="Delete"
             submitType="button"
