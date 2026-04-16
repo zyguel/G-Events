@@ -190,6 +190,7 @@ export default async function PublicEventRegistrationPage({
           existingTicketNames={existingTicketNames}
           hasPromotions={hasPromotions}
           allowGroupRegistration={event.allow_group_registration ?? true}
+          allowWaitlist={event.allow_waitlist ?? false}
         />
       )}
     </div>

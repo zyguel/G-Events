@@ -15,6 +15,7 @@ interface WaitlistEntryRow {
     ticketType: string;
     queue: number;
     status: WaitlistStatus;
+    inviteSentAt?: string | null;
 }
 
 const mockWaitlistEntries: WaitlistEntryRow[] = [
@@ -111,6 +112,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     const [isLoadingEntries, setIsLoadingEntries] = useState(false);
     const [isSavingSettings, setIsSavingSettings] = useState(false);
     const [invitingEntryId, setInvitingEntryId] = useState<string | null>(null);
+    const [resendCooldownByEntryId, setResendCooldownByEntryId] = useState<Record<string, number>>({});
     const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Collapsed by default
 
     // Waitlist settings state
@@ -166,6 +168,43 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
 
         return () => controller.abort();
     }, [eventId]);
+
+    useEffect(() => {
+        const now = Date.now();
+        const nextCooldowns: Record<string, number> = {};
+
+        entries.forEach((entry) => {
+            if (!entry.inviteSentAt) return;
+            const sentAtMs = new Date(entry.inviteSentAt).getTime();
+            if (Number.isNaN(sentAtMs)) return;
+
+            const elapsed = Math.floor((now - sentAtMs) / 1000);
+            const remaining = Math.max(60 - elapsed, 0);
+            if (remaining > 0) {
+                nextCooldowns[entry.id] = remaining;
+            }
+        });
+
+        setResendCooldownByEntryId(nextCooldowns);
+    }, [entries]);
+
+    useEffect(() => {
+        const hasCooldown = Object.keys(resendCooldownByEntryId).length > 0;
+        if (!hasCooldown) return;
+
+        const timer = window.setInterval(() => {
+            setResendCooldownByEntryId((prev) => {
+                const next: Record<string, number> = {};
+                Object.entries(prev).forEach(([entryId, seconds]) => {
+                    const newValue = seconds - 1;
+                    if (newValue > 0) next[entryId] = newValue;
+                });
+                return next;
+            });
+        }, 1000);
+
+        return () => window.clearInterval(timer);
+    }, [resendCooldownByEntryId]);
 
     // Extract unique ticket types from entries
     const ticketTypes = Array.from(new Set(entries.map(e => e.ticketType)));
@@ -244,14 +283,15 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
         }
     };
 
-    const handleInvite = async (entryId: string) => {
+    const handleInvite = async (entryId: string, action: 'invite' | 'resend_invite' = 'invite') => {
         if (eventId.startsWith('evt-')) {
             setEntries(prev =>
                 prev.map(entry =>
-                    entry.id === entryId ? { ...entry, status: 'Invited' } : entry
+                    entry.id === entryId ? { ...entry, status: 'Invited', inviteSentAt: new Date().toISOString() } : entry
                 )
             );
-            setToast({ message: `Invitation marked for entry #${entryId}.`, type: 'success' });
+            setResendCooldownByEntryId(prev => ({ ...prev, [entryId]: 60 }));
+            setToast({ message: `${action === 'resend_invite' ? 'Invitation resent' : 'Invitation sent'} for entry #${entryId}.`, type: 'success' });
             return;
         }
 
@@ -260,19 +300,27 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
             const res = await fetch(`/api/events/${eventId}/waitlist`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'invite', entryId }),
+                body: JSON.stringify({ action, entryId }),
             });
             const json = await res.json().catch(() => ({}));
             if (!res.ok || !json?.success) {
                 throw new Error(json?.error || `Failed to invite waitlist entry (${res.status})`);
             }
 
+            const inviteSentAt = typeof json?.data?.inviteSentAt === 'string'
+                ? json.data.inviteSentAt
+                : new Date().toISOString();
+
             setEntries(prev =>
                 prev.map(entry =>
-                    entry.id === entryId ? { ...entry, status: 'Invited' } : entry
+                    entry.id === entryId ? { ...entry, status: 'Invited', inviteSentAt } : entry
                 )
             );
-            setToast({ message: `Invitation sent to ${entries.find(e => e.id === entryId)?.email || 'waitlist attendee'}.`, type: 'success' });
+            setResendCooldownByEntryId(prev => ({ ...prev, [entryId]: 60 }));
+            setToast({
+                message: `${action === 'resend_invite' ? 'Invitation resent' : 'Invitation sent'} to ${entries.find(e => e.id === entryId)?.email || 'waitlist attendee'}.`,
+                type: 'success'
+            });
         } catch (e) {
             console.error('Error sending invite:', e);
             setToast({ message: e instanceof Error ? e.message : 'Failed to send invite', type: 'error' });
@@ -548,6 +596,30 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                                                             <>
                                                                 <Mail size={12} />
                                                                 Send Invite
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                )}
+                                                {entry.status === 'Invited' && (
+                                                    <button
+                                                        onClick={() => handleInvite(entry.id, 'resend_invite')}
+                                                        disabled={invitingEntryId === entry.id || (resendCooldownByEntryId[entry.id] || 0) > 0}
+                                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 text-xs font-medium rounded-lg hover:shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+                                                    >
+                                                        {invitingEntryId === entry.id ? (
+                                                            <>
+                                                                <RefreshCw size={12} className="animate-spin" />
+                                                                Resending...
+                                                            </>
+                                                        ) : (resendCooldownByEntryId[entry.id] || 0) > 0 ? (
+                                                            <>
+                                                                <Clock size={12} />
+                                                                Resend in {resendCooldownByEntryId[entry.id]}s
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Mail size={12} />
+                                                                Resend Invite
                                                             </>
                                                         )}
                                                     </button>

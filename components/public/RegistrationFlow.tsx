@@ -47,6 +47,7 @@ interface RegistrationFlowProps {
     existingTicketNames?: string[];
     hasPromotions?: boolean;
     allowGroupRegistration?: boolean;
+    allowWaitlist?: boolean;
 }
 
 type CheckInPass = {
@@ -395,13 +396,19 @@ function IdentifyStep({
 // ─── Step 0: Choose Ticket Type ────────────────────────────────────────────────
 function ChooseTicketStep({
     eventId,
+    eventTitle,
+    userEmail,
     tickets,
     hasPromotions,
+    allowWaitlist = false,
     onSelect,
 }: {
     eventId: number;
+    eventTitle: string;
+    userEmail?: string;
     tickets: RegistrationFlowProps['tickets'];
     hasPromotions?: boolean;
+    allowWaitlist?: boolean;
     onSelect: (ticketId: number, appliedPromoCode?: string) => void;
 }) {
     const [hovered, setHovered] = useState<number | null>(null);
@@ -409,6 +416,110 @@ function ChooseTicketStep({
     const [isCheckingPromo, setIsCheckingPromo] = useState(false);
     const [promoError, setPromoError] = useState('');
     const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount_type: string; discount_value: number; ticket_ids: number[] } | null>(null);
+    const [isJoiningWaitlist, setIsJoiningWaitlist] = useState<number | null>(null);
+    const [waitlistFeedback, setWaitlistFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+    const allTicketsUnavailable = tickets.length === 0 || tickets.every((ticket) => ticket.is_sold_out);
+
+    const handleJoinWaitlist = async (ticketId?: number) => {
+        if (!userEmail) {
+            setWaitlistFeedback({ type: 'error', message: 'Please verify your email first.' });
+            return;
+        }
+
+        setWaitlistFeedback(null);
+        setIsJoiningWaitlist(ticketId ?? -1);
+        try {
+            const res = await fetch(`/api/events/${eventId}/waitlist`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: userEmail, ticketId }),
+            });
+            const data = await res.json();
+            if (!res.ok || !data?.success) {
+                throw new Error(data?.error || 'Failed to join waitlist');
+            }
+
+            setWaitlistFeedback({
+                type: 'success',
+                message: 'You were added to the waitlist. Watch your email for invitation updates.',
+            });
+        } catch (error) {
+            setWaitlistFeedback({
+                type: 'error',
+                message: error instanceof Error ? error.message : 'Failed to join waitlist',
+            });
+        } finally {
+            setIsJoiningWaitlist(null);
+        }
+    };
+
+    if (allTicketsUnavailable) {
+        return (
+            <div className="animate-fade-in">
+                <div className="text-center mb-8">
+                    <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
+                        Tickets Are Currently Unavailable
+                    </h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                        {allowWaitlist
+                            ? `All tickets for ${eventTitle} are sold out. Join the waitlist to get invited when a slot opens.`
+                            : 'All tickets are sold out right now.'}
+                    </p>
+                </div>
+
+                {allowWaitlist ? (
+                    <div className="space-y-4">
+                        {tickets.length > 0 ? (
+                            <div className="grid grid-cols-1 gap-3">
+                                {tickets.map((ticket) => (
+                                    <div key={ticket.id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-bold text-gray-900 dark:text-white">{ticket.name}</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Sold out</p>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => handleJoinWaitlist(ticket.id)}
+                                            disabled={isJoiningWaitlist !== null}
+                                            className="min-h-11 px-4 py-2 rounded-xl bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-semibold hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                                        >
+                                            {isJoiningWaitlist === ticket.id ? 'Joining...' : 'Join Waitlist'}
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 p-5 text-center">
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">No active ticket tiers are available right now.</p>
+                                <button
+                                    type="button"
+                                    onClick={() => handleJoinWaitlist(undefined)}
+                                    disabled={isJoiningWaitlist !== null}
+                                    className="min-h-11 px-5 py-2 rounded-xl bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-semibold hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                                >
+                                    {isJoiningWaitlist === -1 ? 'Joining...' : 'Join Event Waitlist'}
+                                </button>
+                            </div>
+                        )}
+
+                        {waitlistFeedback && (
+                            <div className={`rounded-xl border px-4 py-3 text-sm ${waitlistFeedback.type === 'success'
+                                ? 'border-green-200 bg-green-50 text-green-700 dark:border-green-900/30 dark:bg-green-900/20 dark:text-green-300'
+                                : 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-300'
+                                }`}>
+                                {waitlistFeedback.message}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/40 p-5 text-center text-sm text-gray-600 dark:text-gray-300">
+                        Waitlist is not enabled for this event. Please check again later.
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     const handleApplyPromo = async () => {
         if (!promoCodeInput.trim()) return;
@@ -1206,6 +1317,7 @@ export default function RegistrationFlow({
     existingTicketNames = [],
     hasPromotions = false,
     allowGroupRegistration = true,
+    allowWaitlist = false,
 }: RegistrationFlowProps) {
     const router = useRouter();
     const [userEmail, setUserEmail] = useState<string | undefined>(initialUserEmail);
@@ -1353,7 +1465,15 @@ export default function RegistrationFlow({
                         />
                     )}
                     {step === 'choose-ticket' && (
-                        <ChooseTicketStep eventId={eventId} tickets={tickets} hasPromotions={hasPromotions} onSelect={handleTicketSelect} />
+                        <ChooseTicketStep
+                            eventId={eventId}
+                            eventTitle={eventTitle}
+                            userEmail={userEmail}
+                            tickets={tickets}
+                            hasPromotions={hasPromotions}
+                            allowWaitlist={allowWaitlist}
+                            onSelect={handleTicketSelect}
+                        />
                     )}
                     {step === 'choose-type' && (
                         <ChooseTypeStep onSelect={handleTypeSelect} onBack={handleBack} />

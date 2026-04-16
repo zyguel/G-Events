@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase-server';
-import { requireUser } from '@/lib/apiAuth';
+import { requireUser, getAuthErrorResponse } from '@/lib/apiAuth';
 import {
     ACTIVE_ORGANIZATION_COOKIE_NAME,
     SESSION_ROLE,
@@ -245,8 +245,13 @@ export async function GET(request: NextRequest) {
                 'Connection': 'keep-alive',
             },
         });
-    } catch (e: unknown) {
-        console.error('Notifications API error:', e);
+    } catch (error: unknown) {
+        const authResponse = getAuthErrorResponse(error);
+        if (authResponse) {
+            return authResponse;
+        }
+
+        console.error('Notifications API error:', error);
         return NextResponse.json({ success: false, data: [] }, { status: 500 });
     }
 }
