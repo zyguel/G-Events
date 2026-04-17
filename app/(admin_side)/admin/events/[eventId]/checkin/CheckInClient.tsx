@@ -17,6 +17,15 @@ interface Attendee {
     ticketType: string;
     status: 'Checked-In' | 'Not Yet Checked-In';
     checkInTime?: string;
+    claimableAddOnQty?: number;
+    addOnClaimStatus?: 'Claimed' | 'Unclaimed';
+    claimableAddOns?: Array<{
+        entitlementId: number;
+        variantId: number;
+        addOnName: string;
+        variantLabel: string;
+        remainingQty: number;
+    }>;
 }
 
 interface CheckInClientProps {
@@ -35,6 +44,12 @@ interface BreakoutRosterRow {
     breakoutCheckedIn: boolean;
     breakoutCheckInTime: string | null;
 }
+
+const FILTER_OPTIONS: Array<'All' | 'Checked-In' | 'Not Yet Checked-In'> = [
+    'All',
+    'Checked-In',
+    'Not Yet Checked-In',
+];
 
 // --- Mock Data ---
 const INITIAL_ATTENDEES: Attendee[] = [
@@ -56,6 +71,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [activeFilter, setActiveFilter] = useState<'All' | 'Checked-In' | 'Not Yet Checked-In'>('All');
     const [updatingId, setUpdatingId] = useState<string | null>(null);
+    const [claimingId, setClaimingId] = useState<string | null>(null);
 
     // Action Menu State
     const [openActionId, setOpenActionId] = useState<string | null>(null);
@@ -81,7 +97,31 @@ export default function CheckInClient({ event }: CheckInClientProps) {
             }
             const json = await res.json();
             if (json?.success && Array.isArray(json.data)) {
-                setAttendees(json.data);
+                setAttendees(
+                    json.data.map((row: unknown) => {
+                        const candidate = (row && typeof row === 'object'
+                            ? row
+                            : {}) as Partial<Attendee> & {
+                                claimableAddOnQty?: unknown;
+                                claimableAddOns?: unknown;
+                            };
+
+                        const claimableAddOnQty = Number(candidate.claimableAddOnQty || 0);
+                        return {
+                            registrationId: String(candidate.registrationId || ''),
+                            name: String(candidate.name || 'Unknown'),
+                            email: String(candidate.email || ''),
+                            ticketType: String(candidate.ticketType || 'General Admission'),
+                            status: candidate.status === 'Checked-In' ? 'Checked-In' : 'Not Yet Checked-In',
+                            checkInTime: typeof candidate.checkInTime === 'string' ? candidate.checkInTime : undefined,
+                            claimableAddOnQty,
+                            addOnClaimStatus: claimableAddOnQty > 0 ? 'Unclaimed' : 'Claimed',
+                            claimableAddOns: Array.isArray(candidate.claimableAddOns)
+                                ? (candidate.claimableAddOns as NonNullable<Attendee['claimableAddOns']>)
+                                : [],
+                        };
+                    })
+                );
             } else {
                 throw new Error(json?.error || "Unexpected response format");
             }
@@ -167,6 +207,62 @@ export default function CheckInClient({ event }: CheckInClientProps) {
             setError(e instanceof Error ? e.message : "Failed to update check-in");
         } finally {
             setUpdatingId(null);
+        }
+    };
+
+    const handleClaimAddOns = async (registrationId: string) => {
+        const target = attendees.find(att => att.registrationId === registrationId);
+        if (!target) return;
+
+        const claimableQty = Number(target.claimableAddOnQty || 0);
+        if (claimableQty <= 0) {
+            setOpenActionId(null);
+            return;
+        }
+
+        if (event.id.startsWith('evt-')) {
+            setAttendees(prev => prev.map(att =>
+                att.registrationId === registrationId
+                    ? {
+                        ...att,
+                        claimableAddOnQty: 0,
+                        addOnClaimStatus: 'Claimed',
+                        claimableAddOns: [],
+                    }
+                    : att
+            ));
+            setOpenActionId(null);
+            return;
+        }
+
+        try {
+            setClaimingId(registrationId);
+            const res = await fetch(`/api/events/${event.id}/checkin/${registrationId}/claim-addon`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ station: 'checkin_list' }),
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to claim add-ons (${res.status})`);
+            }
+
+            setAttendees(prev => prev.map(att =>
+                att.registrationId === registrationId
+                    ? {
+                        ...att,
+                        claimableAddOnQty: 0,
+                        addOnClaimStatus: 'Claimed',
+                        claimableAddOns: [],
+                    }
+                    : att
+            ));
+            setOpenActionId(null);
+        } catch (e) {
+            console.error('Error claiming add-ons:', e);
+            setError(e instanceof Error ? e.message : 'Failed to claim add-ons');
+        } finally {
+            setClaimingId(null);
         }
     };
 
@@ -383,11 +479,11 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                 transition={{ duration: 0.2, ease: "easeOut" }}
                                                 className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-2xl p-1.5 z-20 flex flex-col gap-1 backdrop-blur-3xl origin-top-right ring-1 ring-black/5"
                                             >
-                                                {['All', 'Checked-In', 'Not Yet Checked-In'].map((filter) => (
+                                                {FILTER_OPTIONS.map((filter) => (
                                                     <button
                                                         key={filter}
                                                         onClick={() => {
-                                                            setActiveFilter(filter as any);
+                                                            setActiveFilter(filter);
                                                             setIsFilterOpen(false);
                                                         }}
                                                         className={`text-left px-3 py-2 rounded-lg text-sm transition-colors ${activeFilter === filter
@@ -451,14 +547,34 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                         <p className="text-xs text-gray-500 dark:text-gray-400">
                                             #{attendee.registrationId} · {attendee.ticketType}
                                         </p>
+                                        <p className={`text-[11px] font-semibold ${Number(attendee.claimableAddOnQty || 0) > 0
+                                            ? 'text-amber-700 dark:text-amber-300'
+                                            : 'text-emerald-700 dark:text-emerald-300'
+                                            }`}>
+                                            {Number(attendee.claimableAddOnQty || 0) > 0
+                                                ? `${attendee.claimableAddOnQty} add-on${Number(attendee.claimableAddOnQty || 0) > 1 ? 's' : ''} ready to claim`
+                                                : 'Add-ons claimed'}
+                                        </p>
                                         <button
                                             type="button"
-                                            disabled={updatingId === attendee.registrationId}
+                                            disabled={updatingId === attendee.registrationId || claimingId === attendee.registrationId}
                                             onClick={() => handleCheckInToggle(attendee.registrationId)}
                                             className="w-full min-h-[44px] rounded-xl text-sm font-bold bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50"
                                         >
                                             {attendee.status === 'Checked-In' ? 'Undo check-in' : 'Check in'}
                                         </button>
+                                        {Number(attendee.claimableAddOnQty || 0) > 0 ? (
+                                            <button
+                                                type="button"
+                                                disabled={claimingId === attendee.registrationId || updatingId === attendee.registrationId}
+                                                onClick={() => void handleClaimAddOns(attendee.registrationId)}
+                                                className="w-full min-h-[44px] rounded-xl text-sm font-bold bg-amber-400 text-gray-900 hover:bg-amber-300 disabled:opacity-50"
+                                            >
+                                                {claimingId === attendee.registrationId
+                                                    ? 'Claiming add-ons...'
+                                                    : `Claim add-on${Number(attendee.claimableAddOnQty || 0) > 1 ? 's' : ''}`}
+                                            </button>
+                                        ) : null}
                                     </div>
                                 ))
                             )}
@@ -473,6 +589,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                         <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Email</th>
                                         <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Ticket Type</th>
                                         <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Status</th>
+                                        <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Add-Ons</th>
                                         <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Time</th>
                                         <th className="px-6 py-5 text-center text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Actions</th>
                                     </tr>
@@ -480,7 +597,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {isLoading ? (
                                         <tr>
-                                            <td colSpan={7} className="px-6 py-20 text-center text-gray-500 dark:text-gray-400">
+                                            <td colSpan={8} className="px-6 py-20 text-center text-gray-500 dark:text-gray-400">
                                                 Loading attendees...
                                             </td>
                                         </tr>
@@ -505,6 +622,16 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                             <Clock size={12} className="text-amber-600 dark:text-amber-500" />
                                                         )}
                                                         {attendee.status}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border ${Number(attendee.claimableAddOnQty || 0) > 0
+                                                        ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20'
+                                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/20'
+                                                        }`}>
+                                                        {Number(attendee.claimableAddOnQty || 0) > 0
+                                                            ? `${attendee.claimableAddOnQty} to claim`
+                                                            : 'Claimed'}
                                                     </div>
                                                 </td>
                                                 <td className="px-6 py-4 text-gray-500 dark:text-gray-500 text-xs whitespace-nowrap">
@@ -539,7 +666,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                                     >
                                                                         <button
                                                                             onClick={() => handleCheckInToggle(attendee.registrationId)}
-                                                                            disabled={updatingId === attendee.registrationId}
+                                                                            disabled={updatingId === attendee.registrationId || claimingId === attendee.registrationId}
                                                                             className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 transition-colors"
                                                                         >
                                                                             {attendee.status === 'Checked-In' ? (
@@ -554,6 +681,18 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                                                 </>
                                                                             )}
                                                                         </button>
+                                                                        {Number(attendee.claimableAddOnQty || 0) > 0 ? (
+                                                                            <button
+                                                                                onClick={() => void handleClaimAddOns(attendee.registrationId)}
+                                                                                disabled={claimingId === attendee.registrationId || updatingId === attendee.registrationId}
+                                                                                className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"
+                                                                            >
+                                                                                <CheckCircle size={16} className="text-amber-500 dark:text-amber-400" />
+                                                                                {claimingId === attendee.registrationId
+                                                                                    ? 'Claiming add-ons...'
+                                                                                    : `Claim add-on${Number(attendee.claimableAddOnQty || 0) > 1 ? 's' : ''}`}
+                                                                            </button>
+                                                                        ) : null}
                                                                         <button className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 transition-colors">
                                                                             <Eye size={16} className="text-blue-500 dark:text-blue-400" />
                                                                             View Details
@@ -568,7 +707,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                         ))
                                     ) : (
                                         <tr>
-                                            <td colSpan={7} className="px-6 py-20 text-center">
+                                            <td colSpan={8} className="px-6 py-20 text-center">
                                                 <div className="flex flex-col items-center gap-3 text-gray-400 dark:text-gray-500">
                                                     <Search size={40} strokeWidth={1.5} className="opacity-50" />
                                                     <p className="text-lg font-medium text-gray-600 dark:text-gray-400">No attendees found</p>

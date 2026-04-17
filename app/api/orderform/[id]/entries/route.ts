@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient, createClient } from '@/lib/supabase-server';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { sendEmail } from '@/lib/emailProvider';
 import { generateCheckInPass } from '@/lib/checkinQr';
 import { getPublicAppBaseUrl } from '@/lib/appBaseUrl';
@@ -12,9 +13,16 @@ import {
     buildEticketUrl,
     buildGroupCompleteUrl,
     buildGroupMemberInviteEmailHtml,
-    buildRegistrationConfirmationEmailHtml,
 } from '@/lib/ticketEmail';
 import { verifyWaitlistInviteToken } from '@/lib/waitlistInviteToken';
+import {
+    buildTicketQrBlock,
+    ensureQrBlockInBody,
+    loadOrderConfirmationSettings,
+    renderOrderConfirmationTemplate,
+    resolveRegistrationApprovalMode,
+    wrapEmailBody,
+} from '@/lib/orderConfirmationSettings';
 
 type FormInput = {
     id?: string;
@@ -32,6 +40,28 @@ type SubmittedFormData = {
     sections?: FormSection[];
 };
 
+type TicketAvailabilityRow = {
+    id: number;
+    name: string;
+    price: number | null;
+    available_quantity: number | null;
+    waitlist_reserved_quantity: number | null;
+};
+
+type RegistrationUsageRow = {
+    ticket_id: number | null;
+    status: string | null;
+};
+
+type RegistrationDuplicateRow = {
+    user_id: number;
+    status: string | null;
+};
+
+type PromotionTicketLink = {
+    ticket_id: number;
+};
+
 function isValidSubmittedFormData(value: unknown): value is SubmittedFormData {
     if (!value || typeof value !== 'object') return false;
     const maybe = value as SubmittedFormData;
@@ -46,7 +76,7 @@ const toSafeNonNegativeInt = (value: unknown): number => {
 };
 
 async function adjustTicketReservation(
-    supabase: any,
+    supabase: SupabaseClient,
     ticketId: number,
     delta: { reserved: number; available: number }
 ): Promise<{ success: boolean; error?: string }> {
@@ -221,9 +251,9 @@ export async function POST(
             return NextResponse.json({ error: ticketError.message }, { status: 500 });
         }
 
-        const tickets = ticketRows || [];
-        const ticketIds = tickets.map((t: any) => t.id);
-        let usageByTicket = new Map<number, number>();
+        const tickets = (ticketRows || []) as TicketAvailabilityRow[];
+        const ticketIds = tickets.map((t) => t.id);
+        const usageByTicket = new Map<number, number>();
 
         if (ticketIds.length > 0) {
             const { data: regUsageRows } = await supabase
@@ -232,10 +262,10 @@ export async function POST(
                 .eq('event_id', numericEventId)
                 .in('ticket_id', ticketIds);
 
-            for (const row of regUsageRows || []) {
-                const status = String((row as any).status || '').toLowerCase();
+            for (const row of ((regUsageRows || []) as RegistrationUsageRow[])) {
+                const status = String(row.status || '').toLowerCase();
                 if (status === 'rejected' || status === 'cancelled') continue;
-                const tid = Number((row as any).ticket_id);
+                const tid = Number(row.ticket_id);
                 if (!Number.isNaN(tid)) {
                     usageByTicket.set(tid, (usageByTicket.get(tid) || 0) + 1);
                 }
@@ -417,13 +447,13 @@ export async function POST(
                 return NextResponse.json({ error: 'Database check failed: ' + dupError.message }, { status: 500 });
             }
 
-            const activeDuplicates = (existingRegs || []).filter((reg: any) => {
+            const activeDuplicates = ((existingRegs || []) as RegistrationDuplicateRow[]).filter((reg) => {
                 const s = String(reg.status || '').toLowerCase();
                 return s !== 'cancelled' && s !== 'rejected';
             });
 
             if (activeDuplicates.length > 0) {
-                const dupEmails = activeDuplicates.map((reg: any) => userMap.get(reg.user_id));
+                const dupEmails = activeDuplicates.map((reg) => userMap.get(reg.user_id));
                 const uniqueDupEmails = Array.from(new Set(dupEmails)).filter(Boolean);
                 if (uniqueDupEmails.length > 0) {
                     return NextResponse.json({
@@ -437,9 +467,9 @@ export async function POST(
         // ── Ticket selection ────────────────────────────────────────────────
         const effectiveTicketId = waitlistInviteEntry?.ticket_id ?? numericTicketId;
 
-        let selectedTicket = null;
+        let selectedTicket: TicketAvailabilityRow | null = null;
         if (effectiveTicketId) {
-            selectedTicket = tickets.find((t: any) => t.id === effectiveTicketId) || null;
+            selectedTicket = tickets.find((t) => t.id === effectiveTicketId) || null;
             if (selectedTicket) {
                 const total = Number(selectedTicket.available_quantity ?? 0);
                 const reservedForWaitlist = Number(selectedTicket.waitlist_reserved_quantity ?? 0);
@@ -455,7 +485,7 @@ export async function POST(
         }
 
         if (!selectedTicket && !effectiveTicketId) {
-            selectedTicket = tickets.find((t: any) => {
+            selectedTicket = tickets.find((t) => {
                 const total = Number(t.available_quantity ?? 0);
                 const reservedForWaitlist = Number(t.waitlist_reserved_quantity ?? 0);
                 const publicTotal = Math.max(0, total - Math.max(0, reservedForWaitlist));
@@ -474,17 +504,26 @@ export async function POST(
         }
 
         let primaryRegistrationId: number | null = null;
-        const registeredAttendees: Array<{ email: string; registrationId: number }> = [];
+        const registeredAttendees: Array<{ email: string; registrationId: number; profilePending: boolean }> = [];
         let submissionMode: 'registered' | 'waitlisted' = 'registered';
-        let assignedTicketName = selectedTicket?.name || 'General Admission';
+        const assignedTicketName = selectedTicket?.name || 'General Admission';
         let primaryTicketToken: string | null = null;
-        let secondaryInvitees: { email: string; token: string }[] = [];
+        const secondaryInvitees: { email: string; token: string }[] = [];
         let breakoutTicketToken: string | null = null;
         let breakoutSessionTitle = '';
         let breakoutSessionLocation = '';
 
         let finalPricePaid = selectedTicket ? Number(selectedTicket.price ?? 0) : 0;
         let validPromotionId: number | null = null;
+        const orderConfirmationSettings = await loadOrderConfirmationSettings(supabase, numericEventId);
+        const approvalMode = selectedTicket
+            ? resolveRegistrationApprovalMode({
+                ticketPrice: Number(selectedTicket.price ?? 0),
+                settings: orderConfirmationSettings,
+            })
+            : 'manual';
+        const registrationStatus = approvalMode === 'automatic' ? 'confirmed' : 'pending';
+        const shouldSendQrImmediately = registrationStatus === 'confirmed';
 
         if (selectedTicket && promotionCode && typeof promotionCode === 'string') {
             const { data: promoData } = await supabase
@@ -504,7 +543,7 @@ export async function POST(
                 const maxUses = Number(promoData.max_uses ?? 0);
                 const isUnderLimit = maxUses === 0 || (currentUses + totalRequested) <= maxUses;
 
-                const allowedTicketIds = promoData.PromotionTicket?.map((pt: any) => pt.ticket_id) || [];
+                const allowedTicketIds = ((promoData.PromotionTicket || []) as PromotionTicketLink[]).map((pt) => pt.ticket_id);
                 const isTicketAllowed = allowedTicketIds.length === 0 || allowedTicketIds.includes(selectedTicket.id);
                 
                 if (isValidTime && isUnderLimit && isTicketAllowed) {
@@ -646,7 +685,7 @@ export async function POST(
                     event_id: numericEventId,
                     user_id: primaryUserId,
                     ticket_id: selectedTicket.id,
-                    status: 'pending',
+                    status: registrationStatus,
                     final_price_paid: finalPricePaid,
                     registration_group_id: registrationGroupId,
                     ticket_token: primaryTicketToken,
@@ -661,7 +700,7 @@ export async function POST(
             }
 
             primaryRegistrationId = pReg.id;
-            registeredAttendees.push({ email: normalizedPrimaryEmail, registrationId: pReg.id });
+            registeredAttendees.push({ email: normalizedPrimaryEmail, registrationId: pReg.id, profilePending: false });
             console.log('[Registration] Primary reg created, id:', primaryRegistrationId);
 
             // ── Step 4: Insert each OTHER group member ──────────────────────
@@ -690,7 +729,7 @@ export async function POST(
                         event_id: numericEventId,
                         user_id: memberUserId,
                         ticket_id: selectedTicket.id,
-                        status: 'pending',
+                        status: registrationStatus,
                         final_price_paid: finalPricePaid,
                         registration_group_id: registrationGroupId,
                         ticket_token: memberTicketToken,
@@ -705,7 +744,7 @@ export async function POST(
                 }
 
                 if (memberReg?.id) {
-                    registeredAttendees.push({ email: memberEmail, registrationId: memberReg.id });
+                    registeredAttendees.push({ email: memberEmail, registrationId: memberReg.id, profilePending: true });
                 }
                 secondaryInvitees.push({ email: memberEmail, token: memberTicketToken });
                 console.log('[Registration] Member registered (profile pending):', memberEmail);
@@ -829,31 +868,67 @@ export async function POST(
                     subject: `Waitlist: ${eventRow.title}`,
                     html: `<p>Hi ${resolvedName}, your waitlist request for ${eventRow.title} was successful.</p>`,
                 });
-            } else if (submissionMode === 'registered' && primaryTicketToken) {
+            } else if (submissionMode === 'registered') {
                 const baseUrl = getPublicAppBaseUrl(request);
                 const slug = buildEventSlug(eventRow.title, numericEventId);
-                const ticketUrl = buildEticketUrl(baseUrl, slug, primaryTicketToken);
-                const qrImageUrl = await buildAndStoreTicketQrImage({
-                    supabase,
-                    ticketUrl,
-                    folder: `event-${numericEventId}`,
-                });
-                const html = buildRegistrationConfirmationEmailHtml({
-                    attendeeName: resolvedName,
-                    eventTitle: eventRow.title,
-                    ticketName: assignedTicketName,
-                    qrImageUrl,
-                    ticketUrl,
-                    isGroupPrimary: isGroupRegistration,
-                    breakoutsEnabled: !!(eventRow as { allow_breakout_sessions?: boolean }).allow_breakout_sessions,
-                });
-                await sendEmail({
-                    to: resolvedEmail,
-                    subject: `Your e-ticket — ${eventRow.title}`,
-                    html,
+
+                let ticketUrl = '';
+                let qrImageUrl = '';
+                if (shouldSendQrImmediately && primaryTicketToken) {
+                    ticketUrl = buildEticketUrl(baseUrl, slug, primaryTicketToken);
+                    qrImageUrl = await buildAndStoreTicketQrImage({
+                        supabase,
+                        ticketUrl,
+                        folder: `event-${numericEventId}`,
+                    });
+                }
+
+                const qrBlock =
+                    shouldSendQrImmediately && qrImageUrl && ticketUrl
+                        ? buildTicketQrBlock({ qrImageUrl, ticketUrl })
+                        : '';
+
+                const submissionFallback = {
+                    subject: shouldSendQrImmediately
+                        ? `Registration submitted (confirmed) — ${eventRow.title}`
+                        : `Registration submitted — ${eventRow.title}`,
+                    body: shouldSendQrImmediately
+                        ? `<p>Hi ${resolvedName}, your registration for <strong>${eventRow.title}</strong> is confirmed.</p>`
+                        : `<p>Hi ${resolvedName}, your registration for <strong>${eventRow.title}</strong> was received and is pending organizer review.</p>`,
+                };
+
+                const submissionTemplate = renderOrderConfirmationTemplate({
+                    template: orderConfirmationSettings.submissionEmail,
+                    fallback: submissionFallback,
+                    context: {
+                        attendeeName: resolvedName,
+                        attendee_name: resolvedName,
+                        eventTitle: eventRow.title,
+                        event_title: eventRow.title,
+                        ticketName: assignedTicketName,
+                        ticket_name: assignedTicketName,
+                        registrationId: primaryRegistrationId,
+                        registration_id: primaryRegistrationId,
+                        ticketUrl,
+                        ticket_url: ticketUrl,
+                        qrImageUrl,
+                        qr_image_url: qrImageUrl,
+                        qrBlock,
+                        qr_block: qrBlock,
+                    },
                 });
 
-                if (breakoutTicketToken) {
+                const submissionBody = qrBlock
+                    ? ensureQrBlockInBody(submissionTemplate.body, qrBlock)
+                    : submissionTemplate.body;
+
+                await sendEmail({
+                    to: resolvedEmail,
+                    subject: submissionTemplate.subject,
+                    html: wrapEmailBody(submissionBody),
+                });
+
+                if (shouldSendQrImmediately && breakoutTicketToken) {
                     const breakoutUrl = buildBreakoutEticketUrl(baseUrl, slug, breakoutTicketToken);
                     let breakoutQrImageUrl = '';
                     try {
@@ -891,19 +966,15 @@ export async function POST(
                         }),
                     });
                 }
-            } else {
-                await sendEmail({
-                    to: resolvedEmail,
-                    subject: `Your ticket for ${eventRow.title}`,
-                    html: `<p>Hi ${resolvedName}, your registration for ${eventRow.title} was successful.</p>`,
-                });
             }
         } catch (err) {
             console.warn('Email failed', err);
         }
 
-        const checkInPasses = submissionMode === 'registered'
-            ? registeredAttendees.map((attendee) => ({
+        const checkInPasses = submissionMode === 'registered' && shouldSendQrImmediately
+            ? registeredAttendees
+                .filter((attendee) => !attendee.profilePending)
+                .map((attendee) => ({
                 email: attendee.email,
                 registrationId: attendee.registrationId,
                 ...generateCheckInPass({
@@ -928,8 +999,15 @@ export async function POST(
             success: true,
             data: entry,
             mode: submissionMode,
+            registrationStatus: submissionMode === 'registered' ? registrationStatus : null,
+            approvalMode: submissionMode === 'registered' ? approvalMode : null,
             checkInPasses,
-            message: submissionMode === 'registered' ? 'Registration successful!' : 'Added to waitlist.'
+            message:
+                submissionMode === 'registered'
+                    ? shouldSendQrImmediately
+                        ? 'Registration successful!'
+                        : 'Registration submitted and pending approval.'
+                    : 'Added to waitlist.'
         }, { status: 201 });
 
     } catch (e) {

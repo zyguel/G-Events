@@ -4,9 +4,9 @@ import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 import { extractTicketTokenFromScan } from '@/lib/checkinScan';
 import { resolveBreakoutTicketForEventCheckin } from '@/lib/breakoutCheckinScan';
 
-function registrationCancelled(status: unknown): boolean {
+function registrationNotConfirmed(status: unknown): boolean {
   const s = String(status || '').toLowerCase();
-  return s === 'cancelled' || s === 'rejected';
+  return s !== 'confirmed';
 }
 
 /**
@@ -112,9 +112,9 @@ export async function POST(
       );
     }
 
-    if (registrationCancelled(reg.status)) {
+    if (registrationNotConfirmed(reg.status)) {
       return NextResponse.json(
-        { success: false, error: 'This registration is cancelled or rejected' },
+        { success: false, error: 'This registration is not confirmed' },
         { status: 400 }
       );
     }

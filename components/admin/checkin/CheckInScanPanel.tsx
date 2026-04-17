@@ -26,6 +26,14 @@ type ScanJson = {
   registrationStatus: string;
   mainEventCheckedIn: boolean;
   mainEventStatus: string;
+  claimableAddOnQty: number;
+  claimableAddOns: Array<{
+    entitlementId: number;
+    variantId: number;
+    addOnName: string;
+    variantLabel: string;
+    remainingQty: number;
+  }>;
   breakout: null | {
     breakoutRegistrationId: number;
     sessionId: number;
@@ -48,6 +56,7 @@ export function CheckInScanPanel({
   const [manual, setManual] = useState('');
   const [scanLoading, setScanLoading] = useState(false);
   const [applyLoading, setApplyLoading] = useState(false);
+  const [claimLoading, setClaimLoading] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanJson | null>(null);
   const [lastRaw, setLastRaw] = useState('');
@@ -170,6 +179,42 @@ export function CheckInScanPanel({
       setApplyLoading(false);
     }
   }, [eventId, lastRaw, onAttendanceChanged]);
+
+  const claimAddOns = useCallback(async () => {
+    if (!scanResult || scanResult.claimableAddOnQty <= 0) return;
+
+    setClaimLoading(true);
+    setScanError(null);
+    try {
+      const res = await fetch(
+        `/api/events/${eventId}/checkin/${scanResult.participant.registrationId}/claim-addon`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ station: 'checkin_scan_panel' }),
+        }
+      );
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || `Claim failed (${res.status})`);
+      }
+
+      await onAttendanceChanged();
+      setScanResult((prev) =>
+        prev
+          ? {
+              ...prev,
+              claimableAddOnQty: 0,
+              claimableAddOns: [],
+            }
+          : prev
+      );
+    } catch (e) {
+      setScanError(e instanceof Error ? e.message : 'Add-on claim failed');
+    } finally {
+      setClaimLoading(false);
+    }
+  }, [eventId, onAttendanceChanged, scanResult]);
 
   const dismiss = () => {
     lastCameraScanAt.current = 0;
@@ -328,7 +373,26 @@ export function CheckInScanPanel({
                 <span className="inline-flex items-center px-2 py-1 rounded-lg bg-white/80 dark:bg-gray-800 border border-gray-200 dark:border-gray-600">
                   {scanResult.registrationStatus}
                 </span>
+                <span
+                  className={`inline-flex items-center px-2 py-1 rounded-lg border ${
+                    scanResult.claimableAddOnQty > 0
+                      ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800'
+                      : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800'
+                  }`}
+                >
+                  {scanResult.claimableAddOnQty > 0
+                    ? `${scanResult.claimableAddOnQty} add-on${scanResult.claimableAddOnQty > 1 ? 's' : ''} claimable`
+                    : 'Add-ons claimed'}
+                </span>
               </div>
+
+              {scanResult.claimableAddOnQty > 0 && scanResult.claimableAddOns.length > 0 ? (
+                <p className="text-xs text-amber-700 dark:text-amber-200">
+                  {scanResult.claimableAddOns
+                    .map((item) => `${item.addOnName} (${item.variantLabel}) x${item.remainingQty}`)
+                    .join(' · ')}
+                </p>
+              ) : null}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-3 border-t border-indigo-100 dark:border-indigo-900/50">
                 <div>
@@ -367,7 +431,7 @@ export function CheckInScanPanel({
               {canCheckIn ? (
                 <button
                   type="button"
-                  disabled={applyLoading}
+                  disabled={applyLoading || claimLoading}
                   onClick={() => void apply()}
                   className="flex-1 min-h-[48px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                 >
@@ -384,6 +448,20 @@ export function CheckInScanPanel({
                   Already checked in for this ticket
                 </div>
               ) : null}
+
+              {scanResult.claimableAddOnQty > 0 ? (
+                <button
+                  type="button"
+                  disabled={claimLoading || applyLoading}
+                  onClick={() => void claimAddOns()}
+                  className="min-h-[48px] px-5 rounded-xl bg-amber-500 hover:bg-amber-400 text-gray-900 text-sm font-bold disabled:opacity-50"
+                >
+                  {claimLoading
+                    ? 'Claiming add-ons...'
+                    : `Claim add-on${scanResult.claimableAddOnQty > 1 ? 's' : ''}`}
+                </button>
+              ) : null}
+
               <button
                 type="button"
                 onClick={dismiss}

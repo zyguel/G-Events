@@ -4,21 +4,11 @@ import { useEffect, useState } from "react";
 import RichTextEditor from "./RichTextEditor";
 import { CheckCircle, Mail, Check, X } from "lucide-react";
 import { getOrderConfirmationSettings, saveOrderConfirmationSettings } from "@/lib/actions/orderConfirmation";
-
-interface EmailTemplate {
-    subject: string;
-    body: string;
-}
-
-interface OrderConfirmationData {
-    submissionMessage: string;
-    submissionEmail: EmailTemplate;
-    confirmationEmail: EmailTemplate;
-    rejectionEmail: EmailTemplate;
-}
+import type { OrderConfirmationData } from "@/lib/orderConfirmationSettings";
 
 export default function OrderConfirmation({ eventId }: { eventId: string }) {
     const [savedStates, setSavedStates] = useState({
+        approvalMode: false,
         submissionMessage: false,
         submissionEmail: false,
         confirmationEmail: false,
@@ -38,7 +28,8 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
         rejectionEmail: {
             subject: "",
             body: ""
-        }
+        },
+        freeTicketApprovalMode: "manual",
     });
 
     const [isLoading, setIsLoading] = useState(true);
@@ -68,8 +59,8 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
     const handleSaveSubmissionMessage = async () => {
         try {
             await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
-            setSavedStates({ ...savedStates, submissionMessage: true });
-            setTimeout(() => setSavedStates({ ...savedStates, submissionMessage: false }), 3000);
+            setSavedStates((prev) => ({ ...prev, submissionMessage: true }));
+            setTimeout(() => setSavedStates((prev) => ({ ...prev, submissionMessage: false })), 3000);
         } catch (error) {
             console.error("Failed to save submission message:", error);
         }
@@ -79,10 +70,20 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
         try {
             await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
             const key = `${type}Email` as keyof typeof savedStates;
-            setSavedStates({ ...savedStates, [key]: true });
-            setTimeout(() => setSavedStates({ ...savedStates, [key]: false }), 3000);
+            setSavedStates((prev) => ({ ...prev, [key]: true }));
+            setTimeout(() => setSavedStates((prev) => ({ ...prev, [key]: false })), 3000);
         } catch (error) {
             console.error(`Failed to save ${type} email:`, error);
+        }
+    };
+
+    const handleSaveApprovalMode = async () => {
+        try {
+            await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
+            setSavedStates((prev) => ({ ...prev, approvalMode: true }));
+            setTimeout(() => setSavedStates((prev) => ({ ...prev, approvalMode: false })), 3000);
+        } catch (error) {
+            console.error("Failed to save free ticket approval mode:", error);
         }
     };
 
@@ -110,6 +111,73 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                     </p>
                 </div>
             </div>
+
+            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
+                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-violet-500 rounded-xl flex items-center justify-center">
+                            <Check className="w-5 h-5 text-white" />
+                        </div>
+                        <div>
+                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
+                                Free Ticket Approval Mode
+                            </h2>
+                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
+                                Choose how free ticket registrations are handled after form submission.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div className="p-6 space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <button
+                            type="button"
+                            onClick={() => setData({ ...data, freeTicketApprovalMode: "manual" })}
+                            className={`rounded-xl border px-4 py-3 text-left transition-all ${data.freeTicketApprovalMode === "manual"
+                                ? "border-[#3D518C] bg-[#3D518C]/10 text-[#2e3d6e] dark:text-[#ABD2FA]"
+                                : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                                }`}
+                        >
+                            <p className="text-sm font-semibold">Manual Approval</p>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Send submission acknowledgement first. QR is sent only after organizer confirms in Orders.
+                            </p>
+                        </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setData({ ...data, freeTicketApprovalMode: "automatic" })}
+                            className={`rounded-xl border px-4 py-3 text-left transition-all ${data.freeTicketApprovalMode === "automatic"
+                                ? "border-[#3D518C] bg-[#3D518C]/10 text-[#2e3d6e] dark:text-[#ABD2FA]"
+                                : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+                                }`}
+                        >
+                            <p className="text-sm font-semibold">Automatic Approval</p>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Confirm free registrations instantly and send the submission email with QR right away.
+                            </p>
+                        </button>
+                    </div>
+
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300">
+                        Paid tickets are always manual approval. This setting applies only to free tickets.
+                    </div>
+
+                    <div className="flex items-center justify-end gap-3">
+                        {savedStates.approvalMode && (
+                            <span className="text-sm text-green-600 dark:text-green-400 font-medium">
+                                ✓ Changes saved
+                            </span>
+                        )}
+                        <button
+                            onClick={handleSaveApprovalMode}
+                            className="px-6 py-2.5 text-sm font-semibold text-white bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.02] rounded-xl transition-all duration-200"
+                        >
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+            </section>
 
             {/* Registration Submission Message */}
             <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">

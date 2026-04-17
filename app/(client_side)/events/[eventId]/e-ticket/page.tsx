@@ -32,11 +32,15 @@ export default async function PublicETicketPage({
   const admin = await createAdminClient();
   const { data: reg, error: regErr } = await admin
     .from('Registration')
-    .select('id, event_id, ticket_token, user_id, ticket_id')
+    .select('id, event_id, status, ticket_token, user_id, ticket_id')
     .eq('ticket_token', token.trim())
     .maybeSingle();
 
   if (regErr || !reg || Number(reg.event_id) !== numericEventId) {
+    return notFound();
+  }
+
+  if (String(reg.status || '').toLowerCase() !== 'confirmed') {
     return notFound();
   }
 

@@ -12,6 +12,19 @@ import { verifyWaitlistInviteToken } from '@/lib/waitlistInviteToken';
 
 export const dynamic = "force-dynamic";
 
+type EventTicketRow = {
+  id: number;
+  name: string;
+  price: number | null;
+  available_quantity: number | null;
+  waitlist_reserved_quantity: number | null;
+};
+
+type RegistrationUsageRow = {
+  ticket_id: number | null;
+  status: string | null;
+};
+
 export default async function PublicEventRegistrationPage({
   params,
   searchParams,
@@ -64,8 +77,8 @@ export default async function PublicEventRegistrationPage({
       .order("price", { ascending: true })
       .order("id", { ascending: true });
 
-  const eventTickets = ticketRows || [];
-  const ticketIds = eventTickets.map((t: any) => t.id);
+  const eventTickets = (ticketRows || []) as EventTicketRow[];
+  const ticketIds = eventTickets.map((t) => t.id);
   const usageByTicket = new Map<number, number>();
 
   if (ticketIds.length > 0) {
@@ -75,10 +88,10 @@ export default async function PublicEventRegistrationPage({
           .eq("event_id", numericEventId)
           .in("ticket_id", ticketIds);
 
-      for (const row of regUsageRows || []) {
-          const status = String((row as any).status || "").toLowerCase();
+        for (const row of ((regUsageRows || []) as RegistrationUsageRow[])) {
+          const status = String(row.status || "").toLowerCase();
           if (status === "rejected" || status === "cancelled") continue;
-          const tid = Number((row as any).ticket_id);
+          const tid = Number(row.ticket_id);
           if (Number.isNaN(tid)) continue;
           usageByTicket.set(tid, (usageByTicket.get(tid) || 0) + 1);
       }
@@ -90,7 +103,7 @@ export default async function PublicEventRegistrationPage({
       .eq("event_id", numericEventId);
   const hasPromotions = (promoCount || 0) > 0;
 
-  const enrichedTickets = eventTickets.map((t: any) => {
+  const enrichedTickets = eventTickets.map((t) => {
       const total = Number(t.available_quantity ?? 0);
       const reservedForWaitlist = Number(t.waitlist_reserved_quantity ?? 0);
       const publicTotal = Math.max(0, total - Math.max(0, reservedForWaitlist));
@@ -98,7 +111,7 @@ export default async function PublicEventRegistrationPage({
       return {
           id: t.id,
           name: t.name,
-          price: t.price,
+          price: Number(t.price ?? 0),
         available_quantity: publicTotal,
           used_quantity: used,
           is_sold_out: publicTotal <= 0 ? true : used >= publicTotal,
@@ -114,6 +127,7 @@ export default async function PublicEventRegistrationPage({
   }> = [];
 
   let existingTicketNames: string[] = [];
+  let hasExistingRegistration = false;
 
   if (userEmail) {
     const { data: userRow } = await adminClient
@@ -134,8 +148,12 @@ export default async function PublicEventRegistrationPage({
         .order("created_at", { ascending: true });
 
       const safeRegistrations = (existingRegistrations || []) as Array<{ id: number; status?: string; Ticket?: { name?: string } }>;
+      hasExistingRegistration = safeRegistrations.length > 0;
+      const confirmedRegistrations = safeRegistrations.filter(
+        (registration) => String(registration.status || '').toLowerCase() === 'confirmed'
+      );
 
-      existingCheckInPasses = safeRegistrations
+      existingCheckInPasses = confirmedRegistrations
         .map((registration) => ({
           email: userEmail.toLowerCase(),
           registrationId: Number(registration.id),
@@ -208,6 +226,7 @@ export default async function PublicEventRegistrationPage({
           breakoutSessions={breakoutSessions}
           existingCheckInPasses={existingCheckInPasses}
           existingTicketNames={existingTicketNames}
+          hasExistingRegistration={hasExistingRegistration}
           hasPromotions={hasPromotions}
           allowGroupRegistration={event.allow_group_registration ?? true}
           allowWaitlist={event.allow_waitlist ?? false}

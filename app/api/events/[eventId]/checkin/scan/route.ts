@@ -3,10 +3,11 @@ import { createAdminClient } from '@/lib/supabase-server';
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 import { extractTicketTokenFromScan } from '@/lib/checkinScan';
 import { resolveBreakoutTicketForEventCheckin } from '@/lib/breakoutCheckinScan';
+import { getClaimableAddOnsForRegistration } from '@/lib/checkinAddOnClaims';
 
-function registrationCancelled(status: unknown): boolean {
+function registrationNotConfirmed(status: unknown): boolean {
   const s = String(status || '').toLowerCase();
-  return s === 'cancelled' || s === 'rejected';
+  return s !== 'confirmed';
 }
 
 /**
@@ -56,6 +57,11 @@ export async function POST(
       const { bsr, session, reg } = breakout;
       const breakoutCheckedIn =
         !!bsr.check_in_time || String(bsr.status || '').toLowerCase() === 'checked_in';
+      const claimableAddOns = await getClaimableAddOnsForRegistration(admin, Number(reg.id));
+      const claimableAddOnQty = claimableAddOns.reduce(
+        (sum, item) => sum + Number(item.remainingQty || 0),
+        0
+      );
 
       return NextResponse.json({
         success: true,
@@ -70,6 +76,8 @@ export async function POST(
         registrationStatus: String(reg.status || 'pending'),
         mainEventCheckedIn: !!reg.has_checked_in,
         mainEventStatus: reg.has_checked_in ? 'Checked-In' : 'Not Yet Checked-In',
+        claimableAddOnQty,
+        claimableAddOns,
         breakout: {
           breakoutRegistrationId: bsr.id,
           sessionId: session.id,
@@ -99,12 +107,18 @@ export async function POST(
       );
     }
 
-    if (registrationCancelled(reg.status)) {
+    if (registrationNotConfirmed(reg.status)) {
       return NextResponse.json(
-        { success: false, error: 'This registration is cancelled or rejected' },
+        { success: false, error: 'This registration is not confirmed' },
         { status: 400 }
       );
     }
+
+    const claimableAddOns = await getClaimableAddOnsForRegistration(admin, Number(reg.id));
+    const claimableAddOnQty = claimableAddOns.reduce(
+      (sum, item) => sum + Number(item.remainingQty || 0),
+      0
+    );
 
     return NextResponse.json({
       success: true,
@@ -119,6 +133,8 @@ export async function POST(
       registrationStatus: String(reg.status || 'pending'),
       mainEventCheckedIn: !!reg.has_checked_in,
       mainEventStatus: reg.has_checked_in ? 'Checked-In' : 'Not Yet Checked-In',
+      claimableAddOnQty,
+      claimableAddOns,
       breakout: null,
     });
   } catch (e: unknown) {

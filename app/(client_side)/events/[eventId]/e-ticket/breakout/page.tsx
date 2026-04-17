@@ -42,11 +42,15 @@ export default async function PublicBreakoutETicketPage({
 
   const { data: reg } = await admin
     .from('Registration')
-    .select('event_id')
+    .select('event_id, status')
     .eq('id', bsr.registration_id)
     .maybeSingle();
 
   if (!reg || Number(reg.event_id) !== numericEventId) {
+    return notFound();
+  }
+
+  if (String(reg.status || '').toLowerCase() !== 'confirmed') {
     return notFound();
   }
 

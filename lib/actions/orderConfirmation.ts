@@ -1,26 +1,22 @@
 "use server";
 
 import { createClient } from "@/lib/supabase-server";
+import {
+    DEFAULT_ORDER_CONFIRMATION_DATA,
+    normalizeOrderConfirmationData,
+    type OrderConfirmationData,
+    type OrderConfirmationEmailTemplate,
+} from "@/lib/orderConfirmationSettings";
 
-export interface EmailTemplate {
-    subject: string;
-    body: string;
-}
+export type EmailTemplate = OrderConfirmationEmailTemplate;
 
-export interface OrderConfirmationData {
-    submissionMessage: string;
-    submissionEmail: EmailTemplate;
-    confirmationEmail: EmailTemplate;
-    rejectionEmail: EmailTemplate;
-}
+export type { OrderConfirmationData };
 
 /**
  * Fetch the order confirmation settings for a specific event
  */
-export async function getOrderConfirmationSettings(eventId: number): Promise<OrderConfirmationData | null> {
+export async function getOrderConfirmationSettings(eventId: number): Promise<OrderConfirmationData> {
     try {
-
-
         const supabase = await createClient();
         const { data, error } = await supabase
             .from('OrderConfirmationSettings')
@@ -30,16 +26,16 @@ export async function getOrderConfirmationSettings(eventId: number): Promise<Ord
 
         if (error) {
             if (error.code === 'PGRST116') {
-                // No rows returned
-                return null;
+                // No rows returned: use defaults.
+                return { ...DEFAULT_ORDER_CONFIRMATION_DATA };
             }
             throw error;
         }
 
-        return data?.settings as OrderConfirmationData;
+        return normalizeOrderConfirmationData(data?.settings);
     } catch (error) {
         console.error("Failed to fetch order confirmation settings:", error);
-        return null; // Return null instead of throwing to avoid breaking the UI
+        return { ...DEFAULT_ORDER_CONFIRMATION_DATA };
     }
 }
 
@@ -48,16 +44,15 @@ export async function getOrderConfirmationSettings(eventId: number): Promise<Ord
  */
 export async function saveOrderConfirmationSettings(eventId: number, settings: OrderConfirmationData): Promise<boolean> {
     try {
-
-
         // Use an upsert since event_id is unique. This updates the existing row or inserts a new one.
         const supabase = await createClient();
+        const normalizedSettings = normalizeOrderConfirmationData(settings);
 
         const { error } = await supabase
             .from('OrderConfirmationSettings')
             .upsert({
                 event_id: eventId,
-                settings: settings,
+                settings: normalizedSettings,
                 updated_at: new Date().toISOString()
             }, { onConflict: 'event_id' });
 
