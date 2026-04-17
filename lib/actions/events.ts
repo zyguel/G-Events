@@ -1038,6 +1038,52 @@ export async function getEventAnalytics(eventId: number) {
     };
 }
 
+/**
+ * Fetch all ticket types for a specific event.
+ */
+export async function getEventTickets(eventId: number) {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+        .from('Ticket')
+        .select('id, name')
+        .eq('event_id', eventId)
+        .order('id', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching event tickets:', error);
+        return [];
+    }
+
+    return data || [];
+}
+
+/**
+ * Fetch registration trend data for an event, optionally filtered by ticket type.
+ */
+export async function getRegistrationTrendData(eventId: number, ticketTypeId?: number) {
+    const supabase = await createClient();
+    
+    let query = supabase
+        .from('Registration')
+        .select('created_at')
+        .eq('event_id', eventId)
+        .neq('status', 'cancelled');
+
+    if (ticketTypeId && ticketTypeId > 0) {
+        query = query.eq('ticket_id', ticketTypeId);
+    }
+
+    const { data, error } = await query.order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching registration trend data:', error);
+        return { weekly: [], weekLabels: [], registrationOpenDate: '', eventDate: '' };
+    }
+
+    return buildWeeklyTrend(data || []);
+}
+
+
 // ΓöÇΓöÇΓöÇ Helpers ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
 
