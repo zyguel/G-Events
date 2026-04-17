@@ -590,6 +590,112 @@ export async function createEvent(
     return data;
 }
 
+const EVENT_RESCHEDULE_TICKET_BUFFER_DAYS = 5;
+const EVENT_RESCHEDULE_TICKET_BUFFER_MS = EVENT_RESCHEDULE_TICKET_BUFFER_DAYS * 24 * 60 * 60 * 1000;
+
+function toNormalizedIso(value: unknown): string | null {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const ms = Date.parse(value);
+    if (!Number.isFinite(ms)) return null;
+    return new Date(ms).toISOString();
+}
+
+function toEpochMs(value: unknown): number | null {
+    const iso = toNormalizedIso(value);
+    if (!iso) return null;
+    const ms = Date.parse(iso);
+    return Number.isFinite(ms) ? ms : null;
+}
+
+type EventTicketWindowRow = {
+    id: number;
+    selling_start_at: string | null;
+    selling_end_at: string | null;
+};
+
+async function adjustTicketWindowsForEarlierEventEnd(params: {
+    supabase: SupabaseClient;
+    eventId: number;
+    beforeEventEndAt: unknown;
+    afterEventEndAt: unknown;
+}): Promise<void> {
+    const beforeEndMs = toEpochMs(params.beforeEventEndAt);
+    const afterEndMs = toEpochMs(params.afterEventEndAt);
+
+    if (beforeEndMs === null || afterEndMs === null || afterEndMs >= beforeEndMs) {
+        return;
+    }
+
+    const { data: ticketRows, error: ticketError } = await params.supabase
+        .from('Ticket')
+        .select('id, selling_start_at, selling_end_at')
+        .eq('event_id', params.eventId);
+
+    if (ticketError) throw ticketError;
+
+    const rows = (ticketRows || []) as EventTicketWindowRow[];
+
+    for (const row of rows) {
+        const currentStartMs = toEpochMs(row.selling_start_at);
+        const currentEndMs = toEpochMs(row.selling_end_at);
+
+        let nextStartMs = currentStartMs;
+        let nextEndMs = currentEndMs;
+        let changed = false;
+
+        const bothBeyondEarlierEnd =
+            currentStartMs !== null
+            && currentEndMs !== null
+            && currentStartMs > afterEndMs
+            && currentEndMs > afterEndMs;
+
+        if (bothBeyondEarlierEnd) {
+            nextEndMs = afterEndMs;
+            nextStartMs = afterEndMs - EVENT_RESCHEDULE_TICKET_BUFFER_MS;
+            changed = true;
+        } else {
+            if (currentEndMs !== null && currentEndMs > afterEndMs) {
+                nextEndMs = afterEndMs;
+                changed = true;
+            }
+
+            if (currentStartMs !== null && currentStartMs > afterEndMs) {
+                nextStartMs = afterEndMs - EVENT_RESCHEDULE_TICKET_BUFFER_MS;
+                changed = true;
+            }
+        }
+
+        if (nextStartMs !== null && nextEndMs !== null && nextStartMs >= nextEndMs) {
+            nextStartMs = nextEndMs - EVENT_RESCHEDULE_TICKET_BUFFER_MS;
+            changed = true;
+        }
+
+        if (!changed) {
+            continue;
+        }
+
+        const nextStartIso = nextStartMs !== null ? new Date(nextStartMs).toISOString() : null;
+        const nextEndIso = nextEndMs !== null ? new Date(nextEndMs).toISOString() : null;
+
+        const sameStart = toNormalizedIso(row.selling_start_at) === toNormalizedIso(nextStartIso);
+        const sameEnd = toNormalizedIso(row.selling_end_at) === toNormalizedIso(nextEndIso);
+        if (sameStart && sameEnd) {
+            continue;
+        }
+
+        const { error: updateTicketError } = await params.supabase
+            .from('Ticket')
+            .update({
+                selling_start_at: nextStartIso,
+                selling_end_at: nextEndIso,
+            })
+            .eq('id', row.id)
+            .eq('event_id', params.eventId);
+
+        if (updateTicketError) throw updateTicketError;
+    }
+}
+
 export async function updateEvent(
     eventId: number,
     fields: Partial<{
@@ -642,6 +748,18 @@ export async function updateEvent(
     const { error } = await updateQuery;
 
     if (error) throw error;
+
+    const nextEventEndAt =
+        Object.prototype.hasOwnProperty.call(fields, 'event_end_at')
+            ? fields.event_end_at
+            : beforeData.event_end_at;
+
+    await adjustTicketWindowsForEarlierEventEnd({
+        supabase,
+        eventId,
+        beforeEventEndAt: beforeData.event_end_at,
+        afterEventEndAt: nextEventEndAt,
+    });
 
     try {
       await logAuditEntry('Event', eventId, 'update', { before: beforeData, after: fields });

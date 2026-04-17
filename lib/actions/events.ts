@@ -493,6 +493,114 @@ function normalizeIsoDate(value: unknown): string | null {
     return new Date(ms).toISOString()
 }
 
+const RESCHEDULE_TICKET_BUFFER_DAYS = 5
+const RESCHEDULE_TICKET_BUFFER_MS = RESCHEDULE_TICKET_BUFFER_DAYS * 24 * 60 * 60 * 1000
+
+function toEpochMs(value: unknown): number | null {
+    const iso = normalizeIsoDate(value)
+    if (!iso) return null
+    const ms = Date.parse(iso)
+    return Number.isFinite(ms) ? ms : null
+}
+
+type TicketWindowRow = {
+    id: number
+    selling_start_at: string | null
+    selling_end_at: string | null
+}
+
+async function adjustTicketWindowsForEarlierEventEnd(params: {
+    supabase: SupabaseClient
+    eventId: number
+    beforeEventEndAt: unknown
+    afterEventEndAt: unknown
+}): Promise<{ adjustedTickets: number }> {
+    const beforeEndMs = toEpochMs(params.beforeEventEndAt)
+    const afterEndMs = toEpochMs(params.afterEventEndAt)
+
+    if (beforeEndMs === null || afterEndMs === null || afterEndMs >= beforeEndMs) {
+        return { adjustedTickets: 0 }
+    }
+
+    const { data: ticketRows, error: ticketError } = await params.supabase
+        .from('Ticket')
+        .select('id, selling_start_at, selling_end_at')
+        .eq('event_id', params.eventId)
+
+    if (ticketError) {
+        throw new Error(`Failed to load tickets for reschedule adjustment: ${ticketError.message}`)
+    }
+
+    let adjustedTickets = 0
+    const rows = (ticketRows || []) as TicketWindowRow[]
+
+    for (const row of rows) {
+        const currentStartMs = toEpochMs(row.selling_start_at)
+        const currentEndMs = toEpochMs(row.selling_end_at)
+
+        let nextStartMs = currentStartMs
+        let nextEndMs = currentEndMs
+        let changed = false
+
+        const bothBeyondEarlierEnd =
+            currentStartMs !== null
+            && currentEndMs !== null
+            && currentStartMs > afterEndMs
+            && currentEndMs > afterEndMs
+
+        if (bothBeyondEarlierEnd) {
+            nextEndMs = afterEndMs
+            nextStartMs = afterEndMs - RESCHEDULE_TICKET_BUFFER_MS
+            changed = true
+        } else {
+            if (currentEndMs !== null && currentEndMs > afterEndMs) {
+                nextEndMs = afterEndMs
+                changed = true
+            }
+
+            if (currentStartMs !== null && currentStartMs > afterEndMs) {
+                nextStartMs = afterEndMs - RESCHEDULE_TICKET_BUFFER_MS
+                changed = true
+            }
+        }
+
+        if (nextStartMs !== null && nextEndMs !== null && nextStartMs >= nextEndMs) {
+            nextStartMs = nextEndMs - RESCHEDULE_TICKET_BUFFER_MS
+            changed = true
+        }
+
+        if (!changed) {
+            continue
+        }
+
+        const nextStartIso = nextStartMs !== null ? new Date(nextStartMs).toISOString() : null
+        const nextEndIso = nextEndMs !== null ? new Date(nextEndMs).toISOString() : null
+
+        const sameStart = normalizeIsoDate(row.selling_start_at) === normalizeIsoDate(nextStartIso)
+        const sameEnd = normalizeIsoDate(row.selling_end_at) === normalizeIsoDate(nextEndIso)
+        if (sameStart && sameEnd) {
+            continue
+        }
+
+        const { error: updateTicketError } = await params.supabase
+            .from('Ticket')
+            .update({
+                selling_start_at: nextStartIso,
+                selling_end_at: nextEndIso,
+            })
+            .eq('id', row.id)
+            .eq('event_id', params.eventId)
+
+        if (updateTicketError) {
+            throw new Error(`Failed to adjust ticket ${row.id} after event reschedule: ${updateTicketError.message}`)
+        }
+
+        adjustedTickets += 1
+    }
+
+    return { adjustedTickets }
+}
+
 function eventDatesChanged(beforeEvent: any, afterEvent: any): boolean {
     const beforeStart = normalizeIsoDate(beforeEvent?.event_start_at)
     const afterStart = normalizeIsoDate(afterEvent?.event_start_at)
@@ -665,6 +773,18 @@ export async function updateEvent(id: number, data: Partial<any>) {
             return { success: false, error: error.message }
         }
 
+        let ticketWindowAdjustments: { adjustedTickets: number } | null = null
+        try {
+            ticketWindowAdjustments = await adjustTicketWindowsForEarlierEventEnd({
+                supabase,
+                eventId: id,
+                beforeEventEndAt: beforeData?.event_end_at,
+                afterEventEndAt: updatedEvent?.event_end_at,
+            })
+        } catch (ticketWindowError) {
+            console.error('Failed adjusting ticket windows after event reschedule:', ticketWindowError)
+        }
+
         let qrRefreshStats: { reissued: number; emailed: number; failed: number } | null = null
         if (eventDatesChanged(beforeData, updatedEvent)) {
             try {
@@ -693,7 +813,7 @@ export async function updateEvent(id: number, data: Partial<any>) {
 
         revalidatePath('/admin/events')
         revalidatePath(`/events/${id}`)
-        return { success: true, qrRefreshStats }
+        return { success: true, qrRefreshStats, ticketWindowAdjustments }
     } catch (e) {
         console.error('Unexpected error updating event:', e)
         return { success: false, error: 'Failed to update event' }

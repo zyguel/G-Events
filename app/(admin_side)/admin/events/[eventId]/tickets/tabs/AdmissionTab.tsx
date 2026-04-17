@@ -15,6 +15,7 @@ interface AdmissionTabProps {
 
 const DATE_PART_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PART_PATTERN = /^\d{2}:\d{2}$/;
+const SELL_WINDOW_BUFFER_MS = 5 * 24 * 60 * 60 * 1000;
 
 const parseDateTimeInput = (value: string | null | undefined): Date | null => {
   if (!value) return null;
@@ -99,6 +100,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   const [formData, setFormData] = useState(initialTicketForm);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [dateWarning, setDateWarning] = useState<string | null>(null);
   const eventEndAt = parseDateTimeInput(event.eventEndAt);
 
   useEffect(() => {
@@ -147,8 +149,9 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   const normalizeSellingWindow = (
     nextFormData: typeof formData,
     changedField: "startDate" | "endDate"
-  ): typeof formData => {
+  ): { normalizedFormData: typeof formData; warningMessage: string | null } => {
     let normalized = { ...nextFormData };
+    const warnings: string[] = [];
 
     if (eventEndAt) {
       const startAt = parseDateTimeInput(normalized.startDate);
@@ -156,28 +159,57 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
 
       if (startAt && startAt > eventEndAt) {
         normalized.startDate = formatDateTimeLocal(eventEndAt);
+        warnings.push("Start date/time was adjusted to event end date/time.");
       }
       if (endAt && endAt > eventEndAt) {
         normalized.endDate = formatDateTimeLocal(eventEndAt);
+        warnings.push("End date/time was adjusted to event end date/time.");
       }
     }
 
-    const startAt = parseDateTimeInput(normalized.startDate);
-    const endAt = parseDateTimeInput(normalized.endDate);
+    let startAt = parseDateTimeInput(normalized.startDate);
+    let endAt = parseDateTimeInput(normalized.endDate);
 
-    if (startAt && endAt && startAt > endAt) {
+    if (startAt && endAt && startAt >= endAt) {
       if (changedField === "startDate") {
-        normalized.endDate = formatDateTimeLocal(startAt);
+        const proposedEnd = new Date(startAt.getTime() + 60 * 1000);
+        if (eventEndAt && proposedEnd > eventEndAt) {
+          const bufferedStart = new Date(eventEndAt.getTime() - SELL_WINDOW_BUFFER_MS);
+          normalized.startDate = formatDateTimeLocal(bufferedStart);
+          normalized.endDate = formatDateTimeLocal(eventEndAt);
+          warnings.push("Ticket sell window was reset to a 5-day buffer because the selected time reached the event boundary.");
+        } else {
+          normalized.endDate = formatDateTimeLocal(proposedEnd);
+          warnings.push("End date/time was adjusted to stay after start date/time.");
+        }
       } else {
-        normalized.startDate = formatDateTimeLocal(endAt);
+        const adjustedStart = new Date(endAt.getTime() - 60 * 1000);
+        normalized.startDate = formatDateTimeLocal(adjustedStart);
+        warnings.push("Start date/time was adjusted to stay before end date/time.");
       }
+
+      startAt = parseDateTimeInput(normalized.startDate);
+      endAt = parseDateTimeInput(normalized.endDate);
     }
 
-    return normalized;
+    if (startAt && endAt && startAt >= endAt) {
+      const fallbackEnd = endAt || startAt;
+      const fallbackStart = new Date(fallbackEnd.getTime() - SELL_WINDOW_BUFFER_MS);
+      normalized.startDate = formatDateTimeLocal(fallbackStart);
+      normalized.endDate = formatDateTimeLocal(fallbackEnd);
+      warnings.push("Ticket sell window was normalized to keep a valid range.");
+    }
+
+    return {
+      normalizedFormData: normalized,
+      warningMessage: warnings.length > 0 ? warnings.join(" ") : null,
+    };
   };
 
   const updateSellingWindowField = (field: "startDate" | "endDate", value: string) => {
-    setFormData((prev) => normalizeSellingWindow({ ...prev, [field]: value }, field));
+    const { normalizedFormData, warningMessage } = normalizeSellingWindow({ ...formData, [field]: value }, field);
+    setFormData(normalizedFormData);
+    setDateWarning(warningMessage);
     setErrors((prev) => {
       const next = { ...prev };
       delete next.startDate;
@@ -191,6 +223,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     setFormData(initialTicketForm);
     setShowAdvanced(false);
     setErrors({});
+    setDateWarning(null);
     setIsModalOpen(true);
   };
 
@@ -213,6 +246,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     });
     setShowAdvanced(true);
     setErrors({});
+    setDateWarning(null);
     setIsModalOpen(true);
   };
 
@@ -227,6 +261,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       }
       await loadTickets();
       setIsModalOpen(false);
+      setDateWarning(null);
     } catch (error) {
       console.error("Failed to save ticket:", error);
     }
@@ -504,7 +539,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setDateWarning(null);
+        }}
         title={editingTicketId ? "Edit Ticket" : "Add New Ticket"}
       >
         <div className="space-y-4">
@@ -694,6 +732,15 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             </div>
           </div>
 
+          {dateWarning && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <p>{dateWarning}</p>
+              </div>
+            </div>
+          )}
+
 
           {/* Timezone Info */}
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-4">
@@ -743,7 +790,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
 
           {/* Modal Footer */}
           <ModalFooter
-            onCancel={() => setIsModalOpen(false)}
+            onCancel={() => {
+              setIsModalOpen(false);
+              setDateWarning(null);
+            }}
             onSave={handleSaveTicket}
             saveText={editingTicketId ? "Update Ticket" : "Create Ticket"}
             submitType="button"
