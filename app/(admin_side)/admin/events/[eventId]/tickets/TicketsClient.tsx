@@ -27,8 +27,6 @@ const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
   timezone: "Asia/Manila",
   description: "",
   visibility: "visible",
-  minQuantity: 1,
-  maxQuantity: 1,
 };
 
 export default function TicketsClient({ event }: TicketsClientProps) {
@@ -69,9 +67,6 @@ export default function TicketsClient({ event }: TicketsClientProps) {
     if (new Date(formData.startDate) >= new Date(formData.endDate)) {
       newErrors.endDate = "End date must be after start date";
     }
-    if (formData.minQuantity > formData.maxQuantity) {
-      newErrors.maxQuantity = "Max quantity must be greater than min quantity";
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -100,8 +95,6 @@ export default function TicketsClient({ event }: TicketsClientProps) {
       timezone: ticket.timezone,
       description: ticket.description,
       visibility: ticket.visibility,
-      minQuantity: ticket.minQuantity,
-      maxQuantity: ticket.maxQuantity,
     });
     setShowAdvanced(true);
     setErrors({});
@@ -420,36 +413,6 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   </button>
                 </div>
 
-                {/* Tickets per Order */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Minimum per Order
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.minQuantity}
-                      onChange={(e) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 1 })}
-                      className="w-full px-4 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Maximum per Order
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={formData.maxQuantity}
-                      onChange={(e) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
-                      className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.maxQuantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                        } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
-                    />
-                    {errors.maxQuantity && <p className="text-red-500 text-xs mt-1">{errors.maxQuantity}</p>}
-                  </div>
-                </div>
               </div>
             )}
           </div>

@@ -71,9 +71,10 @@ export async function PATCH(
         return NextResponse.json({ success: true, data: ticket });
     } catch (error: any) {
         console.error('Error updating ticket:', error);
+        const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
         return NextResponse.json(
             { success: false, error: error.message || 'Failed to update ticket' },
-            { status: 500 }
+            { status }
         );
     }
 }

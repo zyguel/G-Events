@@ -13,6 +13,63 @@ interface AdmissionTabProps {
   event: EventSummary;
 }
 
+const DATE_PART_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PART_PATTERN = /^\d{2}:\d{2}$/;
+
+const parseDateTimeInput = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const [datePart, timePartRaw] = trimmed.split("T");
+  if (!DATE_PART_PATTERN.test(datePart)) {
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const [year, month, day] = datePart.split("-").map((part) => Number.parseInt(part, 10));
+  let hours = 0;
+  let minutes = 0;
+
+  if (timePartRaw) {
+    const normalizedTime = timePartRaw.slice(0, 5);
+    if (!TIME_PART_PATTERN.test(normalizedTime)) {
+      return null;
+    }
+    const [h, m] = normalizedTime.split(":").map((part) => Number.parseInt(part, 10));
+    hours = h;
+    minutes = m;
+  }
+
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
+
+const formatDatePart = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatTimePart = (value: Date): string => {
+  const hours = String(value.getHours()).padStart(2, "0");
+  const minutes = String(value.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
+const formatDateTimeLocal = (value: Date): string => `${formatDatePart(value)}T${formatTimePart(value)}`;
+
+const getDatePartFromValue = (value: string): string | null => {
+  const datePart = value.split("T")[0] ?? "";
+  return DATE_PART_PATTERN.test(datePart) ? datePart : null;
+};
+
+const getTimePartFromValue = (value: string): string => {
+  const timePart = value.includes("T") ? value.split("T")[1] ?? "" : "";
+  const normalizedTime = timePart.slice(0, 5);
+  return TIME_PART_PATTERN.test(normalizedTime) ? normalizedTime : "";
+};
+
 const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
 
   name: "",
@@ -28,8 +85,6 @@ const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
   description: "",
   visibility: "visible",
   isDeleted: false,
-  minQuantity: 1,
-  maxQuantity: 1,
 };
 
 export default function AdmissionTab({ event }: AdmissionTabProps) {
@@ -44,6 +99,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   const [formData, setFormData] = useState(initialTicketForm);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const eventEndAt = parseDateTimeInput(event.eventEndAt);
 
   useEffect(() => {
     loadTickets();
@@ -64,21 +120,70 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
+    const startAt = parseDateTimeInput(formData.startDate);
+    const endAt = parseDateTimeInput(formData.endDate);
 
     if (!formData.name.trim()) newErrors.name = "Ticket name is required";
     if (formData.quantity <= 0) newErrors.quantity = "Quantity must be greater than 0";
     if (formData.type === "paid" && !formData.price) newErrors.price = "Price is required for paid tickets";
     if (!formData.startDate) newErrors.startDate = "Start date is required";
     if (!formData.endDate) newErrors.endDate = "End date is required";
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+    if (formData.startDate && !startAt) newErrors.startDate = "Invalid start date/time";
+    if (formData.endDate && !endAt) newErrors.endDate = "Invalid end date/time";
+    if (startAt && endAt && startAt >= endAt) {
       newErrors.endDate = "End date must be after start date";
     }
-    if (formData.minQuantity > formData.maxQuantity) {
-      newErrors.maxQuantity = "Max quantity must be greater than min quantity";
+    if (eventEndAt && startAt && startAt > eventEndAt) {
+      newErrors.startDate = "Start date/time cannot go beyond the event end date/time";
+    }
+    if (eventEndAt && endAt && endAt > eventEndAt) {
+      newErrors.endDate = "End date/time cannot go beyond the event end date/time";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const normalizeSellingWindow = (
+    nextFormData: typeof formData,
+    changedField: "startDate" | "endDate"
+  ): typeof formData => {
+    let normalized = { ...nextFormData };
+
+    if (eventEndAt) {
+      const startAt = parseDateTimeInput(normalized.startDate);
+      const endAt = parseDateTimeInput(normalized.endDate);
+
+      if (startAt && startAt > eventEndAt) {
+        normalized.startDate = formatDateTimeLocal(eventEndAt);
+      }
+      if (endAt && endAt > eventEndAt) {
+        normalized.endDate = formatDateTimeLocal(eventEndAt);
+      }
+    }
+
+    const startAt = parseDateTimeInput(normalized.startDate);
+    const endAt = parseDateTimeInput(normalized.endDate);
+
+    if (startAt && endAt && startAt > endAt) {
+      if (changedField === "startDate") {
+        normalized.endDate = formatDateTimeLocal(startAt);
+      } else {
+        normalized.startDate = formatDateTimeLocal(endAt);
+      }
+    }
+
+    return normalized;
+  };
+
+  const updateSellingWindowField = (field: "startDate" | "endDate", value: string) => {
+    setFormData((prev) => normalizeSellingWindow({ ...prev, [field]: value }, field));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.startDate;
+      delete next.endDate;
+      return next;
+    });
   };
 
   const handleAddTicket = () => {
@@ -105,8 +210,6 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       description: ticket.description,
       visibility: ticket.visibility,
       isDeleted: ticket.isDeleted,
-      minQuantity: ticket.minQuantity,
-      maxQuantity: ticket.maxQuantity,
     });
     setShowAdvanced(true);
     setErrors({});
@@ -327,7 +430,6 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                       })()}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span>Per order: {ticket.minQuantity} min - {ticket.maxQuantity} max</span>
                       <span className="inline-flex items-center gap-1">
                         <CalendarRange size={12} />
                         {ticket.startDate || "No start"} to {ticket.endDate || "No end"}
@@ -525,12 +627,13 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     value={formData.startDate ? new Date(formData.startDate.split('T')[0]) : null}
                     onChange={(date) => {
                       if (!date) {
-                        setFormData({ ...formData, startDate: "" });
+                        updateSellingWindowField("startDate", "");
                         return;
                       }
-                      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                      const timeStr = formData.startDate && formData.startDate.includes('T') ? formData.startDate.split('T')[1] : "";
-                      setFormData({ ...formData, startDate: timeStr ? `${dateStr}T${timeStr}` : dateStr });
+                      const dateStr = formatDatePart(date);
+                      const timeStr = getTimePartFromValue(formData.startDate);
+                      const nextValue = timeStr ? `${dateStr}T${timeStr}` : dateStr;
+                      updateSellingWindowField("startDate", nextValue);
                     }}
                     placeholder="Select date"
                     className={errors.startDate ? "border-red-500 text-sm" : "text-sm"}
@@ -538,12 +641,12 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 </div>
                 <div className="w-[45%]">
                   <TimeInput
-                    value={formData.startDate && formData.startDate.includes('T') ? formData.startDate.split('T')[1] : ""}
+                    value={getTimePartFromValue(formData.startDate)}
                     onChange={(time) => {
                       const now = new Date();
-                      const datePart = formData.startDate && formData.startDate.includes('T') ? formData.startDate.split('T')[0] :
-                        (formData.startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
-                      setFormData({ ...formData, startDate: time ? `${datePart}T${time}` : datePart });
+                      const datePart = getDatePartFromValue(formData.startDate)
+                        || formatDatePart(now);
+                      updateSellingWindowField("startDate", time ? `${datePart}T${time}` : datePart);
                     }}
                     placeholder="Time"
                     className={errors.startDate ? "border-red-500 text-sm" : "text-sm"}
@@ -561,14 +664,13 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     value={formData.endDate ? new Date(formData.endDate.split('T')[0]) : null}
                     onChange={(date) => {
                       if (!date) {
-                        setFormData({ ...formData, endDate: "" });
+                        updateSellingWindowField("endDate", "");
                         return;
                       }
-                      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                      const timeStr = formData.endDate && formData.endDate.includes('T')
-                        ? formData.endDate.split('T')[1]
-                        : "";
-                      setFormData({ ...formData, endDate: timeStr ? `${dateStr}T${timeStr}` : dateStr });
+                      const dateStr = formatDatePart(date);
+                      const timeStr = getTimePartFromValue(formData.endDate);
+                      const nextValue = timeStr ? `${dateStr}T${timeStr}` : dateStr;
+                      updateSellingWindowField("endDate", nextValue);
                     }}
                     placeholder="Select date"
                     className={errors.endDate ? "border-red-500 text-sm" : "text-sm"}
@@ -576,12 +678,12 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 </div>
                 <div className="w-[45%]">
                   <TimeInput
-                    value={formData.endDate && formData.endDate.includes('T') ? formData.endDate.split('T')[1] : ""}
+                    value={getTimePartFromValue(formData.endDate)}
                     onChange={(time) => {
                       const now = new Date();
-                      const datePart = formData.endDate && formData.endDate.includes('T') ? formData.endDate.split('T')[0] :
-                        (formData.endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
-                      setFormData({ ...formData, endDate: time ? `${datePart}T${time}` : datePart });
+                      const datePart = getDatePartFromValue(formData.endDate)
+                        || formatDatePart(now);
+                      updateSellingWindowField("endDate", time ? `${datePart}T${time}` : datePart);
                     }}
                     placeholder="Time"
                     className={errors.endDate ? "border-red-500 text-sm" : "text-sm"}
@@ -596,7 +698,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
           {/* Timezone Info */}
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-4">
             <AlertCircle size={14} />
-            <span>Timezone is PHT, UTC + 8</span>
+            <span>
+              Timezone is PHT, UTC + 8
+              {eventEndAt ? ` • Ticket sales cannot go beyond ${formatDateTimeLocal(eventEndAt)}` : ""}
+            </span>
           </div>
 
           {/* Advanced Settings Toggle */}
@@ -633,29 +738,6 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Min Quantity per Order</label>
-                  <ModalInput
-                    type="number"
-                    min="1"
-                    value={formData.minQuantity}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 1 })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Max Quantity per Order</label>
-                  <ModalInput
-                    type="number"
-                    min="1"
-                    value={formData.maxQuantity}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
-                    className={errors.maxQuantity ? "border-red-500" : ""}
-                  />
-                  {errors.maxQuantity && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.maxQuantity}</p>}
-                </div>
-              </div>
             </div>
           )}
 

@@ -22,8 +22,6 @@ export interface Ticket {
   description?: string;
   visibility: 'visible' | 'hidden';
   isDeleted?: boolean;
-  minQuantity: number;
-  maxQuantity: number;
   usedQuantity: number;
   createdAt: string;
 }
@@ -115,8 +113,6 @@ function mapDbTicket(row: any): Ticket {
     description: row.description ?? '',
     visibility: row.is_hidden ? 'hidden' : 'visible',
     isDeleted: !!row.is_deleted,
-    minQuantity: row.min_per_user ?? 1,
-    maxQuantity: row.max_per_user ?? 1,
     usedQuantity: row.used_quantity ?? 0,
     createdAt: row.created_at ?? new Date().toISOString(),
   };
@@ -188,8 +184,6 @@ function ticketToDb(ticket: Partial<Omit<Ticket, 'id' | 'createdAt' | 'usedQuant
   if (ticket.description !== undefined) fields.description = ticket.description;
   if (ticket.price !== undefined) fields.price = ticket.price;
   if (ticket.quantity !== undefined) fields.available_quantity = ticket.quantity;
-  if (ticket.minQuantity !== undefined) fields.min_per_user = ticket.minQuantity;
-  if (ticket.maxQuantity !== undefined) fields.max_per_user = ticket.maxQuantity;
   if (ticket.startDate !== undefined) fields.selling_start_at = ticket.startDate || null;
   if (ticket.endDate !== undefined) fields.selling_end_at = ticket.endDate || null;
   if (ticket.visibility !== undefined) fields.is_hidden = ticket.visibility === 'hidden';

@@ -43,6 +43,8 @@ export default async function TicketsPage({ params }: { params: Promise<{ eventI
     id: data.id.toString(),
     name: data.title,
     date: data.event_start_at || '',
+    eventStartAt: data.event_start_at || null,
+    eventEndAt: data.event_end_at || null,
     status: status,
   };
 
