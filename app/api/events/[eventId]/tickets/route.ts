@@ -22,10 +22,10 @@ export async function GET(
 
         const tickets = await getTickets(id, { includeDeleted });
         return NextResponse.json({ success: true, data: tickets });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching tickets:', error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to fetch tickets' },
+            { success: false, error: error instanceof Error ? error.message : 'Failed to fetch tickets' },
             { status: 500 }
         );
     }
@@ -60,9 +60,8 @@ export async function POST(
             name: body.name,
             description: body.description,
             price: body.price,
+            free_ticket_approval_mode: body.free_ticket_approval_mode,
             available_quantity: body.available_quantity,
-            min_per_user: body.min_per_user,
-            max_per_user: body.max_per_user,
             selling_start_at: body.selling_start_at,
             selling_end_at: body.selling_end_at,
             selling_start_time: body.selling_start_time,
@@ -70,11 +69,15 @@ export async function POST(
         });
 
         return NextResponse.json({ success: true, data: ticket }, { status: 201 });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error creating ticket:', error);
+        const status =
+            typeof (error as { statusCode?: number })?.statusCode === 'number'
+                ? (error as { statusCode: number }).statusCode
+                : 500;
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to create ticket' },
-            { status: 500 }
+            { success: false, error: error instanceof Error ? error.message : 'Failed to create ticket' },
+            { status }
         );
     }
 }

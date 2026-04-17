@@ -180,7 +180,17 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     event_start_at: startAt,
                     event_end_at: endAt
                 }).then(res => {
-                    if (res.success) setToast({ message: 'Date & location updated!', type: 'success' });
+                    if (res.success) {
+                        const adjusted = Number(res.ticketWindowAdjustments?.adjustedTickets || 0);
+                        if (adjusted > 0) {
+                            setToast({
+                                message: `Date & location updated. ${adjusted} ticket sale window${adjusted === 1 ? '' : 's'} auto-adjusted.`,
+                                type: 'info'
+                            });
+                        } else {
+                            setToast({ message: 'Date & location updated!', type: 'success' });
+                        }
+                    }
                     else setToast({ message: 'Failed to update date/location.', type: 'error' });
                 });
             });

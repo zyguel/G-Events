@@ -3,8 +3,63 @@ import { createAdminClient } from "@/lib/supabase-server";
 import { revalidatePath } from "next/cache";
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 import { sendEmail } from "@/lib/emailProvider";
+import { getPublicAppBaseUrl } from "@/lib/appBaseUrl";
+import { buildEventSlug } from "@/lib/slug";
+import { buildAndStoreTicketQrImage } from "@/lib/ticketQrStorage";
+import { buildBreakoutEticketUrl, buildBreakoutTicketEmailHtml, buildEticketUrl } from "@/lib/ticketEmail";
+import {
+    buildTicketQrBlock,
+    ensureQrBlockInBody,
+    loadOrderConfirmationSettings,
+    renderOrderConfirmationTemplate,
+    wrapEmailBody,
+} from "@/lib/orderConfirmationSettings";
+import { newTicketToken } from "@/lib/ticketToken";
 
 type Action = "confirm" | "reject" | "update" | "refund_reassign";
+
+type UserContact = {
+    name?: string | null;
+    email?: string | null;
+};
+
+type TicketSummary = {
+    name?: string | null;
+};
+
+type MaybeRelation<T> = T | T[] | null | undefined;
+
+type RegistrationWithUserTicket = {
+    id: number;
+    event_id?: number;
+    ticket_id?: number | null;
+    final_price_paid?: number | null;
+    status?: string | null;
+    ticket_token?: string | null;
+    User?: MaybeRelation<UserContact>;
+    Ticket?: MaybeRelation<TicketSummary>;
+};
+
+type EventTitleRow = {
+    title?: string | null;
+};
+
+type RegistrationUpdateData = {
+    ticket_id?: number;
+    final_price_paid?: number;
+    status?: "confirmed" | "rejected";
+    ticket_token?: string;
+};
+
+const pickSingle = <T>(value: MaybeRelation<T>): T | null => {
+    if (!value) return null;
+    return Array.isArray(value) ? value[0] ?? null : value;
+};
+
+const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message;
+    return "Unexpected error";
+};
 
 export async function PATCH(
     request: NextRequest,
@@ -34,7 +89,9 @@ export async function PATCH(
         }
 
         const supabase = await createAdminClient();
-        let updateData: any = {};
+        const updateData: RegistrationUpdateData = {};
+        let registrationForNotification: RegistrationWithUserTicket | null = null;
+        let eventTitle = "Event";
 
         if (action === "update") {
             const { ticketId } = body;
@@ -87,6 +144,8 @@ export async function PATCH(
                 );
             }
 
+            const typedRegistration = registration as RegistrationWithUserTicket;
+
             const { data: eventData } = await supabase
                 .from("Event")
                 .select("title")
@@ -127,11 +186,13 @@ export async function PATCH(
                 );
             }
 
-            const attendeeEmail = (registration as any).User?.email;
+                        const registrationUser = pickSingle(typedRegistration.User);
+                        const registrationTicket = pickSingle(typedRegistration.Ticket);
+                        const attendeeEmail = registrationUser?.email || null;
             if (attendeeEmail) {
-                const attendeeName = (registration as any).User?.name || "Attendee";
-                const oldTicketName = (registration as any).Ticket?.name || "Previous Ticket";
-                const eventTitle = (eventData as any)?.title || "Event";
+                                const attendeeName = registrationUser?.name || "Attendee";
+                                const oldTicketName = registrationTicket?.name || "Previous Ticket";
+                                const eventTitle = ((eventData as EventTitleRow | null)?.title || "Event");
                 const html = `
                   <div style="font-family: Arial, sans-serif; line-height: 1.5; color: #111827;">
                     <h2 style="margin: 0 0 12px;">Ticket Update Notice</h2>
@@ -168,7 +229,34 @@ export async function PATCH(
                 },
             });
         } else {
+            const { data: registration, error: registrationError } = await supabase
+                .from("Registration")
+                .select("id, status, ticket_token, User(name, email), Ticket(name)")
+                .eq("id", regId)
+                .eq("event_id", id)
+                .single();
+
+            if (registrationError || !registration) {
+                return NextResponse.json(
+                    { success: false, error: "Registration not found" },
+                    { status: 404 }
+                );
+            }
+
+            registrationForNotification = registration as RegistrationWithUserTicket;
+
+            const { data: eventData } = await supabase
+                .from("Event")
+                .select("title")
+                .eq("id", id)
+                .single();
+
+            eventTitle = ((eventData as EventTitleRow | null)?.title || "Event");
             updateData.status = action === "confirm" ? "confirmed" : "rejected";
+
+            if (action === "confirm" && !registrationForNotification.ticket_token) {
+                updateData.ticket_token = newTicketToken();
+            }
         }
 
         const { error } = await supabase
@@ -185,18 +273,170 @@ export async function PATCH(
             );
         }
 
+        if ((action === "confirm" || action === "reject") && registrationForNotification) {
+            try {
+                const notificationUser = pickSingle(registrationForNotification.User);
+                const notificationTicket = pickSingle(registrationForNotification.Ticket);
+                const attendeeEmail = notificationUser?.email;
+                if (attendeeEmail) {
+                    const attendeeName = notificationUser?.name || "Attendee";
+                    const ticketName = notificationTicket?.name || "General Admission";
+                    const ticketToken = updateData.ticket_token || registrationForNotification.ticket_token || "";
+                    const settings = await loadOrderConfirmationSettings(supabase, id);
+
+                    if (action === "confirm") {
+                        const baseUrl = getPublicAppBaseUrl(request);
+                        const slug = buildEventSlug(eventTitle, id);
+
+                        let ticketUrl = "";
+                        let qrImageUrl = "";
+                        if (ticketToken) {
+                            ticketUrl = buildEticketUrl(baseUrl, slug, ticketToken);
+                            qrImageUrl = await buildAndStoreTicketQrImage({
+                                supabase,
+                                ticketUrl,
+                                folder: `event-${id}`,
+                            });
+                        }
+
+                        const qrBlock =
+                            qrImageUrl && ticketUrl
+                                ? buildTicketQrBlock({ qrImageUrl, ticketUrl })
+                                : "";
+
+                        const confirmationTemplate = renderOrderConfirmationTemplate({
+                            template: settings.confirmationEmail,
+                            fallback: {
+                                subject: `Registration confirmed — ${eventTitle}`,
+                                body: `<p>Hi ${attendeeName}, your registration for <strong>${eventTitle}</strong> is now confirmed.</p>`,
+                            },
+                            context: {
+                                attendeeName,
+                                attendee_name: attendeeName,
+                                eventTitle,
+                                event_title: eventTitle,
+                                ticketName,
+                                ticket_name: ticketName,
+                                registrationId: regId,
+                                registration_id: regId,
+                                ticketUrl,
+                                ticket_url: ticketUrl,
+                                qrImageUrl,
+                                qr_image_url: qrImageUrl,
+                                qrBlock,
+                                qr_block: qrBlock,
+                            },
+                        });
+
+                        const confirmationBody = qrBlock
+                            ? ensureQrBlockInBody(confirmationTemplate.body, qrBlock)
+                            : confirmationTemplate.body;
+
+                        await sendEmail({
+                            to: attendeeEmail,
+                            subject: confirmationTemplate.subject,
+                            html: wrapEmailBody(confirmationBody),
+                        });
+
+                        const { data: breakoutRegistration } = await supabase
+                            .from("BreakoutSessionRegistration")
+                            .select("ticket_token, breakout_session_id")
+                            .eq("registration_id", regId)
+                            .limit(1)
+                            .maybeSingle();
+
+                        if (breakoutRegistration?.ticket_token) {
+                            const breakoutUrl = buildBreakoutEticketUrl(
+                                baseUrl,
+                                slug,
+                                breakoutRegistration.ticket_token
+                            );
+
+                            let breakoutQrImageUrl = "";
+                            try {
+                                breakoutQrImageUrl = await buildAndStoreTicketQrImage({
+                                    supabase,
+                                    ticketUrl: breakoutUrl,
+                                    folder: `event-${id}/breakouts`,
+                                });
+                            } catch (breakoutQrError) {
+                                console.warn("ManageOrders PATCH: breakout QR image generation failed", breakoutQrError);
+                            }
+
+                            let breakoutSessionTitle = "Breakout session";
+                            let breakoutSessionLocation: string | undefined;
+                            if (breakoutRegistration.breakout_session_id) {
+                                const { data: breakoutSession } = await supabase
+                                    .from("BreakoutSession")
+                                    .select("name, room_name")
+                                    .eq("id", breakoutRegistration.breakout_session_id)
+                                    .eq("event_id", id)
+                                    .maybeSingle();
+
+                                if (breakoutSession?.name) {
+                                    breakoutSessionTitle = breakoutSession.name;
+                                }
+                                if (breakoutSession?.room_name) {
+                                    breakoutSessionLocation = breakoutSession.room_name;
+                                }
+                            }
+
+                            await sendEmail({
+                                to: attendeeEmail,
+                                subject: `Breakout ticket — ${breakoutSessionTitle}`,
+                                html: buildBreakoutTicketEmailHtml({
+                                    attendeeName,
+                                    eventTitle,
+                                    sessionTitle: breakoutSessionTitle,
+                                    sessionLocation: breakoutSessionLocation,
+                                    qrImageUrl: breakoutQrImageUrl || undefined,
+                                    ticketUrl: breakoutUrl,
+                                }),
+                            });
+                        }
+                    } else {
+                        const rejectionTemplate = renderOrderConfirmationTemplate({
+                            template: settings.rejectionEmail,
+                            fallback: {
+                                subject: `Registration update — ${eventTitle}`,
+                                body: `<p>Hi ${attendeeName}, your registration for <strong>${eventTitle}</strong> was not approved.</p>`,
+                            },
+                            context: {
+                                attendeeName,
+                                attendee_name: attendeeName,
+                                eventTitle,
+                                event_title: eventTitle,
+                                ticketName,
+                                ticket_name: ticketName,
+                                registrationId: regId,
+                                registration_id: regId,
+                            },
+                        });
+
+                        await sendEmail({
+                            to: attendeeEmail,
+                            subject: rejectionTemplate.subject,
+                            html: wrapEmailBody(rejectionTemplate.body),
+                        });
+                    }
+                }
+            } catch (notificationError) {
+                console.warn("ManageOrders PATCH: notification email failed", notificationError);
+            }
+        }
+
         // Revalidate relevant caches
         revalidatePath(`/admin/events/${id}/orders`);
         revalidatePath(`/admin/events/${id}/reports`);
 
         return NextResponse.json({ success: true });
-    } catch (e: any) {
+    } catch (e: unknown) {
         const authError = getAuthErrorResponse(e);
         if (authError) return authError;
 
         console.error("ManageOrders PATCH error:", e);
         return NextResponse.json(
-            { success: false, error: e?.message || "Unexpected error" },
+            { success: false, error: getErrorMessage(e) },
             { status: 500 }
         );
     }
@@ -256,13 +496,13 @@ export async function DELETE(
         revalidatePath(`/admin/events/${id}/reports`);
 
         return NextResponse.json({ success: true });
-    } catch (e: any) {
+    } catch (e: unknown) {
         const authError = getAuthErrorResponse(e);
         if (authError) return authError;
 
         console.error("ManageOrders DELETE error:", e);
         return NextResponse.json(
-            { success: false, error: e?.message || "Unexpected error" },
+            { success: false, error: getErrorMessage(e) },
             { status: 500 }
         );
     }

@@ -13,10 +13,69 @@ interface AdmissionTabProps {
   event: EventSummary;
 }
 
+const DATE_PART_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PART_PATTERN = /^\d{2}:\d{2}$/;
+const SELL_WINDOW_BUFFER_MS = 5 * 24 * 60 * 60 * 1000;
+
+const parseDateTimeInput = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const [datePart, timePartRaw] = trimmed.split("T");
+  if (!DATE_PART_PATTERN.test(datePart)) {
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  const [year, month, day] = datePart.split("-").map((part) => Number.parseInt(part, 10));
+  let hours = 0;
+  let minutes = 0;
+
+  if (timePartRaw) {
+    const normalizedTime = timePartRaw.slice(0, 5);
+    if (!TIME_PART_PATTERN.test(normalizedTime)) {
+      return null;
+    }
+    const [h, m] = normalizedTime.split(":").map((part) => Number.parseInt(part, 10));
+    hours = h;
+    minutes = m;
+  }
+
+  return new Date(year, month - 1, day, hours, minutes, 0, 0);
+};
+
+const formatDatePart = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const formatTimePart = (value: Date): string => {
+  const hours = String(value.getHours()).padStart(2, "0");
+  const minutes = String(value.getMinutes()).padStart(2, "0");
+  return `${hours}:${minutes}`;
+};
+
+const formatDateTimeLocal = (value: Date): string => `${formatDatePart(value)}T${formatTimePart(value)}`;
+
+const getDatePartFromValue = (value: string): string | null => {
+  const datePart = value.split("T")[0] ?? "";
+  return DATE_PART_PATTERN.test(datePart) ? datePart : null;
+};
+
+const getTimePartFromValue = (value: string): string => {
+  const timePart = value.includes("T") ? value.split("T")[1] ?? "" : "";
+  const normalizedTime = timePart.slice(0, 5);
+  return TIME_PART_PATTERN.test(normalizedTime) ? normalizedTime : "";
+};
+
 const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
 
   name: "",
   type: "paid",
+  freeTicketApprovalMode: "manual",
   quantity: 0,
   waitlistReservedQuantity: 0,
   price: 0,
@@ -27,8 +86,6 @@ const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
   description: "",
   visibility: "visible",
   isDeleted: false,
-  minQuantity: 1,
-  maxQuantity: 1,
 };
 
 export default function AdmissionTab({ event }: AdmissionTabProps) {
@@ -43,6 +100,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   const [formData, setFormData] = useState(initialTicketForm);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [dateWarning, setDateWarning] = useState<string | null>(null);
+  const eventEndAt = parseDateTimeInput(event.eventEndAt);
 
   useEffect(() => {
     loadTickets();
@@ -63,21 +122,100 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
+    const startAt = parseDateTimeInput(formData.startDate);
+    const endAt = parseDateTimeInput(formData.endDate);
 
     if (!formData.name.trim()) newErrors.name = "Ticket name is required";
     if (formData.quantity <= 0) newErrors.quantity = "Quantity must be greater than 0";
     if (formData.type === "paid" && !formData.price) newErrors.price = "Price is required for paid tickets";
     if (!formData.startDate) newErrors.startDate = "Start date is required";
     if (!formData.endDate) newErrors.endDate = "End date is required";
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
+    if (formData.startDate && !startAt) newErrors.startDate = "Invalid start date/time";
+    if (formData.endDate && !endAt) newErrors.endDate = "Invalid end date/time";
+    if (startAt && endAt && startAt >= endAt) {
       newErrors.endDate = "End date must be after start date";
     }
-    if (formData.minQuantity > formData.maxQuantity) {
-      newErrors.maxQuantity = "Max quantity must be greater than min quantity";
+    if (eventEndAt && startAt && startAt > eventEndAt) {
+      newErrors.startDate = "Start date/time cannot go beyond the event end date/time";
+    }
+    if (eventEndAt && endAt && endAt > eventEndAt) {
+      newErrors.endDate = "End date/time cannot go beyond the event end date/time";
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const normalizeSellingWindow = (
+    nextFormData: typeof formData,
+    changedField: "startDate" | "endDate"
+  ): { normalizedFormData: typeof formData; warningMessage: string | null } => {
+    let normalized = { ...nextFormData };
+    const warnings: string[] = [];
+
+    if (eventEndAt) {
+      const startAt = parseDateTimeInput(normalized.startDate);
+      const endAt = parseDateTimeInput(normalized.endDate);
+
+      if (startAt && startAt > eventEndAt) {
+        normalized.startDate = formatDateTimeLocal(eventEndAt);
+        warnings.push("Start date/time was adjusted to event end date/time.");
+      }
+      if (endAt && endAt > eventEndAt) {
+        normalized.endDate = formatDateTimeLocal(eventEndAt);
+        warnings.push("End date/time was adjusted to event end date/time.");
+      }
+    }
+
+    let startAt = parseDateTimeInput(normalized.startDate);
+    let endAt = parseDateTimeInput(normalized.endDate);
+
+    if (startAt && endAt && startAt >= endAt) {
+      if (changedField === "startDate") {
+        const proposedEnd = new Date(startAt.getTime() + 60 * 1000);
+        if (eventEndAt && proposedEnd > eventEndAt) {
+          const bufferedStart = new Date(eventEndAt.getTime() - SELL_WINDOW_BUFFER_MS);
+          normalized.startDate = formatDateTimeLocal(bufferedStart);
+          normalized.endDate = formatDateTimeLocal(eventEndAt);
+          warnings.push("Ticket sell window was reset to a 5-day buffer because the selected time reached the event boundary.");
+        } else {
+          normalized.endDate = formatDateTimeLocal(proposedEnd);
+          warnings.push("End date/time was adjusted to stay after start date/time.");
+        }
+      } else {
+        const adjustedStart = new Date(endAt.getTime() - 60 * 1000);
+        normalized.startDate = formatDateTimeLocal(adjustedStart);
+        warnings.push("Start date/time was adjusted to stay before end date/time.");
+      }
+
+      startAt = parseDateTimeInput(normalized.startDate);
+      endAt = parseDateTimeInput(normalized.endDate);
+    }
+
+    if (startAt && endAt && startAt >= endAt) {
+      const fallbackEnd = endAt || startAt;
+      const fallbackStart = new Date(fallbackEnd.getTime() - SELL_WINDOW_BUFFER_MS);
+      normalized.startDate = formatDateTimeLocal(fallbackStart);
+      normalized.endDate = formatDateTimeLocal(fallbackEnd);
+      warnings.push("Ticket sell window was normalized to keep a valid range.");
+    }
+
+    return {
+      normalizedFormData: normalized,
+      warningMessage: warnings.length > 0 ? warnings.join(" ") : null,
+    };
+  };
+
+  const updateSellingWindowField = (field: "startDate" | "endDate", value: string) => {
+    const { normalizedFormData, warningMessage } = normalizeSellingWindow({ ...formData, [field]: value }, field);
+    setFormData(normalizedFormData);
+    setDateWarning(warningMessage);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.startDate;
+      delete next.endDate;
+      return next;
+    });
   };
 
   const handleAddTicket = () => {
@@ -85,6 +223,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     setFormData(initialTicketForm);
     setShowAdvanced(false);
     setErrors({});
+    setDateWarning(null);
     setIsModalOpen(true);
   };
 
@@ -93,6 +232,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     setFormData({
       name: ticket.name,
       type: ticket.type,
+      freeTicketApprovalMode: ticket.freeTicketApprovalMode,
       quantity: ticket.quantity,
       waitlistReservedQuantity: ticket.waitlistReservedQuantity || 0,
       price: ticket.price,
@@ -103,11 +243,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       description: ticket.description,
       visibility: ticket.visibility,
       isDeleted: ticket.isDeleted,
-      minQuantity: ticket.minQuantity,
-      maxQuantity: ticket.maxQuantity,
     });
     setShowAdvanced(true);
     setErrors({});
+    setDateWarning(null);
     setIsModalOpen(true);
   };
 
@@ -122,6 +261,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       }
       await loadTickets();
       setIsModalOpen(false);
+      setDateWarning(null);
     } catch (error) {
       console.error("Failed to save ticket:", error);
     }
@@ -290,6 +430,16 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                       {ticket.type === "paid" ? `₱${ticket.price} ${ticket.currency}` : "Free"}
                     </p>
+                    {ticket.type === "free" ? (
+                      <p className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ticket.freeTicketApprovalMode === "automatic"
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        }`}>
+                        {ticket.freeTicketApprovalMode === "automatic"
+                          ? "QR auto-approval"
+                          : "QR manual approval"}
+                      </p>
+                    ) : null}
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
                       {(() => {
                         const reservedForWaitlist = Math.max(ticket.waitlistReservedQuantity || 0, 0);
@@ -315,7 +465,6 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                       })()}
                     </div>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-gray-500 dark:text-gray-400">
-                      <span>Per order: {ticket.minQuantity} min - {ticket.maxQuantity} max</span>
                       <span className="inline-flex items-center gap-1">
                         <CalendarRange size={12} />
                         {ticket.startDate || "No start"} to {ticket.endDate || "No end"}
@@ -390,7 +539,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          setIsModalOpen(false);
+          setDateWarning(null);
+        }}
         title={editingTicketId ? "Edit Ticket" : "Add New Ticket"}
       >
         <div className="space-y-4">
@@ -413,7 +565,15 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 {["paid", "free"].map((type) => (
                   <button
                     key={type}
-                    onClick={() => setFormData({ ...formData, type: type as "paid" | "free" })}
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        type: type as "paid" | "free",
+                        price: type === "free" ? 0 : formData.price,
+                        freeTicketApprovalMode:
+                          type === "paid" ? "manual" : formData.freeTicketApprovalMode,
+                      })
+                    }
                     className={`flex-1 py-2.5 px-3 min-h-10.5 rounded-xl font-medium transition-all shadow-sm text-sm ${formData.type === type
                       ? "bg-[#3D518C] text-white ring-2 ring-[#3D518C] ring-offset-2 dark:ring-offset-gray-800"
                       : "bg-slate-50 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
@@ -460,6 +620,41 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             </div>
           )}
 
+          {formData.type === "free" ? (
+            <div className="rounded-xl border border-indigo-200/70 dark:border-indigo-700/50 bg-indigo-50/70 dark:bg-indigo-900/20 p-4 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">Free Ticket QR Approval</h3>
+                <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80 mt-1">
+                  Choose whether QR passes are issued immediately after submission or only after organizer approval.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, freeTicketApprovalMode: "manual" })}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${formData.freeTicketApprovalMode === "manual"
+                    ? "border-indigo-500 bg-indigo-100/80 dark:bg-indigo-800/50 text-indigo-900 dark:text-indigo-100"
+                    : "border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300"
+                    }`}
+                >
+                  <p className="font-semibold">Manual approval</p>
+                  <p className="mt-1 text-xs opacity-80">Ticket stays pending until organizer confirms.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, freeTicketApprovalMode: "automatic" })}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${formData.freeTicketApprovalMode === "automatic"
+                    ? "border-indigo-500 bg-indigo-100/80 dark:bg-indigo-800/50 text-indigo-900 dark:text-indigo-100"
+                    : "border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300"
+                    }`}
+                >
+                  <p className="font-semibold">Automatic approval</p>
+                  <p className="mt-1 text-xs opacity-80">Issue QR immediately on successful registration.</p>
+                </button>
+              </div>
+            </div>
+          ) : null}
+
           {/* Date & Time */}
           <div className="flex flex-col gap-4">
             <div>
@@ -470,12 +665,13 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     value={formData.startDate ? new Date(formData.startDate.split('T')[0]) : null}
                     onChange={(date) => {
                       if (!date) {
-                        setFormData({ ...formData, startDate: "" });
+                        updateSellingWindowField("startDate", "");
                         return;
                       }
-                      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                      const timeStr = formData.startDate && formData.startDate.includes('T') ? formData.startDate.split('T')[1] : "";
-                      setFormData({ ...formData, startDate: timeStr ? `${dateStr}T${timeStr}` : dateStr });
+                      const dateStr = formatDatePart(date);
+                      const timeStr = getTimePartFromValue(formData.startDate);
+                      const nextValue = timeStr ? `${dateStr}T${timeStr}` : dateStr;
+                      updateSellingWindowField("startDate", nextValue);
                     }}
                     placeholder="Select date"
                     className={errors.startDate ? "border-red-500 text-sm" : "text-sm"}
@@ -483,12 +679,12 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 </div>
                 <div className="w-[45%]">
                   <TimeInput
-                    value={formData.startDate && formData.startDate.includes('T') ? formData.startDate.split('T')[1] : ""}
+                    value={getTimePartFromValue(formData.startDate)}
                     onChange={(time) => {
                       const now = new Date();
-                      const datePart = formData.startDate && formData.startDate.includes('T') ? formData.startDate.split('T')[0] :
-                        (formData.startDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
-                      setFormData({ ...formData, startDate: time ? `${datePart}T${time}` : datePart });
+                      const datePart = getDatePartFromValue(formData.startDate)
+                        || formatDatePart(now);
+                      updateSellingWindowField("startDate", time ? `${datePart}T${time}` : datePart);
                     }}
                     placeholder="Time"
                     className={errors.startDate ? "border-red-500 text-sm" : "text-sm"}
@@ -506,14 +702,13 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     value={formData.endDate ? new Date(formData.endDate.split('T')[0]) : null}
                     onChange={(date) => {
                       if (!date) {
-                        setFormData({ ...formData, endDate: "" });
+                        updateSellingWindowField("endDate", "");
                         return;
                       }
-                      const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-                      const timeStr = formData.endDate && formData.endDate.includes('T')
-                        ? formData.endDate.split('T')[1]
-                        : "";
-                      setFormData({ ...formData, endDate: timeStr ? `${dateStr}T${timeStr}` : dateStr });
+                      const dateStr = formatDatePart(date);
+                      const timeStr = getTimePartFromValue(formData.endDate);
+                      const nextValue = timeStr ? `${dateStr}T${timeStr}` : dateStr;
+                      updateSellingWindowField("endDate", nextValue);
                     }}
                     placeholder="Select date"
                     className={errors.endDate ? "border-red-500 text-sm" : "text-sm"}
@@ -521,12 +716,12 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 </div>
                 <div className="w-[45%]">
                   <TimeInput
-                    value={formData.endDate && formData.endDate.includes('T') ? formData.endDate.split('T')[1] : ""}
+                    value={getTimePartFromValue(formData.endDate)}
                     onChange={(time) => {
                       const now = new Date();
-                      const datePart = formData.endDate && formData.endDate.includes('T') ? formData.endDate.split('T')[0] :
-                        (formData.endDate || `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
-                      setFormData({ ...formData, endDate: time ? `${datePart}T${time}` : datePart });
+                      const datePart = getDatePartFromValue(formData.endDate)
+                        || formatDatePart(now);
+                      updateSellingWindowField("endDate", time ? `${datePart}T${time}` : datePart);
                     }}
                     placeholder="Time"
                     className={errors.endDate ? "border-red-500 text-sm" : "text-sm"}
@@ -537,11 +732,23 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             </div>
           </div>
 
+          {dateWarning && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200">
+              <div className="flex items-start gap-2">
+                <AlertCircle size={14} className="mt-0.5 shrink-0" />
+                <p>{dateWarning}</p>
+              </div>
+            </div>
+          )}
+
 
           {/* Timezone Info */}
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 mb-4">
             <AlertCircle size={14} />
-            <span>Timezone is PHT, UTC + 8</span>
+            <span>
+              Timezone is PHT, UTC + 8
+              {eventEndAt ? ` • Ticket sales cannot go beyond ${formatDateTimeLocal(eventEndAt)}` : ""}
+            </span>
           </div>
 
           {/* Advanced Settings Toggle */}
@@ -578,35 +785,15 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 </label>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Min Quantity per Order</label>
-                  <ModalInput
-                    type="number"
-                    min="1"
-                    value={formData.minQuantity}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, minQuantity: parseInt(e.target.value) || 1 })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-2">Max Quantity per Order</label>
-                  <ModalInput
-                    type="number"
-                    min="1"
-                    value={formData.maxQuantity}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, maxQuantity: parseInt(e.target.value) || 1 })}
-                    className={errors.maxQuantity ? "border-red-500" : ""}
-                  />
-                  {errors.maxQuantity && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.maxQuantity}</p>}
-                </div>
-              </div>
             </div>
           )}
 
           {/* Modal Footer */}
           <ModalFooter
-            onCancel={() => setIsModalOpen(false)}
+            onCancel={() => {
+              setIsModalOpen(false);
+              setDateWarning(null);
+            }}
             onSave={handleSaveTicket}
             saveText={editingTicketId ? "Update Ticket" : "Create Ticket"}
             submitType="button"

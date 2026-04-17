@@ -3,7 +3,7 @@ import { parseBreakoutDescription } from "@/lib/breakoutSessionUtils";
 
 export function registrationBlockedForCheckin(status: unknown): boolean {
   const s = String(status || "").toLowerCase();
-  return s === "cancelled" || s === "rejected";
+  return s !== "confirmed";
 }
 
 function breakoutSeatInvalid(bsrStatus: unknown): boolean {
@@ -131,7 +131,7 @@ export async function resolveBreakoutTicketForEventCheckin(
   if (registrationBlockedForCheckin(reg.status)) {
     return {
       kind: "error",
-      error: "This registration is cancelled or rejected",
+      error: "This registration is not confirmed",
       status: 400,
     };
   }

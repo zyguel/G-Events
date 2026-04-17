@@ -82,12 +82,18 @@ interface DashboardData {
 export default function DashboardTabs({
     data,
     demographics,
+    tickets = [],
+    eventId,
     hideDemographics = false,
 }: {
     data: DashboardData;
     demographics?: DemographicsData;
+    tickets?: { id: number; name: string }[];
+    eventId?: number;
     hideDemographics?: boolean;
 }) {
+
+
     const [activeTab, setActiveTab] = useState("registrations");
     const [transactionsPage, setTransactionsPage] = useState(1);
     const [transactionsRowsPerPage, setTransactionsRowsPerPage] = useState(10);
@@ -172,7 +178,12 @@ export default function DashboardTabs({
                         {/* Top Row: Chart and Attendance */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* The Main Chart */}
-                            <RegistrationChart data={data.trends.registrations} />
+                            <RegistrationChart 
+                                data={data.trends.registrations} 
+                                tickets={tickets}
+                                eventId={eventId}
+                            />
+
 
                             {/* Attendance Breakdown */}
                             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm flex flex-col items-center justify-center">

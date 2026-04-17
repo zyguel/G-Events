@@ -19,13 +19,165 @@ interface ManualRegistrationAttendee {
     email: string;
 }
 
+type RegistrationUser = {
+    name: string | null;
+    email: string | null;
+};
+
+type RegistrationUserEmailOnly = {
+    email: string | null;
+};
+
+type RegistrationTicket = {
+    name: string | null;
+    price: number | null;
+    is_deleted: boolean | null;
+};
+
+type MaybeRelation<T> = T | T[] | null;
+
+const normalizeRelation = <T,>(value: MaybeRelation<T> | undefined): T | null => {
+    if (Array.isArray(value)) {
+        return value[0] ?? null;
+    }
+    return value ?? null;
+};
+
+interface RegistrationOrderRow {
+    id: number;
+    status: string | null;
+    created_at: string | null;
+    registration_group_id: number | null;
+    ticket_id: number | null;
+    final_price_paid: number | null;
+    User: RegistrationUser | null;
+    Ticket: RegistrationTicket | null;
+}
+
+type RegistrationOrderRowRaw = Omit<RegistrationOrderRow, "User" | "Ticket"> & {
+    User: MaybeRelation<RegistrationUser>;
+    Ticket: MaybeRelation<RegistrationTicket>;
+};
+
+interface ExistingRegistrationRow {
+    user_id: number;
+    User: RegistrationUserEmailOnly | null;
+}
+
+type ExistingRegistrationRowRaw = Omit<ExistingRegistrationRow, "User"> & {
+    User: MaybeRelation<RegistrationUserEmailOnly>;
+};
+
+interface ManualInsertedRegistrationRow {
+    id: number;
+    created_at: string;
+    user_id: number;
+    registration_group_id: number | null;
+    User: RegistrationUser | null;
+}
+
+type ManualInsertedRegistrationRowRaw = Omit<ManualInsertedRegistrationRow, "User"> & {
+    User: MaybeRelation<RegistrationUser>;
+};
+
 type UiStatus = "Confirmed" | "Pending" | "Rejected";
+
+type OrderFormEntryRow = {
+    registration_id: number | null;
+    form_data: unknown;
+    submitted_at: string | null;
+};
 
 const mapStatusToUi = (s: string): UiStatus => {
     if (s === "confirmed") return "Confirmed";
     if (s === "rejected" || s === "cancelled") return "Rejected";
     return "Pending";
 };
+
+const PROOF_OF_PAYMENT_FIELD_IDENTIFIER = "proof_of_payment";
+
+const isRecord = (value: unknown): value is Record<string, unknown> => (
+    typeof value === "object" && value !== null && !Array.isArray(value)
+);
+
+const toNonEmptyString = (value: unknown): string | null => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+};
+
+function extractProofValue(value: unknown): string | null {
+    const asString = toNonEmptyString(value);
+    if (asString) return asString;
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const nested = extractProofValue(item);
+            if (nested) return nested;
+        }
+        return null;
+    }
+
+    if (!isRecord(value)) {
+        return null;
+    }
+
+    const candidateKeys = [
+        "publicUrl",
+        "public_url",
+        "url",
+        "fileUrl",
+        "file_url",
+        "downloadUrl",
+        "download_url",
+        "filePath",
+        "file_path",
+        "path",
+        "src",
+        "value",
+        "answer",
+        "answers",
+    ];
+
+    for (const key of candidateKeys) {
+        if (!(key in value)) continue;
+        const nested = extractProofValue(value[key]);
+        if (nested) return nested;
+    }
+
+    return null;
+}
+
+function extractProofFromFormData(formData: unknown): string | null {
+    if (!isRecord(formData)) {
+        return null;
+    }
+
+    const sections = formData.sections;
+    if (!Array.isArray(sections)) {
+        return null;
+    }
+
+    for (const section of sections) {
+        if (!isRecord(section) || !Array.isArray(section.inputs)) continue;
+
+        for (const input of section.inputs) {
+            if (!isRecord(input)) continue;
+
+            const fieldIdentifier = toNonEmptyString(input.fieldIdentifier) || toNonEmptyString(input.field_identifier);
+            if (String(fieldIdentifier || "").toLowerCase() !== PROOF_OF_PAYMENT_FIELD_IDENTIFIER) {
+                continue;
+            }
+
+            const proof = extractProofValue(input.answer ?? input.answers);
+            if (proof) {
+                return proof;
+            }
+        }
+    }
+
+    return null;
+}
 
 export async function GET(
     _request: NextRequest,
@@ -62,8 +214,34 @@ export async function GET(
             );
         }
 
-        const registrations = regRows || [];
-        const registrationIds = registrations.map((r: any) => r.id);
+        const registrations: RegistrationOrderRow[] = ((regRows || []) as RegistrationOrderRowRaw[])
+            .map((row) => ({
+                ...row,
+                User: normalizeRelation(row.User),
+                Ticket: normalizeRelation(row.Ticket),
+            }));
+        const registrationIds = registrations.map((r) => r.id);
+
+        const toProofUrl = (rawValue: string): string => {
+            const value = rawValue.trim();
+            if (!value) return value;
+
+            if (/^(https?:)?\/\//i.test(value) || value.startsWith("data:")) {
+                return value;
+            }
+
+            const withoutLeadingSlash = value.replace(/^\/+/, "");
+            const objectPath = withoutLeadingSlash.startsWith("events/")
+                ? withoutLeadingSlash.slice("events/".length)
+                : withoutLeadingSlash;
+
+            if (!objectPath.includes("/")) {
+                return value;
+            }
+
+            const { data } = supabase.storage.from("events").getPublicUrl(objectPath);
+            return data.publicUrl || value;
+        };
 
         if (registrationIds.length === 0) {
             return NextResponse.json({ success: true, data: [] });
@@ -102,11 +280,36 @@ export async function GET(
         }
 
         const paymentByRegId = new Map<number, string>();
-        (paymentRows || []).forEach((row: any) => {
+        (paymentRows || []).forEach((row: { registration_id: number | null; file_path: string | null }) => {
             if (!row.registration_id || !row.file_path) return;
             if (!paymentByRegId.has(row.registration_id)) {
-                paymentByRegId.set(row.registration_id, row.file_path);
+                paymentByRegId.set(row.registration_id, toProofUrl(row.file_path));
             }
+        });
+
+        // 4. Fallback proof source: OrderFormEntries.form_data (fieldIdentifier: proof_of_payment)
+        const { data: orderFormRows, error: orderFormErr } = await supabase
+            .from("OrderFormEntries")
+            .select("registration_id, form_data, submitted_at")
+            .in("registration_id", registrationIds)
+            .order("submitted_at", { ascending: false });
+
+        if (orderFormErr) {
+            console.error("ManageOrders GET: order form entries query failed", orderFormErr);
+        }
+
+        const formProofByRegId = new Map<number, string>();
+        (orderFormRows || []).forEach((row: OrderFormEntryRow) => {
+            if (!row.registration_id || formProofByRegId.has(row.registration_id)) {
+                return;
+            }
+
+            const extractedProof = extractProofFromFormData(row.form_data);
+            if (!extractedProof) {
+                return;
+            }
+
+            formProofByRegId.set(row.registration_id, toProofUrl(extractedProof));
         });
 
         const groupIdToEmails = new Map<number, string[]>();
@@ -116,7 +319,7 @@ export async function GET(
                 if (!groupIdToEmails.has(groupId)) {
                     groupIdToEmails.set(groupId, []);
                 }
-                const memberEmail = (r as any).User?.email;
+                const memberEmail = r.User?.email;
                 if (memberEmail) {
                     groupIdToEmails.get(groupId)!.push(memberEmail);
                 }
@@ -133,10 +336,10 @@ export async function GET(
             minute: "2-digit",
         });
 
-        const orders = registrations.map((r: any) => {
+        const orders = registrations.map((r) => {
             const createdAt = r.created_at ? new Date(r.created_at) : null;
             const isGroup = !!r.registration_group_id;
-            const groupMemberEmails = isGroup
+            const groupMemberEmails = r.registration_group_id
                 ? groupIdToEmails.get(r.registration_group_id) || []
                 : [];
 
@@ -154,19 +357,20 @@ export async function GET(
                 date: createdAt ? formatterDate.format(createdAt) : "",
                 time: createdAt ? formatterTime.format(createdAt) : "",
                 addOnStatus: addOnByRegId.get(r.id) ? "Claimed" : "Unclaimed",
-                proofOfPayment: paymentByRegId.get(r.id) || null,
+                proofOfPayment: paymentByRegId.get(r.id) || formProofByRegId.get(r.id) || null,
                 groupMemberEmails,
             };
         });
 
         return NextResponse.json({ success: true, data: orders });
-    } catch (e: any) {
+    } catch (e: unknown) {
         const authError = getAuthErrorResponse(e);
         if (authError) return authError;
 
         console.error("ManageOrders GET error:", e);
+        const errorMessage = e instanceof Error ? e.message : "Unexpected error";
         return NextResponse.json(
-            { success: false, error: e?.message || "Unexpected error" },
+            { success: false, error: errorMessage },
             { status: 500 }
         );
     }
@@ -250,8 +454,16 @@ export async function POST(
             return NextResponse.json({ success: false, error: "Database error during duplicate check" }, { status: 500 });
         }
 
-        if (existingRegs && existingRegs.length > 0) {
-            const duplicateEmails = existingRegs.map((r: any) => r.User?.email).filter(Boolean);
+        const normalizedExistingRegs: ExistingRegistrationRow[] = ((existingRegs || []) as ExistingRegistrationRowRaw[])
+            .map((row) => ({
+                ...row,
+                User: normalizeRelation(row.User),
+            }));
+
+        if (normalizedExistingRegs.length > 0) {
+            const duplicateEmails = normalizedExistingRegs
+                .map((r) => r.User?.email)
+                .filter((email): email is string => typeof email === "string" && email.length > 0);
             return NextResponse.json({
                 success: false,
                 error: `User(s) already registered for this event: ${duplicateEmails.join(", ")}`
@@ -279,7 +491,7 @@ export async function POST(
         // 4. Create Registrations (per-row ticket_token + group profile_pending, same as order form)
         const now = new Date();
         const isGroup = registrationType === "Group";
-        const inserted: Array<{ reg: any; token: string; email: string }> = [];
+        const inserted: Array<{ reg: ManualInsertedRegistrationRow; token: string; email: string }> = [];
 
         for (let i = 0; i < attendees.length; i++) {
             const a = attendees[i];
@@ -321,7 +533,13 @@ export async function POST(
                 );
             }
 
-            inserted.push({ reg, token, email });
+            const typedReg = reg as ManualInsertedRegistrationRowRaw;
+            const normalizedReg: ManualInsertedRegistrationRow = {
+                ...typedReg,
+                User: normalizeRelation(typedReg.User),
+            };
+
+            inserted.push({ reg: normalizedReg, token, email });
         }
 
         // 5. E-ticket / group invite emails (non-fatal if mail fails)
@@ -404,8 +622,9 @@ export async function POST(
         });
 
         return NextResponse.json({ success: true, data: mappedNewOrders });
-    } catch (e: any) {
+    } catch (e: unknown) {
         console.error("POST Manual Orders Error:", e);
-        return NextResponse.json({ success: false, error: e?.message || "Internal server error" }, { status: 500 });
+        const errorMessage = e instanceof Error ? e.message : "Internal server error";
+        return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
     }
 }

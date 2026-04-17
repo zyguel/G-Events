@@ -141,7 +141,7 @@ export function BreakoutSessionPicker({
   }
 
   if (data.reason === 'breakouts_disabled' || !data.eligible) {
-    if (data.reason === 'not_registered' || data.reason === 'complete_profile') {
+    if (data.reason === 'not_registered' || data.reason === 'complete_profile' || data.reason === 'pending_approval') {
       return (
         <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
           <div className="flex items-center gap-3 mb-3">
@@ -149,7 +149,9 @@ export function BreakoutSessionPicker({
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">Breakout sessions</h2>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-300">
-            {data.reason === 'complete_profile'
+            {data.reason === 'pending_approval'
+              ? 'Your registration is currently pending organizer review. Breakout selection becomes available after approval.'
+              : data.reason === 'complete_profile'
               ? 'Finish your registration (including group member details if applicable) before choosing a breakout.'
               : 'Register for this event first, then you can pick one optional in-person breakout or stay on the main session only.'}
           </p>

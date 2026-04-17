@@ -6,6 +6,8 @@ export interface EventSummary {
     name: string;
     date: string;
     status: EventStatus;
+    eventStartAt?: string | null;
+    eventEndAt?: string | null;
     allowWaitlist?: boolean;
 }
 

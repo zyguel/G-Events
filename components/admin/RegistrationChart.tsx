@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ChevronDown, Filter, Loader2 } from "lucide-react";
+import { getRegistrationTrendData } from "@/lib/actions/events";
 
 interface RegistrationChartProps {
     data: {
@@ -14,6 +15,8 @@ interface RegistrationChartProps {
         monthly?: number[];
         monthLabels?: string[];
     };
+    tickets?: { id: number; name: string }[];
+    eventId?: number;
 }
 
 const allMonthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -26,10 +29,39 @@ const quarterRanges: Record<string, { start: number; end: number; labels: string
     "Q4": { start: 9, end: 12, labels: ["Oct", "Nov", "Dec"] },
 };
 
-export default function RegistrationChart({ data }: RegistrationChartProps) {
-    const isMonthly = !!(data.monthly && data.monthLabels);
+export default function RegistrationChart({ data: initialData, tickets = [], eventId }: RegistrationChartProps) {
+    const isMonthly = !!(initialData.monthly && initialData.monthLabels);
 
     const [selectedQuarter, setSelectedQuarter] = useState("Full Year");
+    const [selectedTicketId, setSelectedTicketId] = useState<number | "all">("all");
+    const [chartData, setChartData] = useState(initialData);
+    const [isLoading, setIsLoading] = useState(false);
+
+    // Update chart data when initialData changes (e.g. initial load or parent update)
+    useEffect(() => {
+        setChartData(initialData);
+    }, [initialData]);
+
+    // Handle ticket filter change
+    const handleTicketChange = async (ticketId: number | "all") => {
+        if (!eventId || isMonthly) return;
+        
+        setSelectedTicketId(ticketId);
+        setIsLoading(true);
+        
+        try {
+            const newData = await getRegistrationTrendData(eventId, ticketId === "all" ? undefined : ticketId);
+            setChartData(prev => ({
+                ...prev,
+                weekly: newData.weekly,
+                weekLabels: newData.weekLabels,
+            }));
+        } catch (error) {
+            console.error("Failed to fetch filtered trend data:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
     // Get data and labels based on view type
     let currentData: number[];
@@ -37,7 +69,7 @@ export default function RegistrationChart({ data }: RegistrationChartProps) {
 
     if (isMonthly) {
         // Use REAL monthly data from the server
-        const fullMonthly = data.monthly!;
+        const fullMonthly = chartData.monthly!;
         // Pad to 12 if shorter (months not yet reached will be 0)
         const padded = Array(12).fill(0).map((_, i) => fullMonthly[i] ?? 0);
         const quarterRange = quarterRanges[selectedQuarter];
@@ -45,8 +77,8 @@ export default function RegistrationChart({ data }: RegistrationChartProps) {
         labels = quarterRange.labels;
     } else {
         // Weekly view for individual events
-        currentData = data.weekly || [];
-        labels = data.weekLabels || [];
+        currentData = chartData.weekly || [];
+        labels = chartData.weekLabels || [];
     }
 
     const maxValue = Math.max(...currentData, 1); // avoid division by zero
@@ -54,13 +86,19 @@ export default function RegistrationChart({ data }: RegistrationChartProps) {
     const currentYear = new Date().getFullYear();
 
     return (
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm min-h-[300px] transition-colors">
-            <div className="flex justify-between items-center mb-6">
+        <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm min-h-[300px] transition-colors relative">
+            {isLoading && (
+                <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 backdrop-blur-[1px] flex items-center justify-center z-20 rounded-xl">
+                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                </div>
+            )}
+            
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">Registration Trends</h3>
-                    {!isMonthly && data.registrationOpenDate && data.eventDate && (
+                    {!isMonthly && chartData.registrationOpenDate && chartData.eventDate && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            {data.registrationOpenDate} → {data.eventDate}
+                            {chartData.registrationOpenDate} → {chartData.eventDate}
                         </p>
                     )}
                     {isMonthly && (
@@ -70,32 +108,51 @@ export default function RegistrationChart({ data }: RegistrationChartProps) {
                     )}
                 </div>
 
-                {/* Filters for monthly view */}
-                {isMonthly ? (
-                    <div className="flex items-center gap-2">
-                        {/* Quarter Filter */}
-                        <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
-                            {["Full Year", "Q1", "Q2", "Q3", "Q4"].map((quarter) => (
-                                <button
-                                    key={quarter}
-                                    onClick={() => setSelectedQuarter(quarter)}
-                                    className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${selectedQuarter === quarter
-                                        ? "bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                                        : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                                        }`}
-                                >
-                                    {quarter === "Full Year" ? "All" : quarter}
-                                </button>
-                            ))}
+                <div className="flex items-center gap-2">
+                    {/* Ticket Type Filter (Only for individual events) */}
+                    {!isMonthly && eventId && tickets.length > 0 && (
+                        <div className="relative group">
+                            <select
+                                value={selectedTicketId}
+                                onChange={(e) => handleTicketChange(e.target.value === "all" ? "all" : parseInt(e.target.value))}
+                                className="appearance-none bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 pr-8 text-xs font-medium text-gray-700 dark:text-gray-200 hover:border-indigo-300 dark:hover:border-indigo-500/50 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all cursor-pointer"
+                            >
+                                <option value="all">All Ticket Types</option>
+                                {tickets.map((t) => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                ))}
+                            </select>
+                            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none transition-transform group-hover:text-indigo-500" />
                         </div>
-                    </div>
-                ) : (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
-                        <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                            Weekly View
-                        </span>
-                    </div>
-                )}
+                    )}
+
+                    {/* Filters for monthly view / Weekly label */}
+                    {isMonthly ? (
+                        <div className="flex items-center gap-2">
+                            {/* Quarter Filter */}
+                            <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
+                                {["Full Year", "Q1", "Q2", "Q3", "Q4"].map((quarter) => (
+                                    <button
+                                        key={quarter}
+                                        onClick={() => setSelectedQuarter(quarter)}
+                                        className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${selectedQuarter === quarter
+                                            ? "bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                                            : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                                            }`}
+                                    >
+                                        {quarter === "Full Year" ? "All" : quarter}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 rounded-lg">
+                            <span className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                                Weekly View
+                            </span>
+                        </div>
+                    )}
+                </div>
             </div>
 
             {/* The Bars */}
@@ -132,3 +189,4 @@ export default function RegistrationChart({ data }: RegistrationChartProps) {
         </div>
     );
 }
+

@@ -17,6 +17,15 @@ interface FormAnswers {
     [inputId: string]: string | string[] | null;
 }
 
+type RegistrationTicket = {
+    id: number;
+    name: string;
+    price: number;
+    available_quantity: number;
+    used_quantity: number;
+    is_sold_out: boolean;
+};
+
 interface RegistrationFlowProps {
     eventId: number;
     eventTitle: string;
@@ -24,14 +33,7 @@ interface RegistrationFlowProps {
     orderFormId: number;
     formData: OrderFormData;
     userEmail?: string;
-    tickets: {
-        id: number;
-        name: string;
-        price: number;
-        available_quantity: number;
-        used_quantity: number;
-        is_sold_out: boolean;
-    }[];
+    tickets: RegistrationTicket[];
     breakoutSessions?: {
         id: string;
         name: string;
@@ -45,6 +47,7 @@ interface RegistrationFlowProps {
     }[];
     existingCheckInPasses?: CheckInPass[];
     existingTicketNames?: string[];
+    hasExistingRegistration?: boolean;
     hasPromotions?: boolean;
     allowGroupRegistration?: boolean;
     allowWaitlist?: boolean;
@@ -555,7 +558,7 @@ function ChooseTicketStep({
         setPromoError('');
     };
 
-    const getDiscountedPrice = (ticket: any) => {
+    const getDiscountedPrice = (ticket: RegistrationTicket) => {
         if (!appliedPromo) return ticket.price;
         if (appliedPromo.ticket_ids.length > 0 && !appliedPromo.ticket_ids.includes(ticket.id)) return ticket.price;
         
@@ -1107,6 +1110,7 @@ function OrderFormStep({
     const [touched, setTouched] = useState<Set<string>>(new Set());
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
     const [capacityPrecheckError, setCapacityPrecheckError] = useState<string | null>(null);
+    const [hasPendingUploads, setHasPendingUploads] = useState(false);
 
     const { isSubmitting, error, success, successMessage, submissionResult, submit } = useOrderFormSubmit({
         eventId,
@@ -1131,6 +1135,11 @@ function OrderFormStep({
     const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         setCapacityPrecheckError(null);
+
+        if (hasPendingUploads) {
+            setCapacityPrecheckError('Please wait for file uploads to finish before submitting.');
+            return;
+        }
 
         const requestedSeats = registrationType === 'group' ? groupEmails.length + 1 : 1;
         if (ticketId && requestedSeats > 0) {
@@ -1164,7 +1173,7 @@ function OrderFormStep({
         if (Object.keys(newErrors).length > 0) return;
 
         await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : [], null, promotionCode, waitlistInviteToken || null);
-    }, [formData, answers, submit, ticketId, tickets, registrationType, groupEmails, promotionCode, waitlistInviteToken]);
+    }, [formData, answers, submit, ticketId, tickets, registrationType, groupEmails, promotionCode, waitlistInviteToken, hasPendingUploads]);
 
     if (success) {
         return (
@@ -1173,7 +1182,7 @@ function OrderFormStep({
                     <CheckCircle size={38} className="text-white" />
                 </div>
                 <h2 className="text-2xl font-extrabold text-gray-900 dark:text-white mb-3">
-                    You're Registered! 🎉
+                    You&apos;re Registered! 🎉
                 </h2>
                 <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mx-auto mb-2">
                     {successMessage || 'Your registration has been submitted successfully.'}
@@ -1295,6 +1304,16 @@ function OrderFormStep({
                     onAnswerChange={handleInputChange}
                     touched={touched}
                     validationErrors={validationErrors}
+                    eventId={eventId}
+                    orderFormId={orderFormId}
+                    onUploadingChange={(uploading) => {
+                        setHasPendingUploads(uploading);
+                        if (!uploading) {
+                            setCapacityPrecheckError((prev) =>
+                                prev === 'Please wait for file uploads to finish before submitting.' ? null : prev
+                            );
+                        }
+                    }}
                 />
 
                 {/* Actions */}
@@ -1311,13 +1330,13 @@ function OrderFormStep({
                     <button
                         type="submit"
                         id="submit-registration-btn"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || hasPendingUploads}
                         className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] py-3.5 font-bold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:scale-[1.01] hover:from-[#2e3d6e] hover:to-[#4a57a1] hover:shadow-xl active:scale-[0.99] disabled:scale-100 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 disabled:opacity-70 dark:shadow-blue-900/30"
                     >
-                        {isSubmitting ? (
+                        {isSubmitting || hasPendingUploads ? (
                             <>
                                 <Loader size={16} className="animate-spin" />
-                                Submitting...
+                                {isSubmitting ? 'Submitting...' : 'Uploading files...'}
                             </>
                         ) : (
                             <>
@@ -1345,6 +1364,7 @@ export default function RegistrationFlow({
     breakoutSessions = [],
     existingCheckInPasses = [],
     existingTicketNames = [],
+    hasExistingRegistration = false,
     hasPromotions = false,
     allowGroupRegistration = true,
     allowWaitlist = false,
@@ -1366,7 +1386,7 @@ export default function RegistrationFlow({
     const [groupEmails, setGroupEmails] = useState<string[]>([]);
     const [promotionCode, setPromotionCode] = useState<string | undefined>(undefined);
 
-    if (existingCheckInPasses.length > 0) {
+    if (hasExistingRegistration) {
         return (
             <div className="min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] relative overflow-x-hidden">
                 <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-blue-400/10 dark:bg-blue-600/10 rounded-full blur-[100px] pointer-events-none z-0" />
@@ -1400,19 +1420,25 @@ export default function RegistrationFlow({
                             )}
                         </div>
 
-                        <div className="mt-7">
-                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 text-center">
-                                Your check-in QR pass{existingCheckInPasses.length > 1 ? 'es' : ''}
-                            </p>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {existingCheckInPasses.map((pass) => (
-                                    <CheckInPassCard
-                                        key={`${pass.registrationId}-${pass.email}`}
-                                        pass={pass}
-                                    />
-                                ))}
+                        {existingCheckInPasses.length > 0 ? (
+                            <div className="mt-7">
+                                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 text-center">
+                                    Your check-in QR pass{existingCheckInPasses.length > 1 ? 'es' : ''}
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {existingCheckInPasses.map((pass) => (
+                                        <CheckInPassCard
+                                            key={`${pass.registrationId}-${pass.email}`}
+                                            pass={pass}
+                                        />
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <div className="mt-7 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 text-center">
+                                Your registration is still pending organizer approval. QR access will appear here once confirmed.
+                            </div>
+                        )}
 
                         <div className="mt-8 text-center">
                             <button

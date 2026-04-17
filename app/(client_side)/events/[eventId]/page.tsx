@@ -3,14 +3,13 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import {
     Calendar, MapPin, Clock, Target, Palette,
     ChevronLeft, ArrowRight, Loader2, AlertTriangle, Ticket, Users, User, Check,
     Presentation, Video, Building2, UserRound, MessageSquareDot
 } from 'lucide-react';
 import ClientHeader from '@/components/client/ClientHeader';
-import { BreakoutSessionPicker } from '@/components/public/BreakoutSessionPicker';
 import { getPublishedEventById, getPublicBreakoutSessions } from '@/lib/actions/events';
 import { getTickets, Ticket as TicketType } from '@/lib/eventManagement';
 import { createClient } from '@/lib/supabase-browser';
@@ -53,6 +52,8 @@ interface EventDetail {
     AgendaSlot?: AgendaSlot[];
 }
 
+type RegistrationState = 'none' | 'pending' | 'confirmed';
+
 function formatDate(iso?: string) {
     if (!iso) return 'TBD';
     return new Date(iso).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -65,18 +66,17 @@ function formatTime(iso?: string) {
 
 export default function ClientEventDetailPage() {
     const params = useParams();
-    const router = useRouter();
     const slug = params.eventId as string;
     const eventId = parseInt(slug?.split('-').pop() ?? '');
 
     const [event, setEvent] = useState<EventDetail | null>(null);
     const [tickets, setTickets] = useState<TicketType[]>([]);
     const [breakoutSessions, setBreakoutSessions] = useState<BreakoutSessionItem[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [isRegistered, setIsRegistered] = useState(false);
+    const [loading, setLoading] = useState(() => !isNaN(eventId));
+    const [registrationState, setRegistrationState] = useState<RegistrationState>('none');
 
     useEffect(() => {
-        if (isNaN(eventId)) { setLoading(false); return; }
+        if (isNaN(eventId)) return;
         Promise.all([
             getPublishedEventById(eventId),
             getTickets(String(eventId)).catch(() => []),
@@ -95,12 +95,22 @@ export default function ClientEventDetailPage() {
                 const { data: userRow } = await supabase.from('User').select('id').ilike('email', user.email).limit(1).maybeSingle();
                 if (userRow?.id) {
                     const { data: reg } = await supabase.from('Registration')
-                        .select('id')
+                        .select('status')
                         .eq('event_id', eventId)
                         .eq('user_id', userRow.id)
                         .not('status', 'in', '("cancelled","rejected")')
-                        .limit(1);
-                    if (reg && reg.length > 0) setIsRegistered(true);
+                        .order('created_at', { ascending: false })
+                        .limit(1)
+                        .maybeSingle();
+
+                    if (reg?.status) {
+                        const normalizedStatus = String(reg.status).toLowerCase();
+                        if (normalizedStatus === 'confirmed') {
+                            setRegistrationState('confirmed');
+                            return;
+                        }
+                        setRegistrationState('pending');
+                    }
                 }
             }
         };
@@ -125,7 +135,7 @@ export default function ClientEventDetailPage() {
                 <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center px-6">
                     <AlertTriangle size={48} className="text-gray-300" />
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Event Not Found</h1>
-                    <p className="text-gray-500 dark:text-gray-400">This event doesn't exist or may have been removed.</p>
+                    <p className="text-gray-500 dark:text-gray-400">This event does not exist or may have been removed.</p>
                     <Link href="/home" className="text-sm font-semibold text-blue-600 hover:text-indigo-600 transition-colors flex items-center gap-1">
                         <ChevronLeft size={16} /> Back to Home
                     </Link>
@@ -141,6 +151,7 @@ export default function ClientEventDetailPage() {
     });
 
     const isEventEnded = event.event_end_at ? new Date() > new Date(event.event_end_at) : false;
+    const isRegistered = registrationState === 'confirmed';
 
     return (
         <div className="flex flex-col min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
@@ -276,7 +287,7 @@ export default function ClientEventDetailPage() {
                         <section className="bg-white dark:bg-gray-800/60 rounded-3xl p-6 md:p-8 border border-gray-100 dark:border-gray-700/50 shadow-sm">
                             <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Agenda</h2>
                             <ol className="relative border-l-2 border-blue-100 dark:border-blue-900/40 space-y-0">
-                                {sortedAgenda.map((slot, i) => (
+                                {sortedAgenda.map((slot) => (
                                     <li key={slot.id} className="ml-5 pb-8 last:pb-0 relative">
                                         {/* Timeline dot */}
                                         <span className="absolute -left-[27px] top-1 w-4 h-4 rounded-full bg-blue-500 ring-4 ring-white dark:ring-gray-800 shrink-0" />
@@ -420,7 +431,7 @@ export default function ClientEventDetailPage() {
                                             {/* Inclusions */}
                                             {inclusions.length > 0 && (
                                                 <div>
-                                                    <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">What's included</p>
+                                                    <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">What&apos;s included</p>
                                                     <ul className="space-y-1.5">
                                                         {inclusions.map((line, i) => (
                                                             <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
@@ -458,6 +469,18 @@ export default function ClientEventDetailPage() {
                                     View breakout sessions
                                     <ArrowRight size={18} />
                                 </Link>
+                            </>
+                        ) : registrationState === 'pending' ? (
+                            <>
+                                <div className="min-w-0 space-y-3 text-center md:text-left">
+                                    <h3 className="text-xl font-extrabold text-white sm:text-2xl">Registration pending review</h3>
+                                    <p className="text-sm text-blue-100/90">
+                                        We received your registration for <span className="font-semibold text-white">{event.title}</span>. Breakout selection opens after organizer approval.
+                                    </p>
+                                </div>
+                                <div className="w-full md:w-auto rounded-2xl bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white/95 border border-white/20">
+                                    We&apos;ll notify you once your slot is approved.
+                                </div>
                             </>
                         ) : (
                             <>

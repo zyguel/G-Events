@@ -72,7 +72,7 @@ export default async function TicketsPage() {
         "id, status, has_checked_in, checked_in_at, created_at, event_id, Event(id, title, event_start_at, event_end_at, location, banner_image), Ticket(id, name, price)"
       )
       .eq("user_id", userId)
-      .not("status", "in", "(cancelled,rejected)")
+      .eq("status", "confirmed")
       .order("created_at", { ascending: false });
 
     const mainPasses = ((registrationRows || []) as RegistrationRow[])

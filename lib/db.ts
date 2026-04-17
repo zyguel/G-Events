@@ -590,6 +590,112 @@ export async function createEvent(
     return data;
 }
 
+const EVENT_RESCHEDULE_TICKET_BUFFER_DAYS = 5;
+const EVENT_RESCHEDULE_TICKET_BUFFER_MS = EVENT_RESCHEDULE_TICKET_BUFFER_DAYS * 24 * 60 * 60 * 1000;
+
+function toNormalizedIso(value: unknown): string | null {
+    if (typeof value !== 'string' || !value.trim()) return null;
+    const ms = Date.parse(value);
+    if (!Number.isFinite(ms)) return null;
+    return new Date(ms).toISOString();
+}
+
+function toEpochMs(value: unknown): number | null {
+    const iso = toNormalizedIso(value);
+    if (!iso) return null;
+    const ms = Date.parse(iso);
+    return Number.isFinite(ms) ? ms : null;
+}
+
+type EventTicketWindowRow = {
+    id: number;
+    selling_start_at: string | null;
+    selling_end_at: string | null;
+};
+
+async function adjustTicketWindowsForEarlierEventEnd(params: {
+    supabase: SupabaseClient;
+    eventId: number;
+    beforeEventEndAt: unknown;
+    afterEventEndAt: unknown;
+}): Promise<void> {
+    const beforeEndMs = toEpochMs(params.beforeEventEndAt);
+    const afterEndMs = toEpochMs(params.afterEventEndAt);
+
+    if (beforeEndMs === null || afterEndMs === null || afterEndMs >= beforeEndMs) {
+        return;
+    }
+
+    const { data: ticketRows, error: ticketError } = await params.supabase
+        .from('Ticket')
+        .select('id, selling_start_at, selling_end_at')
+        .eq('event_id', params.eventId);
+
+    if (ticketError) throw ticketError;
+
+    const rows = (ticketRows || []) as EventTicketWindowRow[];
+
+    for (const row of rows) {
+        const currentStartMs = toEpochMs(row.selling_start_at);
+        const currentEndMs = toEpochMs(row.selling_end_at);
+
+        let nextStartMs = currentStartMs;
+        let nextEndMs = currentEndMs;
+        let changed = false;
+
+        const bothBeyondEarlierEnd =
+            currentStartMs !== null
+            && currentEndMs !== null
+            && currentStartMs > afterEndMs
+            && currentEndMs > afterEndMs;
+
+        if (bothBeyondEarlierEnd) {
+            nextEndMs = afterEndMs;
+            nextStartMs = afterEndMs - EVENT_RESCHEDULE_TICKET_BUFFER_MS;
+            changed = true;
+        } else {
+            if (currentEndMs !== null && currentEndMs > afterEndMs) {
+                nextEndMs = afterEndMs;
+                changed = true;
+            }
+
+            if (currentStartMs !== null && currentStartMs > afterEndMs) {
+                nextStartMs = afterEndMs - EVENT_RESCHEDULE_TICKET_BUFFER_MS;
+                changed = true;
+            }
+        }
+
+        if (nextStartMs !== null && nextEndMs !== null && nextStartMs >= nextEndMs) {
+            nextStartMs = nextEndMs - EVENT_RESCHEDULE_TICKET_BUFFER_MS;
+            changed = true;
+        }
+
+        if (!changed) {
+            continue;
+        }
+
+        const nextStartIso = nextStartMs !== null ? new Date(nextStartMs).toISOString() : null;
+        const nextEndIso = nextEndMs !== null ? new Date(nextEndMs).toISOString() : null;
+
+        const sameStart = toNormalizedIso(row.selling_start_at) === toNormalizedIso(nextStartIso);
+        const sameEnd = toNormalizedIso(row.selling_end_at) === toNormalizedIso(nextEndIso);
+        if (sameStart && sameEnd) {
+            continue;
+        }
+
+        const { error: updateTicketError } = await params.supabase
+            .from('Ticket')
+            .update({
+                selling_start_at: nextStartIso,
+                selling_end_at: nextEndIso,
+            })
+            .eq('id', row.id)
+            .eq('event_id', params.eventId);
+
+        if (updateTicketError) throw updateTicketError;
+    }
+}
+
 export async function updateEvent(
     eventId: number,
     fields: Partial<{
@@ -642,6 +748,18 @@ export async function updateEvent(
     const { error } = await updateQuery;
 
     if (error) throw error;
+
+    const nextEventEndAt =
+        Object.prototype.hasOwnProperty.call(fields, 'event_end_at')
+            ? fields.event_end_at
+            : beforeData.event_end_at;
+
+    await adjustTicketWindowsForEarlierEventEnd({
+        supabase,
+        eventId,
+        beforeEventEndAt: beforeData.event_end_at,
+        afterEventEndAt: nextEventEndAt,
+    });
 
     try {
       await logAuditEntry('Event', eventId, 'update', { before: beforeData, after: fields });
@@ -750,26 +868,105 @@ export async function getTicket(ticketId: number) {
     return data;
 }
 
+class TicketValidationError extends Error {
+    statusCode: number;
+
+    constructor(message: string) {
+        super(message);
+        this.name = 'TicketValidationError';
+        this.statusCode = 400;
+    }
+}
+
+function parseTicketDateTime(value: string | null | undefined): Date | null {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const parsed = new Date(trimmed);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+async function validateTicketSellingWindow(
+    supabase: SupabaseClient,
+    eventId: number,
+    sellingStartAt: string | null | undefined,
+    sellingEndAt: string | null | undefined,
+): Promise<void> {
+    const startAt = parseTicketDateTime(sellingStartAt);
+    const endAt = parseTicketDateTime(sellingEndAt);
+
+    if (sellingStartAt && !startAt) {
+        throw new TicketValidationError('Invalid ticket selling start date/time.');
+    }
+
+    if (sellingEndAt && !endAt) {
+        throw new TicketValidationError('Invalid ticket selling end date/time.');
+    }
+
+    if (startAt && endAt && startAt >= endAt) {
+        throw new TicketValidationError('Ticket selling end date/time must be after the start date/time.');
+    }
+
+    const { data: eventRow, error: eventError } = await supabase
+        .from('Event')
+        .select('event_end_at')
+        .eq('id', eventId)
+        .maybeSingle();
+
+    if (eventError) throw eventError;
+    if (!eventRow) throw new TicketValidationError('Event not found.');
+
+    const eventEndAt = parseTicketDateTime(eventRow.event_end_at as string | null | undefined);
+    if (!eventEndAt) return;
+
+    if (startAt && startAt > eventEndAt) {
+        throw new TicketValidationError('Ticket selling start date/time cannot go beyond the event end date/time.');
+    }
+
+    if (endAt && endAt > eventEndAt) {
+        throw new TicketValidationError('Ticket selling end date/time cannot go beyond the event end date/time.');
+    }
+}
+
 export async function createTicket(
     eventId: number,
     fields: {
         name: string;
         description?: string;
         price?: number;
+        free_ticket_approval_mode?: 'manual' | 'automatic';
         available_quantity?: number;
-        min_per_user?: number;
-        max_per_user?: number;
-        selling_start_at?: string;
-        selling_end_at?: string;
+        selling_start_at?: string | null;
+        selling_end_at?: string | null;
         selling_start_time?: string;
         selling_end_time?: string;
     }
 ) {
     const supabase = await getSupabase();
 
+    await validateTicketSellingWindow(
+        supabase,
+        eventId,
+        fields.selling_start_at,
+        fields.selling_end_at,
+    );
+
+    const normalizedFreeTicketApprovalMode: 'manual' | 'automatic' =
+        Number(fields.price ?? 0) > 0
+            ? 'manual'
+            : fields.free_ticket_approval_mode === 'automatic'
+                ? 'automatic'
+                : 'manual';
+
+    const insertFields = {
+        ...fields,
+        free_ticket_approval_mode: normalizedFreeTicketApprovalMode,
+    };
+
     const { data, error } = await supabase
         .from('Ticket')
-        .insert([{ event_id: eventId, is_hidden: false, is_deleted: false, deleted_at: null, ...fields }])
+        .insert([{ event_id: eventId, is_hidden: false, is_deleted: false, deleted_at: null, ...insertFields }])
         .select()
         .single();
 
@@ -790,11 +987,10 @@ export async function updateTicket(
         name: string;
         description: string;
         price: number;
+        free_ticket_approval_mode: 'manual' | 'automatic';
         available_quantity: number;
-        min_per_user: number;
-        max_per_user: number;
-        selling_start_at: string;
-        selling_end_at: string;
+        selling_start_at: string | null;
+        selling_end_at: string | null;
         selling_start_time: string;
         selling_end_time: string;
         is_hidden: boolean;
@@ -812,9 +1008,37 @@ export async function updateTicket(
 
     if (beforeError) throw beforeError;
 
+    const normalizedFields = { ...fields };
+    const effectivePrice = Number(normalizedFields.price ?? beforeData.price ?? 0);
+
+    if (effectivePrice > 0) {
+        normalizedFields.free_ticket_approval_mode = 'manual';
+    } else if (normalizedFields.free_ticket_approval_mode !== undefined) {
+        normalizedFields.free_ticket_approval_mode =
+            normalizedFields.free_ticket_approval_mode === 'automatic' ? 'automatic' : 'manual';
+    }
+
+    const shouldValidateSellingWindow =
+        Object.prototype.hasOwnProperty.call(normalizedFields, 'selling_start_at')
+        || Object.prototype.hasOwnProperty.call(normalizedFields, 'selling_end_at');
+
+    if (shouldValidateSellingWindow) {
+        const eventId = Number(beforeData.event_id);
+        if (!Number.isFinite(eventId)) {
+            throw new TicketValidationError('Ticket is not linked to a valid event.');
+        }
+
+        await validateTicketSellingWindow(
+            supabase,
+            eventId,
+            normalizedFields.selling_start_at ?? beforeData.selling_start_at ?? null,
+            normalizedFields.selling_end_at ?? beforeData.selling_end_at ?? null,
+        );
+    }
+
     const { data, error } = await supabase
         .from('Ticket')
-        .update(fields)
+        .update(normalizedFields)
         .eq('id', ticketId)
         .select()
         .single();

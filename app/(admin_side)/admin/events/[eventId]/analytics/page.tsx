@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import StatCard from '@/components/admin/StatCard';
 import DashboardTabs from '@/components/admin/DashboardTabs';
 import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
-import { getEventById, getEvents, getEventAnalytics, getEventDemographics } from "@/lib/actions/events";
+import { getEventById, getEvents, getEventAnalytics, getEventDemographics, getEventTickets } from "@/lib/actions/events";
+
 
 export default async function EventAnalyticsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -22,12 +23,14 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
     if (isNaN(id)) return notFound();
 
     // Fetch event details + real analytics in parallel
-    const [apiData, allEventsRaw, analytics, demographics] = await Promise.all([
+    const [apiData, allEventsRaw, analytics, demographics, tickets] = await Promise.all([
         getEventById(id),
         getEvents(),
         getEventAnalytics(id),
         getEventDemographics(id),
+        getEventTickets(id),
     ]);
+
 
     if (!apiData) {
         return notFound();
@@ -144,7 +147,13 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
                 </div>
 
                 {/* Summary & Trends Section */}
-                <DashboardTabs data={data} demographics={demographics} />
+                <DashboardTabs 
+                    data={data} 
+                    demographics={demographics} 
+                    tickets={tickets}
+                    eventId={id}
+                />
+
             </div>
         </div>
     );

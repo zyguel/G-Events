@@ -9,11 +9,11 @@ import { buildAndStoreTicketQrImage } from "@/lib/ticketQrStorage";
 import { buildBreakoutEticketUrl, buildBreakoutTicketEmailHtml } from "@/lib/ticketEmail";
 import { sendEmail } from "@/lib/emailProvider";
 
-function parseDescription(raw: any) {
+function parseDescription(raw: unknown): Record<string, unknown> {
     if (!raw) return {};
     try {
         const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-        return parsed && typeof parsed === "object" ? parsed : {};
+        return parsed && typeof parsed === "object" ? (parsed as Record<string, unknown>) : {};
     } catch {
         return {};
     }
@@ -90,6 +90,16 @@ export async function POST(
         const registrationStatus = String(reg.status || "").toLowerCase();
         if (registrationStatus === "cancelled" || registrationStatus === "rejected") {
             return NextResponse.json({ success: false, error: "Registration is not active" }, { status: 403 });
+        }
+
+        if (registrationStatus !== "confirmed") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: "Your registration is pending organizer approval. You can join breakout sessions once approved.",
+                },
+                { status: 403 }
+            );
         }
 
         if (reg.profile_pending === true) {
@@ -229,10 +239,11 @@ export async function POST(
         revalidatePath(`/events/${eventId}/my-breakouts`);
         return NextResponse.json({ success: true });
 
-    } catch (e: any) {
+    } catch (e: unknown) {
         const authError = getAuthErrorResponse(e);
         if (authError) return authError;
         console.error("MyBreakouts API error:", e);
-        return NextResponse.json({ success: false, error: e?.message || "Unexpected error" }, { status: 500 });
+        const errorMessage = e instanceof Error ? e.message : "Unexpected error";
+        return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
     }
 }

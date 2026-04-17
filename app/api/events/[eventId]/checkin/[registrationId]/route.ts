@@ -29,6 +29,34 @@ export async function PATCH(
     }
 
     const supabase = await createClient();
+    const { data: registration, error: registrationError } = await supabase
+      .from("Registration")
+      .select("id, status")
+      .eq("id", parsedRegistrationId)
+      .eq("event_id", parsedEventId)
+      .maybeSingle();
+
+    if (registrationError) {
+      return NextResponse.json(
+        { success: false, error: registrationError.message },
+        { status: 500 }
+      );
+    }
+
+    if (!registration) {
+      return NextResponse.json(
+        { success: false, error: "Registration not found" },
+        { status: 404 }
+      );
+    }
+
+    if (String(registration.status || "").toLowerCase() !== "confirmed") {
+      return NextResponse.json(
+        { success: false, error: "Only confirmed registrations can be checked in" },
+        { status: 400 }
+      );
+    }
+
     const checkedInAt = body.checkedIn ? new Date().toISOString() : null;
     const { error } = await supabase
       .from("Registration")

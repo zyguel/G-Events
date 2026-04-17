@@ -69,7 +69,7 @@ export async function GET(
         const reg = b.Registration;
         if (!reg) continue;
         const st = String(reg.status || "").toLowerCase();
-        if (st === "cancelled" || st === "rejected") continue;
+        if (st !== "confirmed") continue;
 
         const checkedIn =
           !!b.check_in_time || String(b.status || "").toLowerCase() === "checked_in";

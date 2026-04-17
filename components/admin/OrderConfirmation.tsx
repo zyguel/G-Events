@@ -4,18 +4,7 @@ import { useEffect, useState } from "react";
 import RichTextEditor from "./RichTextEditor";
 import { CheckCircle, Mail, Check, X } from "lucide-react";
 import { getOrderConfirmationSettings, saveOrderConfirmationSettings } from "@/lib/actions/orderConfirmation";
-
-interface EmailTemplate {
-    subject: string;
-    body: string;
-}
-
-interface OrderConfirmationData {
-    submissionMessage: string;
-    submissionEmail: EmailTemplate;
-    confirmationEmail: EmailTemplate;
-    rejectionEmail: EmailTemplate;
-}
+import type { OrderConfirmationData } from "@/lib/orderConfirmationSettings";
 
 export default function OrderConfirmation({ eventId }: { eventId: string }) {
     const [savedStates, setSavedStates] = useState({
@@ -38,7 +27,8 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
         rejectionEmail: {
             subject: "",
             body: ""
-        }
+        },
+        freeTicketApprovalMode: "manual",
     });
 
     const [isLoading, setIsLoading] = useState(true);
@@ -68,8 +58,8 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
     const handleSaveSubmissionMessage = async () => {
         try {
             await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
-            setSavedStates({ ...savedStates, submissionMessage: true });
-            setTimeout(() => setSavedStates({ ...savedStates, submissionMessage: false }), 3000);
+            setSavedStates((prev) => ({ ...prev, submissionMessage: true }));
+            setTimeout(() => setSavedStates((prev) => ({ ...prev, submissionMessage: false })), 3000);
         } catch (error) {
             console.error("Failed to save submission message:", error);
         }
@@ -79,8 +69,8 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
         try {
             await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
             const key = `${type}Email` as keyof typeof savedStates;
-            setSavedStates({ ...savedStates, [key]: true });
-            setTimeout(() => setSavedStates({ ...savedStates, [key]: false }), 3000);
+            setSavedStates((prev) => ({ ...prev, [key]: true }));
+            setTimeout(() => setSavedStates((prev) => ({ ...prev, [key]: false })), 3000);
         } catch (error) {
             console.error(`Failed to save ${type} email:`, error);
         }
