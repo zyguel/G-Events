@@ -19,6 +19,30 @@ interface ManualRegistrationAttendee {
     email: string;
 }
 
+type RegistrationUser = {
+    name: string | null;
+    email: string | null;
+};
+
+type RegistrationUserEmailOnly = {
+    email: string | null;
+};
+
+type RegistrationTicket = {
+    name: string | null;
+    price: number | null;
+    is_deleted: boolean | null;
+};
+
+type MaybeRelation<T> = T | T[] | null;
+
+const normalizeRelation = <T,>(value: MaybeRelation<T> | undefined): T | null => {
+    if (Array.isArray(value)) {
+        return value[0] ?? null;
+    }
+    return value ?? null;
+};
+
 interface RegistrationOrderRow {
     id: number;
     status: string | null;
@@ -26,34 +50,35 @@ interface RegistrationOrderRow {
     registration_group_id: number | null;
     ticket_id: number | null;
     final_price_paid: number | null;
-    User: {
-        name: string | null;
-        email: string | null;
-    } | null;
-    Ticket: {
-        name: string | null;
-        price: number | null;
-        is_deleted: boolean | null;
-    } | null;
+    User: RegistrationUser | null;
+    Ticket: RegistrationTicket | null;
 }
+
+type RegistrationOrderRowRaw = Omit<RegistrationOrderRow, "User" | "Ticket"> & {
+    User: MaybeRelation<RegistrationUser>;
+    Ticket: MaybeRelation<RegistrationTicket>;
+};
 
 interface ExistingRegistrationRow {
     user_id: number;
-    User: {
-        email: string | null;
-    } | null;
+    User: RegistrationUserEmailOnly | null;
 }
+
+type ExistingRegistrationRowRaw = Omit<ExistingRegistrationRow, "User"> & {
+    User: MaybeRelation<RegistrationUserEmailOnly>;
+};
 
 interface ManualInsertedRegistrationRow {
     id: number;
     created_at: string;
     user_id: number;
     registration_group_id: number | null;
-    User: {
-        name: string | null;
-        email: string | null;
-    } | null;
+    User: RegistrationUser | null;
 }
+
+type ManualInsertedRegistrationRowRaw = Omit<ManualInsertedRegistrationRow, "User"> & {
+    User: MaybeRelation<RegistrationUser>;
+};
 
 type UiStatus = "Confirmed" | "Pending" | "Rejected";
 
@@ -189,7 +214,12 @@ export async function GET(
             );
         }
 
-        const registrations: RegistrationOrderRow[] = (regRows || []) as RegistrationOrderRow[];
+        const registrations: RegistrationOrderRow[] = ((regRows || []) as RegistrationOrderRowRaw[])
+            .map((row) => ({
+                ...row,
+                User: normalizeRelation(row.User),
+                Ticket: normalizeRelation(row.Ticket),
+            }));
         const registrationIds = registrations.map((r) => r.id);
 
         const toProofUrl = (rawValue: string): string => {
@@ -309,7 +339,7 @@ export async function GET(
         const orders = registrations.map((r) => {
             const createdAt = r.created_at ? new Date(r.created_at) : null;
             const isGroup = !!r.registration_group_id;
-            const groupMemberEmails = isGroup
+            const groupMemberEmails = r.registration_group_id
                 ? groupIdToEmails.get(r.registration_group_id) || []
                 : [];
 
@@ -424,8 +454,14 @@ export async function POST(
             return NextResponse.json({ success: false, error: "Database error during duplicate check" }, { status: 500 });
         }
 
-        if (existingRegs && existingRegs.length > 0) {
-            const duplicateEmails = (existingRegs as ExistingRegistrationRow[])
+        const normalizedExistingRegs: ExistingRegistrationRow[] = ((existingRegs || []) as ExistingRegistrationRowRaw[])
+            .map((row) => ({
+                ...row,
+                User: normalizeRelation(row.User),
+            }));
+
+        if (normalizedExistingRegs.length > 0) {
+            const duplicateEmails = normalizedExistingRegs
                 .map((r) => r.User?.email)
                 .filter((email): email is string => typeof email === "string" && email.length > 0);
             return NextResponse.json({
@@ -497,7 +533,13 @@ export async function POST(
                 );
             }
 
-            inserted.push({ reg: reg as ManualInsertedRegistrationRow, token, email });
+            const typedReg = reg as ManualInsertedRegistrationRowRaw;
+            const normalizedReg: ManualInsertedRegistrationRow = {
+                ...typedReg,
+                User: normalizeRelation(typedReg.User),
+            };
+
+            inserted.push({ reg: normalizedReg, token, email });
         }
 
         // 5. E-ticket / group invite emails (non-fatal if mail fails)
