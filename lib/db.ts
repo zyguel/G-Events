@@ -756,6 +756,7 @@ export async function createTicket(
         name: string;
         description?: string;
         price?: number;
+        free_ticket_approval_mode?: 'manual' | 'automatic';
         available_quantity?: number;
         min_per_user?: number;
         max_per_user?: number;
@@ -767,9 +768,21 @@ export async function createTicket(
 ) {
     const supabase = await getSupabase();
 
+    const normalizedFreeTicketApprovalMode: 'manual' | 'automatic' =
+        Number(fields.price ?? 0) > 0
+            ? 'manual'
+            : fields.free_ticket_approval_mode === 'automatic'
+                ? 'automatic'
+                : 'manual';
+
+    const insertFields = {
+        ...fields,
+        free_ticket_approval_mode: normalizedFreeTicketApprovalMode,
+    };
+
     const { data, error } = await supabase
         .from('Ticket')
-        .insert([{ event_id: eventId, is_hidden: false, is_deleted: false, deleted_at: null, ...fields }])
+        .insert([{ event_id: eventId, is_hidden: false, is_deleted: false, deleted_at: null, ...insertFields }])
         .select()
         .single();
 
@@ -790,6 +803,7 @@ export async function updateTicket(
         name: string;
         description: string;
         price: number;
+        free_ticket_approval_mode: 'manual' | 'automatic';
         available_quantity: number;
         min_per_user: number;
         max_per_user: number;
@@ -812,9 +826,19 @@ export async function updateTicket(
 
     if (beforeError) throw beforeError;
 
+    const normalizedFields = { ...fields };
+    const effectivePrice = Number(normalizedFields.price ?? beforeData.price ?? 0);
+
+    if (effectivePrice > 0) {
+        normalizedFields.free_ticket_approval_mode = 'manual';
+    } else if (normalizedFields.free_ticket_approval_mode !== undefined) {
+        normalizedFields.free_ticket_approval_mode =
+            normalizedFields.free_ticket_approval_mode === 'automatic' ? 'automatic' : 'manual';
+    }
+
     const { data, error } = await supabase
         .from('Ticket')
-        .update(fields)
+        .update(normalizedFields)
         .eq('id', ticketId)
         .select()
         .single();

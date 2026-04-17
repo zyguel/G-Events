@@ -17,6 +17,7 @@ const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
 
   name: "",
   type: "paid",
+  freeTicketApprovalMode: "manual",
   quantity: 0,
   waitlistReservedQuantity: 0,
   price: 0,
@@ -93,6 +94,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     setFormData({
       name: ticket.name,
       type: ticket.type,
+      freeTicketApprovalMode: ticket.freeTicketApprovalMode,
       quantity: ticket.quantity,
       waitlistReservedQuantity: ticket.waitlistReservedQuantity || 0,
       price: ticket.price,
@@ -290,6 +292,16 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                       {ticket.type === "paid" ? `₱${ticket.price} ${ticket.currency}` : "Free"}
                     </p>
+                    {ticket.type === "free" ? (
+                      <p className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${ticket.freeTicketApprovalMode === "automatic"
+                        ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                        : "bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300"
+                        }`}>
+                        {ticket.freeTicketApprovalMode === "automatic"
+                          ? "QR auto-approval"
+                          : "QR manual approval"}
+                      </p>
+                    ) : null}
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
                       {(() => {
                         const reservedForWaitlist = Math.max(ticket.waitlistReservedQuantity || 0, 0);
@@ -413,7 +425,15 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 {["paid", "free"].map((type) => (
                   <button
                     key={type}
-                    onClick={() => setFormData({ ...formData, type: type as "paid" | "free" })}
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        type: type as "paid" | "free",
+                        price: type === "free" ? 0 : formData.price,
+                        freeTicketApprovalMode:
+                          type === "paid" ? "manual" : formData.freeTicketApprovalMode,
+                      })
+                    }
                     className={`flex-1 py-2.5 px-3 min-h-10.5 rounded-xl font-medium transition-all shadow-sm text-sm ${formData.type === type
                       ? "bg-[#3D518C] text-white ring-2 ring-[#3D518C] ring-offset-2 dark:ring-offset-gray-800"
                       : "bg-slate-50 dark:bg-slate-900/50 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
@@ -459,6 +479,41 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
               {errors.price && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.price}</p>}
             </div>
           )}
+
+          {formData.type === "free" ? (
+            <div className="rounded-xl border border-indigo-200/70 dark:border-indigo-700/50 bg-indigo-50/70 dark:bg-indigo-900/20 p-4 space-y-3">
+              <div>
+                <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-200">Free Ticket QR Approval</h3>
+                <p className="text-xs text-indigo-700/80 dark:text-indigo-300/80 mt-1">
+                  Choose whether QR passes are issued immediately after submission or only after organizer approval.
+                </p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, freeTicketApprovalMode: "manual" })}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${formData.freeTicketApprovalMode === "manual"
+                    ? "border-indigo-500 bg-indigo-100/80 dark:bg-indigo-800/50 text-indigo-900 dark:text-indigo-100"
+                    : "border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300"
+                    }`}
+                >
+                  <p className="font-semibold">Manual approval</p>
+                  <p className="mt-1 text-xs opacity-80">Ticket stays pending until organizer confirms.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, freeTicketApprovalMode: "automatic" })}
+                  className={`rounded-lg border px-3 py-2 text-left text-sm transition ${formData.freeTicketApprovalMode === "automatic"
+                    ? "border-indigo-500 bg-indigo-100/80 dark:bg-indigo-800/50 text-indigo-900 dark:text-indigo-100"
+                    : "border-gray-200 dark:border-gray-600 bg-white/70 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300"
+                    }`}
+                >
+                  <p className="font-semibold">Automatic approval</p>
+                  <p className="mt-1 text-xs opacity-80">Issue QR immediately on successful registration.</p>
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           {/* Date & Time */}
           <div className="flex flex-col gap-4">

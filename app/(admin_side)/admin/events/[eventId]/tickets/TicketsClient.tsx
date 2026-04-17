@@ -17,6 +17,7 @@ interface TicketsClientProps {
 const initialTicketForm: Omit<Ticket, "id" | "createdAt" | "usedQuantity"> = {
   name: "",
   type: "paid",
+  freeTicketApprovalMode: "manual",
   quantity: 0,
   waitlistReservedQuantity: 0,
   price: 0,
@@ -89,6 +90,7 @@ export default function TicketsClient({ event }: TicketsClientProps) {
     setFormData({
       name: ticket.name,
       type: ticket.type,
+      freeTicketApprovalMode: ticket.freeTicketApprovalMode,
       quantity: ticket.quantity,
       waitlistReservedQuantity: ticket.waitlistReservedQuantity || 0,
       price: ticket.price,

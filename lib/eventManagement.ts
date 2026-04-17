@@ -11,6 +11,7 @@ export interface Ticket {
   id: string;
   name: string;
   type: 'paid' | 'free';
+  freeTicketApprovalMode: 'manual' | 'automatic';
   quantity: number;
   waitlistReservedQuantity: number;
   price?: number;
@@ -95,10 +96,15 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbTicket(row: any): Ticket {
+  const rawApprovalMode = String(row.free_ticket_approval_mode || '').toLowerCase();
+  const freeTicketApprovalMode: 'manual' | 'automatic' =
+    rawApprovalMode === 'automatic' ? 'automatic' : 'manual';
+
   return {
     id: String(row.id),
     name: row.name ?? '',
     type: row.price && Number(row.price) > 0 ? 'paid' : 'free',
+    freeTicketApprovalMode,
     quantity: row.available_quantity ?? 0,
     waitlistReservedQuantity: Number(row.waitlist_reserved_quantity ?? 0),
     price: row.price ? Number(row.price) : 0,
@@ -188,6 +194,19 @@ function ticketToDb(ticket: Partial<Omit<Ticket, 'id' | 'createdAt' | 'usedQuant
   if (ticket.endDate !== undefined) fields.selling_end_at = ticket.endDate || null;
   if (ticket.visibility !== undefined) fields.is_hidden = ticket.visibility === 'hidden';
   if (ticket.isDeleted !== undefined) fields.is_deleted = ticket.isDeleted;
+
+  if (ticket.type !== undefined) {
+    fields.free_ticket_approval_mode =
+      ticket.type === 'paid'
+        ? 'manual'
+        : ticket.freeTicketApprovalMode === 'automatic'
+          ? 'automatic'
+          : 'manual';
+  } else if (ticket.freeTicketApprovalMode !== undefined) {
+    fields.free_ticket_approval_mode =
+      ticket.freeTicketApprovalMode === 'automatic' ? 'automatic' : 'manual';
+  }
+
   return fields;
 }
 

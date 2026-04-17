@@ -20,7 +20,6 @@ import {
     ensureQrBlockInBody,
     loadOrderConfirmationSettings,
     renderOrderConfirmationTemplate,
-    resolveRegistrationApprovalMode,
     wrapEmailBody,
 } from '@/lib/orderConfirmationSettings';
 
@@ -44,6 +43,7 @@ type TicketAvailabilityRow = {
     id: number;
     name: string;
     price: number | null;
+    free_ticket_approval_mode: string | null;
     available_quantity: number | null;
     waitlist_reserved_quantity: number | null;
 };
@@ -244,7 +244,7 @@ export async function POST(
 
         const { data: ticketRows, error: ticketError } = await supabase
             .from('Ticket')
-            .select('id, name, price, available_quantity, waitlist_reserved_quantity')
+            .select('id, name, price, free_ticket_approval_mode, available_quantity, waitlist_reserved_quantity')
             .eq('event_id', numericEventId);
 
         if (ticketError) {
@@ -517,10 +517,11 @@ export async function POST(
         let validPromotionId: number | null = null;
         const orderConfirmationSettings = await loadOrderConfirmationSettings(supabase, numericEventId);
         const approvalMode = selectedTicket
-            ? resolveRegistrationApprovalMode({
-                ticketPrice: Number(selectedTicket.price ?? 0),
-                settings: orderConfirmationSettings,
-            })
+            ? Number(selectedTicket.price ?? 0) > 0
+                ? 'manual'
+                : String(selectedTicket.free_ticket_approval_mode || '').toLowerCase() === 'automatic'
+                    ? 'automatic'
+                    : 'manual'
             : 'manual';
         const registrationStatus = approvalMode === 'automatic' ? 'confirmed' : 'pending';
         const shouldSendQrImmediately = registrationStatus === 'confirmed';

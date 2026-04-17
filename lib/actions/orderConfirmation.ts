@@ -1,23 +1,64 @@
 "use server";
 
-import { createClient } from "@/lib/supabase-server";
+import { cookies } from "next/headers";
+import { ACTIVE_ORGANIZATION_COOKIE_NAME } from "@/lib/constants";
+import { getCurrentUserActiveOrganization, parseOrganizationId } from "@/lib/auth/sessionRole";
+import { createAdminClient, createClient } from "@/lib/supabase-server";
 import {
     DEFAULT_ORDER_CONFIRMATION_DATA,
     normalizeOrderConfirmationData,
     type OrderConfirmationData,
-    type OrderConfirmationEmailTemplate,
 } from "@/lib/orderConfirmationSettings";
 
-export type EmailTemplate = OrderConfirmationEmailTemplate;
+async function getAuthorizedOrderConfirmationClient(eventId: number) {
+    if (!Number.isInteger(eventId) || eventId <= 0) {
+        throw new Error("Invalid event id");
+    }
 
-export type { OrderConfirmationData };
+    const authSupabase = await createClient();
+    const {
+        data: { user },
+    } = await authSupabase.auth.getUser();
+
+    if (!user?.email) {
+        throw new Error("Not authenticated");
+    }
+
+    const cookieStore = await cookies();
+    const preferredOrganizationId = parseOrganizationId(
+        cookieStore.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
+    );
+    const orgContext = await getCurrentUserActiveOrganization(preferredOrganizationId);
+
+    if (!orgContext.activeOrganizationId) {
+        throw new Error("No active organization selected");
+    }
+
+    const adminSupabase = await createAdminClient();
+    const { data: eventRow, error: eventError } = await adminSupabase
+        .from("Event")
+        .select("id")
+        .eq("id", eventId)
+        .eq("organization_id", orgContext.activeOrganizationId)
+        .maybeSingle();
+
+    if (eventError) {
+        throw new Error(eventError.message);
+    }
+
+    if (!eventRow) {
+        throw new Error("Event not found or access denied");
+    }
+
+    return adminSupabase;
+}
 
 /**
  * Fetch the order confirmation settings for a specific event
  */
 export async function getOrderConfirmationSettings(eventId: number): Promise<OrderConfirmationData> {
     try {
-        const supabase = await createClient();
+        const supabase = await getAuthorizedOrderConfirmationClient(eventId);
         const { data, error } = await supabase
             .from('OrderConfirmationSettings')
             .select('settings')
@@ -45,7 +86,7 @@ export async function getOrderConfirmationSettings(eventId: number): Promise<Ord
 export async function saveOrderConfirmationSettings(eventId: number, settings: OrderConfirmationData): Promise<boolean> {
     try {
         // Use an upsert since event_id is unique. This updates the existing row or inserts a new one.
-        const supabase = await createClient();
+        const supabase = await getAuthorizedOrderConfirmationClient(eventId);
         const normalizedSettings = normalizeOrderConfirmationData(settings);
 
         const { error } = await supabase
