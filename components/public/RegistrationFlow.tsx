@@ -1110,6 +1110,7 @@ function OrderFormStep({
     const [touched, setTouched] = useState<Set<string>>(new Set());
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
     const [capacityPrecheckError, setCapacityPrecheckError] = useState<string | null>(null);
+    const [hasPendingUploads, setHasPendingUploads] = useState(false);
 
     const { isSubmitting, error, success, successMessage, submissionResult, submit } = useOrderFormSubmit({
         eventId,
@@ -1134,6 +1135,11 @@ function OrderFormStep({
     const handleSubmit = useCallback(async (e: React.FormEvent) => {
         e.preventDefault();
         setCapacityPrecheckError(null);
+
+        if (hasPendingUploads) {
+            setCapacityPrecheckError('Please wait for file uploads to finish before submitting.');
+            return;
+        }
 
         const requestedSeats = registrationType === 'group' ? groupEmails.length + 1 : 1;
         if (ticketId && requestedSeats > 0) {
@@ -1167,7 +1173,7 @@ function OrderFormStep({
         if (Object.keys(newErrors).length > 0) return;
 
         await submit(formData, answers, ticketId, registrationType === 'group' ? groupEmails : [], null, promotionCode, waitlistInviteToken || null);
-    }, [formData, answers, submit, ticketId, tickets, registrationType, groupEmails, promotionCode, waitlistInviteToken]);
+    }, [formData, answers, submit, ticketId, tickets, registrationType, groupEmails, promotionCode, waitlistInviteToken, hasPendingUploads]);
 
     if (success) {
         return (
@@ -1298,6 +1304,16 @@ function OrderFormStep({
                     onAnswerChange={handleInputChange}
                     touched={touched}
                     validationErrors={validationErrors}
+                    eventId={eventId}
+                    orderFormId={orderFormId}
+                    onUploadingChange={(uploading) => {
+                        setHasPendingUploads(uploading);
+                        if (!uploading) {
+                            setCapacityPrecheckError((prev) =>
+                                prev === 'Please wait for file uploads to finish before submitting.' ? null : prev
+                            );
+                        }
+                    }}
                 />
 
                 {/* Actions */}
@@ -1314,13 +1330,13 @@ function OrderFormStep({
                     <button
                         type="submit"
                         id="submit-registration-btn"
-                        disabled={isSubmitting}
+                        disabled={isSubmitting || hasPendingUploads}
                         className="flex min-h-[48px] flex-1 touch-manipulation items-center justify-center gap-2.5 rounded-2xl bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] py-3.5 font-bold text-white shadow-lg shadow-blue-200 transition-all duration-200 hover:scale-[1.01] hover:from-[#2e3d6e] hover:to-[#4a57a1] hover:shadow-xl active:scale-[0.99] disabled:scale-100 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 disabled:opacity-70 dark:shadow-blue-900/30"
                     >
-                        {isSubmitting ? (
+                        {isSubmitting || hasPendingUploads ? (
                             <>
                                 <Loader size={16} className="animate-spin" />
-                                Submitting...
+                                {isSubmitting ? 'Submitting...' : 'Uploading files...'}
                             </>
                         ) : (
                             <>

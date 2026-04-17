@@ -1,9 +1,43 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Check, Loader2 } from 'lucide-react';
 import type { FormInputField, OrderFormData } from '@/lib/types';
 
 export type PublicFormAnswers = Record<string, string | string[] | null>;
+
+type OrderFormFileUploadResponse = {
+  success?: boolean;
+  publicUrl?: string;
+  path?: string;
+  fileName?: string;
+  error?: string;
+};
+
+const extractFileNameFromValue = (value: string | string[] | null | undefined): string => {
+  if (typeof value !== 'string') return '';
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  const fallback = () => {
+    const pieces = trimmed.split('/').filter(Boolean);
+    const last = pieces[pieces.length - 1] || trimmed;
+    try {
+      return decodeURIComponent(last);
+    } catch {
+      return last;
+    }
+  };
+
+  try {
+    const parsed = new URL(trimmed);
+    const pieces = parsed.pathname.split('/').filter(Boolean);
+    const last = pieces[pieces.length - 1] || trimmed;
+    return decodeURIComponent(last);
+  } catch {
+    return fallback();
+  }
+};
 
 export function PublicOrderForm({
   formData,
@@ -12,6 +46,9 @@ export function PublicOrderForm({
   touched,
   validationErrors,
   fieldVisible = () => true,
+  eventId,
+  orderFormId,
+  onUploadingChange,
 }: {
   formData: OrderFormData;
   answers: PublicFormAnswers;
@@ -19,7 +56,81 @@ export function PublicOrderForm({
   touched: Set<string>;
   validationErrors: Record<string, string>;
   fieldVisible?: (input: FormInputField) => boolean;
+  eventId?: number;
+  orderFormId?: number;
+  onUploadingChange?: (uploading: boolean) => void;
 }) {
+  const [uploadingByInputId, setUploadingByInputId] = useState<Record<string, boolean>>({});
+  const [uploadErrorByInputId, setUploadErrorByInputId] = useState<Record<string, string>>({});
+  const [uploadLabelByInputId, setUploadLabelByInputId] = useState<Record<string, string>>({});
+
+  const hasPendingUploads = useMemo(
+    () => Object.values(uploadingByInputId).some(Boolean),
+    [uploadingByInputId]
+  );
+
+  useEffect(() => {
+    onUploadingChange?.(hasPendingUploads);
+  }, [hasPendingUploads, onUploadingChange]);
+
+  const handleFileUpload = useCallback(
+    async (input: FormInputField, file: File) => {
+      setUploadErrorByInputId((prev) => {
+        const next = { ...prev };
+        delete next[input.id];
+        return next;
+      });
+      setUploadingByInputId((prev) => ({ ...prev, [input.id]: true }));
+
+      try {
+        if (!eventId || !orderFormId) {
+          onAnswerChange(input.id, file.name);
+          setUploadLabelByInputId((prev) => ({ ...prev, [input.id]: file.name }));
+          return;
+        }
+
+        const payload = new FormData();
+        payload.append('file', file);
+        payload.append('eventId', String(eventId));
+        payload.append('fieldIdentifier', input.fieldIdentifier);
+
+        const response = await fetch(`/api/orderform/${orderFormId}/upload`, {
+          method: 'POST',
+          credentials: 'include',
+          body: payload,
+        });
+
+        const result = (await response.json().catch(() => ({}))) as OrderFormFileUploadResponse;
+        if (!response.ok || !result?.success) {
+          throw new Error(result?.error || 'Failed to upload file.');
+        }
+
+        const uploadedValue =
+          typeof result.publicUrl === 'string' && result.publicUrl.trim().length > 0
+            ? result.publicUrl.trim()
+            : typeof result.path === 'string'
+              ? result.path.trim()
+              : '';
+
+        if (!uploadedValue) {
+          throw new Error('Upload completed but no file URL was returned.');
+        }
+
+        onAnswerChange(input.id, uploadedValue);
+        setUploadLabelByInputId((prev) => ({
+          ...prev,
+          [input.id]: result.fileName || file.name,
+        }));
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to upload file.';
+        setUploadErrorByInputId((prev) => ({ ...prev, [input.id]: message }));
+      } finally {
+        setUploadingByInputId((prev) => ({ ...prev, [input.id]: false }));
+      }
+    },
+    [eventId, onAnswerChange, orderFormId]
+  );
+
   const renderInput = (input: FormInputField) => {
     const base =
       'w-full px-4 py-3 bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#3D518C]/30 focus:border-[#3D518C] dark:focus:border-blue-500 transition-all duration-200';
@@ -137,42 +248,61 @@ export function PublicOrderForm({
           </div>
         );
       case 'file_upload':
+        {
+          const isUploading = !!uploadingByInputId[input.id];
+          const uploadError = uploadErrorByInputId[input.id];
+          const hasCombinedError = hasError || !!uploadError;
+          const displayLabel = uploadLabelByInputId[input.id] || extractFileNameFromValue(val);
+
         return (
-          <label
-            className={`flex min-h-[44px] items-center justify-center w-full border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 py-8 hover:border-[#3D518C] ${hasError ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'} bg-gray-50 dark:bg-gray-700/30`}
-          >
-            <div className="flex flex-col items-center gap-2 text-center px-4">
-              <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
-                <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                  />
-                </svg>
+          <div className="space-y-2">
+            <label
+              className={`flex min-h-[44px] items-center justify-center w-full border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 py-8 hover:border-[#3D518C] ${hasCombinedError ? 'border-red-300' : 'border-gray-300 dark:border-gray-600'} bg-gray-50 dark:bg-gray-700/30`}
+            >
+              <div className="flex flex-col items-center gap-2 text-center px-4">
+                <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center">
+                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  {isUploading ? (
+                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-[#3D518C] dark:text-blue-400">
+                      <Loader2 size={14} className="animate-spin" />
+                      Uploading file...
+                    </div>
+                  ) : displayLabel ? (
+                    <p className="text-sm font-semibold text-[#3D518C] dark:text-blue-400 break-all">{displayLabel}</p>
+                  ) : (
+                    <>
+                      <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Click to upload</p>
+                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">or drag and drop your file here</p>
+                    </>
+                  )}
+                </div>
               </div>
-              <div>
-                {val ? (
-                  <p className="text-sm font-semibold text-[#3D518C] dark:text-blue-400">{val as string}</p>
-                ) : (
-                  <>
-                    <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">Click to upload</p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">or drag and drop your file here</p>
-                  </>
-                )}
-              </div>
-            </div>
-            <input
-              type="file"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) onAnswerChange(input.id, file.name);
-              }}
-            />
-          </label>
+              <input
+                type="file"
+                className="hidden"
+                disabled={isUploading}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  await handleFileUpload(input, file);
+                }}
+              />
+            </label>
+            {uploadError && (
+              <p className="text-xs text-red-500 flex items-center gap-1 mt-1">{uploadError}</p>
+            )}
+          </div>
         );
+        }
       case 'date':
         return (
           <input

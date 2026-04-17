@@ -32,6 +32,7 @@ export function GroupMemberCompleteClient({
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [hasPendingUploads, setHasPendingUploads] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,6 +103,11 @@ export function GroupMemberCompleteClient({
       setValidationErrors(newErrors);
       if (Object.keys(newErrors).length > 0) return;
 
+      if (hasPendingUploads) {
+        setSubmitError('Please wait for file uploads to finish before submitting.');
+        return;
+      }
+
       setIsSubmitting(true);
       setSubmitError(null);
 
@@ -138,7 +144,7 @@ export function GroupMemberCompleteClient({
         setIsSubmitting(false);
       }
     },
-    [formData, orderFormId, answers, token, eventId]
+    [formData, orderFormId, answers, token, eventId, hasPendingUploads]
   );
 
   if (loadState === 'error' && loadError === 'sign_in_required') {
@@ -249,16 +255,26 @@ export function GroupMemberCompleteClient({
           onAnswerChange={handleAnswerChange}
           touched={touched}
           validationErrors={validationErrors}
+          eventId={eventId}
+          orderFormId={orderFormId ?? undefined}
+          onUploadingChange={(uploading) => {
+            setHasPendingUploads(uploading);
+            if (!uploading) {
+              setSubmitError((prev) =>
+                prev === 'Please wait for file uploads to finish before submitting.' ? null : prev
+              );
+            }
+          }}
         />
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || hasPendingUploads}
           className="flex min-h-[48px] w-full items-center justify-center gap-2 py-3.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white font-bold rounded-2xl shadow-lg disabled:opacity-60"
         >
-          {isSubmitting ? (
+          {isSubmitting || hasPendingUploads ? (
             <>
               <Loader size={16} className="animate-spin" />
-              Submitting…
+              {isSubmitting ? 'Submitting…' : 'Uploading files…'}
             </>
           ) : (
             <>
