@@ -33,18 +33,25 @@ export const DEFAULT_ORDER_CONFIRMATION_DATA: OrderConfirmationData = {
   freeTicketApprovalMode: "manual",
 };
 
-function normalizeEmailTemplate(
-  value: unknown,
-  fallback: OrderConfirmationEmailTemplate
-): OrderConfirmationEmailTemplate {
+function normalizeEmailTemplate(value: unknown): OrderConfirmationEmailTemplate {
   const obj = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
   return {
-    subject:
-      typeof obj.subject === "string" && obj.subject.trim().length > 0
-        ? obj.subject
-        : fallback.subject,
-    body: typeof obj.body === "string" ? obj.body : fallback.body,
+    subject: typeof obj.subject === "string" ? obj.subject : "",
+    body: typeof obj.body === "string" ? obj.body : "",
   };
+}
+
+function hasMeaningfulTemplateBody(body: string): boolean {
+  const plainText = body
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return plainText.length > 0;
+}
+
+function isTemplateFullyConfigured(template: OrderConfirmationEmailTemplate): boolean {
+  return template.subject.trim().length > 0 && hasMeaningfulTemplateBody(template.body);
 }
 
 export function normalizeOrderConfirmationData(value: unknown): OrderConfirmationData {
@@ -60,18 +67,9 @@ export function normalizeOrderConfirmationData(value: unknown): OrderConfirmatio
       typeof raw.submissionMessage === "string"
         ? raw.submissionMessage
         : DEFAULT_ORDER_CONFIRMATION_DATA.submissionMessage,
-    submissionEmail: normalizeEmailTemplate(
-      raw.submissionEmail,
-      DEFAULT_ORDER_CONFIRMATION_DATA.submissionEmail
-    ),
-    confirmationEmail: normalizeEmailTemplate(
-      raw.confirmationEmail,
-      DEFAULT_ORDER_CONFIRMATION_DATA.confirmationEmail
-    ),
-    rejectionEmail: normalizeEmailTemplate(
-      raw.rejectionEmail,
-      DEFAULT_ORDER_CONFIRMATION_DATA.rejectionEmail
-    ),
+    submissionEmail: normalizeEmailTemplate(raw.submissionEmail),
+    confirmationEmail: normalizeEmailTemplate(raw.confirmationEmail),
+    rejectionEmail: normalizeEmailTemplate(raw.rejectionEmail),
     freeTicketApprovalMode: freeMode,
   };
 }
@@ -154,15 +152,9 @@ export function renderOrderConfirmationTemplate(params: {
   fallback: OrderConfirmationEmailTemplate;
   context: TemplateContext;
 }): OrderConfirmationEmailTemplate {
-  const subjectTemplate =
-    params.template.subject && params.template.subject.trim().length > 0
-      ? params.template.subject
-      : params.fallback.subject;
-
-  const bodyTemplate =
-    params.template.body && params.template.body.trim().length > 0
-      ? params.template.body
-      : params.fallback.body;
+  const useCustomTemplate = isTemplateFullyConfigured(params.template);
+  const subjectTemplate = useCustomTemplate ? params.template.subject : params.fallback.subject;
+  const bodyTemplate = useCustomTemplate ? params.template.body : params.fallback.body;
 
   return {
     subject: renderTemplateString(subjectTemplate, params.context),
