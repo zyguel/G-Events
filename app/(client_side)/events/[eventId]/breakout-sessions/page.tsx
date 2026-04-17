@@ -3,6 +3,14 @@ import { createClient } from '@/lib/supabase-server';
 import { getPublishedEventById } from '@/lib/actions/events';
 import MyBreakoutsClient from './MyBreakoutsClient';
 
+type BreakoutMeta = {
+    type?: string;
+    status?: string;
+    date?: string;
+    time?: string;
+    joinLink?: string;
+};
+
 export default async function MyBreakoutsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId: slug } = await params;
     const eventId = parseInt(slug?.split('-').pop() ?? '', 10);
@@ -30,10 +38,10 @@ export default async function MyBreakoutsPage({ params }: { params: Promise<{ ev
     }
 
     const { data: regList, error: regError } = await supabase.from('Registration')
-        .select('id')
+        .select('id, status, profile_pending')
         .eq('event_id', eventId)
         .eq('user_id', userRow.id)
-        .not('status', 'in', '("cancelled","rejected")')
+        .order('created_at', { ascending: false })
         .limit(1);
 
     if (regError || !regList || regList.length === 0) {
@@ -41,12 +49,43 @@ export default async function MyBreakoutsPage({ params }: { params: Promise<{ ev
         return (
             <div className="p-8 mt-24 text-center">
                 <h1 className="text-2xl font-bold text-red-500 mb-4">Registration Not Found</h1>
-                <p>We couldn't verify your registration for this event. You must be registered to select breakout sessions.</p>
+                <p>We couldn&apos;t verify your registration for this event. You must be registered to select breakout sessions.</p>
                 <div className="mt-4"><a href={`/events/${slug}`} className="text-blue-500 underline">Go Back</a></div>
             </div>
         );
     }
     const reg = regList[0];
+    const status = String(reg.status || '').toLowerCase();
+
+    if (status === 'cancelled' || status === 'rejected') {
+        return (
+            <div className="p-8 mt-24 text-center">
+                <h1 className="text-2xl font-bold text-red-500 mb-4">Registration Not Found</h1>
+                <p>We couldn&apos;t verify your registration for this event. You must be registered to select breakout sessions.</p>
+                <div className="mt-4"><a href={`/events/${slug}`} className="text-blue-500 underline">Go Back</a></div>
+            </div>
+        );
+    }
+
+    if (status !== 'confirmed') {
+        return (
+            <div className="p-8 mt-24 text-center">
+                <h1 className="text-2xl font-bold text-amber-500 mb-4">Registration Pending Approval</h1>
+                <p>Your event registration is still pending organizer review. You can choose breakout sessions after your registration is confirmed.</p>
+                <div className="mt-4"><a href={`/events/${slug}`} className="text-blue-500 underline">Go Back</a></div>
+            </div>
+        );
+    }
+
+    if (reg.profile_pending === true) {
+        return (
+            <div className="p-8 mt-24 text-center">
+                <h1 className="text-2xl font-bold text-amber-500 mb-4">Complete Your Registration</h1>
+                <p>Finish your registration details before selecting a breakout session.</p>
+                <div className="mt-4"><a href={`/events/${slug}`} className="text-blue-500 underline">Go Back</a></div>
+            </div>
+        );
+    }
 
     // Fetch all breakout sessions
     const { data: sessionsData, error: sessionsError } = await supabase
@@ -64,11 +103,11 @@ export default async function MyBreakoutsPage({ params }: { params: Promise<{ ev
     }
 
     // Parse sessions
-    const parseDescription = (raw: any) => {
+    const parseDescription = (raw: unknown): BreakoutMeta => {
         if (!raw) return {};
         try {
             const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-            return parsed && typeof parsed === "object" ? parsed : {};
+            return parsed && typeof parsed === "object" ? (parsed as BreakoutMeta) : {};
         } catch {
             return {};
         }
@@ -79,7 +118,7 @@ export default async function MyBreakoutsPage({ params }: { params: Promise<{ ev
         
         const registrations = Array.isArray(row.BreakoutSessionRegistration) ? row.BreakoutSessionRegistration : [];
         const currentAttendees = registrations.length;
-        const isJoined = registrations.some((r: any) => r.registration_id === reg.id);
+        const isJoined = registrations.some((r: { registration_id: number }) => r.registration_id === reg.id);
 
         const speakers = row.speaker_name
             ? String(row.speaker_name).split(",").map(name => ({ name: name.trim() })).filter(s => s.name.length > 0)

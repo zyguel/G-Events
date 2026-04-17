@@ -149,6 +149,19 @@ export async function GET(
       });
     }
 
+    if (st !== 'confirmed') {
+      return NextResponse.json({
+        success: true,
+        signedIn: true,
+        eligible: false,
+        registeredForEvent: true,
+        profileComplete: reg.profile_pending !== true,
+        sessions: [],
+        selectedSessionId: null,
+        reason: 'pending_approval',
+      });
+    }
+
     if (reg.profile_pending === true) {
       return NextResponse.json({
         success: true,
@@ -291,6 +304,16 @@ export async function POST(
     const st = String(reg.status || '').toLowerCase();
     if (st === 'cancelled' || st === 'rejected') {
       return NextResponse.json({ success: false, error: 'Registration is not active' }, { status: 403 });
+    }
+
+    if (st !== 'confirmed') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Your registration is pending organizer approval. Breakout selection is available once approved.',
+        },
+        { status: 403 }
+      );
     }
 
     if (reg.profile_pending === true) {
