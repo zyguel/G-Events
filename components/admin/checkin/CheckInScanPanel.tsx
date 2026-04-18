@@ -60,9 +60,11 @@ type ScanJson = {
 export function CheckInScanPanel({
   eventId,
   onAttendanceChanged,
+  workflow = 'checkin',
 }: {
   eventId: string;
   onAttendanceChanged: () => Promise<void>;
+  workflow?: 'checkin' | 'addon_claims';
 }) {
   const [scannerOn, setScannerOn] = useState(true);
   const [scanMode, setScanMode] = useState<ScanMode>('all');
@@ -242,11 +244,13 @@ export function CheckInScanPanel({
   };
 
   const canCheckIn =
+    workflow === 'checkin' &&
     scanResult &&
     ((scanResult.kind === 'main' && !scanResult.mainEventCheckedIn) ||
       (scanResult.kind === 'breakout' && scanResult.breakout && !scanResult.breakout.checkedIn));
 
   const alreadyCheckedInForTarget =
+    workflow === 'checkin' &&
     scanResult &&
     !canCheckIn &&
     ((scanResult.kind === 'main' && scanResult.mainEventCheckedIn) ||
@@ -262,39 +266,49 @@ export function CheckInScanPanel({
             <QrCode className="text-white w-6 h-6" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Scan tickets</h2>
+            <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              {workflow === 'addon_claims' ? 'Scan for add-on claims' : 'Scan tickets'}
+            </h2>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Main event & breakout QR — point camera or paste code
+              {workflow === 'addon_claims'
+                ? "Scan the attendee's ticket QR to claim eligible add-ons"
+                : 'Main event & breakout QR — point camera or paste code'}
             </p>
-            <div
-              className="mt-2 flex flex-wrap gap-1.5"
-              role="group"
-              aria-label="Scan mode"
-            >
-              {(
-                [
-                  ['all', 'All tickets'],
-                  ['main_only', 'Main only'],
-                  ['breakout_only', 'Breakout only'],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => {
-                    setScanMode(value);
-                    dismiss();
-                  }}
-                  className={`rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide transition ${
-                    scanMode === value
-                      ? 'bg-[#3D518C] text-white shadow'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            {workflow === 'checkin' ? (
+              <div
+                className="mt-2 flex flex-wrap gap-1.5"
+                role="group"
+                aria-label="Scan mode"
+              >
+                {(
+                  [
+                    ['all', 'All tickets'],
+                    ['main_only', 'Main only'],
+                    ['breakout_only', 'Breakout only'],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => {
+                      setScanMode(value);
+                      dismiss();
+                    }}
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide transition ${
+                      scanMode === value
+                        ? 'bg-[#3D518C] text-white shadow'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-2 text-[11px] font-medium text-amber-700 dark:text-amber-300">
+                Add-ons are not claimed during normal check-in. Use this tab for claim-only scanning.
+              </p>
+            )}
           </div>
         </div>
         <button
@@ -445,7 +459,7 @@ export function CheckInScanPanel({
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
-              {canCheckIn ? (
+              {workflow === 'checkin' && canCheckIn ? (
                 <button
                   type="button"
                   disabled={applyLoading || claimLoading}
@@ -459,14 +473,14 @@ export function CheckInScanPanel({
                   )}
                   {scanResult.kind === 'main' ? 'Check in — main event' : 'Check in — breakout'}
                 </button>
-              ) : alreadyCheckedInForTarget ? (
+              ) : workflow === 'checkin' && alreadyCheckedInForTarget ? (
                 <div className="flex-1 min-h-[48px] rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-900/20 flex items-center justify-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200 px-3 text-center">
                   <CheckCircle2 size={18} className="shrink-0" />
                   Already checked in for this ticket
                 </div>
               ) : null}
 
-              {scanResult.claimableAddOnQty > 0 ? (
+              {workflow === 'addon_claims' && scanResult.claimableAddOnQty > 0 ? (
                 <button
                   type="button"
                   disabled={claimLoading || applyLoading}
