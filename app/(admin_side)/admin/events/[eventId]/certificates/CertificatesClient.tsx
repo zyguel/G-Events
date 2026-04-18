@@ -330,18 +330,15 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-5xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
         <header className="flex flex-col gap-4 border-b border-gray-200/80 pb-6 dark:border-gray-800 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] shadow-md shadow-blue-500/20">
-              <Award className="h-6 w-6 text-white" />
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] shadow-lg shadow-blue-500/10">
+              <Award className="h-7 w-7 text-white" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#3D518C] dark:text-blue-400">
-                E-Certificates
-              </p>
               <h1 className="text-pretty text-2xl font-extrabold tracking-tight text-gray-900 dark:text-white sm:text-3xl">
-                {event.name}
+                E-Certificates
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
                 {eventDateLabel ? (

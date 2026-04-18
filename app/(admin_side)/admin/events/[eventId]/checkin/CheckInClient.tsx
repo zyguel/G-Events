@@ -391,7 +391,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
             </div>
 
             <div className="p-4 sm:p-6 lg:p-8 relative z-10 pb-24 lg:pb-8">
-                <div className="max-w-6xl mx-auto space-y-6 lg:space-y-8 animate-in fade-in duration-500">
+                <div className="max-w-5xl mx-auto space-y-6 lg:space-y-8 animate-in fade-in duration-500">
                     {/* Page Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                         <div className="flex items-center gap-4">
