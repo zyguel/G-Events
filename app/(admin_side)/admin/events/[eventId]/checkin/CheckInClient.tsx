@@ -441,7 +441,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                         : 'bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200'
                                 }`}
                             >
-                                Main event attendees
+                                Main Event Attendees
                             </button>
                             <button
                                 type="button"
@@ -453,7 +453,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                 }`}
                             >
                                 <Presentation size={16} />
-                                Breakout seats
+                                Breakout Attendees
                             </button>
                             <button
                                 type="button"
@@ -464,7 +464,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                         : 'bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200'
                                 }`}
                             >
-                                Add-on claims
+                                Add-on Claims
                             </button>
                         </div>
                     ) : (
@@ -949,7 +949,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                         <div className="flex flex-col items-center gap-3 text-gray-400 dark:text-gray-500">
                                                             <Search size={40} strokeWidth={1.5} className="opacity-50" />
                                                             <p className="text-lg font-medium text-gray-600 dark:text-gray-400">No add-on claims pending</p>
-                                                            <p className="text-sm">Everyone is already claimed or no add-ons were purchased</p>
+                                                            <p className="text-sm">Everyone has already claimed add-ons or no add-ons were added for this event.</p>
                                                         </div>
                                                     </td>
                                                 </tr>

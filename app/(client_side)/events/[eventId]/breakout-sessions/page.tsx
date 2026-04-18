@@ -24,6 +24,16 @@ export default async function MyBreakoutsPage({ params }: { params: Promise<{ ev
         return notFound();
     }
 
+    if (!event.allow_breakout_sessions) {
+        return (
+            <div className="p-8 mt-24 text-center">
+                <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">Breakout Sessions Not Available</h1>
+                <p className="text-gray-600 dark:text-gray-400">Breakout sessions are not enabled for this event.</p>
+                <div className="mt-6"><a href={`/events/${slug}`} className="text-blue-500 hover:text-blue-600 underline font-medium">Return to Event Page</a></div>
+            </div>
+        );
+    }
+
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 

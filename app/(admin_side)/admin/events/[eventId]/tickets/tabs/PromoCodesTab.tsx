@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Filter, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
+import DateInput from "@/components/admin/DateInput";
+import TimeInput from "@/components/admin/TimeInput";
 import TablePaginationControls from "@/components/admin/TablePaginationControls";
 import { getPromoCodes, createPromoCode, updatePromoCode, deletePromoCode, PromoCode, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
@@ -11,6 +13,27 @@ import { EventSummary } from "@/lib/types";
 interface PromoCodesTabProps {
   event: EventSummary;
 }
+
+const DATE_PART_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_PART_PATTERN = /^\d{2}:\d{2}$/;
+
+const formatDatePart = (value: Date): string => {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getDatePartFromValue = (value: string): string | null => {
+  const datePart = value.split("T")[0] ?? "";
+  return DATE_PART_PATTERN.test(datePart) ? datePart : null;
+};
+
+const getTimePartFromValue = (value: string): string => {
+  const timePart = value.includes("T") ? value.split("T")[1] ?? "" : "";
+  const normalizedTime = timePart.slice(0, 5);
+  return TIME_PART_PATTERN.test(normalizedTime) ? normalizedTime : "";
+};
 
 const initialPromoForm: Omit<PromoCode, "id" | "createdAt"> = {
   code: "",
@@ -41,6 +64,15 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+
+  const updateDateField = (field: "startDate" | "endDate", value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   useEffect(() => {
     loadData();
@@ -165,34 +197,46 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Header with Controls */}
-      <div className="flex justify-between items-center gap-4">
+      {/* Header with Add Button */}
+      <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Event Promotions</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Offer discounts and promo codes for your event.</p>
+        </div>
+        <button
+          onClick={handleAddPromo}
+          className="px-5 py-2.5 text-sm bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 text-white font-bold rounded-xl flex items-center gap-2"
+        >
+          <Plus size={18} strokeWidth={3} />
+          Create Promotion
+        </button>
+      </div>
 
-
-        {/* Search and Filter */}
-        <div className="flex gap-3 items-center">
-          <div className="relative flex-1 max-w-[280px]">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      {/* Search and Filter Row */}
+      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+        <div className="flex gap-3 items-center w-full sm:w-auto">
+          <div className="relative flex-1 sm:min-w-[300px]">
+            <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
-              placeholder="Search codes..."
+              placeholder="Search by code..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-sm text-gray-900 dark:text-white placeholder-gray-400"
+              className="w-full pl-11 pr-4 py-2.5 border border-gray-100 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-800 text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-indigo-100 dark:focus:ring-indigo-900/30 outline-none transition-all"
             />
           </div>
 
           <div className="relative">
             <button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
-              className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-2"
+              className="px-4 py-2.5 text-sm border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all flex items-center gap-2 font-medium text-gray-600 dark:text-gray-300"
             >
               <Filter size={18} />
-              Type
+              {filterType === 'all' ? 'All Types' : filterType === 'promo_code' ? 'Promo Code' : 'Discount'}
             </button>
 
             {isFilterOpen && (
-              <div className="absolute right-0 mt-1 w-40 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-50">
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 {["all", "promo_code", "discount"].map((type) => (
                   <button
                     key={type}
@@ -200,7 +244,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                       setFilterType(type as "all" | "promo_code" | "discount");
                       setIsFilterOpen(false);
                     }}
-                    className={`w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors ${filterType === type ? "bg-blue-50 dark:bg-blue-900/20 text-[#3D518C] font-medium" : ""
+                    className={`w-full text-left px-4 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${filterType === type ? "bg-indigo-50 dark:bg-indigo-900/20 text-[#3D518C] dark:text-indigo-300 font-bold" : "text-gray-600 dark:text-gray-300"
                       }`}
                   >
                     {type === "all" ? "All Types" : type === "promo_code" ? "Promo Code" : "Discount"}
@@ -209,20 +253,11 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
               </div>
             )}
           </div>
-
-          {/* Add Promotion */}
-          <button
-            onClick={handleAddPromo}
-            className="px-4 py-2 text-sm bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.05] transition-all duration-200 text-white font-medium rounded-lg flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Add Promotion
-          </button>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+      {/* Table Content */}
+      <div className="bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm">
         {filteredPromoCodes.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-600 dark:text-gray-400">No promo codes found</p>
@@ -263,7 +298,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                         {promo.valueType === "percentage" ? `${promo.value}%` : `₱${promo.value.toLocaleString()}`}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {promo.usageCount}/{promo.usageLimit > 0 ? promo.usageLimit : "∞"}
+                        {promo.usageCount}/{promo.usageLimit}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <span
@@ -376,28 +411,78 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="flex flex-col gap-4">
             <div>
-              <label className="block text-sm font-medium mb-2">Start Date *</label>
-              <input
-                type="datetime-local"
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.startDate ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                  }`}
-              />
+              <label className="block text-sm font-medium mb-2">Start Date & Time *</label>
+              <div className="flex gap-2">
+                <div className="w-[55%]">
+                  <DateInput
+                    value={formData.startDate ? new Date(formData.startDate.split('T')[0]) : null}
+                    onChange={(date) => {
+                      if (!date) {
+                        updateDateField("startDate", "");
+                        return;
+                      }
+                      const dateStr = formatDatePart(date);
+                      const timeStr = getTimePartFromValue(formData.startDate);
+                      const nextValue = timeStr ? `${dateStr}T${timeStr}` : dateStr;
+                      updateDateField("startDate", nextValue);
+                    }}
+                    placeholder="Select date"
+                    className={errors.startDate ? "border-red-500 text-sm" : "text-sm"}
+                  />
+                </div>
+                <div className="w-[45%]">
+                  <TimeInput
+                    value={getTimePartFromValue(formData.startDate)}
+                    onChange={(time) => {
+                      const now = new Date();
+                      const datePart = getDatePartFromValue(formData.startDate)
+                        || formatDatePart(now);
+                      updateDateField("startDate", time ? `${datePart}T${time}` : datePart);
+                    }}
+                    placeholder="Time"
+                    className={errors.startDate ? "border-red-500 text-sm" : "text-sm"}
+                  />
+                </div>
+              </div>
               {errors.startDate && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.startDate}</p>}
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">End Date *</label>
-              <input
-                type="datetime-local"
-                value={formData.endDate}
-                onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                className={`w-full px-3 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 text-sm ${errors.endDate ? "border-red-500" : "border-gray-200 dark:border-gray-700"
-                  }`}
-              />
+              <label className="block text-sm font-medium mb-2">End Date & Time *</label>
+              <div className="flex gap-2">
+                <div className="w-[55%]">
+                  <DateInput
+                    value={formData.endDate ? new Date(formData.endDate.split('T')[0]) : null}
+                    onChange={(date) => {
+                      if (!date) {
+                        updateDateField("endDate", "");
+                        return;
+                      }
+                      const dateStr = formatDatePart(date);
+                      const timeStr = getTimePartFromValue(formData.endDate);
+                      const nextValue = timeStr ? `${dateStr}T${timeStr}` : dateStr;
+                      updateDateField("endDate", nextValue);
+                    }}
+                    placeholder="Select date"
+                    className={errors.endDate ? "border-red-500 text-sm" : "text-sm"}
+                  />
+                </div>
+                <div className="w-[45%]">
+                  <TimeInput
+                    value={getTimePartFromValue(formData.endDate)}
+                    onChange={(time) => {
+                      const now = new Date();
+                      const datePart = getDatePartFromValue(formData.endDate)
+                        || formatDatePart(now);
+                      updateDateField("endDate", time ? `${datePart}T${time}` : datePart);
+                    }}
+                    placeholder="Time"
+                    className={errors.endDate ? "border-red-500 text-sm" : "text-sm"}
+                  />
+                </div>
+              </div>
               {errors.endDate && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.endDate}</p>}
             </div>
           </div>
@@ -419,12 +504,12 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">Usage Limit (0 = unlimited)</label>
+            <label className="block text-sm font-medium mb-2">Usage Limit</label>
             <ModalInput
               type="number"
               min="0"
               placeholder="0"
-              value={formData.usageLimit || ""}
+              value={formData.usageLimit === 0 ? "" : formData.usageLimit}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, usageLimit: parseInt(e.target.value) || 0 })}
             />
           </div>

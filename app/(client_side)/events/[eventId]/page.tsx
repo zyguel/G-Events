@@ -84,7 +84,7 @@ export default function ClientEventDetailPage() {
         ]).then(([eventData, ticketData, breakoutData]) => {
             setEvent(eventData ?? null);
             setTickets(ticketData.filter(t => t.visibility === 'visible'));
-            setBreakoutSessions(breakoutData as BreakoutSessionItem[]);
+            setBreakoutSessions(eventData?.allow_breakout_sessions ? (breakoutData as BreakoutSessionItem[]) : []);
             setLoading(false);
         }).catch(() => setLoading(false));
 
@@ -462,20 +462,23 @@ export default function ClientEventDetailPage() {
                                         You have secured your spot for <span className="font-semibold text-white">{event.title}</span>.
                                     </p>
                                 </div>
-                                <Link
-                                    href={`/events/${slug}/breakout-sessions`}
-                                    className="flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-white px-6 py-3.5 text-center text-[15px] font-bold text-[#3D518C] shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-blue-50 hover:shadow-xl active:scale-[0.98] md:w-auto md:px-8 touch-manipulation whitespace-nowrap"
-                                >
-                                    View breakout sessions
-                                    <ArrowRight size={18} />
-                                </Link>
+                                {event?.allow_breakout_sessions && (
+                                    <Link
+                                        href={`/events/${slug}/breakout-sessions`}
+                                        className="flex min-h-[48px] w-full shrink-0 items-center justify-center gap-2.5 rounded-2xl bg-white px-6 py-3.5 text-center text-[15px] font-bold text-[#3D518C] shadow-lg transition-all duration-200 hover:scale-[1.02] hover:bg-blue-50 hover:shadow-xl active:scale-[0.98] md:w-auto md:px-8 touch-manipulation whitespace-nowrap"
+                                    >
+                                        View breakout sessions
+                                        <ArrowRight size={18} />
+                                    </Link>
+                                )}
                             </>
                         ) : registrationState === 'pending' ? (
                             <>
                                 <div className="min-w-0 space-y-3 text-center md:text-left">
                                     <h3 className="text-xl font-extrabold text-white sm:text-2xl">Registration pending review</h3>
                                     <p className="text-sm text-blue-100/90">
-                                        We received your registration for <span className="font-semibold text-white">{event.title}</span>. Breakout selection opens after organizer approval.
+                                        We received your registration for <span className="font-semibold text-white">{event.title}</span>.
+                                        {event?.allow_breakout_sessions && " Breakout selection opens after organizer approval."}
                                     </p>
                                 </div>
                                 <div className="w-full md:w-auto rounded-2xl bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white/95 border border-white/20">

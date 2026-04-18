@@ -844,7 +844,15 @@ function GroupMembersStep({
 }) {
     const [emails, setEmails] = useState<string[]>(initialEmails.length > 0 ? initialEmails : ['']);
     const [errors, setErrors] = useState<string[]>(new Array(initialEmails.length > 0 ? initialEmails.length : 1).fill(''));
-    const [verificationStatus, setVerificationStatus] = useState<Record<string, 'loading' | 'verified' | 'unverified' | 'idle'>>({});
+    const [verificationStatus, setVerificationStatus] = useState<Record<string, 'loading' | 'verified' | 'unverified' | 'idle'>>(() => {
+        const init: Record<string, 'loading' | 'verified' | 'unverified' | 'idle'> = {};
+        initialEmails.forEach(email => {
+            if (email.trim() && isValidEmail(email.trim())) {
+                init[email.toLowerCase()] = 'verified';
+            }
+        });
+        return init;
+    });
 
     const checkEmails = async (emailsToCheck: string[]) => {
         const validEmails = emailsToCheck.filter(e => isValidEmail(e.trim()));
@@ -1250,7 +1258,7 @@ function OrderFormStep({
                     <button
                         type="button"
                         onClick={onBack}
-                        className="min-h-[44px] self-start text-left text-xs text-gray-400 underline transition-colors hover:text-gray-600 sm:min-h-0 dark:hover:text-gray-300 touch-manipulation"
+                        className="min-h-[44px] self-start sm:self-center text-left text-sm text-gray-400 underline transition-colors hover:text-gray-600 sm:min-h-0 dark:hover:text-gray-300 touch-manipulation"
                     >
                         Edit members
                     </button>

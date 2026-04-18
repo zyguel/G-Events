@@ -329,13 +329,16 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   return (
     <div className="space-y-6">
       {/* Header with Add Button */}
-      <div className="flex justify-between items-center">
-
+      <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Admission Tickets</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Create and manage your event ticket tiers.</p>
+        </div>
         <button
           onClick={handleAddTicket}
-          className="px-4 py-2 text-sm bg-linear-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.05] transition-all duration-200 text-white font-medium rounded-lg flex items-center gap-2"
+          className="px-5 py-2.5 text-sm bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 text-white font-bold rounded-xl flex items-center gap-2"
         >
-          <Plus size={18} />
+          <Plus size={18} strokeWidth={3} />
           Add Ticket
         </button>
       </div>

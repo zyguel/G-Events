@@ -70,26 +70,6 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
     const { t } = useLocale();
     const { pendingHref, isNavigationLocked, isPendingHref, handleNavigate } = useSidebarNavigationGuard(pathname);
 
-    // Calculate the position of the sliding indicator based on active page
-    const getIndicatorPosition = () => {
-        const mainItems = ['dashboard', 'events', 'analytics', 'management'];
-        const bottomItems = ['settings', 'profile'];
-
-        const mainIndex = mainItems.indexOf(activePage);
-        if (mainIndex !== -1) {
-            // Each item is 38px height (py-2 = 8px * 2 + 18px icon) + 8px gap
-            return { top: 24 + (mainIndex * 46), isBottom: false };
-        }
-
-        const bottomIndex = bottomItems.indexOf(activePage);
-        if (bottomIndex !== -1) {
-            return { top: bottomIndex * 46, isBottom: true };
-        }
-
-        return { top: 0, isBottom: false };
-    };
-
-    const indicatorPos = getIndicatorPosition();
     const { hasPermission, isAdmin, role, loading } = usePermissions();
 
     // permResolved = true means we know the user's role; apply restrictions
@@ -99,6 +79,34 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
     const canCheckIn = !permResolved || isAdmin || hasPermission('Check In Attendees');
     const canViewAnalytics = !permResolved || isAdmin || hasPermission('View Reports');
     const canViewManagement = !permResolved || isAdmin;
+
+    // Calculate the position of the sliding indicator based on active page
+    const getIndicatorPosition = () => {
+        const itemStride = 42; // Each item is 34px height (py-2 = 16px + 18px icon) + 8px gap
+
+        // Main navigation items visibility
+        const mainItems = [
+            { id: 'dashboard', visible: true },
+            { id: 'events', visible: canViewEvents },
+            { id: 'analytics', visible: canViewAnalytics },
+            { id: 'management', visible: canViewManagement },
+        ].filter(i => i.visible).map(i => i.id);
+
+        const bottomItems = ['settings', 'profile'];
+
+        const mainIndex = mainItems.indexOf(activePage);
+        if (mainIndex !== -1) {
+            return { top: 24 + (mainIndex * itemStride), isBottom: false };
+        }
+
+        const bottomIndex = bottomItems.indexOf(activePage);
+        if (bottomIndex !== -1) {
+            return { top: bottomIndex * itemStride, isBottom: true };
+        }
+
+        return { top: 0, isBottom: false };
+    };
+    const indicatorPos = getIndicatorPosition();
 
     const { isCompactAdmin } = useAdminCompactMode();
     const showCompactNav = isCompactAdmin && (canViewEvents || canCheckIn);

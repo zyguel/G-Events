@@ -49,7 +49,8 @@ export default async function EventLayout({
         name: data.title,
         date: data.event_start_at || '',
         status: status,
-        allowWaitlist: data.allow_waitlist ?? false
+        allowWaitlist: data.allow_waitlist ?? false,
+        allowBreakouts: data.allow_breakout_sessions ?? false
     };
 
     return (
