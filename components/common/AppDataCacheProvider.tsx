@@ -510,6 +510,7 @@ function extractEventIds(payload: unknown): number[] {
 export default function AppDataCacheProvider() {
   const pathname = usePathname() || "/";
   const warmupTimerRef = useRef<number | null>(null);
+  const secondaryWarmTimerRef = useRef<number | null>(null);
   const pathnameRef = useRef(pathname);
   const routeWarmRef = useRef<(nextPath: string) => void>(() => {});
 
@@ -518,6 +519,7 @@ export default function AppDataCacheProvider() {
     const eventIdsRef: { current: number[] } = { current: [] };
     const warmInFlightRef: { current: Map<string, Promise<void>> } = { current: new Map() };
     const backgroundRevalidateRef: { current: Map<string, number> } = { current: new Map() };
+    const pathWarmInFlightRef: { current: Map<string, Promise<void>> } = { current: new Map() };
 
     const getEventIds = async (): Promise<number[]> => {
       if (eventIdsRef.current.length > 0) {
@@ -585,6 +587,13 @@ export default function AppDataCacheProvider() {
     };
 
     const warmForPath = async (nextPath: string) => {
+      const existing = pathWarmInFlightRef.current.get(nextPath);
+      if (existing) {
+        await existing;
+        return;
+      }
+
+      const run = (async () => {
       if (!isAdminRealtimeRoute(nextPath)) {
         return;
       }
@@ -601,14 +610,34 @@ export default function AppDataCacheProvider() {
 
       await warmUrls(primaryUrls);
 
+      if (secondaryWarmTimerRef.current) {
+        window.clearTimeout(secondaryWarmTimerRef.current);
+        secondaryWarmTimerRef.current = null;
+      }
+
       if (routePlan.secondary.length > 0) {
         if (SECONDARY_WARM_DELAY_MS <= 0) {
           await warmUrls(routePlan.secondary);
         } else {
-          window.setTimeout(() => {
-            void warmUrls(routePlan.secondary);
+          secondaryWarmTimerRef.current = window.setTimeout(() => {
+            // Cancel deferred secondary warm when the user moved away from this route.
+            if (pathnameRef.current !== nextPath || document.hidden) {
+              return;
+            }
+
+            void warmUrls(routePlan.secondary).catch(() => {
+              // Ignore deferred warm failures.
+            });
           }, SECONDARY_WARM_DELAY_MS);
         }
+      }
+      })();
+
+      pathWarmInFlightRef.current.set(nextPath, run);
+      try {
+        await run;
+      } finally {
+        pathWarmInFlightRef.current.delete(nextPath);
       }
     };
 
@@ -788,6 +817,9 @@ export default function AppDataCacheProvider() {
       window.clearInterval(periodicRefreshId);
       if (warmupTimerRef.current) {
         window.clearTimeout(warmupTimerRef.current);
+      }
+      if (secondaryWarmTimerRef.current) {
+        window.clearTimeout(secondaryWarmTimerRef.current);
       }
       disconnectRealtime();
       authSubscription?.unsubscribe();
