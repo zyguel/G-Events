@@ -261,7 +261,7 @@ export async function GET(
         const [addOnResult, paymentResult] = await Promise.all([
             supabase
                 .from("AddOnRedemption")
-                .select("registration_id, is_claimed, is_redeemed, redeemed, redeemed_at, claimed_at")
+                .select("*")
                 .in("registration_id", registrationIds),
             supabase
                 .from("PaymentProof")

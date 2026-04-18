@@ -5,6 +5,7 @@ import { LocaleProvider } from "@/contexts/LocaleContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { PermissionProvider } from "@/contexts/PermissionContext";
 import UnhandledMediaAbortGuard from "@/components/common/UnhandledMediaAbortGuard";
+import AppDataCacheProvider from "@/components/common/AppDataCacheProvider";
 import { Analytics } from "@vercel/analytics/next";
 
 const figtree = Figtree({
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className={`${figtree.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <LocaleProvider>
           <UnhandledMediaAbortGuard />
+          <AppDataCacheProvider />
           <NotificationProvider>
             <PermissionProvider>
               {children}
