@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 import { createClient } from "@/lib/supabase-browser";
 
@@ -117,7 +118,7 @@ function uniqueUrls(urls: string[]): string[] {
   return Array.from(new Set(urls));
 }
 
-function normalizePathWithQuery(input: RequestInfo | URL): string | null {
+function resolveRequestUrl(input: RequestInfo | URL): URL | null {
   const rawUrl =
     typeof input === "string"
       ? input
@@ -126,11 +127,45 @@ function normalizePathWithQuery(input: RequestInfo | URL): string | null {
         : input.url;
 
   try {
-    const url = new URL(rawUrl, window.location.origin);
-    return `${url.pathname}${url.search}`;
+    return new URL(rawUrl, window.location.origin);
   } catch {
     return null;
   }
+}
+
+function normalizePathWithQuery(input: RequestInfo | URL): string | null {
+  const url = resolveRequestUrl(input);
+  if (!url) {
+    return null;
+  }
+
+  return `${url.pathname}${url.search}`;
+}
+
+function buildCachedJsonResponse(entry: JsonCacheEntry, cacheState: string): Response {
+  return new Response(JSON.stringify(entry.data), {
+    status: entry.status,
+    headers: {
+      "Content-Type": "application/json",
+      "X-G-Events-Cache": cacheState,
+    },
+  });
+}
+
+function isAdminRealtimeRoute(pathname: string): boolean {
+  const normalized = pathname.toLowerCase();
+  return (
+    normalized === "/dashboard" ||
+    normalized.startsWith("/dashboard/") ||
+    normalized === "/admin/events" ||
+    normalized.startsWith("/admin/events/") ||
+    normalized === "/management" ||
+    normalized.startsWith("/management/") ||
+    normalized === "/profile" ||
+    normalized.startsWith("/profile/") ||
+    normalized === "/settings" ||
+    normalized.startsWith("/settings/")
+  );
 }
 
 async function storeJsonResponse(pathWithQuery: string, response: Response): Promise<void> {
@@ -547,14 +582,15 @@ export default function AppDataCacheProvider() {
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
 
-      const pathWithQuery = normalizePathWithQuery(input);
-      if (!pathWithQuery) {
+      const resolvedUrl = resolveRequestUrl(input);
+      if (!resolvedUrl) {
         return originalFetch(input, init);
       }
 
-      const url = new URL(pathWithQuery, window.location.origin);
+      const isSameOrigin = resolvedUrl.origin === window.location.origin;
+      const pathWithQuery = `${resolvedUrl.pathname}${resolvedUrl.search}`;
 
-      if (method !== "GET" || !isCacheableApiPath(url.pathname)) {
+      if (!isSameOrigin || method !== "GET" || !isCacheableApiPath(resolvedUrl.pathname)) {
         return originalFetch(input, init);
       }
 
@@ -563,16 +599,12 @@ export default function AppDataCacheProvider() {
         const lastRevalidateAt = backgroundRevalidateRef.current.get(pathWithQuery) || 0;
         if (Date.now() - lastRevalidateAt >= CACHE_HIT_REVALIDATE_INTERVAL_MS) {
           backgroundRevalidateRef.current.set(pathWithQuery, Date.now());
-          void warmUrlOnce(pathWithQuery);
+          void warmUrlOnce(pathWithQuery).catch(() => {
+            // Ignore background refresh failures; stale cached data is still served.
+          });
         }
 
-        return new Response(JSON.stringify(cached.data), {
-          status: cached.status,
-          headers: {
-            "Content-Type": "application/json",
-            "X-G-Events-Cache": "HIT",
-          },
-        });
+        return buildCachedJsonResponse(cached, "HIT");
       }
 
       const inflightWarm = warmInFlightRef.current.get(pathWithQuery);
@@ -580,35 +612,86 @@ export default function AppDataCacheProvider() {
         await inflightWarm;
         const refreshed = readCache(pathWithQuery);
         if (refreshed) {
-          return new Response(JSON.stringify(refreshed.data), {
-            status: refreshed.status,
-            headers: {
-              "Content-Type": "application/json",
-              "X-G-Events-Cache": "INFLIGHT-HIT",
-            },
-          });
+          return buildCachedJsonResponse(refreshed, "INFLIGHT-HIT");
         }
       }
 
-      const response = await originalFetch(input, init);
-      void storeJsonResponse(pathWithQuery, response.clone());
-      return response;
+      try {
+        const response = await originalFetch(input, init);
+        void storeJsonResponse(pathWithQuery, response.clone());
+        return response;
+      } catch (error) {
+        if (cached) {
+          return buildCachedJsonResponse(cached, "STALE-NETWORK");
+        }
+
+        throw error;
+      }
     };
 
     const supabase = createClient();
-    const channel = supabase
-      .channel("g-events-app-data-cache")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-        },
-        () => {
-          scheduleWarmup();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let authSubscription: { unsubscribe: () => void } | null = null;
+    let isActive = true;
+
+    const connectRealtime = () => {
+      if (!isActive || channel) {
+        return;
+      }
+
+      channel = supabase
+        .channel("g-events-app-data-cache")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+          },
+          () => {
+            scheduleWarmup();
+          }
+        )
+        .subscribe();
+    };
+
+    const disconnectRealtime = () => {
+      if (!channel) {
+        return;
+      }
+
+      void supabase.removeChannel(channel);
+      channel = null;
+    };
+
+    if (isAdminRealtimeRoute(pathnameRef.current)) {
+      void supabase.auth
+        .getSession()
+        .then((result: { data: { session: Session | null }; error: unknown }) => {
+          if (!isActive) {
+            return;
+          }
+
+          if (result.error || !result.data.session) {
+            return;
+          }
+
+          connectRealtime();
+        })
+        .catch(() => {
+          // Ignore auth bootstrap failures; periodic warm and route warm still run.
+        });
+
+      const { data } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+        if (!session) {
+          disconnectRealtime();
+          return;
         }
-      )
-      .subscribe();
+
+        connectRealtime();
+      });
+
+      authSubscription = data.subscription;
+    }
 
     const periodicRefreshId = window.setInterval(() => {
       if (!document.hidden) {
@@ -628,12 +711,14 @@ export default function AppDataCacheProvider() {
     }
 
     return () => {
+      isActive = false;
       window.fetch = originalFetch;
       window.clearInterval(periodicRefreshId);
       if (warmupTimerRef.current) {
         window.clearTimeout(warmupTimerRef.current);
       }
-      void supabase.removeChannel(channel);
+      disconnectRealtime();
+      authSubscription?.unsubscribe();
     };
   }, []);
 
