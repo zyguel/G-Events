@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { getAdminSupabaseForEventOr404 } from "@/lib/apiEventAccess";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 
 export async function DELETE(
@@ -20,7 +20,10 @@ export async function DELETE(
       );
     }
 
-    const supabase = await createClient();
+    const access = await getAdminSupabaseForEventOr404(parsedEventId);
+    if (!access.ok) return access.response;
+    const supabase = access.supabase;
+
     const { data: existing, error: existingError } = await supabase
       .from("EventEmailCampaign")
       .select("id")

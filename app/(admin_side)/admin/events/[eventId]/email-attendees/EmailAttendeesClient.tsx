@@ -811,7 +811,9 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                                 <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
                                                     Email Filters
                                                 </h2>
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Select who should receive this email</p>
+                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
+                                                    Select who should receive this email. Each category only applies when you choose at least one option (or use Select all).
+                                                </p>
                                             </div>
                                         </div>
                                         <button

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { getAdminSupabaseForEventOr404 } from "@/lib/apiEventAccess";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 import { getEventCertificateRecipients } from "@/lib/certificates";
 
@@ -15,8 +15,10 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const recipients = await getEventCertificateRecipients(supabase, id);
+    const access = await getAdminSupabaseForEventOr404(id);
+    if (!access.ok) return access.response;
+
+    const recipients = await getEventCertificateRecipients(access.supabase, id);
     return NextResponse.json({ success: true, data: recipients });
   } catch (e: unknown) {
     const authError = getAuthErrorResponse(e);

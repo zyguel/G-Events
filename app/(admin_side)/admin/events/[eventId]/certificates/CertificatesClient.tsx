@@ -277,7 +277,7 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
         showToast(`Issued ${json?.issuedCount ?? 0} certificates.`);
       }
     } catch (error) {
-      showToast("Error issuing certificates");
+      showToast(error instanceof Error ? error.message : "Error issuing certificates");
       console.error(error);
     } finally {
       setIsLoading(false);
@@ -331,7 +331,7 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
       ) : null}
 
       <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
-        <header className="flex flex-col gap-4 border-b border-gray-200/80 pb-6 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+        <header className="flex flex-col gap-4 border-b border-gray-200/80 pb-6 dark:border-gray-800 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] shadow-md shadow-blue-500/20">
               <Award className="h-6 w-6 text-white" />
@@ -364,8 +364,23 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                   {event.status}
                 </span>
               </div>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-gray-600 dark:text-gray-400">
+                Build a template, position the attendee name on the preview, then issue PDFs or email links. Recipients
+                are confirmed or checked-in attendees (not waitlisted).
+              </p>
             </div>
           </div>
+          {!event.id.startsWith("evt-") ? (
+            <button
+              type="button"
+              onClick={() => loadData()}
+              disabled={isInitialLoading}
+              className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition hover:border-[#3D518C]/40 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-200 dark:hover:bg-gray-800"
+            >
+              <RefreshCw size={16} className={isInitialLoading ? "animate-spin" : ""} />
+              Refresh data
+            </button>
+          ) : null}
         </header>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 lg:gap-8">
