@@ -54,11 +54,6 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
         }
     }, [eventId]);
 
-<<<<<<< Updated upstream
-=======
-
-
->>>>>>> Stashed changes
     const handleSaveEmail = async (type: 'submission' | 'confirmation' | 'rejection') => {
         try {
             await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
@@ -95,11 +90,6 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                 </div>
             </div>
 
-<<<<<<< Updated upstream
-=======
-
-
->>>>>>> Stashed changes
             {/* Registration Submission E-mail */}
             <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
                 <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
