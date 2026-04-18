@@ -77,7 +77,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
     const [openActionId, setOpenActionId] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
-    const [listTab, setListTab] = useState<'main' | 'breakout'>('main');
+    const [listTab, setListTab] = useState<'main' | 'breakout' | 'addons'>('main');
     const [breakoutRoster, setBreakoutRoster] = useState<BreakoutRosterRow[]>([]);
     const [breakoutLoading, setBreakoutLoading] = useState(false);
     const [breakoutError, setBreakoutError] = useState<string | null>(null);
@@ -290,21 +290,36 @@ export default function CheckInClient({ event }: CheckInClientProps) {
         return matchesSearch && matchesFilter;
     });
 
+    const filteredClaimableAttendees = attendees.filter((attendee) => {
+        const matchesSearch =
+            attendee.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            attendee.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            attendee.registrationId.includes(searchQuery);
+
+        return matchesSearch && Number(attendee.claimableAddOnQty || 0) > 0;
+    });
+
     const paginatedAttendees = filteredAttendees.slice(
+        (currentPage - 1) * rowsPerPage,
+        currentPage * rowsPerPage
+    );
+
+    const paginatedClaimableAttendees = filteredClaimableAttendees.slice(
         (currentPage - 1) * rowsPerPage,
         currentPage * rowsPerPage
     );
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, activeFilter]);
+    }, [searchQuery, activeFilter, listTab]);
 
     useEffect(() => {
-        const totalPages = Math.max(1, Math.ceil(filteredAttendees.length / rowsPerPage));
+        const activeCount = listTab === 'addons' ? filteredClaimableAttendees.length : filteredAttendees.length;
+        const totalPages = Math.max(1, Math.ceil(activeCount / rowsPerPage));
         if (currentPage > totalPages) {
             setCurrentPage(totalPages);
         }
-    }, [currentPage, filteredAttendees.length, rowsPerPage]);
+    }, [currentPage, filteredAttendees.length, filteredClaimableAttendees.length, listTab, rowsPerPage]);
 
     const stats = {
         total: attendees.length,
@@ -343,7 +358,11 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                     </div>
 
                     {!event.id.startsWith('evt-') && (
-                        <CheckInScanPanel eventId={event.id} onAttendanceChanged={refreshAttendance} />
+                        <CheckInScanPanel
+                            eventId={event.id}
+                            onAttendanceChanged={refreshAttendance}
+                            workflow={listTab === 'addons' ? 'addon_claims' : 'checkin'}
+                        />
                     )}
 
                     {/* Stats Section */}
@@ -383,6 +402,17 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                             >
                                 <Presentation size={16} />
                                 Breakout seats
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setListTab('addons')}
+                                className={`min-h-[44px] rounded-xl px-4 py-2 text-sm font-bold transition touch-manipulation ${
+                                    listTab === 'addons'
+                                        ? 'bg-amber-500 text-gray-900 shadow-md'
+                                        : 'bg-white/80 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200'
+                                }`}
+                            >
+                                Add-on claims
                             </button>
                         </div>
                     ) : (
@@ -575,18 +605,6 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                         >
                                             {attendee.status === 'Checked-In' ? 'Undo check-in' : 'Check in'}
                                         </button>
-                                        {Number(attendee.claimableAddOnQty || 0) > 0 ? (
-                                            <button
-                                                type="button"
-                                                disabled={claimingId === attendee.registrationId || updatingId === attendee.registrationId}
-                                                onClick={() => void handleClaimAddOns(attendee.registrationId)}
-                                                className="w-full min-h-[44px] rounded-xl text-sm font-bold bg-amber-400 text-gray-900 hover:bg-amber-300 disabled:opacity-50"
-                                            >
-                                                {claimingId === attendee.registrationId
-                                                    ? 'Claiming add-ons...'
-                                                    : `Claim add-on${Number(attendee.claimableAddOnQty || 0) > 1 ? 's' : ''}`}
-                                            </button>
-                                        ) : null}
                                     </div>
                                 ))
                             )}
@@ -693,18 +711,6 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                                                 </>
                                                                             )}
                                                                         </button>
-                                                                        {Number(attendee.claimableAddOnQty || 0) > 0 ? (
-                                                                            <button
-                                                                                onClick={() => void handleClaimAddOns(attendee.registrationId)}
-                                                                                disabled={claimingId === attendee.registrationId || updatingId === attendee.registrationId}
-                                                                                className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 transition-colors disabled:opacity-50"
-                                                                            >
-                                                                                <CheckCircle size={16} className="text-amber-500 dark:text-amber-400" />
-                                                                                {claimingId === attendee.registrationId
-                                                                                    ? 'Claiming add-ons...'
-                                                                                    : `Claim add-on${Number(attendee.claimableAddOnQty || 0) > 1 ? 's' : ''}`}
-                                                                            </button>
-                                                                        ) : null}
                                                                         <button className="w-full text-left px-3 py-2.5 rounded-lg text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 transition-colors">
                                                                             <Eye size={16} className="text-blue-500 dark:text-blue-400" />
                                                                             View Details
@@ -744,6 +750,158 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                         />
                     </div>
                     </>
+                    ) : null}
+
+                    {!event.id.startsWith('evt-') && listTab === 'addons' ? (
+                        <>
+                            <div className="space-y-2 pt-2">
+                                <h2 className="text-sm font-bold uppercase tracking-wider text-amber-600 dark:text-amber-300">
+                                    Add-on claims queue
+                                </h2>
+                                <p className="text-xs text-gray-600 dark:text-gray-400">
+                                    Use the scanner above to claim from the attendee ticket QR, or claim manually from this list.
+                                </p>
+                            </div>
+
+                            <div className="glass-panel p-1.5 rounded-2xl flex flex-col md:flex-row items-stretch md:items-center gap-2 bg-white/70 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 backdrop-blur-xl shadow-sm transition-all duration-300 relative z-30">
+                                <div className="relative flex-1 w-full group">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 group-focus-within:text-amber-600 transition-colors w-5 h-5" />
+                                    <input
+                                        type="text"
+                                        placeholder="Search claim queue by ID, name, or email..."
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        className="w-full pl-12 pr-4 py-3 bg-transparent text-gray-900 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none rounded-xl"
+                                    />
+                                </div>
+                                {searchQuery ? (
+                                    <button
+                                        onClick={() => setSearchQuery('')}
+                                        className="px-4 py-2.5 bg-gray-100/50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl text-sm font-medium transition-all"
+                                    >
+                                        Clear
+                                    </button>
+                                ) : null}
+                            </div>
+
+                            <div className="rounded-2xl border border-amber-200/80 dark:border-amber-800/60 bg-white/60 dark:bg-gray-800/80 backdrop-blur-sm overflow-hidden shadow-sm transition-colors duration-300">
+                                {error ? (
+                                    <div className="px-4 sm:px-6 pt-4 sm:pt-6 text-sm text-red-600 dark:text-red-300">{error}</div>
+                                ) : null}
+
+                                <div className="lg:hidden divide-y divide-gray-100 dark:divide-gray-700 p-2 space-y-2">
+                                    {isLoading ? (
+                                        <p className="px-3 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">Loading claim queue…</p>
+                                    ) : filteredClaimableAttendees.length === 0 ? (
+                                        <p className="px-3 py-10 text-center text-gray-500 dark:text-gray-400 text-sm">No claimable add-ons found</p>
+                                    ) : (
+                                        paginatedClaimableAttendees.map((attendee) => (
+                                            <div
+                                                key={attendee.registrationId}
+                                                className="rounded-xl border border-amber-100 dark:border-amber-900/40 bg-white dark:bg-gray-800/60 p-4 space-y-2"
+                                            >
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="min-w-0">
+                                                        <p className="font-semibold text-gray-900 dark:text-white truncate">{attendee.name}</p>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{attendee.email}</p>
+                                                    </div>
+                                                    <span className="shrink-0 text-[10px] font-bold uppercase px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                                        {attendee.claimableAddOnQty} to claim
+                                                    </span>
+                                                </div>
+                                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                                    #{attendee.registrationId} · {attendee.ticketType}
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    disabled={claimingId === attendee.registrationId || updatingId === attendee.registrationId}
+                                                    onClick={() => void handleClaimAddOns(attendee.registrationId)}
+                                                    className="w-full min-h-[44px] rounded-xl text-sm font-bold bg-amber-400 text-gray-900 hover:bg-amber-300 disabled:opacity-50"
+                                                >
+                                                    {claimingId === attendee.registrationId
+                                                        ? 'Claiming add-ons...'
+                                                        : `Claim add-on${Number(attendee.claimableAddOnQty || 0) > 1 ? 's' : ''}`}
+                                                </button>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+
+                                <div className="hidden lg:block overflow-x-auto [&::-webkit-scrollbar]:h-2 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:bg-amber-300 dark:[&::-webkit-scrollbar-thumb]:bg-amber-700 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-amber-400 dark:hover:[&::-webkit-scrollbar-thumb]:bg-amber-600 transition-colors">
+                                    <table className="w-full text-sm text-left">
+                                        <thead className="bg-amber-50/70 dark:bg-amber-950/30 border-b border-amber-200/80 dark:border-amber-800/60 transition-colors duration-300">
+                                            <tr>
+                                                <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Registration ID</th>
+                                                <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Name</th>
+                                                <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Email</th>
+                                                <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Ticket Type</th>
+                                                <th className="px-6 py-5 text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Claimable</th>
+                                                <th className="px-6 py-5 text-center text-gray-500 dark:text-gray-400 font-semibold uppercase text-xs tracking-wider whitespace-nowrap">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                            {isLoading ? (
+                                                <tr>
+                                                    <td colSpan={6} className="px-6 py-20 text-center text-gray-500 dark:text-gray-400">
+                                                        Loading claim queue...
+                                                    </td>
+                                                </tr>
+                                            ) : filteredClaimableAttendees.length > 0 ? (
+                                                paginatedClaimableAttendees.map((attendee) => (
+                                                    <tr
+                                                        key={attendee.registrationId}
+                                                        className="group hover:bg-amber-50/40 dark:hover:bg-amber-900/10 transition-colors duration-200"
+                                                    >
+                                                        <td className="px-6 py-4 font-mono text-amber-700 dark:text-amber-300 whitespace-nowrap">{attendee.registrationId}</td>
+                                                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white whitespace-nowrap">{attendee.name}</td>
+                                                        <td className="px-6 py-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">{attendee.email}</td>
+                                                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300 whitespace-nowrap">{attendee.ticketType}</td>
+                                                        <td className="px-6 py-4 whitespace-nowrap">
+                                                            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/20">
+                                                                {attendee.claimableAddOnQty} to claim
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 whitespace-nowrap text-center">
+                                                            <button
+                                                                type="button"
+                                                                disabled={claimingId === attendee.registrationId || updatingId === attendee.registrationId}
+                                                                onClick={() => void handleClaimAddOns(attendee.registrationId)}
+                                                                className="min-h-[40px] px-4 rounded-lg bg-amber-400 text-gray-900 hover:bg-amber-300 text-sm font-bold disabled:opacity-50"
+                                                            >
+                                                                {claimingId === attendee.registrationId
+                                                                    ? 'Claiming...'
+                                                                    : `Claim add-on${Number(attendee.claimableAddOnQty || 0) > 1 ? 's' : ''}`}
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={6} className="px-6 py-20 text-center">
+                                                        <div className="flex flex-col items-center gap-3 text-gray-400 dark:text-gray-500">
+                                                            <Search size={40} strokeWidth={1.5} className="opacity-50" />
+                                                            <p className="text-lg font-medium text-gray-600 dark:text-gray-400">No add-on claims pending</p>
+                                                            <p className="text-sm">Everyone is already claimed or no add-ons were purchased</p>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <TablePaginationControls
+                                    totalItems={filteredClaimableAttendees.length}
+                                    currentPage={currentPage}
+                                    rowsPerPage={rowsPerPage}
+                                    onPageChange={setCurrentPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setRowsPerPage(rows);
+                                        setCurrentPage(1);
+                                    }}
+                                />
+                            </div>
+                        </>
                     ) : null}
                 </div>
             </div>
