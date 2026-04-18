@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { LogOut, AlertTriangle, Users } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import NotificationDropdown from './NotificationDropdown';
@@ -92,51 +93,86 @@ const Header = () => {
 
     useEffect(() => {
         const supabase = createClient();
+        let cancelled = false;
 
-        const fetchUser = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const nextUser = await buildUserProfile({
-                    email: user.email,
-                    user_metadata: user.user_metadata as Record<string, unknown> | undefined,
-                });
-                setUser(nextUser);
-                setAvatarSourceIndex(0);
+        const setUserFromRaw = async (rawUser: {
+            email?: string;
+            user_metadata?: Record<string, unknown>;
+        }) => {
+            try {
+                const nextUser = await buildUserProfile(rawUser);
+                if (!cancelled) {
+                    setUser(nextUser);
+                    setAvatarSourceIndex(0);
+                }
+            } catch {
+                const name = (rawUser.user_metadata?.name as string | undefined)
+                    || (rawUser.user_metadata?.full_name as string | undefined)
+                    || rawUser.email?.split('@')[0]
+                    || 'User';
+                if (!cancelled) {
+                    setUser({
+                        name,
+                        email: rawUser.email ?? '',
+                        avatarSeed: encodeURIComponent(name),
+                        metadataAvatarUrl: null,
+                        bucketAvatarUrl: null,
+                    });
+                    setAvatarSourceIndex(0);
+                }
             }
         };
 
-        fetchUser();
+        const fetchUser = async () => {
+            try {
+                const { data, error } = await supabase.auth.getSession();
+                if (error) {
+                    console.warn('Header: failed to read auth session', error);
+                    if (!cancelled) {
+                        setUser(null);
+                    }
+                    return;
+                }
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+                const sessionUser = data.session?.user;
+                if (sessionUser) {
+                    await setUserFromRaw({
+                        email: sessionUser.email,
+                        user_metadata: sessionUser.user_metadata as Record<string, unknown> | undefined,
+                    });
+                    return;
+                }
+
+                if (!cancelled) {
+                    setUser(null);
+                }
+            } catch (error) {
+                console.warn('Header: auth session bootstrap failed', error);
+                if (!cancelled) {
+                    setUser(null);
+                }
+            }
+        };
+
+        void fetchUser();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
             if (session?.user) {
-                buildUserProfile({
+                void setUserFromRaw({
                     email: session.user.email,
                     user_metadata: session.user.user_metadata as Record<string, unknown> | undefined,
-                })
-                    .then((nextUser) => {
-                        setUser(nextUser);
-                        setAvatarSourceIndex(0);
-                    })
-                    .catch(() => {
-                        const name = (session.user.user_metadata?.name as string | undefined)
-                            || (session.user.user_metadata?.full_name as string | undefined)
-                            || session.user.email?.split('@')[0]
-                            || 'User';
-                        setUser({
-                            name,
-                            email: session.user.email ?? '',
-                            avatarSeed: encodeURIComponent(name),
-                            metadataAvatarUrl: null,
-                            bucketAvatarUrl: null,
-                        });
-                        setAvatarSourceIndex(0);
-                    });
+                });
             } else {
-                setUser(null);
+                if (!cancelled) {
+                    setUser(null);
+                }
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            cancelled = true;
+            subscription.unsubscribe();
+        };
     }, []);
 
     const handleLogoutConfirm = async () => {

@@ -2,13 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOrganizationRoles, createRole } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
-import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
+import { getUserActiveOrganizationByEmail, parseOrganizationId } from '@/lib/auth/sessionRole';
+import { getCachedManagementRoles, invalidateManagementRolesCache, setCachedManagementRoles } from '@/lib/managementCache';
 
-async function getActiveOrganizationId(request: NextRequest): Promise<number | null> {
+async function getActiveOrganizationId(
+    request: NextRequest,
+    userEmail: string
+): Promise<number | null> {
     const preferredOrganizationId = parseOrganizationId(
         request.cookies.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
     );
-    const context = await getCurrentUserActiveOrganization(preferredOrganizationId);
+    const context = await getUserActiveOrganizationByEmail(userEmail, preferredOrganizationId);
     return context.activeOrganizationId;
 }
 
@@ -19,8 +23,16 @@ function getErrorMessage(error: unknown) {
 // GET /api/management/roles - List all roles in organization
 export async function GET(request: NextRequest) {
     try {
-        await requireUser();
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return NextResponse.json(
+                { success: false, error: 'Authenticated user email is missing' },
+                { status: 400 }
+            );
+        }
+
+        const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
         if (!activeOrganizationId) {
             return NextResponse.json(
                 { success: false, error: 'No active organization selected' },
@@ -28,9 +40,19 @@ export async function GET(request: NextRequest) {
             );
         }
 
-        const roles = await getOrganizationRoles(activeOrganizationId);
+        const cachedRoles = getCachedManagementRoles(activeOrganizationId);
+        if (cachedRoles) {
+            const cachedResponse = NextResponse.json({ success: true, data: cachedRoles });
+            cachedResponse.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
+            return cachedResponse;
+        }
 
-        return NextResponse.json({ success: true, data: roles });
+        const roles = await getOrganizationRoles(activeOrganizationId);
+        setCachedManagementRoles(activeOrganizationId, roles);
+
+        const response = NextResponse.json({ success: true, data: roles });
+        response.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
+        return response;
     } catch (error: unknown) {
         console.error('Error fetching roles:', error);
         return NextResponse.json(
@@ -43,8 +65,16 @@ export async function GET(request: NextRequest) {
 // POST /api/management/roles - Create new role
 export async function POST(request: NextRequest) {
     try {
-        await requireUser();
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return NextResponse.json(
+                { success: false, error: 'Authenticated user email is missing' },
+                { status: 400 }
+            );
+        }
+
+        const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
         if (!activeOrganizationId) {
             return NextResponse.json(
                 { success: false, error: 'No active organization selected' },
@@ -68,6 +98,8 @@ export async function POST(request: NextRequest) {
             permissionIds || [],
             activeOrganizationId
         );
+
+        invalidateManagementRolesCache(activeOrganizationId);
 
         return NextResponse.json({ success: true, data: newRole }, { status: 201 });
     } catch (error: unknown) {

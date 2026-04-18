@@ -13,6 +13,7 @@ import {
     buildGroupMemberInviteEmailHtml,
     buildRegistrationConfirmationEmailHtml,
 } from "@/lib/ticketEmail";
+import { getCachedEventOrders, invalidateEventOrdersCache, setCachedEventOrders } from "@/lib/eventOrdersCache";
 
 interface ManualRegistrationAttendee {
     name: string;
@@ -195,6 +196,13 @@ export async function GET(
             );
         }
 
+        const cachedOrders = getCachedEventOrders(id);
+        if (cachedOrders) {
+            const cachedResponse = NextResponse.json({ success: true, data: cachedOrders });
+            cachedResponse.headers.set("Cache-Control", "private, max-age=20, stale-while-revalidate=60");
+            return cachedResponse;
+        }
+
         const supabase = await createAdminClient();
 
         // 1. Fetch registrations for the event with joined User and Ticket
@@ -244,21 +252,29 @@ export async function GET(
         };
 
         if (registrationIds.length === 0) {
-            return NextResponse.json({ success: true, data: [] });
+            setCachedEventOrders(id, []);
+            const emptyResponse = NextResponse.json({ success: true, data: [] });
+            emptyResponse.headers.set("Cache-Control", "private, max-age=20, stale-while-revalidate=60");
+            return emptyResponse;
         }
 
-        // 2. Add-on redemption / claim status (table: AddOnRedemption)
-        const { data: addOnRows, error: addOnErr } = await supabase
-            .from("AddOnRedemption")
-            .select("*")
-            .in("registration_id", registrationIds);
+        const [addOnResult, paymentResult] = await Promise.all([
+            supabase
+                .from("AddOnRedemption")
+                .select("registration_id, is_claimed, is_redeemed, redeemed, redeemed_at, claimed_at")
+                .in("registration_id", registrationIds),
+            supabase
+                .from("PaymentProof")
+                .select("registration_id, file_path")
+                .in("registration_id", registrationIds),
+        ]);
 
-        if (addOnErr) {
-            console.error("ManageOrders GET: AddOnRedemption query failed", addOnErr);
+        if (addOnResult.error) {
+            console.error("ManageOrders GET: AddOnRedemption query failed", addOnResult.error);
         }
 
         const addOnByRegId = new Map<number, boolean>();
-        (addOnRows || []).forEach((row: Record<string, unknown>) => {
+        (addOnResult.data || []).forEach((row: Record<string, unknown>) => {
             const regId = row.registration_id as number | undefined;
             if (regId == null) return;
             const line = addOnRedemptionRowIsClaimed(row);
@@ -269,37 +285,37 @@ export async function GET(
             }
         });
 
-        // 3. Fetch payment proofs for these registrations
-        const { data: paymentRows, error: paymentErr } = await supabase
-            .from("PaymentProof")
-            .select("registration_id, file_path")
-            .in("registration_id", registrationIds);
-
-        if (paymentErr) {
-            console.error("ManageOrders GET: payment proof query failed", paymentErr);
+        if (paymentResult.error) {
+            console.error("ManageOrders GET: payment proof query failed", paymentResult.error);
         }
 
         const paymentByRegId = new Map<number, string>();
-        (paymentRows || []).forEach((row: { registration_id: number | null; file_path: string | null }) => {
+        (paymentResult.data || []).forEach((row: { registration_id: number | null; file_path: string | null }) => {
             if (!row.registration_id || !row.file_path) return;
             if (!paymentByRegId.has(row.registration_id)) {
                 paymentByRegId.set(row.registration_id, toProofUrl(row.file_path));
             }
         });
 
-        // 4. Fallback proof source: OrderFormEntries.form_data (fieldIdentifier: proof_of_payment)
-        const { data: orderFormRows, error: orderFormErr } = await supabase
-            .from("OrderFormEntries")
-            .select("registration_id, form_data, submitted_at")
-            .in("registration_id", registrationIds)
-            .order("submitted_at", { ascending: false });
+        const missingProofRegistrationIds = registrationIds.filter((registrationId) => !paymentByRegId.has(registrationId));
 
-        if (orderFormErr) {
-            console.error("ManageOrders GET: order form entries query failed", orderFormErr);
+        let orderFormRows: OrderFormEntryRow[] = [];
+        if (missingProofRegistrationIds.length > 0) {
+            const { data: fallbackRows, error: orderFormErr } = await supabase
+                .from("OrderFormEntries")
+                .select("registration_id, form_data, submitted_at")
+                .in("registration_id", missingProofRegistrationIds)
+                .order("submitted_at", { ascending: false });
+
+            if (orderFormErr) {
+                console.error("ManageOrders GET: order form entries query failed", orderFormErr);
+            } else {
+                orderFormRows = fallbackRows || [];
+            }
         }
 
         const formProofByRegId = new Map<number, string>();
-        (orderFormRows || []).forEach((row: OrderFormEntryRow) => {
+        orderFormRows.forEach((row: OrderFormEntryRow) => {
             if (!row.registration_id || formProofByRegId.has(row.registration_id)) {
                 return;
             }
@@ -362,7 +378,11 @@ export async function GET(
             };
         });
 
-        return NextResponse.json({ success: true, data: orders });
+        setCachedEventOrders(id, orders as Record<string, unknown>[]);
+
+        const response = NextResponse.json({ success: true, data: orders });
+        response.headers.set("Cache-Control", "private, max-age=20, stale-while-revalidate=60");
+        return response;
     } catch (e: unknown) {
         const authError = getAuthErrorResponse(e);
         if (authError) return authError;
@@ -384,6 +404,10 @@ export async function POST(
         await requireUser();
         const { eventId } = await params;
         const numericEventId = parseInt(eventId, 10);
+
+        if (isNaN(numericEventId)) {
+            return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
+        }
         
         const body = await request.json();
         const { registrationType, ticketId, attendees } = body as {
@@ -620,6 +644,8 @@ export async function POST(
                 groupMemberEmails: emails,
             };
         });
+
+        invalidateEventOrdersCache(numericEventId);
 
         return NextResponse.json({ success: true, data: mappedNewOrders });
     } catch (e: unknown) {

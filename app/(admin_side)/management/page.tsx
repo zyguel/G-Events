@@ -46,7 +46,27 @@ function dedupeMembers(members: TeamMember[]): TeamMember[] {
 export default function ManagementPage() {
     const { t } = useLocale();
     const { isAdmin, loading } = usePermissions();
-    if (loading) return null;
+    if (loading) {
+        return (
+            <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
+                <Header />
+                <div className="flex flex-1 overflow-hidden">
+                    <Sidebar activePage="management" />
+                    <main className="flex-1 ml-20 overflow-y-auto px-6 py-8 lg:px-10">
+                        <div className="max-w-5xl space-y-6 animate-pulse">
+                            <div className="space-y-2">
+                                <div className="h-8 w-56 rounded-lg bg-gray-200 dark:bg-gray-700" />
+                                <div className="h-4 w-72 rounded-md bg-gray-200 dark:bg-gray-700" />
+                            </div>
+                            <div className="h-14 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700" />
+                            <div className="h-96 rounded-xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700" />
+                            <p className="text-sm text-gray-500 dark:text-gray-400 animate-none">{t('Loading management data...')}</p>
+                        </div>
+                    </main>
+                </div>
+            </div>
+        );
+    }
     if (!isAdmin) {
         return (
             <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">

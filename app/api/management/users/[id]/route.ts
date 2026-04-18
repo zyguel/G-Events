@@ -8,15 +8,19 @@ import {
 } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
-import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
+import { getUserActiveOrganizationByEmail, parseOrganizationId } from '@/lib/auth/sessionRole';
 import { logger } from '@/lib/logger';
 import { sendManagementAccessChangedEmail, sendManagementRemovalEmail } from '@/lib/managementEmails';
+import { invalidateManagementUsersCache } from '@/lib/managementCache';
 
-async function getActiveOrganizationId(request: NextRequest): Promise<number | null> {
+async function getActiveOrganizationId(
+    request: NextRequest,
+    userEmail: string
+): Promise<number | null> {
     const preferredOrganizationId = parseOrganizationId(
         request.cookies.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
     );
-    const context = await getCurrentUserActiveOrganization(preferredOrganizationId);
+    const context = await getUserActiveOrganizationByEmail(userEmail, preferredOrganizationId);
     return context.activeOrganizationId;
 }
 
@@ -30,10 +34,18 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireUser();
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return NextResponse.json(
+                { success: false, error: 'Authenticated user email is missing' },
+                { status: 400 }
+            );
+        }
+
         const { id } = await params;
         const userId = parseInt(id);
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
         const body = await request.json();
         const { email, roleId } = body;
         const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -88,6 +100,8 @@ export async function PATCH(
             }
         }
 
+        invalidateManagementUsersCache(activeOrganizationId);
+
         return NextResponse.json({ success: true, message: 'User updated successfully' });
     } catch (error: unknown) {
         console.error('Error updating user:', error);
@@ -104,10 +118,18 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireUser();
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return NextResponse.json(
+                { success: false, error: 'Authenticated user email is missing' },
+                { status: 400 }
+            );
+        }
+
         const { id } = await params;
         const userId = parseInt(id);
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
 
         if (isNaN(userId) || !activeOrganizationId) {
             return NextResponse.json(
@@ -140,6 +162,8 @@ export async function DELETE(
         } catch (notificationError: unknown) {
             logger.warn('api/management/users/[id]', 'Removal email failed to send', notificationError);
         }
+
+        invalidateManagementUsersCache(activeOrganizationId);
 
         return NextResponse.json({ success: true, message: 'User removed successfully' });
     } catch (error: unknown) {

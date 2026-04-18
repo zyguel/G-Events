@@ -27,7 +27,7 @@ const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 
     const bgColor = type === 'success' ? 'from-emerald-500 to-green-600' : type === 'error' ? 'from-red-500 to-rose-600' : 'from-blue-500 to-indigo-600';
 
     return (
-        <div className={`fixed bottom-6 right-6 z-50 bg-gradient-to-r ${bgColor} text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-up`}>
+        <div className={`fixed bottom-6 right-6 z-100 bg-gradient-to-r ${bgColor} text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-up`}>
             <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
                 <Check size={18} />
             </div>
@@ -59,6 +59,13 @@ interface EventData {
     agenda: AgendaItem[];
     bannerUrl?: string;
     status: string;
+}
+
+function parseHHMMToMinutes(value: string | undefined): number | null {
+    if (!value) return null;
+    const match = value.trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+    if (!match) return null;
+    return Number(match[1]) * 60 + Number(match[2]);
 }
 
 export default function EventOverview({ initialData }: { initialData: any }) {
@@ -272,6 +279,37 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     const handleAddAgendaSlot = async () => {
         if (!newAgenda.title || !newAgenda.speaker || !newAgenda.startTime || !newAgenda.endTime) return;
+
+        const agendaStartMinutes = parseHHMMToMinutes(newAgenda.startTime);
+        const agendaEndMinutes = parseHHMMToMinutes(newAgenda.endTime);
+        if (agendaStartMinutes === null || agendaEndMinutes === null) {
+            setToast({ message: 'Please provide valid agenda start and end times.', type: 'error' });
+            return;
+        }
+
+        if (agendaStartMinutes >= agendaEndMinutes) {
+            setToast({ message: 'Agenda end time must be later than agenda start time.', type: 'error' });
+            return;
+        }
+
+        const eventStartMinutes = parseHHMMToMinutes(event.startTime);
+        const eventEndMinutes = parseHHMMToMinutes(event.endTime);
+
+        if (eventStartMinutes !== null && agendaStartMinutes < eventStartMinutes) {
+            setToast({
+                message: `Agenda cannot start earlier than event start time (${formatTimeDisplay(event.startTime || '')}).`,
+                type: 'error'
+            });
+            return;
+        }
+
+        if (eventEndMinutes !== null && agendaEndMinutes > eventEndMinutes) {
+            setToast({
+                message: `Agenda cannot end later than event end time (${formatTimeDisplay(event.endTime || '')}).`,
+                type: 'error'
+            });
+            return;
+        }
 
         let updatedEvent: EventData;
         let itemToSave: AgendaItem;
@@ -1161,6 +1199,11 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             {/* Agenda Modal */}
             <Modal isOpen={activeModal === 'agenda'} onClose={() => setActiveModal(null)} title="Add Agenda Item" size="md">
                 <form onSubmit={(e) => { e.preventDefault(); handleAddAgendaSlot(); }} className="space-y-6">
+                    {event.startTime && event.endTime ? (
+                        <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-300">
+                            Agenda time must stay within the event window: <strong>{formatTimeDisplay(event.startTime)}</strong> to <strong>{formatTimeDisplay(event.endTime)}</strong>.
+                        </div>
+                    ) : null}
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Title <span className="text-red-500">*</span></label>
                         <ModalInput

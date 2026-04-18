@@ -28,7 +28,14 @@ export async function GET() {
       region: data?.preferred_region,
     });
 
-    return NextResponse.json({ success: true, data: locale });
+    return NextResponse.json(
+      { success: true, data: locale },
+      {
+        headers: {
+          'Cache-Control': 'private, max-age=300, stale-while-revalidate=900',
+        },
+      }
+    );
   } catch (error) {
     if (error instanceof Response) {
       return error;

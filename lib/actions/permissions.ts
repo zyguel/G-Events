@@ -21,6 +21,13 @@ const EMPTY: UserPermissions = {
     isAdmin: false,
 }
 
+const PERMISSIONS_CACHE_TTL_MS = 2 * 60 * 1000
+type PermissionCacheEntry = {
+    value: UserPermissions
+    expiresAt: number
+}
+const permissionCache = new Map<string, PermissionCacheEntry>()
+
 async function getPermissionLookupClient() {
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
         return createSupabaseClient(
@@ -67,6 +74,12 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
                 authenticatedEmail,
             })
             return EMPTY
+        }
+
+        const cacheKey = `${authenticatedEmail}:${orgContext.activeOrganizationId}`
+        const cached = permissionCache.get(cacheKey)
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.value
         }
 
         const supabase = await getPermissionLookupClient()
@@ -170,12 +183,19 @@ export async function getCurrentUserPermissions(email: string): Promise<UserPerm
             permissions,
         })
 
-        return {
+        const resolved: UserPermissions = {
             role: role.name,
             roleId: role.id,
             permissions,
             isAdmin: role.name.toLowerCase() === 'admin',
         }
+
+        permissionCache.set(cacheKey, {
+            value: resolved,
+            expiresAt: Date.now() + PERMISSIONS_CACHE_TTL_MS,
+        })
+
+        return resolved
     } catch (e) {
         logger.error('permissions', 'Unexpected error', e)
         return EMPTY

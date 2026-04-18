@@ -10,7 +10,7 @@ import {
 import { sendEmail } from "@/lib/emailProvider";
 import { escapeHtml } from "@/lib/security";
 
-type CampaignAction = "draft" | "send";
+type CampaignAction = "draft" | "send" | "estimate";
 type SendOption = "preview" | "attendees";
 type ScheduleOption = "immediately" | "later";
 
@@ -161,13 +161,34 @@ export async function POST(
 
     const body = await request.json().catch(() => ({}));
 
-    const action: CampaignAction = body?.action === "draft" ? "draft" : "send";
+    const requestedAction = String(body?.action || "send").toLowerCase();
+    const action: CampaignAction = requestedAction === "draft"
+      ? "draft"
+      : requestedAction === "estimate"
+        ? "estimate"
+        : "send";
     const sendOption: SendOption = body?.sendOption === "preview" ? "preview" : "attendees";
     const scheduleOption: ScheduleOption =
       body?.scheduleOption === "later" ? "later" : "immediately";
+    const filters: EmailAudienceFilters = body?.filters || {};
+
+    if (action === "estimate") {
+      const supabase = await createClient();
+      const recipients = await resolveEventRecipients(supabase, id, filters);
+
+      return NextResponse.json(
+        {
+          success: true,
+          data: {
+            recipientCount: recipients.length,
+          },
+        },
+        { status: 200 }
+      );
+    }
+
     const subject = String(body?.subject || "").trim();
     const htmlBody = String(body?.body || "").trim();
-    const filters: EmailAudienceFilters = body?.filters || {};
 
     if (!subject) {
       return NextResponse.json(

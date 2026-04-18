@@ -846,6 +846,20 @@ export async function uploadEventBanner(formData: FormData) {
     }
 }
 
+function parseHHMMToMinutes(value: string | null | undefined): number | null {
+    if (!value) return null
+    const match = String(value).trim().match(/^([01]\d|2[0-3]):([0-5]\d)$/)
+    if (!match) return null
+    return Number(match[1]) * 60 + Number(match[2])
+}
+
+function parseIsoToUtcMinutes(value: unknown): number | null {
+    if (!value || typeof value !== 'string') return null
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) return null
+    return parsed.getUTCHours() * 60 + parsed.getUTCMinutes()
+}
+
 export async function saveAgendaSlot(event_id: number, slot: { id?: string, title: string, description?: string, speaker?: string, startTime: string, endTime: string }) {
     const supabase = await createClient();
 
@@ -858,15 +872,37 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
             speaker_name: slot.speaker,
         };
 
+        const agendaStartMinutes = parseHHMMToMinutes(slot.startTime)
+        const agendaEndMinutes = parseHHMMToMinutes(slot.endTime)
+
+        if (agendaStartMinutes === null || agendaEndMinutes === null) {
+            return { success: false, error: 'Agenda start and end time are required.' }
+        }
+
+        if (agendaStartMinutes >= agendaEndMinutes) {
+            return { success: false, error: 'Agenda end time must be later than start time.' }
+        }
+
         // Fetch event date to construct timestamp
         const { data: event } = await supabase
             .from('Event')
-            .select('event_start_at')
+            .select('event_start_at, event_end_at')
             .eq('id', event_id)
             .eq('organization_id', activeOrganizationId)
             .single();
 
         if (!event) throw new Error("Event not found");
+
+        const eventStartMinutes = parseIsoToUtcMinutes(event.event_start_at)
+        const eventEndMinutes = parseIsoToUtcMinutes(event.event_end_at)
+
+        if (eventStartMinutes !== null && agendaStartMinutes < eventStartMinutes) {
+            return { success: false, error: 'Agenda cannot start earlier than the event start time.' }
+        }
+
+        if (eventEndMinutes !== null && agendaEndMinutes > eventEndMinutes) {
+            return { success: false, error: 'Agenda cannot end later than the event end time.' }
+        }
 
         // Use event date or fallback to today if not set (to allow saving in drafts)
         const eventDate = event.event_start_at
