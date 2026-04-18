@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { getAdminSupabaseForEventOr404 } from "@/lib/apiEventAccess";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 import {
   anchorCertificateIssuesToLedger,
@@ -35,7 +35,10 @@ export async function POST(
       );
     }
 
-    const supabase = await createClient();
+    const access = await getAdminSupabaseForEventOr404(id);
+    if (!access.ok) return access.response;
+    const supabase = access.supabase;
+
     const { data: template, error: templateError } = await supabase
       .from("CertificateTemplate")
       .select("id")

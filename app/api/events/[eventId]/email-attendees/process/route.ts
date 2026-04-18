@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { getAdminSupabaseForEventOr404 } from "@/lib/apiEventAccess";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 import { processDueCampaigns } from "@/lib/emailCampaigns";
 
@@ -19,8 +19,10 @@ export async function POST(
       );
     }
 
-    const supabase = await createClient();
-    const result = await processDueCampaigns(supabase, { eventId: id, limit: 20 });
+    const access = await getAdminSupabaseForEventOr404(id);
+    if (!access.ok) return access.response;
+
+    const result = await processDueCampaigns(access.supabase, { eventId: id, limit: 20 });
 
     return NextResponse.json({
       success: true,
