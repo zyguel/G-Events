@@ -13,7 +13,8 @@
     "check:objectives": "node scripts/debug/check_objectives.js",
     "check:theme": "node scripts/debug/check_theme.js",
     "debug:login-layout-diff": "node scripts/debug/diff.js",
-    "translations:split-static": "node scripts/maintenance/split-translations.js"
+    "translations:split-static": "node scripts/maintenance/split-translations.js",
+    "backfill:addon-entitlements": "node scripts/maintenance/backfill_addon_entitlements.js"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.18",

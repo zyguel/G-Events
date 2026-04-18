@@ -8,6 +8,13 @@ export type ClaimableAddOn = {
     remainingQty: number;
 };
 
+export type AddOnClaimSummary = {
+    totalAddOnQty: number;
+    claimableAddOnQty: number;
+    addOnClaimStatus: 'None' | 'Unclaimed' | 'Claimed';
+    claimableAddOns: ClaimableAddOn[];
+};
+
 type ClaimRpcRow = {
     entitlement_id: number | null;
     add_on_variant_id: number | null;
@@ -82,6 +89,18 @@ export async function getClaimableAddOnsByRegistrationIds(
     registrationIds: number[]
 ): Promise<Map<number, ClaimableAddOn[]>> {
     const map = new Map<number, ClaimableAddOn[]>();
+    const summaries = await getAddOnClaimSummariesByRegistrationIds(admin, registrationIds);
+    for (const [registrationId, summary] of summaries.entries()) {
+        map.set(registrationId, summary.claimableAddOns);
+    }
+    return map;
+}
+
+export async function getAddOnClaimSummariesByRegistrationIds(
+    admin: SupabaseClient,
+    registrationIds: number[]
+): Promise<Map<number, AddOnClaimSummary>> {
+    const map = new Map<number, AddOnClaimSummary>();
     if (registrationIds.length === 0) return map;
 
     const uniqueIds = Array.from(new Set(registrationIds.filter((id) => Number.isInteger(id) && id > 0)));
@@ -102,12 +121,35 @@ export async function getClaimableAddOnsByRegistrationIds(
         const registrationId = Number(rawRow.registration_id);
         if (!Number.isInteger(registrationId)) continue;
 
-        const claimable = mapClaimableEntitlement(rawRow);
-        if (!claimable) continue;
+        const current = map.get(registrationId) || {
+            totalAddOnQty: 0,
+            claimableAddOnQty: 0,
+            addOnClaimStatus: 'None' as const,
+            claimableAddOns: [],
+        };
 
-        const existing = map.get(registrationId) || [];
-        existing.push(claimable);
-        map.set(registrationId, existing);
+        current.totalAddOnQty += toSafeNumber(rawRow.qty_total);
+
+        const claimable = mapClaimableEntitlement(rawRow);
+        if (claimable) {
+            current.claimableAddOns.push(claimable);
+            current.claimableAddOnQty += toSafeNumber(claimable.remainingQty);
+        }
+
+        map.set(registrationId, current);
+    }
+
+    for (const [registrationId, summary] of map.entries()) {
+        const status: AddOnClaimSummary['addOnClaimStatus'] =
+            summary.totalAddOnQty <= 0
+                ? 'None'
+                : summary.claimableAddOnQty > 0
+                    ? 'Unclaimed'
+                    : 'Claimed';
+        map.set(registrationId, {
+            ...summary,
+            addOnClaimStatus: status,
+        });
     }
 
     return map;
@@ -127,11 +169,34 @@ export async function claimAllAddOnsForRegistration(
     registrationId: number,
     options?: { station?: string; scannedBy?: string }
 ): Promise<{ claimed: ClaimableAddOn[]; totalClaimedQty: number }> {
+    return claimAddOnsForRegistration(admin, eventId, registrationId, options);
+}
+
+export async function claimAddOnVariantForRegistration(
+    admin: SupabaseClient,
+    eventId: number,
+    registrationId: number,
+    variantId: number,
+    options?: { station?: string; scannedBy?: string }
+): Promise<{ claimed: ClaimableAddOn[]; totalClaimedQty: number }> {
+    return claimAddOnsForRegistration(admin, eventId, registrationId, {
+        ...options,
+        variantId,
+    });
+}
+
+async function claimAddOnsForRegistration(
+    admin: SupabaseClient,
+    eventId: number,
+    registrationId: number,
+    options?: { station?: string; scannedBy?: string; variantId?: number }
+): Promise<{ claimed: ClaimableAddOn[]; totalClaimedQty: number }> {
     const { data, error } = await admin.rpc('claim_registration_addons_atomic', {
         p_event_id: eventId,
         p_registration_id: registrationId,
         p_station: options?.station || 'checkin',
         p_scanned_by: options?.scannedBy || null,
+        p_add_on_variant_id: Number.isInteger(options?.variantId) ? options?.variantId : null,
     });
 
     if (error) {

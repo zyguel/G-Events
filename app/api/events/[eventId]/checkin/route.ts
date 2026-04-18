@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase-server";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
-import { getClaimableAddOnsByRegistrationIds } from "@/lib/checkinAddOnClaims";
+import { getAddOnClaimSummariesByRegistrationIds } from "@/lib/checkinAddOnClaims";
 
 type CheckInRegistrationRow = {
   id: number;
@@ -56,17 +56,17 @@ export async function GET(
       .map((row) => Number(row.id))
       .filter((regId: number) => Number.isInteger(regId) && regId > 0);
 
-    const claimableByRegistrationId = await getClaimableAddOnsByRegistrationIds(
+    const addOnSummaryByRegistrationId = await getAddOnClaimSummariesByRegistrationIds(
       supabase,
       registrationIds
     );
 
     const attendees = registrationRows.map((row) => {
-      const claimableAddOns = claimableByRegistrationId.get(Number(row.id)) || [];
-      const claimableAddOnQty = claimableAddOns.reduce(
-        (sum, item) => sum + Number(item.remainingQty || 0),
-        0
-      );
+      const summary = addOnSummaryByRegistrationId.get(Number(row.id));
+      const claimableAddOns = summary?.claimableAddOns || [];
+      const claimableAddOnQty = Number(summary?.claimableAddOnQty || 0);
+      const totalAddOnQty = Number(summary?.totalAddOnQty || 0);
+      const addOnClaimStatus = summary?.addOnClaimStatus || "None";
 
       return {
         registrationId: String(row.id),
@@ -78,8 +78,9 @@ export async function GET(
           row.has_checked_in && row.checked_in_at
             ? new Date(row.checked_in_at).toLocaleString()
             : undefined,
+        totalAddOnQty,
         claimableAddOnQty,
-        addOnClaimStatus: claimableAddOnQty > 0 ? "Unclaimed" : "Claimed",
+        addOnClaimStatus,
         claimableAddOns,
       };
     });
