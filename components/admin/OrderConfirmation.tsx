@@ -1,10 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import RichTextEditor from "./RichTextEditor";
+import dynamic from "next/dynamic";
 import { CheckCircle, Mail, Check, X } from "lucide-react";
 import { getOrderConfirmationSettings, saveOrderConfirmationSettings } from "@/lib/actions/orderConfirmation";
 import type { OrderConfirmationData } from "@/lib/orderConfirmationSettings";
+
+const RichTextEditor = dynamic(() => import("./RichTextEditor"), {
+    ssr: false,
+    loading: () => (
+        <div className="min-h-55 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 animate-pulse" />
+    ),
+});
 
 export default function OrderConfirmation({ eventId }: { eventId: string }) {
     const [savedStates, setSavedStates] = useState({

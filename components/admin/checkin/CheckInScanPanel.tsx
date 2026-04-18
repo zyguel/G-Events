@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import {
   QrCode,
   Keyboard,
@@ -13,7 +14,19 @@ import {
   AlertTriangle,
   Loader2,
 } from 'lucide-react';
-import { CheckInQrScanner } from '@/components/admin/checkin/CheckInQrScanner';
+
+const CheckInQrScanner = dynamic(
+  () => import('@/components/admin/checkin/CheckInQrScanner').then((mod) => mod.CheckInQrScanner),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="relative w-full rounded-2xl overflow-hidden bg-black border border-gray-600 dark:border-gray-600 min-h-70 sm:min-h-80 flex items-center justify-center gap-2 text-white/80">
+        <Loader2 className="animate-spin" size={18} />
+        <span className="text-sm font-medium">Loading scanner...</span>
+      </div>
+    ),
+  }
+);
 
 type ScanMode = 'all' | 'main_only' | 'breakout_only';
 
@@ -104,12 +117,16 @@ export function CheckInScanPanel({
 
   const onDecoded = useCallback(
     (text: string) => {
+      if (scanLoading || scanResult) {
+        return;
+      }
+
       const now = Date.now();
       if (now - lastCameraScanAt.current < 1500) return;
       lastCameraScanAt.current = now;
       void resolveScan(text);
     },
-    [resolveScan]
+    [resolveScan, scanLoading, scanResult]
   );
 
   const apply = useCallback(async () => {
@@ -235,7 +252,7 @@ export function CheckInScanPanel({
     ((scanResult.kind === 'main' && scanResult.mainEventCheckedIn) ||
       (scanResult.kind === 'breakout' && scanResult.breakout?.checkedIn));
 
-  const cameraActive = scannerOn && !scanResult && !scanLoading;
+  const cameraActive = scannerOn && !scanResult;
 
   return (
     <div className="rounded-3xl border border-gray-200 dark:border-gray-700 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg overflow-hidden">

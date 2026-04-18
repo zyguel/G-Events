@@ -6,12 +6,47 @@ import { legacyAdminEventsRedirectTarget } from '@/lib/legacyAdminEventsRedirect
 
 const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/auth/callback']);
 const PUBLIC_ROUTE_PREFIXES = ['/auth/session-role'];
+const AUTH_VALIDATED_AT_COOKIE_NAME = 'g_events_auth_validated_at';
+const AUTH_VALIDATION_TTL_SECONDS = 90;
+const LEGACY_ADMIN_ROUTE_REDIRECTS: Record<string, string> = {
+  '/admin/dashboard': '/dashboard',
+  '/admin/management': '/management',
+  '/admin/profile': '/profile',
+  '/admin/settings': '/settings',
+  '/admin/analytics': '/analytics/all',
+  '/admin/analytics/all': '/analytics/all',
+};
+
+function legacyAdminRouteRedirectTarget(pathname: string): string | null {
+  const normalized = pathname.endsWith('/') && pathname.length > 1 ? pathname.slice(0, -1) : pathname;
+  return LEGACY_ADMIN_ROUTE_REDIRECTS[normalized] ?? null;
+}
 
 function isPublicRoute(pathname: string) {
   return (
     PUBLIC_ROUTES.has(pathname) ||
     PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
   );
+}
+
+function hasSupabaseSessionCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some(({ name }) => {
+    if (!name.startsWith('sb-')) {
+      return false;
+    }
+
+    return name.includes('auth-token') || name.includes('access-token');
+  });
+}
+
+function hasFreshAuthValidation(request: NextRequest): boolean {
+  const raw = request.cookies.get(AUTH_VALIDATED_AT_COOKIE_NAME)?.value;
+  const parsed = Number(raw ?? '');
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    return false;
+  }
+
+  return Date.now() - parsed <= AUTH_VALIDATION_TTL_SECONDS * 1000;
 }
 
 function isAdminRoute(pathname: string) {
@@ -70,6 +105,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url, 308);
   }
 
+  const legacyAdminTarget = legacyAdminRouteRedirectTarget(pathname);
+  if (legacyAdminTarget) {
+    const url = request.nextUrl.clone();
+    url.pathname = legacyAdminTarget;
+    url.search = search;
+    return NextResponse.redirect(url, 308);
+  }
+
   // API routes enforce auth at the route-handler level (requireUser), so avoid
   // duplicate Supabase auth round-trips here.
   const adminRoute = isAdminRoute(pathname);
@@ -80,29 +123,8 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const response = NextResponse.next({ request });
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options);
-          });
-        },
-      },
-    }
-  );
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
+  // Fast fail when there is clearly no auth session cookie.
+  if (!hasSupabaseSessionCookie(request)) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -111,6 +133,49 @@ export async function proxy(request: NextRequest) {
     loginUrl.pathname = '/login';
     loginUrl.searchParams.set('next', pathname + search);
     return NextResponse.redirect(loginUrl);
+  }
+
+  const response = NextResponse.next({ request });
+  if (!hasFreshAuthValidation(request)) {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              response.cookies.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = '/login';
+      loginUrl.searchParams.set('next', pathname + search);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    response.cookies.set(AUTH_VALIDATED_AT_COOKIE_NAME, String(Date.now()), {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+      path: '/',
+      maxAge: AUTH_VALIDATION_TTL_SECONDS,
+    });
   }
 
   const sessionRole = request.cookies.get(SESSION_ROLE_COOKIE_NAME)?.value;
@@ -158,6 +223,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

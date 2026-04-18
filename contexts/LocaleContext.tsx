@@ -4,7 +4,6 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import {
   DEFAULT_LOCALE,
   LocaleSettings,
-  normalizeLanguageCode,
   normalizeLocale,
   TranslationLanguage,
   TRANSLATION_LANGUAGES,
@@ -12,6 +11,8 @@ import {
 import { getStaticTranslation } from '@/lib/staticTranslations';
 
 const LOCALE_STORAGE_KEY = 'g_events_locale_settings';
+const LOCALE_SYNC_STORAGE_KEY = 'g_events_locale_last_sync_at';
+const LOCALE_SYNC_TTL_MS = 10 * 60 * 1000;
 const ADMIN_ROOTS = ['/dashboard', '/admin/events', '/management', '/profile', '/settings'];
 
 function isAdminAppRoute(pathname: string) {
@@ -149,39 +150,56 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
   const [isLoadingLocale, setIsLoadingLocale] = useState(true);
   const availableLanguages = TRANSLATION_LANGUAGES;
   const observerRef = useRef<MutationObserver | null>(null);
+  const translationQueuedRef = useRef(false);
   const translationCacheRef = useRef<Map<string, Map<string, string>>>(new Map());
 
   useEffect(() => {
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
     const shouldLoadServerLocale = isAdminAppRoute(pathname);
+    let hasLocalLocale = false;
 
     try {
       const raw = localStorage.getItem(LOCALE_STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Partial<LocaleSettings>;
         setLocale(normalizeLocale(parsed));
+        hasLocalLocale = true;
       }
     } catch {
     }
 
-    const loadServerLocale = async () => {
-      if (!shouldLoadServerLocale) {
-        setIsLoadingLocale(false);
-        return;
-      }
+    const lastSyncedAt = Number(localStorage.getItem(LOCALE_SYNC_STORAGE_KEY) || '0');
+    const hasFreshServerLocale =
+      Number.isFinite(lastSyncedAt) &&
+      lastSyncedAt > 0 &&
+      Date.now() - lastSyncedAt <= LOCALE_SYNC_TTL_MS;
 
+    if (!shouldLoadServerLocale || (hasLocalLocale && hasFreshServerLocale)) {
+      setIsLoadingLocale(false);
+      return;
+    }
+
+    if (hasLocalLocale) {
+      // Keep UI responsive using cached locale while refreshing in the background.
+      setIsLoadingLocale(false);
+    }
+
+    const loadServerLocale = async () => {
       try {
-        const localeResponse = await fetch('/api/user/locale', { cache: 'no-store' });
+        const localeResponse = await fetch('/api/user/locale');
 
         if (localeResponse.ok) {
           const localePayload = await localeResponse.json();
           const nextLocale = normalizeLocale(localePayload?.data);
           setLocale(nextLocale);
           localStorage.setItem(LOCALE_STORAGE_KEY, JSON.stringify(nextLocale));
+          localStorage.setItem(LOCALE_SYNC_STORAGE_KEY, String(Date.now()));
         }
       } catch {
       } finally {
-        setIsLoadingLocale(false);
+        if (!hasLocalLocale) {
+          setIsLoadingLocale(false);
+        }
       }
     };
 
@@ -192,13 +210,21 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.lang = locale.language;
     localStorage.setItem(LOCALE_STORAGE_KEY, JSON.stringify(locale));
 
+    const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+    const shouldApplyDomTranslations = locale.language !== 'en' && isAdminAppRoute(pathname);
+
+    if (!shouldApplyDomTranslations) {
+      observerRef.current?.disconnect();
+      return;
+    }
+
     let cancelled = false;
 
     const translateNow = async () => {
       await applyTranslations(locale.language, translationCacheRef.current);
     };
 
-    translateNow();
+    void translateNow();
 
     if (observerRef.current) {
       observerRef.current.disconnect();
@@ -208,7 +234,18 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       if (cancelled) {
         return;
       }
-      applyTranslations(locale.language, translationCacheRef.current);
+
+      if (translationQueuedRef.current) {
+        return;
+      }
+
+      translationQueuedRef.current = true;
+      requestAnimationFrame(() => {
+        translationQueuedRef.current = false;
+        if (!cancelled) {
+          void applyTranslations(locale.language, translationCacheRef.current);
+        }
+      });
     });
 
     observerRef.current.observe(document.body, {
@@ -250,6 +287,7 @@ export function LocaleProvider({ children }: { children: React.ReactNode }) {
       const fromServer = normalizeLocale(payload?.data);
       setLocale(fromServer);
       localStorage.setItem(LOCALE_STORAGE_KEY, JSON.stringify(fromServer));
+      localStorage.setItem(LOCALE_SYNC_STORAGE_KEY, String(Date.now()));
       return true;
     } catch {
       return false;

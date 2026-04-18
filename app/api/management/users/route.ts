@@ -9,14 +9,23 @@ import {
 import { requireUser } from '@/lib/apiAuth';
 import { createAdminClient } from '@/lib/supabase-server';
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
-import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
+import { getUserActiveOrganizationByEmail, parseOrganizationId } from '@/lib/auth/sessionRole';
 import { logger } from '@/lib/logger';
 import { sendManagementInvitationEmail } from '@/lib/managementEmails';
 import { badRequest, conflict, created, internalServerError, ok } from '@/lib/utils/apiResponse';
 import type { UserWithRole } from '@/lib/supabase';
+import { getCachedManagementUsers, invalidateManagementUsersCache, setCachedManagementUsers } from '@/lib/managementCache';
 
 const PROFILE_IMAGE_BUCKET = 'ProfileIMG';
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7;
+const SIGNED_URL_CACHE_TTL_MS = 10 * 60 * 1000;
+
+type SignedAvatarUrlCacheEntry = {
+    value: string;
+    expiresAt: number;
+};
+
+const signedAvatarUrlCache = new Map<string, SignedAvatarUrlCacheEntry>();
 
 function getMetadataAvatarUrl(metadata: unknown): string | null {
     const value = metadata as Record<string, unknown> | null;
@@ -87,12 +96,22 @@ async function enrichUsersWithAvatars(users: UserWithRole[]): Promise<UserWithRo
 
             const path = getStoragePathFromMetadata(authUser.user_metadata);
             if (path) {
+                const cachedSignedUrl = signedAvatarUrlCache.get(path);
+                if (cachedSignedUrl && cachedSignedUrl.expiresAt > Date.now()) {
+                    avatarByEmail.set(email, cachedSignedUrl.value);
+                    return;
+                }
+
                 const { data, error } = await adminClient.storage
                     .from(PROFILE_IMAGE_BUCKET)
                     .createSignedUrl(path, SIGNED_URL_EXPIRES_IN_SECONDS);
 
                 if (!error && data?.signedUrl) {
-                    avatarByEmail.set(email, `${data.signedUrl}&t=${Date.now()}`);
+                    avatarByEmail.set(email, data.signedUrl);
+                    signedAvatarUrlCache.set(path, {
+                        value: data.signedUrl,
+                        expiresAt: Date.now() + SIGNED_URL_CACHE_TTL_MS,
+                    });
                     return;
                 }
             }
@@ -111,27 +130,45 @@ async function enrichUsersWithAvatars(users: UserWithRole[]): Promise<UserWithRo
     });
 }
 
-async function getActiveOrganizationId(request: NextRequest): Promise<number | null> {
+async function getActiveOrganizationIdForUser(
+    request: NextRequest,
+    userEmail: string
+): Promise<number | null> {
     const preferredOrganizationId = parseOrganizationId(
         request.cookies.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
     );
-    const context = await getCurrentUserActiveOrganization(preferredOrganizationId);
+    const context = await getUserActiveOrganizationByEmail(userEmail, preferredOrganizationId);
     return context.activeOrganizationId;
 }
 
 // GET /api/management/users - List all users in organization
 export async function GET(request: NextRequest) {
     try {
-        await requireUser();
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return badRequest('Authenticated user email is missing');
+        }
+
+        const activeOrganizationId = await getActiveOrganizationIdForUser(request, authenticatedEmail);
         if (!activeOrganizationId) {
             return badRequest('No active organization selected');
         }
 
+        const cachedUsers = getCachedManagementUsers(activeOrganizationId);
+        if (cachedUsers) {
+            const cachedResponse = ok(cachedUsers);
+            cachedResponse.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
+            return cachedResponse;
+        }
+
         const users = await getOrganizationUsers(activeOrganizationId);
         const usersWithAvatars = await enrichUsersWithAvatars(users);
+        setCachedManagementUsers(activeOrganizationId, usersWithAvatars);
 
-        return ok(usersWithAvatars);
+        const response = ok(usersWithAvatars);
+        response.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
+        return response;
     } catch (error: unknown) {
         logger.error('api/management/users', 'Error fetching users', error);
         return internalServerError(error instanceof Error ? error.message : 'Failed to fetch users');
@@ -141,8 +178,13 @@ export async function GET(request: NextRequest) {
 // POST /api/management/users - Invite new user
 export async function POST(request: NextRequest) {
     try {
-        await requireUser();
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return badRequest('Authenticated user email is missing');
+        }
+
+        const activeOrganizationId = await getActiveOrganizationIdForUser(request, authenticatedEmail);
         if (!activeOrganizationId) {
             return badRequest('No active organization selected');
         }
@@ -180,6 +222,8 @@ export async function POST(request: NextRequest) {
         } catch (notificationError: unknown) {
             logger.warn('api/management/users', 'Invite email failed to send', notificationError);
         }
+
+        invalidateManagementUsersCache(activeOrganizationId);
 
         return created(newUser);
     } catch (error: unknown) {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase-browser';
 
 export interface Notification {
@@ -145,19 +146,34 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         };
 
         const initializeSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            hasSessionRef.current = Boolean(session);
+            try {
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) {
+                    console.warn('NotificationContext: failed to read auth session', error);
+                    hasSessionRef.current = false;
+                    disconnectSSE();
+                    setNotifications([]);
+                    return;
+                }
 
-            if (!hasSessionRef.current) {
+                hasSessionRef.current = Boolean(session);
+
+                if (!hasSessionRef.current) {
+                    disconnectSSE();
+                    setNotifications([]);
+                    return;
+                }
+
+                connectSSE();
+            } catch (error) {
+                console.warn('NotificationContext: auth session bootstrap failed', error);
+                hasSessionRef.current = false;
                 disconnectSSE();
                 setNotifications([]);
-                return;
             }
-
-            connectSSE();
         };
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
             hasSessionRef.current = Boolean(session);
 
             if (!session) {

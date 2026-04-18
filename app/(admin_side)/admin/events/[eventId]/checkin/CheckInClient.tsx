@@ -157,16 +157,28 @@ export default function CheckInClient({ event }: CheckInClientProps) {
     }, [event.id]);
 
     const refreshAttendance = useCallback(async () => {
-        await Promise.all([loadAttendees(), loadBreakoutRoster()]);
-    }, [loadAttendees, loadBreakoutRoster]);
+        await loadAttendees();
+
+        if (!event.id.startsWith('evt-') && listTab === 'breakout') {
+            await loadBreakoutRoster();
+        }
+    }, [event.id, listTab, loadAttendees, loadBreakoutRoster]);
 
     useEffect(() => {
         void loadAttendees();
     }, [loadAttendees]);
 
     useEffect(() => {
+        if (event.id.startsWith('evt-')) {
+            return;
+        }
+
+        if (listTab !== 'breakout') {
+            return;
+        }
+
         void loadBreakoutRoster();
-    }, [loadBreakoutRoster]);
+    }, [event.id, listTab, loadBreakoutRoster]);
 
     // --- Actions ---
     const handleCheckInToggle = async (registrationId: string) => {

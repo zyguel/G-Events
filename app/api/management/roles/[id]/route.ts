@@ -10,15 +10,19 @@ import {
 } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
-import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
+import { getUserActiveOrganizationByEmail, parseOrganizationId } from '@/lib/auth/sessionRole';
 import { logger } from '@/lib/logger';
 import { sendManagementAccessChangedEmail } from '@/lib/managementEmails';
+import { invalidateManagementRolesCache, invalidateManagementUsersCache } from '@/lib/managementCache';
 
-async function getActiveOrganizationId(request: NextRequest): Promise<number | null> {
+async function getActiveOrganizationId(
+    request: NextRequest,
+    userEmail: string
+): Promise<number | null> {
     const preferredOrganizationId = parseOrganizationId(
         request.cookies.get(ACTIVE_ORGANIZATION_COOKIE_NAME)?.value
     );
-    const context = await getCurrentUserActiveOrganization(preferredOrganizationId);
+    const context = await getUserActiveOrganizationByEmail(userEmail, preferredOrganizationId);
     return context.activeOrganizationId;
 }
 
@@ -44,10 +48,18 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> } // params is a Promise in Next.js 15+
 ) {
     try {
-        await requireUser();
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return NextResponse.json(
+                { success: false, error: 'Authenticated user email is missing' },
+                { status: 400 }
+            );
+        }
+
         const { id } = await params;
         const roleId = parseInt(id);
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
 
         if (isNaN(roleId) || !activeOrganizationId) {
             return NextResponse.json(
@@ -80,10 +92,18 @@ export async function PATCH(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireUser();
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return NextResponse.json(
+                { success: false, error: 'Authenticated user email is missing' },
+                { status: 400 }
+            );
+        }
+
         const { id } = await params;
         const roleId = parseInt(id);
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
         const body = await request.json();
         const { name, description, permissionIds } = body;
         const normalizedRoleName = typeof name === 'string' ? name.trim() : '';
@@ -191,6 +211,9 @@ export async function PATCH(
             }
         }
 
+        invalidateManagementRolesCache(activeOrganizationId);
+        invalidateManagementUsersCache(activeOrganizationId);
+
         return NextResponse.json({ success: true, message: 'Role updated successfully' });
     } catch (error: unknown) {
         console.error('Error updating role:', error);
@@ -207,10 +230,18 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
-        await requireUser();
+        const user = await requireUser();
+        const authenticatedEmail = user.email?.trim().toLowerCase() ?? '';
+        if (!authenticatedEmail) {
+            return NextResponse.json(
+                { success: false, error: 'Authenticated user email is missing' },
+                { status: 400 }
+            );
+        }
+
         const { id } = await params;
         const roleId = parseInt(id);
-        const activeOrganizationId = await getActiveOrganizationId(request);
+        const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
 
         if (isNaN(roleId) || !activeOrganizationId) {
             return NextResponse.json(
@@ -220,6 +251,9 @@ export async function DELETE(
         }
 
         await deleteRole(roleId, activeOrganizationId);
+
+        invalidateManagementRolesCache(activeOrganizationId);
+        invalidateManagementUsersCache(activeOrganizationId);
 
         return NextResponse.json({ success: true, message: 'Role deleted successfully' });
     } catch (error: unknown) {

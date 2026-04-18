@@ -100,7 +100,7 @@ export async function POST(
 
     const { data: reg } = await admin
       .from('Registration')
-      .select('id, event_id, status, has_checked_in')
+      .select('id, event_id, status, has_checked_in, checked_in_at')
       .eq('ticket_token', token)
       .eq('event_id', parsedEventId)
       .maybeSingle();
@@ -120,6 +120,30 @@ export async function POST(
     }
 
     if (reg.has_checked_in) {
+      if (!reg.checked_in_at) {
+        const now = new Date().toISOString();
+        const { error: patchMissingTimeError } = await authClient
+          .from('Registration')
+          .update({ checked_in_at: now })
+          .eq('id', reg.id)
+          .eq('event_id', parsedEventId);
+
+        if (patchMissingTimeError) {
+          const { error: adminPatchMissingTimeError } = await admin
+            .from('Registration')
+            .update({ checked_in_at: now })
+            .eq('id', reg.id)
+            .eq('event_id', parsedEventId);
+
+          if (adminPatchMissingTimeError) {
+            return NextResponse.json(
+              { success: false, error: adminPatchMissingTimeError.message },
+              { status: 500 }
+            );
+          }
+        }
+      }
+
       return NextResponse.json({
         success: true,
         alreadyCheckedIn: true,
@@ -128,16 +152,18 @@ export async function POST(
       });
     }
 
+    const now = new Date().toISOString();
+
     const { error } = await authClient
       .from('Registration')
-      .update({ has_checked_in: true })
+      .update({ has_checked_in: true, checked_in_at: now })
       .eq('id', reg.id)
       .eq('event_id', parsedEventId);
 
     if (error) {
       const { error: adminErr } = await admin
         .from('Registration')
-        .update({ has_checked_in: true })
+        .update({ has_checked_in: true, checked_in_at: now })
         .eq('id', reg.id)
         .eq('event_id', parsedEventId);
 
@@ -154,7 +180,7 @@ export async function POST(
       alreadyCheckedIn: false,
       kind: 'main' as const,
       message: 'Main event check-in recorded',
-      checkInTime: new Date().toLocaleString(),
+      checkInTime: new Date(now).toLocaleString(),
     });
   } catch (e: unknown) {
     const authError = getAuthErrorResponse(e);

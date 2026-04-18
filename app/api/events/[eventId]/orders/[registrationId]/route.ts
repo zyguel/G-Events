@@ -15,6 +15,7 @@ import {
     wrapEmailBody,
 } from "@/lib/orderConfirmationSettings";
 import { newTicketToken } from "@/lib/ticketToken";
+import { invalidateEventOrdersCache } from "@/lib/eventOrdersCache";
 
 type Action = "confirm" | "reject" | "update" | "refund_reassign";
 
@@ -219,6 +220,7 @@ export async function PATCH(
 
             revalidatePath(`/admin/events/${id}/orders`);
             revalidatePath(`/admin/events/${id}/reports`);
+            invalidateEventOrdersCache(id);
 
             return NextResponse.json({
                 success: true,
@@ -428,6 +430,7 @@ export async function PATCH(
         // Revalidate relevant caches
         revalidatePath(`/admin/events/${id}/orders`);
         revalidatePath(`/admin/events/${id}/reports`);
+        invalidateEventOrdersCache(id);
 
         return NextResponse.json({ success: true });
     } catch (e: unknown) {
@@ -494,6 +497,7 @@ export async function DELETE(
         // Revalidate relevant paths
         revalidatePath(`/admin/events/${id}/orders`);
         revalidatePath(`/admin/events/${id}/reports`);
+        invalidateEventOrdersCache(id);
 
         return NextResponse.json({ success: true });
     } catch (e: unknown) {

@@ -12,7 +12,15 @@ const ALLOWED_IMAGE_TYPES = new Set([
   'image/gif',
   'image/avif',
 ])
-const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60 * 24 * 7
+const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60
+const SIGNED_URL_CACHE_TTL_MS = 5 * 60 * 1000
+
+type SignedUrlCacheEntry = {
+  url: string
+  expiresAt: number
+}
+
+const signedAvatarUrlCache = new Map<string, SignedUrlCacheEntry>()
 
 function getFileExtension(file: File) {
   const fromName = (file.name.split('.').pop() || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase()
@@ -26,6 +34,12 @@ function getFileExtension(file: File) {
 }
 
 async function createSignedAvatarUrl(adminClient: Awaited<ReturnType<typeof createAdminClient>>, path: string) {
+  const cacheKey = path.trim()
+  const cached = signedAvatarUrlCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.url
+  }
+
   const { data, error } = await adminClient.storage
     .from(PROFILE_IMAGE_BUCKET)
     .createSignedUrl(path, SIGNED_URL_EXPIRES_IN_SECONDS)
@@ -34,7 +48,13 @@ async function createSignedAvatarUrl(adminClient: Awaited<ReturnType<typeof crea
     throw new Error(error?.message || 'Failed to sign profile image URL.')
   }
 
-  return `${data.signedUrl}&t=${Date.now()}`
+  const signedUrl = data.signedUrl
+  signedAvatarUrlCache.set(cacheKey, {
+    url: signedUrl,
+    expiresAt: Date.now() + SIGNED_URL_CACHE_TTL_MS,
+  })
+
+  return signedUrl
 }
 
 async function getLatestAvatarPath(adminClient: Awaited<ReturnType<typeof createAdminClient>>, userId: string): Promise<string | null> {
@@ -108,11 +128,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (!filePath) {
-      return ok({ avatarUrl: null, filePath: null })
+      const response = ok({ avatarUrl: null, filePath: null })
+      response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=300')
+      return response
     }
 
     const avatarUrl = await createSignedAvatarUrl(adminClient, filePath)
-    return ok({ avatarUrl, filePath })
+    const response = ok({ avatarUrl, filePath })
+    if (queryPath) {
+      response.headers.set('Cache-Control', 'private, max-age=600, stale-while-revalidate=3600')
+    } else {
+      response.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=300')
+    }
+    return response
   } catch (error) {
     console.error('Profile avatar fetch API error:', error)
     return internalServerError('Failed to load profile image.')
@@ -169,6 +197,11 @@ export async function POST(request: NextRequest) {
     }
 
     const avatarUrl = await createSignedAvatarUrl(adminClient, filePath)
+    signedAvatarUrlCache.set(filePath, {
+      url: avatarUrl,
+      expiresAt: Date.now() + SIGNED_URL_CACHE_TTL_MS,
+    })
+
     const { error: updateUserError } = await sessionClient.auth.updateUser({
       data: {
         avatar_url: `storage:${filePath}`,
@@ -183,6 +216,9 @@ export async function POST(request: NextRequest) {
     const pathsToDelete = previousAvatarPaths.filter((path) => path !== filePath)
     if (pathsToDelete.length > 0) {
       await adminClient.storage.from(PROFILE_IMAGE_BUCKET).remove(pathsToDelete)
+      pathsToDelete.forEach((path) => {
+        signedAvatarUrlCache.delete(path)
+      })
     }
 
     return ok({ avatarUrl, filePath })

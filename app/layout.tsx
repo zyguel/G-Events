@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
 import { Figtree } from "next/font/google";
 import "./globals.css";
+import { LocaleProvider } from "@/contexts/LocaleContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import { PermissionProvider } from "@/contexts/PermissionContext";
-import { LocaleProvider } from "@/contexts/LocaleContext";
+import UnhandledMediaAbortGuard from "@/components/common/UnhandledMediaAbortGuard";
 import { Analytics } from "@vercel/analytics/next";
 
 const figtree = Figtree({
   variable: "--font-figtree",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700", "800", "900"],
+  weight: ["400", "500", "700"],
 });
 
 export const metadata: Metadata = {
@@ -26,6 +27,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${figtree.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <LocaleProvider>
+          <UnhandledMediaAbortGuard />
           <NotificationProvider>
             <PermissionProvider>
               {children}

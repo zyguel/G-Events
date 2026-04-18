@@ -88,6 +88,21 @@ export async function getCurrentUserOrganizationMemberships(): Promise<SessionRo
     };
   }
 
+  return getUserOrganizationMembershipsByEmail(email);
+}
+
+export async function getUserOrganizationMembershipsByEmail(emailInput: string): Promise<SessionRoleContext> {
+  const email = emailInput.trim().toLowerCase();
+  if (!email) {
+    return {
+      isAuthenticated: false,
+      email: null,
+      memberships: [],
+    };
+  }
+
+  const supabase = await createClient();
+
   const { data: users, error: userError } = await supabase
     .from('User')
     .select('id')
@@ -167,6 +182,19 @@ export async function getCurrentUserActiveOrganization(
   preferredOrganizationId: number | null
 ): Promise<ActiveOrganizationContext> {
   const context = await getCurrentUserOrganizationMemberships();
+  const activeOrganizationId = resolveActiveOrganizationId(context.memberships, preferredOrganizationId);
+
+  return {
+    ...context,
+    activeOrganizationId,
+  };
+}
+
+export async function getUserActiveOrganizationByEmail(
+  emailInput: string,
+  preferredOrganizationId: number | null
+): Promise<ActiveOrganizationContext> {
+  const context = await getUserOrganizationMembershipsByEmail(emailInput);
   const activeOrganizationId = resolveActiveOrganizationId(context.memberships, preferredOrganizationId);
 
   return {

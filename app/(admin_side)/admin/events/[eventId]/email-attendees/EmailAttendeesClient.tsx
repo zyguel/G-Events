@@ -1,14 +1,21 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { Mail, Filter, Send, Clock, Eye, Users, Check, X, Calendar, Trash2, RefreshCw, ChevronDown } from 'lucide-react';
-import RichTextEditor from '@/components/admin/RichTextEditor';
 import Modal from '@/components/admin/Modal';
 import TimeInput from '@/components/admin/TimeInput';
 import DateInput from '@/components/admin/DateInput';
 import { EventSummary } from '@/lib/types';
 import { htmlToPlainText } from '@/lib/security';
 import { useLocale } from '@/contexts/LocaleContext';
+
+const RichTextEditor = dynamic(() => import('@/components/admin/RichTextEditor'), {
+    ssr: false,
+    loading: () => (
+        <div className="min-h-55 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 animate-pulse" />
+    ),
+});
 
 function sanitizeHtml(input: string) {
     return input
@@ -301,6 +308,8 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingCampaigns, setIsLoadingCampaigns] = useState(!event.id.startsWith('evt-'));
+    const [isLoadingAttendeeEstimate, setIsLoadingAttendeeEstimate] = useState(false);
+    const [estimatedAttendeesCount, setEstimatedAttendeesCount] = useState(0);
 
     // Initial event prop is used instead of hardcoded data
 
@@ -411,25 +420,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     }, [event.id]);
 
 
-    // Calculate attendees count based on filters
-    const getAttendeesCount = () => {
-        // If it's a draft/local event, assume 0 attendees for now
-        if (event.id.startsWith('evt-')) return 0;
-
-        let count = 0;
-        if (ticketTypes.selectAll) return 200;
-        if (ticketTypes.generalAdmission) count += 150;
-        if (ticketTypes.premiumAdmission) count += 50;
-        if (count === 0) {
-            // If no ticket type selected, use status filters
-            if (statuses.selectAll) return 200;
-            if (statuses.confirmed) count += 120;
-            if (statuses.pending) count += 30;
-            if (statuses.attended) count += 45;
-            if (statuses.waitlisted) count += 5;
-        }
-        return count || 200;
-    };
+    const getAttendeesCount = () => estimatedAttendeesCount;
 
     // Handle select all for ticket types
     const handleTicketSelectAll = () => {
@@ -487,6 +478,52 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
         attendanceTypes,
     });
 
+    useEffect(() => {
+        if (event.id.startsWith('evt-')) {
+            setEstimatedAttendeesCount(0);
+            setIsLoadingAttendeeEstimate(false);
+            return;
+        }
+
+        const controller = new AbortController();
+        const timer = setTimeout(async () => {
+            try {
+                setIsLoadingAttendeeEstimate(true);
+                const res = await fetch(`/api/events/${event.id}/email-attendees`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    signal: controller.signal,
+                    body: JSON.stringify({
+                        action: 'estimate',
+                        filters: buildFiltersPayload(),
+                    }),
+                });
+
+                const json = await res.json().catch(() => ({}));
+                if (!res.ok || !json?.success) {
+                    throw new Error(json?.error || `Failed to estimate recipients (${res.status})`);
+                }
+
+                const nextCount = Number(json?.data?.recipientCount || 0);
+                setEstimatedAttendeesCount(Number.isFinite(nextCount) ? nextCount : 0);
+            } catch (error) {
+                if (error instanceof DOMException && error.name === 'AbortError') {
+                    return;
+                }
+                console.error('Error estimating attendee count:', error);
+            } finally {
+                if (!controller.signal.aborted) {
+                    setIsLoadingAttendeeEstimate(false);
+                }
+            }
+        }, 250);
+
+        return () => {
+            clearTimeout(timer);
+            controller.abort();
+        };
+    }, [event.id, ticketTypes, statuses, attendanceTypes]);
+
     const handleSaveAsDraft = async () => {
         if (!emailSubject.trim()) {
             setToast({ message: 'Please enter at least a subject to save as draft', type: 'error' });
@@ -498,7 +535,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                 id: Date.now().toString(),
                 subject: emailSubject,
                 body: emailBody,
-                recipientCount: getAttendeesCount(),
+                recipientCount: estimatedAttendeesCount,
                 sentAt: new Date(),
                 status: 'draft'
             };
@@ -547,7 +584,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                     id: Date.now().toString(),
                     subject: emailSubject,
                     body: emailBody,
-                    recipientCount: getAttendeesCount(),
+                    recipientCount: estimatedAttendeesCount,
                     sentAt: new Date(),
                     status: scheduleOption === 'later' ? 'scheduled' : 'sent',
                     scheduledFor: scheduleOption === 'later' ? new Date(`${scheduledDate}T${scheduledTime}`) : undefined
@@ -714,6 +751,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                             <Users size={18} className="text-[#3D518C]" />
                             <span className="text-sm text-gray-600 dark:text-gray-300">
                                 <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> {t('attendees selected')}
+                                {isLoadingAttendeeEstimate ? ' ...' : ''}
                             </span>
                         </div>
                     </div>
@@ -951,6 +989,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                                     <p>
                                         Ready to send to <span className="font-semibold text-[#3D518C]">{getAttendeesCount()}</span> attendees based on your filters
+                                        {isLoadingAttendeeEstimate ? ' (updating...)' : ''}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3">
