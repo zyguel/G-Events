@@ -13,27 +13,22 @@ type JsonCacheEntry = {
 };
 
 const CACHE_PREFIX = "g_events_api_cache:";
-const CACHE_TTL_MS = 60 * 1000;
-const PERIODIC_REFRESH_MS = 60 * 1000;
+const CACHE_TTL_MS = 2 * 60 * 1000;
+const PERIODIC_REFRESH_MS = 2 * 60 * 1000;
 const REALTIME_DEBOUNCE_MS = 1500;
 const AGGRESSIVE_ADMIN_EVENTS_WARM_MODE = false;
-const MAX_CONCURRENT_WARM_REQUESTS = 4;
-const GLOBAL_EVENT_WARM_LIMIT = 8;
-const ADMIN_EVENTS_LIST_WARM_LIMIT = 6;
+const MAX_CONCURRENT_WARM_REQUESTS = 3;
+const GLOBAL_EVENT_WARM_LIMIT = 4;
+const ADMIN_EVENTS_LIST_WARM_LIMIT = 4;
 const SECONDARY_WARM_DELAY_MS = 250;
-const CACHE_HIT_REVALIDATE_INTERVAL_MS = 20 * 1000;
+const CACHE_HIT_REVALIDATE_INTERVAL_MS = 60 * 1000;
+const IN_MEMORY_CACHE_LIMIT = 250;
 
 const STATIC_WARM_ENDPOINTS = [
   "/api/events",
-  "/api/management/users",
-  "/api/management/roles",
   "/api/management/permissions",
-  "/api/analytics/general",
-  "/api/analytics/events",
   "/api/notifications",
   "/api/user/locale",
-  "/api/profile/avatar",
-  "/api/regions",
 ] as const;
 
 const CACHEABLE_PREFIXES = [
@@ -47,6 +42,39 @@ const CACHEABLE_PREFIXES = [
   "/api/regions",
 ] as const;
 
+const inMemoryCache = new Map<string, JsonCacheEntry>();
+
+function buildGeneralAdminWarmList(pathname: string): string[] {
+  const normalized = pathname.toLowerCase();
+
+  if (normalized === "/dashboard" || normalized.startsWith("/dashboard/")) {
+    return [
+      "/api/analytics/general",
+      "/api/analytics/events",
+      "/api/profile/avatar",
+      "/api/regions",
+    ];
+  }
+
+  if (normalized === "/management" || normalized.startsWith("/management/")) {
+    return [
+      "/api/management/users",
+      "/api/management/roles",
+      "/api/management/permissions",
+    ];
+  }
+
+  if (normalized === "/profile" || normalized.startsWith("/profile/")) {
+    return ["/api/profile/avatar", "/api/user/locale"];
+  }
+
+  if (normalized === "/settings" || normalized.startsWith("/settings/")) {
+    return ["/api/user/locale", "/api/regions"];
+  }
+
+  return [];
+}
+
 function toCacheKey(pathWithQuery: string) {
   return `${CACHE_PREFIX}${pathWithQuery}`;
 }
@@ -58,6 +86,11 @@ function isJsonContentType(contentType: string | null): boolean {
 function readCache(pathWithQuery: string): JsonCacheEntry | null {
   if (typeof window === "undefined") return null;
 
+  const memoryHit = inMemoryCache.get(pathWithQuery);
+  if (memoryHit) {
+    return memoryHit;
+  }
+
   try {
     const raw = sessionStorage.getItem(toCacheKey(pathWithQuery));
     if (!raw) return null;
@@ -65,6 +98,8 @@ function readCache(pathWithQuery: string): JsonCacheEntry | null {
     const parsed = JSON.parse(raw) as JsonCacheEntry;
     if (!parsed || typeof parsed !== "object") return null;
     if (typeof parsed.updatedAt !== "number") return null;
+
+    inMemoryCache.set(pathWithQuery, parsed);
 
     return parsed;
   } catch {
@@ -81,6 +116,15 @@ function writeCache(pathWithQuery: string, status: number, data: unknown) {
     updatedAt: Date.now(),
   };
 
+  inMemoryCache.set(pathWithQuery, entry);
+
+  if (inMemoryCache.size > IN_MEMORY_CACHE_LIMIT) {
+    const firstKey = inMemoryCache.keys().next().value;
+    if (typeof firstKey === "string") {
+      inMemoryCache.delete(firstKey);
+    }
+  }
+
   try {
     sessionStorage.setItem(toCacheKey(pathWithQuery), JSON.stringify(entry));
   } catch {
@@ -94,6 +138,18 @@ function isFresh(entry: JsonCacheEntry): boolean {
 
 function isCacheableApiPath(pathname: string): boolean {
   return CACHEABLE_PREFIXES.some((prefix) => pathname.startsWith(prefix));
+}
+
+function isLikelyCacheableApiRequest(input: RequestInfo | URL): boolean {
+  const rawUrl =
+    typeof input === "string"
+      ? input
+      : input instanceof URL
+        ? input.toString()
+        : input.url;
+
+  // Fast-path guard for the fetch interceptor to bypass non-API requests quickly.
+  return rawUrl.includes("/api/");
 }
 
 function shouldWarmPath(pathWithQuery: string): boolean {
@@ -529,11 +585,17 @@ export default function AppDataCacheProvider() {
     };
 
     const warmForPath = async (nextPath: string) => {
+      if (!isAdminRealtimeRoute(nextPath)) {
+        return;
+      }
+
       const eventIds = await getEventIds();
       const routePlan = buildAdminEventsRouteWarmPlan(nextPath, eventIds);
+      const generalAdminWarmList = buildGeneralAdminWarmList(nextPath);
 
       const primaryUrls = uniqueUrls([
         ...STATIC_WARM_ENDPOINTS,
+        ...generalAdminWarmList,
         ...routePlan.primary,
       ]);
 
@@ -551,12 +613,18 @@ export default function AppDataCacheProvider() {
     };
 
     const warmEverything = async () => {
+      if (!isAdminRealtimeRoute(pathnameRef.current)) {
+        return;
+      }
+
       const eventIds = await getEventIds();
       const scopedEventIds = eventIds.slice(0, GLOBAL_EVENT_WARM_LIMIT);
       const routePlan = buildAdminEventsRouteWarmPlan(pathnameRef.current, eventIds);
+      const generalAdminWarmList = buildGeneralAdminWarmList(pathnameRef.current);
 
       const urls = uniqueUrls([
         ...STATIC_WARM_ENDPOINTS,
+        ...generalAdminWarmList,
         ...routePlan.primary,
         ...routePlan.secondary,
         ...buildEventEndpointWarmList(scopedEventIds),
@@ -581,6 +649,10 @@ export default function AppDataCacheProvider() {
 
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const method = (init?.method || (input instanceof Request ? input.method : "GET")).toUpperCase();
+
+      if (method !== "GET" || !isLikelyCacheableApiRequest(input)) {
+        return originalFetch(input, init);
+      }
 
       const resolvedUrl = resolveRequestUrl(input);
       if (!resolvedUrl) {
@@ -694,7 +766,7 @@ export default function AppDataCacheProvider() {
     }
 
     const periodicRefreshId = window.setInterval(() => {
-      if (!document.hidden) {
+      if (!document.hidden && isAdminRealtimeRoute(pathnameRef.current)) {
         void warmForPath(pathnameRef.current);
       }
     }, PERIODIC_REFRESH_MS);
