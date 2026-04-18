@@ -419,28 +419,99 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                   onChange={(e) => setTemplateName(e.target.value)}
                   className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-gray-900 focus:ring-2 focus:ring-[#3D518C] dark:border-gray-600 dark:bg-gray-800 dark:text-white"
                 />
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="space-y-6">
+                  {/* Font Size with Presets */}
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Name font size: {fontSize}px
-                    </label>
+                    <div className="mb-3 flex items-center justify-between">
+                      <label className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                        Name font size: <span className="text-[#3D518C] dark:text-blue-400">{fontSize}px</span>
+                      </label>
+                      <div className="flex gap-1.5">
+                        {[20, 28, 36, 48, 64].map((sz) => (
+                          <button
+                            key={sz}
+                            type="button"
+                            onClick={() => setFontSize(sz)}
+                            className={`rounded-lg px-2 py-1 text-[10px] font-bold transition-all ${
+                              fontSize === sz
+                                ? "bg-[#3D518C] text-white"
+                                : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
+                            }`}
+                          >
+                            {sz}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                     <input
                       type="range"
                       min={12}
-                      max={72}
+                      max={96}
                       value={fontSize}
                       onChange={(e) => setFontSize(Number(e.target.value))}
-                      className="w-full touch-manipulation"
+                      className="h-2 w-full touch-manipulation appearance-none rounded-lg bg-gray-200 accent-[#3D518C] dark:bg-gray-700 dark:accent-blue-500"
                     />
                   </div>
+
+                  {/* Color Picker with Swatches */}
                   <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Name color</label>
-                    <input
-                      type="color"
-                      value={fontColor}
-                      onChange={(e) => setFontColor(e.target.value)}
-                      className="h-12 w-full cursor-pointer rounded-xl border border-gray-200 dark:border-gray-600"
-                    />
+                    <label className="mb-3 block text-sm font-bold text-gray-700 dark:text-gray-300">Name color</label>
+                    <div className="flex flex-wrap items-center gap-3">
+                      {[
+                        "#000000", // Black
+                        "#FFFFFF", // White
+                        "#3D518C", // Indigo
+                        "#4B5563", // Gray 600
+                        "#EF4444", // Red 500
+                        "#10B981", // Emerald 500
+                        "#F59E0B", // Amber 500
+                        "#6366F1", // Indigo 500
+                      ].map((color) => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setFontColor(color)}
+                          className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${
+                            fontColor.toUpperCase() === color.toUpperCase()
+                              ? "scale-110 border-[#3D518C] shadow-lg dark:border-white"
+                              : "border-transparent shadow-sm"
+                          }`}
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+
+                      {/* Custom Color Picker Button */}
+                      <div className="relative h-8 w-8 group">
+                        <input
+                          type="color"
+                          id="custom-color-picker"
+                          value={fontColor}
+                          onChange={(e) => setFontColor(e.target.value)}
+                          className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                        />
+                        <label
+                          htmlFor="custom-color-picker"
+                          className={`flex h-8 w-8 cursor-pointer items-center justify-center overflow-hidden rounded-full border-2 border-gray-200 bg-white shadow-sm transition-all hover:border-[#3D518C] dark:border-gray-700 dark:bg-gray-800 ${
+                            ![
+                              "#000000",
+                              "#FFFFFF",
+                              "#3D518C",
+                              "#4B5563",
+                              "#EF4444",
+                              "#10B981",
+                              "#F59E0B",
+                              "#6366F1",
+                            ].includes(fontColor.toUpperCase())
+                              ? "scale-110 border-[#3D518C] shadow-lg dark:border-white"
+                              : ""
+                          }`}
+                        >
+                          <div className="h-full w-full" style={{ backgroundColor: fontColor }} />
+                        </label>
+                      </div>
+                      <span className="font-mono text-xs font-semibold uppercase text-gray-500">{fontColor}</span>
+                    </div>
                   </div>
                 </div>
                 <p className="text-xs leading-relaxed text-gray-500 dark:text-gray-400">
