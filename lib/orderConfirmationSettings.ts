@@ -50,10 +50,6 @@ function hasMeaningfulTemplateBody(body: string): boolean {
   return plainText.length > 0;
 }
 
-function isTemplateFullyConfigured(template: OrderConfirmationEmailTemplate): boolean {
-  return template.subject.trim().length > 0 && hasMeaningfulTemplateBody(template.body);
-}
-
 export function normalizeOrderConfirmationData(value: unknown): OrderConfirmationData {
   const raw = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
 
@@ -152,13 +148,17 @@ export function renderOrderConfirmationTemplate(params: {
   fallback: OrderConfirmationEmailTemplate;
   context: TemplateContext;
 }): OrderConfirmationEmailTemplate {
-  const useCustomTemplate = isTemplateFullyConfigured(params.template);
-  const subjectTemplate = useCustomTemplate ? params.template.subject : params.fallback.subject;
-  const bodyTemplate = useCustomTemplate ? params.template.body : params.fallback.body;
+  // Subject and body are chosen independently so a custom subject with a still-empty body
+  // (or vice versa) still applies the customized part instead of discarding both.
+  const subjectSource =
+    params.template.subject.trim().length > 0 ? params.template.subject : params.fallback.subject;
+  const bodySource = hasMeaningfulTemplateBody(params.template.body)
+    ? params.template.body
+    : params.fallback.body;
 
   return {
-    subject: renderTemplateString(subjectTemplate, params.context),
-    body: renderTemplateString(bodyTemplate, params.context),
+    subject: renderTemplateString(subjectSource, params.context),
+    body: renderTemplateString(bodySource, params.context),
   };
 }
 

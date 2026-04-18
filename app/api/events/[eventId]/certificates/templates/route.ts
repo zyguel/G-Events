@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { getAdminSupabaseForEventOr404 } from "@/lib/apiEventAccess";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 
 export async function GET(
@@ -14,8 +14,10 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Invalid eventId" }, { status: 400 });
     }
 
-    const supabase = await createClient();
-    const { data, error } = await supabase
+    const access = await getAdminSupabaseForEventOr404(id);
+    if (!access.ok) return access.response;
+
+    const { data, error } = await access.supabase
       .from("CertificateTemplate")
       .select("*")
       .eq("event_id", id)
@@ -63,8 +65,10 @@ export async function POST(
       );
     }
 
-    const supabase = await createClient();
-    const { data, error } = await supabase
+    const access = await getAdminSupabaseForEventOr404(id);
+    if (!access.ok) return access.response;
+
+    const { data, error } = await access.supabase
       .from("CertificateTemplate")
       .insert([
         {

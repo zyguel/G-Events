@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/lib/supabase-server";
+import { getAdminSupabaseForEventOr404 } from "@/lib/apiEventAccess";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 import {
   EmailAudienceFilters,
@@ -113,8 +114,10 @@ export async function GET(
       );
     }
 
-    const supabase = await createClient();
-    const { data, error } = await supabase
+    const access = await getAdminSupabaseForEventOr404(id);
+    if (!access.ok) return access.response;
+
+    const { data, error } = await access.supabase
       .from("EventEmailCampaign")
       .select("*")
       .eq("event_id", id)
@@ -173,8 +176,9 @@ export async function POST(
     const filters: EmailAudienceFilters = body?.filters || {};
 
     if (action === "estimate") {
-      const supabase = await createClient();
-      const recipients = await resolveEventRecipients(supabase, id, filters);
+      const access = await getAdminSupabaseForEventOr404(id);
+      if (!access.ok) return access.response;
+      const recipients = await resolveEventRecipients(access.supabase, id, filters);
 
       return NextResponse.json(
         {
@@ -216,7 +220,10 @@ export async function POST(
       );
     }
 
-    const supabase = await createClient();
+    const access = await getAdminSupabaseForEventOr404(id);
+    if (!access.ok) return access.response;
+    const supabase = access.supabase;
+
     const { data: eventData, error: eventError } = await supabase
       .from("Event")
       .select("title")
