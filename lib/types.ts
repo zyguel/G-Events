@@ -9,6 +9,7 @@ export interface EventSummary {
     eventStartAt?: string | null;
     eventEndAt?: string | null;
     allowWaitlist?: boolean;
+    allowBreakouts?: boolean;
 }
 
 export interface EventData {

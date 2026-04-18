@@ -197,7 +197,7 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                 { page: 'checkin', icon: <UserCheck size={16} />, label: t('Check In'), perm: 'Check In Attendees' },
                                 { page: 'certificates', icon: <Award size={16} />, label: t('Certificates'), perm: 'View E-Certificates' },
                                 { page: 'waitlist', icon: <Clock size={16} />, label: t('Manage Waitlist'), perm: 'Manage Waitlist', condition: event.allowWaitlist },
-                                { page: 'breakouts', icon: <Presentation size={16} />, label: t('Manage Breakout Sessions'), perm: 'Create Breakout Sessions' },
+                                { page: 'breakouts', icon: <Presentation size={16} />, label: t('Manage Breakout Sessions'), perm: 'Create Breakout Sessions', condition: event.allowBreakouts },
                             ].filter(item => item.condition !== false).map(({ page, icon, label, perm }) => {
                                 // While loading, show all (fail-open). After load, check permission.
                                 if (permResolved && !isAdmin && !hasPermission(perm)) return null;

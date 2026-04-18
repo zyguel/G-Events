@@ -345,7 +345,7 @@ function AddOrderModal({
     }, [isOpen, availableTickets]);
 
     const addUserSlot = () => setSelectedUsers([...selectedUsers, null]);
-    
+
     const removeUserSlot = (index: number) => {
         if (selectedUsers.length > 1) {
             setSelectedUsers(selectedUsers.filter((_, i) => i !== index));
@@ -403,8 +403,8 @@ function AddOrderModal({
                                         }
                                     }}
                                     className={`relative z-10 flex-1 py-2.5 text-sm font-bold transition-all duration-500 rounded-2xl ${registrationType === type
-                                            ? "text-[#3D518C] dark:text-blue-400"
-                                            : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-400"
+                                        ? "text-[#3D518C] dark:text-blue-400"
+                                        : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-400"
                                         }`}
                                 >
                                     <div className="flex items-center justify-center gap-2">
@@ -433,8 +433,8 @@ function AddOrderModal({
                                     key={ticket.id}
                                     onClick={() => setTicketId(String(ticket.id))}
                                     className={`group relative flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${String(ticket.id) === ticketId
-                                            ? "border-[#3D518C] bg-[#3D518C]/5 dark:bg-blue-500/10 dark:border-blue-500/50 shadow-md shadow-[#3D518C]/5"
-                                            : "border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 bg-white dark:bg-gray-800/40"
+                                        ? "border-[#3D518C] bg-[#3D518C]/5 dark:bg-blue-500/10 dark:border-blue-500/50 shadow-md shadow-[#3D518C]/5"
+                                        : "border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 bg-white dark:bg-gray-800/40"
                                         }`}
                                 >
                                     <div className="flex items-center gap-4">
@@ -470,7 +470,7 @@ function AddOrderModal({
                             </button>
                         )}
                     </div>
-                    
+
                     <div className="space-y-6">
                         <AnimatePresence mode="wait">
                             {selectedUsers.map((user, index) => (
@@ -568,13 +568,12 @@ function EditOrderModal({
                             <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{order?.name}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{order?.email}</p>
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${
-                            order?.status === "Confirmed"
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${order?.status === "Confirmed"
                                 ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
                                 : order?.status === "Rejected"
                                     ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
                                     : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
-                        }`}>
+                            }`}>
                             {order?.status}
                         </span>
                     </div>
@@ -610,7 +609,7 @@ function EditOrderModal({
                                     className={`group relative flex items-center justify-between p-4 rounded-2xl border-2 transition-all duration-300 ${isSelected
                                         ? "border-[#3D518C] bg-[#3D518C]/5 dark:bg-blue-500/10 dark:border-blue-500/50 shadow-md shadow-[#3D518C]/5"
                                         : "border-gray-100 dark:border-gray-800 hover:border-gray-200 dark:hover:border-gray-700 bg-white dark:bg-gray-800/40"
-                                    }`}
+                                        }`}
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={`w-2 h-2 rounded-full transition-all duration-300 ${isSelected ? "bg-[#3D518C] scale-125 shadow-[0_0_8px_rgba(61,81,140,0.5)]" : "bg-gray-300 dark:bg-gray-600"}`} />
@@ -731,7 +730,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
         };
 
         loadOrders();
-        
+
         // Load available tickets
         const loadTickets = async () => {
             try {
@@ -1065,7 +1064,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                         />
                                     </div>
 
-                                     {/* Filter Buttons */}
+                                    {/* Filter Buttons */}
                                     <div className="flex gap-2">
                                         <button
                                             onClick={() => {
@@ -1101,7 +1100,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
 
 
                                 {/* Add Order Button */}
-                                <button 
+                                <button
                                     onClick={() => setIsAddModalOpen(true)}
                                     className="flex items-center gap-2 px-5 py-2.5 bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white rounded-xl text-sm font-medium hover:shadow-lg transition-all"
                                 >
@@ -1193,168 +1192,168 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                                     <>
                                         <div className="overflow-x-auto">
                                             <table className="w-full">
-                                        <thead>
-                                            <tr className="bg-blue-100 dark:bg-blue-900/30">
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Registration ID
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Name
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Email
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Ticket Type
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Registration Type
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Registration Status
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Registration Date
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Registration Time
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Add-On Status
-                                                </th>
-                                                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
-                                                    Actions
-                                                </th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                                            {paginatedOrders.map((order) => (
-                                                <tr
-                                                    key={order.id}
-                                                    className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                                                >
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-medium">
-                                                        {order.id}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                        {order.name}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
-                                                        <div className="text-[13px] font-medium text-gray-700 dark:text-gray-300">
-                                                            {order.email}
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                        {order.ticketType}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                        {order.registrationType}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap">
-                                                        <span
-                                                            className={`px-3 py-1 rounded-full text-xs font-medium ${order.status === "Confirmed"
-                                                                ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
-                                                                : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
-                                                                }`}
+                                                <thead>
+                                                    <tr className="bg-blue-100 dark:bg-blue-900/30">
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Registration ID
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Name
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Email
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Ticket Type
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Registration Type
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Registration Status
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Registration Date
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Registration Time
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Add-On Status
+                                                        </th>
+                                                        <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider">
+                                                            Actions
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                                    {paginatedOrders.map((order) => (
+                                                        <tr
+                                                            key={order.id}
+                                                            className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                                         >
-                                                            {order.status}
-                                                        </span>
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                        {order.date}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                        {order.time}
-                                                    </td>
-                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                        {order.addOnStatus}
-                                                    </td>
-                                                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-right relative ${activeMenuId === order.id ? 'z-50' : 'z-auto'}`}>
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (activeMenuId === order.id) {
-                                                                    setActiveMenuId(null);
-                                                                    setMenuPosition(null);
-                                                                } else {
-                                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                                    setMenuPosition({
-                                                                        top: rect.bottom + 4,
-                                                                        left: rect.right - 192,
-                                                                    });
-                                                                    setActiveMenuId(order.id);
-                                                                }
-                                                            }}
-                                                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
-                                                        >
-                                                            <MoreVertical size={16} className="text-gray-400" />
-                                                        </button>
-
-                                                        {activeMenuId === order.id && menuPosition && typeof document !== 'undefined' && createPortal(
-                                                            <div
-                                                                style={{
-                                                                    position: 'fixed',
-                                                                    top: menuPosition.top,
-                                                                    left: menuPosition.left,
-                                                                }}
-                                                                className="w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl z-100 overflow-hidden animate-fade-in"
-                                                                onClick={(e) => e.stopPropagation()}
-                                                            >
-                                                                <div className="p-1.5">
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setOrderToEdit(order);
-                                                                            setIsEditModalOpen(true);
-                                                                            setActiveMenuId(null);
-                                                                        }}
-                                                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
-                                                                    >
-                                                                        <Plus size={16} className="text-blue-500" />
-                                                                        Edit Order
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            setOrderToDelete(order);
-                                                                            setIsDeleteModalOpen(true);
-                                                                            setActiveMenuId(null);
-                                                                        }}
-                                                                        className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
-                                                                    >
-                                                                        <Trash2 size={16} />
-                                                                        Delete Order
-                                                                    </button>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100 font-medium">
+                                                                {order.id}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                                {order.name}
+                                                            </td>
+                                                            <td className="px-6 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                                                <div className="text-[13px] font-medium text-gray-700 dark:text-gray-300">
+                                                                    {order.email}
                                                                 </div>
-                                                            </div>,
-                                                            document.body
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                                {order.ticketType}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                                {order.registrationType}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                <span
+                                                                    className={`px-3 py-1 rounded-full text-xs font-medium ${order.status === "Confirmed"
+                                                                        ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400"
+                                                                        : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400"
+                                                                        }`}
+                                                                >
+                                                                    {order.status}
+                                                                </span>
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                                {order.date}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                                {order.time}
+                                                            </td>
+                                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                                                                {order.addOnStatus}
+                                                            </td>
+                                                            <td className={`px-6 py-4 whitespace-nowrap text-sm text-right relative ${activeMenuId === order.id ? 'z-50' : 'z-auto'}`}>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        if (activeMenuId === order.id) {
+                                                                            setActiveMenuId(null);
+                                                                            setMenuPosition(null);
+                                                                        } else {
+                                                                            const rect = e.currentTarget.getBoundingClientRect();
+                                                                            setMenuPosition({
+                                                                                top: rect.bottom + 4,
+                                                                                left: rect.right - 192,
+                                                                            });
+                                                                            setActiveMenuId(order.id);
+                                                                        }
+                                                                    }}
+                                                                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
+                                                                >
+                                                                    <MoreVertical size={16} className="text-gray-400" />
+                                                                </button>
 
-                                <TablePaginationControls
-                                    totalItems={filteredOrders.length}
-                                    currentPage={allOrdersPage}
-                                    rowsPerPage={allOrdersRowsPerPage}
-                                    onPageChange={setAllOrdersPage}
-                                    onRowsPerPageChange={(rows) => {
-                                        setAllOrdersRowsPerPage(rows);
-                                        setAllOrdersPage(1);
-                                    }}
-                                />
+                                                                {activeMenuId === order.id && menuPosition && typeof document !== 'undefined' && createPortal(
+                                                                    <div
+                                                                        style={{
+                                                                            position: 'fixed',
+                                                                            top: menuPosition.top,
+                                                                            left: menuPosition.left,
+                                                                        }}
+                                                                        className="w-48 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl z-100 overflow-hidden animate-fade-in"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                    >
+                                                                        <div className="p-1.5">
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setOrderToEdit(order);
+                                                                                    setIsEditModalOpen(true);
+                                                                                    setActiveMenuId(null);
+                                                                                }}
+                                                                                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-colors"
+                                                                            >
+                                                                                <Plus size={16} className="text-blue-500" />
+                                                                                Edit Order
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => {
+                                                                                    setOrderToDelete(order);
+                                                                                    setIsDeleteModalOpen(true);
+                                                                                    setActiveMenuId(null);
+                                                                                }}
+                                                                                className="flex items-center gap-3 w-full px-4 py-2.5 text-sm font-medium text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors"
+                                                                            >
+                                                                                <Trash2 size={16} />
+                                                                                Delete Order
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>,
+                                                                    document.body
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
 
-                                {/* Empty State */}
-                                {filteredOrders.length === 0 && !isLoading && (
-                                    <div className="text-center py-12">
-                                        <p className="text-gray-500 dark:text-gray-400">No orders found</p>
-                                        <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
-                                            Try adjusting your search query
-                                        </p>
-                                    </div>
-                                )}
-                                </>
+                                        <TablePaginationControls
+                                            totalItems={filteredOrders.length}
+                                            currentPage={allOrdersPage}
+                                            rowsPerPage={allOrdersRowsPerPage}
+                                            onPageChange={setAllOrdersPage}
+                                            onRowsPerPageChange={(rows) => {
+                                                setAllOrdersRowsPerPage(rows);
+                                                setAllOrdersPage(1);
+                                            }}
+                                        />
+
+                                        {/* Empty State */}
+                                        {filteredOrders.length === 0 && !isLoading && (
+                                            <div className="text-center py-12">
+                                                <p className="text-gray-500 dark:text-gray-400">No orders found</p>
+                                                <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                                                    Try adjusting your search query
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
                                 )}
                             </div>
                         </div>

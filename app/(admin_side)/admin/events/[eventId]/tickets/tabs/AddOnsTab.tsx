@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Eye, X } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, AddOnVariant, getTickets, Ticket } from "@/lib/eventManagement";
@@ -238,73 +238,143 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   return (
     <div className="space-y-6">
       {/* Header with Add Button */}
-      <div className="flex justify-between items-center">
-
+      <div className="flex justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-2xl border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Event Add-ons</h2>
+          <p className="text-xs text-gray-500 dark:text-gray-400">Manage merchandise, rentals, and other extra items.</p>
+        </div>
         <button
           onClick={handleAddAddOn}
-          className="px-4 py-2 text-sm bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] hover:shadow-lg hover:scale-[1.05] transition-all duration-200 text-white font-medium rounded-lg flex items-center gap-2"
+          className="px-5 py-2.5 text-sm bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 text-white font-bold rounded-xl flex items-center gap-2"
         >
-          <Plus size={18} />
+          <Plus size={18} strokeWidth={3} />
           Create Add-on
         </button>
       </div>
 
       {/* Grid View */}
       {addOns.length === 0 ? (
-        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg">
-          <p className="text-gray-600 dark:text-gray-400">No add-ons created yet</p>
+        <div className="flex flex-col items-center justify-center py-20 bg-gray-50/50 dark:bg-gray-900/20 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+          <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm flex items-center justify-center mb-4">
+            <Package size={32} className="text-gray-300 dark:text-gray-600" />
+          </div>
+          <p className="text-gray-900 dark:text-white font-bold">No add-ons created yet</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-6 text-center max-w-xs">Start by creating your first add-on to offer extra value to your attendees.</p>
+          <button
+            onClick={handleAddAddOn}
+            className="px-6 py-2.5 text-sm border font-bold text-[#3D518C] dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
+          >
+            Add New Item
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <AnimatePresence>
-            {addOns.map((addOn) => (
-              <motion.div
-                key={addOn.id}
-                layout
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow"
-              >
-                {addOn.image && (
-                  <img src={addOn.image} alt={addOn.name} className="w-full h-48 object-cover" />
-                )}
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg">{addOn.name}</h3>
-                  {addOn.hasVariants && addOn.variants ? (
-                    <p className="text-sm text-indigo-600 dark:text-indigo-400 font-medium">{addOn.variants.length} Variant{addOn.variants.length !== 1 ? 's' : ''}</p>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">Standard Add-on (Stock: {addOn.stock || 0})</p>
-                  )}
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 line-clamp-2">{addOn.description}</p>
+            {addOns.map((addOn) => {
+              const totalStock = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + v.stock, 0) || 0) : (addOn.stock || 0);
+              const isLowStock = totalStock > 0 && totalStock <= 10;
+              const isOutStock = totalStock <= 0;
 
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => {
-                        setSelectedAddOn(addOn);
-                        setIsDetailsModalOpen(true);
-                      }}
-                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Eye size={16} />
-                      View Details
-                    </button>
-                    <button
-                      onClick={() => handleEditAddOn(addOn)}
-                      className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
-                    >
-                      <Edit2 size={18} className="text-gray-600 dark:text-gray-400" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteClick(addOn.id)}
-                      className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
-                    >
-                      <Trash2 size={18} className="text-red-600" />
-                    </button>
+              return (
+                <motion.div
+                  key={addOn.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  whileHover={{ y: -4 }}
+                  className="group bg-white dark:bg-gray-800 rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700 shadow-sm hover:shadow-xl hover:border-indigo-100 dark:hover:border-indigo-900/50 transition-all duration-300"
+                >
+                  <div className="relative h-56 overflow-hidden bg-gray-100 dark:bg-gray-900 font-sans">
+                    {addOn.image ? (
+                      <img
+                        src={addOn.image}
+                        alt={addOn.name}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ShoppingBag size={48} className="text-gray-300 dark:text-gray-700" />
+                      </div>
+                    )}
+
+                    {/* Stock Badge Overlay */}
+                    <div className="absolute top-4 left-4">
+                      <div className={`
+                        flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md
+                        ${isOutStock
+                          ? 'bg-red-500/90 text-white shadow-red-200 dark:shadow-none'
+                          : isLowStock
+                            ? 'bg-amber-500/90 text-white shadow-amber-200 dark:shadow-none'
+                            : 'bg-emerald-500/90 text-white shadow-emerald-200 dark:shadow-none'
+                        }
+                      `}>
+                        {isOutStock ? <AlertCircle size={10} /> : isLowStock ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />}
+                        {isOutStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+
+                  <div className="p-6 font-sans">
+                    <div className="flex justify-between items-start gap-2 mb-2">
+                      <h3 className="font-bold text-gray-900 dark:text-white text-lg leading-tight group-hover:text-[#3D518C] dark:group-hover:text-indigo-400 transition-colors">
+                        {addOn.name}
+                      </h3>
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-3">
+                      {addOn.hasVariants ? (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                          <Package size={10} />
+                          {addOn.variants?.length || 0} Variants
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                          Standard Item
+                        </div>
+                      )}
+                      <div className="text-[11px] font-bold text-gray-400 dark:text-gray-500">
+                        TOTAL QTY: {totalStock}
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 min-h-[40px] leading-relaxed">
+                      {addOn.description}
+                    </p>
+
+                    <div className="mt-6 flex items-center gap-2 border-t border-gray-50 dark:border-gray-700/50 pt-5">
+                      <button
+                        onClick={() => {
+                          setSelectedAddOn(addOn);
+                          setIsDetailsModalOpen(true);
+                        }}
+                        className="flex-1 min-h-[44px] px-4 py-2 bg-gray-50 dark:bg-gray-700/50 hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 text-sm"
+                      >
+                        <Eye size={16} />
+                        Details
+                      </button>
+
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => handleEditAddOn(addOn)}
+                          className="w-11 h-11 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-2xl transition-all"
+                          title="Edit"
+                        >
+                          <Edit2 size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(addOn.id)}
+                          className="w-11 h-11 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 dark:text-gray-400 hover:text-red-500 rounded-2xl transition-all"
+                          title="Delete"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
         </div>
       )}

@@ -678,7 +678,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
     }, [activeTab, event.name, registrants, breakoutSessions]);
 
     return (
-        <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Filter Modal */}
             <FilterModal
                 isOpen={isFilterOpen}
@@ -689,7 +689,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
             />
 
             {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto p-8">
+            <div className="p-8">
                 <div className="max-w-6xl mx-auto space-y-6">
 
                     {/* Page Header */}
@@ -1027,7 +1027,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                         </div>
                     )}
                 </div>
-            </main>
+            </div>
         </div>
     );
 }
