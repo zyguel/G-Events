@@ -29,6 +29,7 @@ export default function ReviewOrderModal({
 }: ReviewOrderModalProps) {
     const [isImageExpanded, setIsImageExpanded] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [localStatus, setLocalStatus] = useState<string | null>(null);
 
     useEffect(() => {
         setMounted(true);
@@ -42,7 +43,13 @@ export default function ReviewOrderModal({
         };
     }, [isOpen]);
 
+    useEffect(() => {
+        setLocalStatus(null);
+    }, [order?.id]);
+
     if (!mounted || !isOpen || !order) return null;
+
+    const currentStatus = localStatus || order.status;
 
     return createPortal(
         <AnimatePresence>
@@ -141,8 +148,14 @@ export default function ReviewOrderModal({
                                                     </div>
                                                     <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg">
                                                         <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Status</p>
-                                                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                                                            {order.status}
+                                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                                            currentStatus === "Confirmed"
+                                                                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400"
+                                                                : currentStatus === "Rejected"
+                                                                    ? "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400"
+                                                                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                                                        }`}>
+                                                            {currentStatus}
                                                         </span>
                                                     </div>
                                                     <div className="bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg col-span-2">
@@ -179,15 +192,21 @@ export default function ReviewOrderModal({
                                 </div>
                                 <div className="flex gap-3">
                                     <button
-                                        onClick={() => onReject(order.id)}
-                                        className="px-3 py-2 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl text-sm font-medium transition-colors flex items-center gap-2"
+                                        onClick={() => {
+                                            setLocalStatus("Rejected");
+                                            onReject(order.id);
+                                        }}
+                                        className="px-5 py-2.5 border border-red-200 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl text-sm font-bold transition-all shadow-sm hover:shadow-md flex items-center gap-2"
                                     >
                                         <XIcon size={16} />
                                         Reject
                                     </button>
                                     <button
-                                        onClick={() => onConfirm(order.id)}
-                                        className="px-4 py-2 bg-[#3D518C] text-white rounded-xl text-sm font-medium hover:bg-[#2a3a5e] hover:shadow-lg transition-all flex items-center gap-2"
+                                        onClick={() => {
+                                            setLocalStatus("Confirmed");
+                                            onConfirm(order.id);
+                                        }}
+                                        className="px-6 py-2.5 bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white rounded-xl text-sm font-bold shadow-lg shadow-[#3D518C]/30 hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
                                     >
                                         <Check size={16} />
                                         Confirm Order
