@@ -519,6 +519,22 @@ export async function processQueuedCertificateEmails(
     access_token: string;
   }>;
 
+  const eventTitleById = new Map<number, string>();
+  if (issues.length > 0) {
+    const eventIds = [...new Set(issues.map((i) => i.event_id))];
+    const { data: eventRows, error: eventsError } = await supabase
+      .from("Event")
+      .select("id, title")
+      .in("id", eventIds);
+
+    if (eventsError) throw new Error(eventsError.message);
+
+    for (const row of (eventRows || []) as Array<{ id: number; title: string | null }>) {
+      const title = String(row.title ?? "").trim() || "Event";
+      eventTitleById.set(Number(row.id), title);
+    }
+  }
+
   let sent = 0;
   let failed = 0;
 
@@ -531,13 +547,16 @@ export async function processQueuedCertificateEmails(
       const safeViewUrl = escapeHtml(viewUrl);
       const safeDownloadUrl = escapeHtml(downloadUrl);
       const safeVerifyUrl = escapeHtml(verifyUrl);
+      const eventName = eventTitleById.get(issue.event_id) ?? "Event";
+      const safeEventName = escapeHtml(eventName);
+      const subjectPlain = `Your certificate for ${eventName} is here`;
 
       await sendEmail({
         to: issue.recipient_email,
-        subject: "Your event certificate is ready",
+        subject: subjectPlain,
         html: `
           <p>Hi ${safeRecipientName},</p>
-          <p>Your certificate is ready. Open your certificate page to preview it and download the PDF.</p>
+          <p>Your certificate for <strong>${safeEventName}</strong> is here.</p>
           <p><a href="${safeViewUrl}" style="font-weight:bold">View certificate</a></p>
           <p style="margin-top:1em;font-size:14px">Or <a href="${safeDownloadUrl}">download PDF directly</a>.</p>
           <p style="margin-top:1em;font-size:13px;color:#555">Verification (API): <a href="${safeVerifyUrl}">${safeVerifyUrl}</a></p>
