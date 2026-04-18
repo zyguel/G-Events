@@ -39,6 +39,7 @@ type ScanJson = {
   registrationStatus: string;
   mainEventCheckedIn: boolean;
   mainEventStatus: string;
+  totalAddOnQty: number;
   claimableAddOnQty: number;
   claimableAddOns: Array<{
     entitlementId: number;
@@ -72,6 +73,7 @@ export function CheckInScanPanel({
   const [scanLoading, setScanLoading] = useState(false);
   const [applyLoading, setApplyLoading] = useState(false);
   const [claimLoading, setClaimLoading] = useState(false);
+  const [claimingVariantId, setClaimingVariantId] = useState<number | null>(null);
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanResult, setScanResult] = useState<ScanJson | null>(null);
   const [lastRaw, setLastRaw] = useState('');
@@ -199,10 +201,11 @@ export function CheckInScanPanel({
     }
   }, [eventId, lastRaw, onAttendanceChanged]);
 
-  const claimAddOns = useCallback(async () => {
+  const claimAddOns = useCallback(async (variantId: number) => {
     if (!scanResult || scanResult.claimableAddOnQty <= 0) return;
 
     setClaimLoading(true);
+    setClaimingVariantId(variantId);
     setScanError(null);
     try {
       const res = await fetch(
@@ -210,7 +213,7 @@ export function CheckInScanPanel({
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ station: 'checkin_scan_panel' }),
+          body: JSON.stringify({ station: 'checkin_scan_panel', variantId }),
         }
       );
       const json = await res.json().catch(() => ({}));
@@ -219,19 +222,42 @@ export function CheckInScanPanel({
       }
 
       await onAttendanceChanged();
-      setScanResult((prev) =>
-        prev
-          ? {
-              ...prev,
-              claimableAddOnQty: 0,
-              claimableAddOns: [],
-            }
-          : prev
-      );
+      const claimedRows = Array.isArray(json?.claimed)
+        ? (json.claimed as Array<{ variantId?: unknown; remainingQty?: unknown }>)
+        : [];
+      const claimedQtyForVariant = claimedRows
+        .filter((row) => Number(row.variantId) === variantId)
+        .reduce((sum, row) => sum + Number(row.remainingQty || 0), 0);
+
+      setScanResult((prev) => {
+        if (!prev) return prev;
+
+        const nextClaimableAddOns = prev.claimableAddOns
+          .map((item) => {
+            if (item.variantId !== variantId) return item;
+            return {
+              ...item,
+              remainingQty: Math.max(0, Number(item.remainingQty || 0) - claimedQtyForVariant),
+            };
+          })
+          .filter((item) => Number(item.remainingQty || 0) > 0);
+
+        const nextQty = nextClaimableAddOns.reduce(
+          (sum, item) => sum + Number(item.remainingQty || 0),
+          0
+        );
+
+        return {
+          ...prev,
+          claimableAddOns: nextClaimableAddOns,
+          claimableAddOnQty: nextQty,
+        };
+      });
     } catch (e) {
       setScanError(e instanceof Error ? e.message : 'Add-on claim failed');
     } finally {
       setClaimLoading(false);
+      setClaimingVariantId(null);
     }
   }, [eventId, onAttendanceChanged, scanResult]);
 
@@ -241,6 +267,7 @@ export function CheckInScanPanel({
     setLastRaw('');
     setScanError(null);
     setManual('');
+    setClaimingVariantId(null);
   };
 
   const canCheckIn =
@@ -406,14 +433,18 @@ export function CheckInScanPanel({
                 </span>
                 <span
                   className={`inline-flex items-center px-2 py-1 rounded-lg border ${
-                    scanResult.claimableAddOnQty > 0
+                    scanResult.totalAddOnQty <= 0
+                      ? 'bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
+                      : scanResult.claimableAddOnQty > 0
                       ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800'
                       : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-200 dark:border-emerald-800'
                   }`}
                 >
-                  {scanResult.claimableAddOnQty > 0
-                    ? `${scanResult.claimableAddOnQty} add-on${scanResult.claimableAddOnQty > 1 ? 's' : ''} claimable`
-                    : 'Add-ons claimed'}
+                  {scanResult.totalAddOnQty <= 0
+                    ? 'No add-ons'
+                    : scanResult.claimableAddOnQty > 0
+                      ? `${scanResult.claimableAddOnQty} add-on${scanResult.claimableAddOnQty > 1 ? 's' : ''} claimable`
+                      : 'Add-ons claimed'}
                 </span>
               </div>
 
@@ -481,16 +512,21 @@ export function CheckInScanPanel({
               ) : null}
 
               {workflow === 'addon_claims' && scanResult.claimableAddOnQty > 0 ? (
-                <button
-                  type="button"
-                  disabled={claimLoading || applyLoading}
-                  onClick={() => void claimAddOns()}
-                  className="min-h-[48px] px-5 rounded-xl bg-amber-500 hover:bg-amber-400 text-gray-900 text-sm font-bold disabled:opacity-50"
-                >
-                  {claimLoading
-                    ? 'Claiming add-ons...'
-                    : `Claim add-on${scanResult.claimableAddOnQty > 1 ? 's' : ''}`}
-                </button>
+                <div className="flex-1 grid grid-cols-1 gap-2">
+                  {scanResult.claimableAddOns.map((item) => (
+                    <button
+                      key={`${item.entitlementId}-${item.variantId}`}
+                      type="button"
+                      disabled={claimLoading || applyLoading}
+                      onClick={() => void claimAddOns(item.variantId)}
+                      className="min-h-[48px] px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-gray-900 text-sm font-bold disabled:opacity-50 text-left"
+                    >
+                      {claimingVariantId === item.variantId
+                        ? `Claiming ${item.addOnName} (${item.variantLabel})...`
+                        : `Claim ${item.addOnName} (${item.variantLabel}) x${item.remainingQty}`}
+                    </button>
+                  ))}
+                </div>
               ) : null}
 
               <button

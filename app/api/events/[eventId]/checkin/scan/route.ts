@@ -3,7 +3,7 @@ import { createAdminClient } from '@/lib/supabase-server';
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 import { extractTicketTokenFromScan } from '@/lib/checkinScan';
 import { resolveBreakoutTicketForEventCheckin } from '@/lib/breakoutCheckinScan';
-import { getClaimableAddOnsForRegistration } from '@/lib/checkinAddOnClaims';
+import { getAddOnClaimSummariesByRegistrationIds } from '@/lib/checkinAddOnClaims';
 
 function registrationNotConfirmed(status: unknown): boolean {
   const s = String(status || '').toLowerCase();
@@ -57,11 +57,10 @@ export async function POST(
       const { bsr, session, reg } = breakout;
       const breakoutCheckedIn =
         !!bsr.check_in_time || String(bsr.status || '').toLowerCase() === 'checked_in';
-      const claimableAddOns = await getClaimableAddOnsForRegistration(admin, Number(reg.id));
-      const claimableAddOnQty = claimableAddOns.reduce(
-        (sum, item) => sum + Number(item.remainingQty || 0),
-        0
-      );
+      const addOnSummary = (await getAddOnClaimSummariesByRegistrationIds(admin, [Number(reg.id)])).get(Number(reg.id));
+      const claimableAddOns = addOnSummary?.claimableAddOns || [];
+      const claimableAddOnQty = Number(addOnSummary?.claimableAddOnQty || 0);
+      const totalAddOnQty = Number(addOnSummary?.totalAddOnQty || 0);
 
       return NextResponse.json({
         success: true,
@@ -76,6 +75,7 @@ export async function POST(
         registrationStatus: String(reg.status || 'pending'),
         mainEventCheckedIn: !!reg.has_checked_in,
         mainEventStatus: reg.has_checked_in ? 'Checked-In' : 'Not Yet Checked-In',
+        totalAddOnQty,
         claimableAddOnQty,
         claimableAddOns,
         breakout: {
@@ -114,11 +114,10 @@ export async function POST(
       );
     }
 
-    const claimableAddOns = await getClaimableAddOnsForRegistration(admin, Number(reg.id));
-    const claimableAddOnQty = claimableAddOns.reduce(
-      (sum, item) => sum + Number(item.remainingQty || 0),
-      0
-    );
+    const addOnSummary = (await getAddOnClaimSummariesByRegistrationIds(admin, [Number(reg.id)])).get(Number(reg.id));
+    const claimableAddOns = addOnSummary?.claimableAddOns || [];
+    const claimableAddOnQty = Number(addOnSummary?.claimableAddOnQty || 0);
+    const totalAddOnQty = Number(addOnSummary?.totalAddOnQty || 0);
 
     return NextResponse.json({
       success: true,
@@ -133,6 +132,7 @@ export async function POST(
       registrationStatus: String(reg.status || 'pending'),
       mainEventCheckedIn: !!reg.has_checked_in,
       mainEventStatus: reg.has_checked_in ? 'Checked-In' : 'Not Yet Checked-In',
+      totalAddOnQty,
       claimableAddOnQty,
       claimableAddOns,
       breakout: null,

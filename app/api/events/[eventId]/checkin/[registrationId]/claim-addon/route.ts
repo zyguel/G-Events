@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-server';
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 import {
+    claimAddOnVariantForRegistration,
     claimAllAddOnsForRegistration,
     getClaimableAddOnsForRegistration,
 } from '@/lib/checkinAddOnClaims';
@@ -24,11 +25,25 @@ export async function POST(
             );
         }
 
-        const body = (await request.json().catch(() => null)) as { station?: unknown } | null;
+        const body = (await request.json().catch(() => null)) as { station?: unknown; variantId?: unknown } | null;
         const station =
             typeof body?.station === 'string' && body.station.trim()
                 ? body.station.trim().slice(0, 120)
                 : 'checkin';
+        const variantIdRaw = body?.variantId;
+        const parsedVariantId =
+            typeof variantIdRaw === 'number'
+                ? variantIdRaw
+                : typeof variantIdRaw === 'string' && variantIdRaw.trim()
+                    ? Number(variantIdRaw)
+                    : null;
+
+        if (parsedVariantId !== null && (!Number.isInteger(parsedVariantId) || parsedVariantId <= 0)) {
+            return NextResponse.json(
+                { success: false, error: 'Invalid variantId' },
+                { status: 400 }
+            );
+        }
 
         const admin = await createAdminClient();
         const { data: registration, error: registrationError } = await admin
@@ -60,7 +75,11 @@ export async function POST(
         }
 
         const claimable = await getClaimableAddOnsForRegistration(admin, parsedRegistrationId);
-        if (claimable.length === 0) {
+        const filteredClaimable = parsedVariantId === null
+            ? claimable
+            : claimable.filter((item) => Number(item.variantId) === parsedVariantId);
+
+        if (filteredClaimable.length === 0) {
             return NextResponse.json({
                 success: true,
                 alreadyClaimed: true,
@@ -69,10 +88,21 @@ export async function POST(
             });
         }
 
-        const result = await claimAllAddOnsForRegistration(admin, parsedEventId, parsedRegistrationId, {
-            station,
-            scannedBy: user?.email || undefined,
-        });
+        const result = parsedVariantId === null
+            ? await claimAllAddOnsForRegistration(admin, parsedEventId, parsedRegistrationId, {
+                station,
+                scannedBy: user?.email || undefined,
+            })
+            : await claimAddOnVariantForRegistration(
+                admin,
+                parsedEventId,
+                parsedRegistrationId,
+                parsedVariantId,
+                {
+                    station,
+                    scannedBy: user?.email || undefined,
+                }
+            );
 
         return NextResponse.json({
             success: true,
