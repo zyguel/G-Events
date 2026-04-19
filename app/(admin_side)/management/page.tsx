@@ -52,7 +52,7 @@ export default function ManagementPage() {
                 <Header />
                 <div className="flex flex-1 overflow-hidden">
                     <Sidebar activePage="management" />
-                    <main className="flex-1 ml-20 overflow-y-auto px-6 py-8 lg:px-10">
+                    <main className="flex-1 lg:ml-20 overflow-y-auto px-6 py-8 lg:px-10">
                         <div className="max-w-5xl space-y-6 animate-pulse">
                             <div className="space-y-2">
                                 <div className="h-8 w-56 rounded-lg bg-gray-200 dark:bg-gray-700" />
@@ -73,7 +73,7 @@ export default function ManagementPage() {
                 <Header />
                 <div className="flex flex-1 overflow-hidden">
                     <Sidebar activePage="management" />
-                    <main className="flex-1 ml-20 overflow-y-auto">
+                    <main className="flex-1 lg:ml-20 overflow-y-auto">
                         <AccessDenied message={t('Only administrators can access the Management page.')} />
                     </main>
                 </div>
@@ -754,7 +754,7 @@ function ManagementPageInner() {
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar activePage="management" />
 
-                <main className="flex-1 ml-20 p-4 md:p-8 overflow-y-auto scrollbar-hide">
+                <main className="flex-1 lg:ml-20 p-4 md:p-8 overflow-y-auto scrollbar-hide">
                     <div className="space-y-6 max-w-7xl mx-auto">
                         {/* Page Title */}
                         <div>

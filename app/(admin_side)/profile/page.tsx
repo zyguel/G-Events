@@ -474,7 +474,7 @@ export default function ProfilePage() {
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar activePage="profile" />
 
-                <main className="flex-1 ml-20 overflow-y-auto p-8">
+                <main className="flex-1 lg:ml-20 overflow-y-auto p-8">
                     <div className="space-y-6 max-w-5xl mx-auto">
 
                         {/* Profile Header Card */}
@@ -583,7 +583,7 @@ export default function ProfilePage() {
                                                         className="flex items-center gap-2 px-4 py-2.5 border border-cyan-200 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300 rounded-xl text-sm font-medium hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all"
                                                     >
                                                         <Users size={16} />
-                                                        Switch to Attend Mode
+                                                        Switch to Attendee Mode
                                                     </button>
                                                 </form>
                                                 <button

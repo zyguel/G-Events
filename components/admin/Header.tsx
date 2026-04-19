@@ -275,11 +275,11 @@ const Header = () => {
                         <input type="hidden" name="next" value={isCompactAdmin ? '/home' : '/dashboard'} />
                         <button
                             type="submit"
-                            title={t('Switch to attendee mode')}
+                            title={t('Switch to Attendee Mode')}
                             className="flex items-center gap-2 px-3 py-2 rounded-lg text-gray-500 dark:text-gray-400 hover:text-cyan-700 dark:hover:text-cyan-300 hover:bg-cyan-50 dark:hover:bg-cyan-900/20 transition-all duration-200"
                         >
                             <Users size={17} />
-                            <span className="hidden md:block text-sm font-medium">{t('Attend mode')}</span>
+                            <span className="hidden md:block text-sm font-medium">{t('Attendee Mode')}</span>
                         </button>
                     </form>
 

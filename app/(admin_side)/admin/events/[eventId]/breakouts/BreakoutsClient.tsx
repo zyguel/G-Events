@@ -466,7 +466,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
     if (!eventId || eventId === 'undefined') {
         console.error('Invalid eventId in breakouts page:', eventId);
         return (
-            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 items-center justify-center">
+            <div className="flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 items-center justify-center p-8">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
                     <p className="text-gray-600 dark:text-gray-400">{t('Unable to load breakout sessions. Event ID is invalid.')}</p>
@@ -675,7 +675,7 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
     };
 
     return (
-        <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
+        <>
             {/* Session Modal */}
             <SessionModal
                 isOpen={isModalOpen}
@@ -1002,6 +1002,6 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                     )}
                 </div>
             </div>
-        </div>
+        </>
     );
 }

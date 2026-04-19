@@ -239,7 +239,7 @@ export default function SettingsPage() {
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar activePage="settings" />
 
-                <main className="flex-1 ml-20 overflow-y-auto p-8">
+                <main className="flex-1 lg:ml-20 overflow-y-auto p-8">
                     <div className="space-y-6 max-w-4xl mx-auto">
 
                         {/* Header Section */}

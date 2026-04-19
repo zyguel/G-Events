@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3, Save, Loader } from "lucide-react";
 
@@ -106,8 +106,12 @@ export default function OrderForm({
     const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
+    const lastLoadedIdRef = useRef<string | null>(null);
 
     const loadForm = async (id: number) => {
+        const idStr = id.toString();
+        if (lastLoadedIdRef.current === idStr) return;
+        
         setIsLoading(true);
         try {
             console.log('Fetching form from API:', id);
@@ -116,18 +120,16 @@ export default function OrderForm({
                 throw new Error(`API Error: ${response.status}`);
             }
             const result = await response.json();
-            console.log('Form data received:', result.data);
             
             if (result.data && result.success) {
-                console.log('Loading form title:', result.data.title);
                 setFormTitle(result.data.title || initialTitle);
                 setFormDescription(result.data.description || initialDescription);
                 if (result.data.form_data) {
-                    console.log('Loading form structure:', result.data.form_data);
                     setData(result.data.form_data);
                 }
                 setSaveMessage(null);
                 setHasLoaded(true);
+                lastLoadedIdRef.current = idStr;
             } else {
                 throw new Error('Invalid response format');
             }
@@ -141,6 +143,8 @@ export default function OrderForm({
     };
 
     const loadExistingFormForEvent = async (eventIdNum: number) => {
+        if (lastLoadedIdRef.current === `checked-event-${eventIdNum}`) return;
+
         setIsLoading(true);
         try {
             const response = await fetch(`/api/orderform?eventId=${eventIdNum}`);
@@ -152,20 +156,26 @@ export default function OrderForm({
             const existingForm = Array.isArray(result.data) && result.data.length > 0 ? result.data[0] : null;
 
             if (existingForm) {
-                setCurrentFormId(existingForm.id?.toString());
+                const foundId = existingForm.id?.toString();
+                setCurrentFormId(foundId);
                 setFormTitle(existingForm.title || initialTitle);
                 setFormDescription(existingForm.description || initialDescription);
                 if (existingForm.form_data) {
                     setData(existingForm.form_data);
                 }
                 setSaveMessage(null);
+                lastLoadedIdRef.current = foundId;
 
-                // Keep URL in sync so future navigations have formId
-                try {
-                    router.replace(`/admin/events/${eventPathId}/orderform?formId=${existingForm.id}`);
-                } catch {
-                    // ignore navigation errors in client hook context
+                // Sync URL if needed
+                if (formId !== foundId) {
+                    try {
+                        router.replace(`/admin/events/${eventPathId}/orderform?formId=${foundId}`);
+                    } catch {
+                        // ignore navigation errors
+                    }
                 }
+            } else {
+                lastLoadedIdRef.current = `checked-event-${eventIdNum}`;
             }
 
             setHasLoaded(true);
@@ -180,6 +190,9 @@ export default function OrderForm({
 
     // Load existing form on mount or when identifiers change
     useEffect(() => {
+        // If the current prop matches what we last loaded, don't re-fetch
+        if (formId && formId === lastLoadedIdRef.current) return;
+        
         const init = async () => {
             const eventIdNum = parseInt(eventId);
             if (formId) {
@@ -193,7 +206,6 @@ export default function OrderForm({
             }
         };
 
-        // Only run once on mount or when eventId/formId changes from outside
         init();
     }, [eventId, formId]);
 

@@ -85,7 +85,7 @@ export default function EventOverviewPage() {
 
     if (!eventData) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 dark:bg-gray-900">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Event Not Found</h1>
                     <p className="text-gray-600 dark:text-gray-400">The event you are looking for does not exist or has been removed.</p>
