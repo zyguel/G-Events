@@ -1029,7 +1029,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                     )}
                 </div>
             </div>
-        </>
         </div>
+        </>
     );
 }

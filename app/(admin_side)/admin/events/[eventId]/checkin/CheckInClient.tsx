@@ -383,8 +383,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
 
     return (
         <>
-            <div className="p-8 relative z-10 pb-24 lg:pb-8">
-        <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans selection:bg-indigo-500/30 transition-colors duration-300 relative">
+            <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans selection:bg-indigo-500/30 transition-colors duration-300 relative">
 
             {/* Background Glow Effects (Dark Mode Only) - Adjusted to blend with gray theme */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0 opacity-0 dark:opacity-50 transition-opacity duration-500">
@@ -976,6 +975,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                     ) : null}
                 </div>
             </div>
+        </div>
         </>
     );
 }
