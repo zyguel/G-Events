@@ -417,6 +417,18 @@ export async function deleteRole(roleId: number, organizationId?: number): Promi
     const { data: roleData, error: roleLookupError } = await orgScopedRoleIdsQuery.limit(1).single();
     if (roleLookupError || !roleData) throw roleLookupError ?? new Error('Role not found');
 
+    // Check if any users are assigned to this role
+    const { count, error: userCountError } = await supabase
+        .from('OrganizationUserRole')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_role_id', roleId);
+
+    if (userCountError) throw userCountError;
+
+    if (count && count > 0) {
+        throw new Error(`Cannot delete this role because it is currently assigned to ${count} team member(s). Please reassign them before deleting.`);
+    }
+
     // Delete role permissions first
     await supabase
         .from('OrganizationRolePermission')

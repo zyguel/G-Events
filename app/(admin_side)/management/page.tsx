@@ -231,37 +231,40 @@ function ManagementPageInner() {
     };
 
     const handleAddUser = async () => {
-        if (inviteName && inviteEmail && selectedRole) {
-            try {
-                const selectedRoleObj = roles.find(r => r.name === selectedRole);
-                if (!selectedRoleObj) {
-                    showToast('Invalid role selected', 'error');
-                    return;
-                }
+        if (!inviteName || !inviteEmail || !selectedRole) {
+            showToast('Invite unsuccessful. Please fill in all fields.', 'error');
+            return;
+        }
 
-                const response = await fetch('/api/management/users', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: inviteName,
-                        email: inviteEmail,
-                        roleId: selectedRoleObj.id,
-                    }),
-                });
-
-                const result = await response.json();
-
-                if (result.success) {
-                    setMembers((currentMembers) => dedupeMembers([...currentMembers, result.data]));
-                    showToast('User invited successfully!', 'success');
-                    handleCloseModal();
-                } else {
-                    showToast(result.error || 'Failed to invite user', 'error');
-                }
-            } catch (error) {
-                console.error('Error inviting user:', error);
-                showToast('Failed to invite user. Please try again.', 'error');
+        try {
+            const selectedRoleObj = roles.find(r => r.name === selectedRole);
+            if (!selectedRoleObj) {
+                showToast('Invalid role selected', 'error');
+                return;
             }
+
+            const response = await fetch('/api/management/users', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: inviteName,
+                    email: inviteEmail,
+                    roleId: selectedRoleObj.id,
+                }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                setMembers((currentMembers) => dedupeMembers([...currentMembers, result.data]));
+                showToast('User invited successfully!', 'success');
+                handleCloseModal();
+            } else {
+                showToast(result.error || 'Failed to invite user', 'error');
+            }
+        } catch (error) {
+            console.error('Error inviting user:', error);
+            showToast('Failed to invite user. Please try again.', 'error');
         }
     };
 
@@ -376,6 +379,7 @@ function ManagementPageInner() {
     const [isCreateRoleOpen, setIsCreateRoleOpen] = useState(false);
     const [newRoleName, setNewRoleName] = useState('');
     const [expandedSections, setExpandedSections] = useState<string[]>(['eventCreation']);
+    const [isSavingRole, setIsSavingRole] = useState(false);
 
     // Permissions state
     const [permissions, setPermissions] = useState({
@@ -443,8 +447,20 @@ function ManagementPageInner() {
     };
 
     const handleSaveRole = async () => {
-        if (newRoleName.trim()) {
-            try {
+        const trimmedName = newRoleName.trim();
+        if (!trimmedName) {
+            showToast('Creat role unsuccessful, role name cannot be empty', 'error');
+            return;
+        }
+
+        const isDuplicate = roles.some(r => r.name === trimmedName && r.id !== editingRole?.id);
+        if (isDuplicate) {
+            showToast('Role name must be unique. Please choose another name.', 'error');
+            return;
+        }
+
+        setIsSavingRole(true);
+        try {
                 // Mapping from UI state keys to database permission names
                 const PERMISSION_MAP: Record<string, Record<string, string>> = {
                     eventCreation: {
@@ -564,8 +580,9 @@ function ManagementPageInner() {
             } catch (error) {
                 console.error('Error saving role:', error);
                 showToast('Failed to save role. Please try again.', 'error');
+            } finally {
+                setIsSavingRole(false);
             }
-        }
     };
 
     const toggleSection = (section: string) => {
@@ -845,121 +862,133 @@ function ManagementPageInner() {
                             /* Team Members List */
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-lg">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {filteredMembers.map((member) => (
-                                        <div
-                                            key={getMemberIdentity(member)}
-                                            className="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
-                                        >
-                                            {/* Avatar and Name */}
-                                            <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
-                                                    <span className="text-white font-bold text-sm">{member.name.charAt(0).toUpperCase()}</span>
-                                                    {member.avatar ? (
-                                                        <img
-                                                            src={member.avatar}
-                                                            alt={member.name}
-                                                            className="object-cover w-full h-full absolute"
-                                                            loading="lazy"
-                                                            onError={(event) => {
-                                                                event.currentTarget.style.display = 'none';
-                                                            }}
-                                                        />
-                                                    ) : null}
-                                                </div>
-                                                <div>
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('Name')}</p>
-                                                    <p className="text-sm font-medium text-[#3A3B49] dark:text-white">{member.name}</p>
-                                                </div>
-                                            </div>
-
-                                            {/* Email Address */}
-                                            <div className="w-full md:w-1/3 pl-14 md:pl-0">
-                                                <p className="text-xs text-gray-500 dark:text-gray-400">{t('Email Address')}</p>
-                                                <p className="text-sm text-[#3A3B49] dark:text-gray-200 break-all">{member.email}</p>
-                                            </div>
-
-                                            {/* Role & Actions Container */}
-                                            <div className="flex items-center justify-between w-full md:w-auto md:gap-8 pl-14 md:pl-0">
-                                                {/* Role */}
-                                                <div className="md:w-32">
-                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('Role')}</p>
-                                                    <p className="text-sm font-medium text-[#3A3B49] dark:text-white">{member.role}</p>
+                                    {filteredMembers.length > 0 ? (
+                                        filteredMembers.map((member) => (
+                                            <div
+                                                key={getMemberIdentity(member)}
+                                                className="flex flex-col md:flex-row md:items-center justify-between p-4 md:p-5 gap-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
+                                            >
+                                                {/* Avatar and Name */}
+                                                <div className="flex items-center gap-4 flex-1 min-w-0">
+                                                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center overflow-hidden flex-shrink-0 relative">
+                                                        <span className="text-white font-bold text-sm">{member.name.charAt(0).toUpperCase()}</span>
+                                                        {member.avatar ? (
+                                                            <img
+                                                                src={member.avatar}
+                                                                alt={member.name}
+                                                                className="object-cover w-full h-full absolute"
+                                                                loading="lazy"
+                                                                onError={(event) => {
+                                                                    event.currentTarget.style.display = 'none';
+                                                                }}
+                                                            />
+                                                        ) : null}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('Name')}</p>
+                                                        <p className="text-sm font-medium text-[#3A3B49] dark:text-white">{member.name}</p>
+                                                    </div>
                                                 </div>
 
-                                                {/* Action Menu */}
-                                                <div className="relative">
-                                                    <button
-                                                        onClick={() => handleOpenEditModal(member)}
-                                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                                    >
-                                                        <Image
-                                                            src="/icons/dots.png"
-                                                            alt="Menu"
-                                                            width={20}
-                                                            height={20}
-                                                            className="opacity-60 dark:invert"
-                                                        />
-                                                    </button>
+                                                {/* Email Address */}
+                                                <div className="w-full md:w-1/3 pl-14 md:pl-0">
+                                                    <p className="text-xs text-gray-500 dark:text-gray-400">{t('Email Address')}</p>
+                                                    <p className="text-sm text-[#3A3B49] dark:text-gray-200 break-all">{member.email}</p>
+                                                </div>
+
+                                                {/* Role & Actions Container */}
+                                                <div className="flex items-center justify-between w-full md:w-auto md:gap-8 pl-14 md:pl-0">
+                                                    {/* Role */}
+                                                    <div className="md:w-32">
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400">{t('Role')}</p>
+                                                        <p className="text-sm font-medium text-[#3A3B49] dark:text-white">{member.role}</p>
+                                                    </div>
+
+                                                    {/* Action Menu */}
+                                                    <div className="relative">
+                                                        <button
+                                                            onClick={() => handleOpenEditModal(member)}
+                                                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                                        >
+                                                            <Image
+                                                                src="/icons/dots.png"
+                                                                alt="Menu"
+                                                                width={20}
+                                                                height={20}
+                                                                className="opacity-60 dark:invert"
+                                                            />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
+                                        ))
+                                    ) : (
+                                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                            {t('User does not exist')}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
                         ) : (
                             /* Roles List */
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm transition-all duration-300 hover:shadow-lg">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                                    {filteredRoles.map((role) => (
-                                        <div
-                                            key={role.id}
-                                            className="flex items-center justify-between p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
-                                        >
-                                            {/* Role Icon and Name */}
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm md:text-base">
-                                                    {role.name.charAt(0)}
+                                    {filteredRoles.length > 0 ? (
+                                        filteredRoles.map((role) => (
+                                            <div
+                                                key={role.id}
+                                                className="flex items-center justify-between p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01]"
+                                            >
+                                                {/* Role Icon and Name */}
+                                                <div className="flex items-center gap-4">
+                                                    <div className="w-10 h-10 md:w-12 md:h-12 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-white font-bold text-sm md:text-base">
+                                                        {role.name.charAt(0)}
+                                                    </div>
+                                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{role.name}</p>
                                                 </div>
-                                                <p className="text-sm font-medium text-gray-900 dark:text-white">{role.name}</p>
+
+                                                {/* Action Menu - only for non-Admin roles */}
+                                                {role.name !== 'Admin' && (
+                                                    <div className="relative">
+                                                        <button
+                                                            onClick={() => toggleRoleMenu(role.id)}
+                                                            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                                                        >
+                                                            <Image
+                                                                src="/icons/dots.png"
+                                                                alt="Menu"
+                                                                width={20}
+                                                                height={20}
+                                                                className="opacity-60 dark:invert"
+                                                            />
+                                                        </button>
+
+                                                        {/* Dropdown Menu */}
+                                                        {openRoleMenuId === role.id && (
+                                                            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 w-48">
+                                                                <button
+                                                                    onClick={() => handleEditRolePermissions(role)}
+                                                                    className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg"
+                                                                >
+                                                                    {t('Edit Permissions')}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteRoleClick(role)}
+                                                                    className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-b-lg"
+                                                                >
+                                                                    {t('Delete Role')}
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-
-                                            {/* Action Menu - only for non-Admin roles */}
-                                            {role.name !== 'Admin' && (
-                                                <div className="relative">
-                                                    <button
-                                                        onClick={() => toggleRoleMenu(role.id)}
-                                                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                                                    >
-                                                        <Image
-                                                            src="/icons/dots.png"
-                                                            alt="Menu"
-                                                            width={20}
-                                                            height={20}
-                                                            className="opacity-60 dark:invert"
-                                                        />
-                                                    </button>
-
-                                                    {/* Dropdown Menu */}
-                                                    {openRoleMenuId === role.id && (
-                                                        <div className="absolute right-0 top-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-20 w-48">
-                                                            <button
-                                                                onClick={() => handleEditRolePermissions(role)}
-                                                                className="w-full px-4 py-3 text-left text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-t-lg"
-                                                            >
-                                                                {t('Edit Permissions')}
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteRoleClick(role)}
-                                                                className="w-full px-4 py-3 text-left text-sm text-red-500 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-b-lg"
-                                                            >
-                                                                {t('Delete Role')}
-                                                            </button>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
+                                        ))
+                                    ) : (
+                                        <div className="p-8 text-center text-gray-500 dark:text-gray-400">
+                                            {t('Role does not exist')}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -984,11 +1013,15 @@ function ManagementPageInner() {
                                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">{t('Full Name')}</label>
                                     <input
                                         type="text"
+                                        maxLength={50}
                                         placeholder={t('Enter full name...')}
                                         value={inviteName}
                                         onChange={(e) => setInviteName(e.target.value)}
                                         className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm text-gray-700 dark:text-white dark:bg-gray-700 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                     />
+                                    <div className="mt-2 text-right text-xs text-gray-500 dark:text-gray-400">
+                                        {inviteName.length} / 50
+                                    </div>
                                 </div>
 
                                 {/* Email Input */}
@@ -1216,11 +1249,15 @@ function ManagementPageInner() {
                                     </h3>
                                     <input
                                         type="text"
+                                        maxLength={30}
                                         placeholder={t('Enter role name...')}
                                         value={newRoleName}
                                         onChange={(e) => setNewRoleName(e.target.value)}
                                         className="w-full border border-gray-200 dark:border-gray-600 rounded-xl px-4 py-3 text-sm text-gray-700 dark:text-white dark:bg-gray-800 outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
                                     />
+                                    <div className="mt-2 text-right text-xs text-gray-500 dark:text-gray-400">
+                                        {newRoleName.length} / 30
+                                    </div>
                                 </div>
 
                                 {/* Permissions Section */}
@@ -1503,9 +1540,10 @@ function ManagementPageInner() {
                                 </button>
                                 <button
                                     onClick={handleSaveRole}
-                                    className="px-10 py-3 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white text-sm font-semibold rounded-xl hover:from-[#2d3d6b] hover:to-indigo-700 transition-all duration-200 shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30"
+                                    disabled={isSavingRole}
+                                    className={`px-10 py-3 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white text-sm font-semibold rounded-xl transition-all duration-200 shadow-lg shadow-indigo-500/25 ${isSavingRole ? 'opacity-50 cursor-not-allowed' : 'hover:from-[#2d3d6b] hover:to-indigo-700 hover:shadow-xl hover:shadow-indigo-500/30'}`}
                                 >
-                                    {editingRole ? t('Update Role') : t('Create Role')}
+                                    {editingRole ? (isSavingRole ? t('Updating...') : t('Update Role')) : (isSavingRole ? t('Creating...') : t('Create Role'))}
                                 </button>
                             </div>
                         </div>
