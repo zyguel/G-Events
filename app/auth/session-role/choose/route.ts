@@ -8,8 +8,8 @@ import {
 import { getRequestPublicOrigin } from '@/lib/requestPublicOrigin';
 
 function getSafeNextPath(value: FormDataEntryValue | null) {
-  const nextPath = typeof value === 'string' ? value : '';
-  if (!nextPath || !nextPath.startsWith('/')) {
+  const nextPath = typeof value === 'string' ? value.trim() : '';
+  if (!nextPath || !nextPath.startsWith('/') || nextPath.startsWith('//')) {
     return '/dashboard';
   }
 
