@@ -891,8 +891,8 @@ export async function POST(
 
                 const submissionFallback = {
                     subject: shouldSendQrImmediately
-                        ? `Registration submitted (confirmed) — ${eventRow.title}`
-                        : `Registration submitted — ${eventRow.title}`,
+                        ? `Registration submitted (confirmed) - ${eventRow.title}`
+                        : `Registration submitted - ${eventRow.title}`,
                     body: shouldSendQrImmediately
                         ? `<p>Hi ${resolvedName}, your registration for <strong>${eventRow.title}</strong> is confirmed.</p>`
                         : `<p>Hi ${resolvedName}, your registration for <strong>${eventRow.title}</strong> was received and is pending organizer review.</p>`,
@@ -944,7 +944,7 @@ export async function POST(
 
                     await sendEmail({
                         to: resolvedEmail,
-                        subject: `Breakout ticket — ${breakoutSessionTitle || eventRow.title}`,
+                        subject: `Breakout ticket - ${breakoutSessionTitle || eventRow.title}`,
                         html: buildBreakoutTicketEmailHtml({
                             attendeeName: resolvedName,
                             eventTitle: eventRow.title,
@@ -960,7 +960,7 @@ export async function POST(
                     const completeUrl = buildGroupCompleteUrl(baseUrl, slug, inv.token);
                     await sendEmail({
                         to: inv.email,
-                        subject: `Complete your registration — ${eventRow.title}`,
+                        subject: `Complete your registration - ${eventRow.title}`,
                         html: buildGroupMemberInviteEmailHtml({
                             eventTitle: eventRow.title,
                             completeUrl,

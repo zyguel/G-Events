@@ -721,7 +721,7 @@ async function reissueEventTicketQrs(params: {
 
             await sendEmail({
                 to: attendeeEmail,
-                subject: `Updated e-ticket QR ΓÇö ${params.eventTitle}`,
+                subject: `Updated e-ticket QR - ${params.eventTitle}`,
                 html: buildRegistrationConfirmationEmailHtml({
                     attendeeName,
                     eventTitle: params.eventTitle,

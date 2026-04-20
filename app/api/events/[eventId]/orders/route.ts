@@ -594,9 +594,9 @@ export async function POST(
                     breakoutsEnabled,
                 });
                 const to = primary.reg.User?.email || primary.email;
-                await sendEmail({
+                    await sendEmail({
                     to,
-                    subject: `Your e-ticket — ${eventRow.title}`,
+                        subject: `Your e-ticket - ${eventRow.title}`,
                     html,
                 });
             }
@@ -607,7 +607,7 @@ export async function POST(
                 const to = row.reg.User?.email || row.email;
                 await sendEmail({
                     to,
-                    subject: `Complete your registration — ${eventRow.title}`,
+                        subject: `Complete your registration - ${eventRow.title}`,
                     html: buildGroupMemberInviteEmailHtml({
                         eventTitle: eventRow.title,
                         completeUrl,

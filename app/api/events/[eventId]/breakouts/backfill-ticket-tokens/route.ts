@@ -258,7 +258,7 @@ export async function POST(
                 try {
                     await sendEmail({
                         to: recipientEmail,
-                        subject: `Breakout ticket — ${sessionRow?.name || eventRow.title}`,
+                        subject: `Breakout ticket - ${sessionRow?.name || eventRow.title}`,
                         html: buildBreakoutTicketEmailHtml({
                             attendeeName: String(attendeeName),
                             eventTitle: eventRow.title,

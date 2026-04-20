@@ -223,7 +223,7 @@ export async function POST(
                         const organizationName = getOrganizationName(eventRow);
             await sendEmail({
                 to: email,
-                subject: `Waitlist confirmation — ${eventRow.title}`,
+                subject: `Waitlist confirmation - ${eventRow.title}`,
                                 html: `
                                     <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
                                         <p>Hi,</p>
@@ -554,9 +554,9 @@ export async function PATCH(
             }
 
             try {
-                await sendEmail({
-                    to: recipientEmail,
-                    subject: `Waitlist update — ${eventMeta.title}`,
+                                await sendEmail({
+                                        to: recipientEmail,
+                                        subject: `Waitlist update - ${eventMeta.title}`,
                     html: `
                       <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
                         <p>Hi,</p>
@@ -597,9 +597,9 @@ export async function PATCH(
         const orderFormInviteUrl = `${baseUrl}/events/${eventSlug}/register?waitlistInvite=${encodeURIComponent(inviteToken)}`;
 
         try {
-            await sendEmail({
-                to: recipientEmail,
-                subject: `${action === "resend_invite" ? "Waitlist invitation reminder" : "Waitlist invitation"} — ${eventMeta.title}`,
+                        await sendEmail({
+                                to: recipientEmail,
+                                subject: `${action === "resend_invite" ? "Waitlist invitation reminder" : "Waitlist invitation"} - ${eventMeta.title}`,
                 html: `
                   <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
                     <p>Hi,</p>

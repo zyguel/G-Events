@@ -309,7 +309,7 @@ export async function PATCH(
                         const confirmationTemplate = renderOrderConfirmationTemplate({
                             template: settings.confirmationEmail,
                             fallback: {
-                                subject: `Registration confirmed — ${eventTitle}`,
+                                subject: `Registration confirmed - ${eventTitle}`,
                                 body: `<p>Hi ${attendeeName}, your registration for <strong>${eventTitle}</strong> is now confirmed.</p>`,
                             },
                             context: {
@@ -385,7 +385,7 @@ export async function PATCH(
 
                             await sendEmail({
                                 to: attendeeEmail,
-                                subject: `Breakout ticket — ${breakoutSessionTitle}`,
+                                subject: `Breakout ticket - ${breakoutSessionTitle}`,
                                 html: buildBreakoutTicketEmailHtml({
                                     attendeeName,
                                     eventTitle,
@@ -400,7 +400,7 @@ export async function PATCH(
                         const rejectionTemplate = renderOrderConfirmationTemplate({
                             template: settings.rejectionEmail,
                             fallback: {
-                                subject: `Registration update — ${eventTitle}`,
+                                subject: `Registration update - ${eventTitle}`,
                                 body: `<p>Hi ${attendeeName}, your registration for <strong>${eventTitle}</strong> was not approved.</p>`,
                             },
                             context: {

@@ -430,7 +430,7 @@ export async function POST(
       const to = user.email!;
       await sendEmail({
         to,
-        subject: `Breakout ticket — ${sessionRow.name || eventRow.title}`,
+         subject: `Breakout ticket - ${sessionRow.name || eventRow.title}`,
         html,
       });
     } catch (mailErr) {
