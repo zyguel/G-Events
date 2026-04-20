@@ -1,5 +1,4 @@
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const ALPHANUMERIC_PASSWORD_PATTERN = /^[A-Za-z0-9]+$/;
 const ALPHANUMERIC_NAME_PATTERN = /^[A-Za-z0-9 ]+$/;
 
 export const REGISTER_LIMITS = {
@@ -21,7 +20,7 @@ export function normalizeRegisterInput(input: RegisterValidationInput): Register
   return {
     fullName: input.fullName.trim().replace(/\s+/g, ' '),
     email: input.email.trim().toLowerCase(),
-    password: input.password.trim(),
+    password: input.password,
   };
 }
 
@@ -54,10 +53,6 @@ export function validateRegisterInput(input: RegisterValidationInput): string | 
 
   if (normalized.password.length > REGISTER_LIMITS.PASSWORD_MAX) {
     return `Password must be at most ${REGISTER_LIMITS.PASSWORD_MAX} characters.`;
-  }
-
-  if (!ALPHANUMERIC_PASSWORD_PATTERN.test(normalized.password)) {
-    return 'Password may only contain letters and numbers.';
   }
 
   return null;

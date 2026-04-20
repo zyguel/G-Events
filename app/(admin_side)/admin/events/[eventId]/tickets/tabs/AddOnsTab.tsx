@@ -33,6 +33,9 @@ const ADD_ON_ALLOWED_IMAGE_TYPES = [
 const ADD_ON_ALLOWED_IMAGE_ACCEPT = "image/jpeg,image/jpg,image/png,image/webp,image/gif,image/avif,image/svg+xml";
 const ADD_ON_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
 const ADD_ON_ALLOWED_IMAGE_LABEL = "JPEG, PNG, WebP, GIF, AVIF, SVG";
+const VARIANT_LABEL_MAX_LENGTH = 30;
+const VARIANT_STOCK_MAX = 1_000_000;
+const VARIANT_LABEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,'&()_/-]*$/;
 
 export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [addOns, setAddOns] = useState<AddOn[]>([]);
@@ -69,6 +72,24 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     }
   };
 
+  const validateVariantLabel = (rawLabel: string): string | null => {
+    const label = rawLabel.trim();
+
+    if (!label) {
+      return "Variant label is required";
+    }
+
+    if (label.length > VARIANT_LABEL_MAX_LENGTH) {
+      return `Variant label must be at most ${VARIANT_LABEL_MAX_LENGTH} characters`;
+    }
+
+    if (!VARIANT_LABEL_PATTERN.test(label)) {
+      return "Variant label can only use letters, numbers, spaces, and . , ' & ( ) _ / -";
+    }
+
+    return null;
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -88,11 +109,20 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     if (formData.hasVariants) {
       if (formData.variants.length === 0) {
         newErrors.variants = "At least one variant is required when variants are enabled";
-      } else if (formData.variants.some((v) => !v.label.trim() || !Number.isFinite(v.stock) || v.stock <= 0)) {
-        newErrors.variants = "All variants must have a valid label and stock greater than 0";
       } else {
         const seenLabels = new Set<string>();
         for (const variant of formData.variants) {
+          const labelError = validateVariantLabel(variant.label);
+          if (labelError) {
+            newErrors.variants = labelError;
+            break;
+          }
+
+          if (!Number.isInteger(variant.stock) || variant.stock <= 0 || variant.stock > VARIANT_STOCK_MAX) {
+            newErrors.variants = `Variant quantity must be between 1 and ${VARIANT_STOCK_MAX.toLocaleString()}`;
+            break;
+          }
+
           const normalizedLabel = variant.label.trim().toLowerCase();
           if (!normalizedLabel) continue;
           if (seenLabels.has(normalizedLabel)) {
@@ -287,7 +317,27 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
   const handleAddVariant = () => {
     const parsedStock = Number.parseInt(newVariantStock, 10);
-    if (!newVariantLabel.trim() || !newVariantStock.trim() || !Number.isFinite(parsedStock) || parsedStock <= 0) return;
+
+    const labelError = validateVariantLabel(newVariantLabel);
+    if (labelError) {
+      setErrors((prev) => ({ ...prev, variants: labelError }));
+      return;
+    }
+
+    if (!newVariantStock.trim() || !Number.isFinite(parsedStock) || parsedStock <= 0 || parsedStock > VARIANT_STOCK_MAX) {
+      setErrors((prev) => ({
+        ...prev,
+        variants: `Variant quantity must be between 1 and ${VARIANT_STOCK_MAX.toLocaleString()}`,
+      }));
+      return;
+    }
+
+    const normalizedNewLabel = newVariantLabel.trim().toLowerCase();
+    const duplicateExists = formData.variants.some((variant) => variant.label.trim().toLowerCase() === normalizedNewLabel);
+    if (duplicateExists) {
+      setErrors((prev) => ({ ...prev, variants: "Variant labels must be unique" }));
+      return;
+    }
 
     const variantId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
@@ -295,16 +345,45 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
     setFormData({
       ...formData,
-      variants: [...formData.variants, { id: variantId, label: newVariantLabel, stock: parsedStock }],
+      variants: [...formData.variants, { id: variantId, label: newVariantLabel.trim(), stock: parsedStock }],
     });
     setNewVariantLabel("");
     setNewVariantStock("");
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.variants;
+      return next;
+    });
   };
 
   const handleRemoveVariant = (id: string) => {
     setFormData({
       ...formData,
       variants: formData.variants.filter((v) => v.id !== id),
+    });
+  };
+
+  const handleUpdateVariant = (id: string, field: 'label' | 'stock', value: string | number) => {
+    setFormData((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant) => {
+        if (variant.id !== id) return variant;
+
+        if (field === 'label') {
+          return { ...variant, label: String(value).slice(0, VARIANT_LABEL_MAX_LENGTH) };
+        }
+
+        const parsedStock = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+        const nextStock = Number.isFinite(parsedStock) ? Math.min(parsedStock, VARIANT_STOCK_MAX) : 0;
+        return { ...variant, stock: nextStock };
+      }),
+    }));
+
+    setErrors((prev) => {
+      if (!prev.variants) return prev;
+      const next = { ...prev };
+      delete next.variants;
+      return next;
     });
   };
 
@@ -563,16 +642,24 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               <label className="text-sm font-medium">Variants *</label>
 
               <div className="space-y-3">
-
-                {formData.variants.filter(v => v.label.trim()).map((variant) => (
+                {formData.variants.map((variant) => (
                   <div key={variant.id} className="flex gap-3 items-center bg-white dark:bg-gray-800 min-h-[42px] py-1.5 px-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                    <div className="flex-1 pl-1 text-gray-900 dark:text-gray-100 min-w-0 pr-2">
-                      <span className="text-sm font-medium break-words leading-tight">
-                        {variant.label}
-                        <span className="text-gray-400 mx-2 font-light">|</span>
-                        <span className="text-[11px] uppercase font-semibold text-gray-500 dark:text-gray-400">QTY: </span>
-                        <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{variant.stock}</span>
-                      </span>
+                    <div className="flex-1 grid grid-cols-[1fr_100px] gap-2 items-center min-w-0">
+                      <ModalInput
+                        type="text"
+                        value={variant.label}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'label', e.target.value)}
+                        placeholder="Label"
+                        maxLength={VARIANT_LABEL_MAX_LENGTH}
+                      />
+                      <ModalInput
+                        type="number"
+                        min="1"
+                        max={VARIANT_STOCK_MAX}
+                        value={variant.stock.toString()}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'stock', e.target.value)}
+                        placeholder="Qty"
+                      />
                     </div>
                     <button
                       type="button"
@@ -592,12 +679,14 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                   <ModalInput
                     type="text"
                     value={newVariantLabel}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantLabel(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantLabel(e.target.value.slice(0, VARIANT_LABEL_MAX_LENGTH))}
                     placeholder="Label"
+                    maxLength={VARIANT_LABEL_MAX_LENGTH}
                   />
                   <ModalInput
                     type="number"
                     min="1"
+                    max={VARIANT_STOCK_MAX}
                     value={newVariantStock}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantStock(e.target.value)}
                     placeholder="Qty"
@@ -606,12 +695,21 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                 <button
                   type="button"
                   onClick={handleAddVariant}
-                  disabled={!newVariantLabel.trim() || !newVariantStock.trim() || Number.parseInt(newVariantStock, 10) <= 0}
+                  disabled={
+                    !newVariantLabel.trim()
+                    || !newVariantStock.trim()
+                    || Number.parseInt(newVariantStock, 10) <= 0
+                    || Number.parseInt(newVariantStock, 10) > VARIANT_STOCK_MAX
+                  }
                   className="w-[42px] h-[42px] flex items-center justify-center bg-[#5C6BC0] text-white rounded-[10px] hover:bg-[#3D518C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 >
                   <Plus size={20} />
                 </button>
               </div>
+
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                Label max {VARIANT_LABEL_MAX_LENGTH} chars; allowed: letters, numbers, spaces, and . , &apos; &amp; ( ) _ / -. Quantity: 1 to {VARIANT_STOCK_MAX.toLocaleString()}.
+              </p>
 
               {errors.variants && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.variants}</p>}
             </div>

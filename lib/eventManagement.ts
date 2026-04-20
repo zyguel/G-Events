@@ -284,6 +284,7 @@ function promoToDb(promo: Partial<Omit<PromoCode, 'id' | 'createdAt'>>) {
   if (promo.usageLimit !== undefined) fields.max_uses = promo.usageLimit;
   if (promo.usageCount !== undefined) fields.current_uses = promo.usageCount;
   if (promo.type !== undefined) fields.is_automatic = promo.type === 'discount';
+  if (promo.status !== undefined) fields.status = promo.status;
   return fields;
 }
 

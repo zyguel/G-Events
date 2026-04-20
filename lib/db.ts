@@ -900,6 +900,9 @@ class PromotionValidationError extends Error {
 
 const PROMOTION_CODE_PATTERN = /^[A-Z0-9_-]+$/;
 const PROMOTION_DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const ADD_ON_VARIANT_LABEL_MAX_LENGTH = 30;
+const ADD_ON_VARIANT_STOCK_MAX = 1_000_000;
+const ADD_ON_VARIANT_LABEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,'&()_/-]*$/;
 
 function normalizePromotionCode(value: unknown): string {
     return String(value || '').trim().toUpperCase();
@@ -1040,8 +1043,16 @@ function normalizeAndValidateAddOnVariants(
             throw new AddOnValidationError('Add-on variant label is required.');
         }
 
-        if (!Number.isFinite(stockTotal) || stockTotal <= 0) {
-            throw new AddOnValidationError('Add-on variant stock must be greater than 0.');
+        if (label.length > ADD_ON_VARIANT_LABEL_MAX_LENGTH) {
+            throw new AddOnValidationError(`Add-on variant label must be at most ${ADD_ON_VARIANT_LABEL_MAX_LENGTH} characters.`);
+        }
+
+        if (!ADD_ON_VARIANT_LABEL_PATTERN.test(label)) {
+            throw new AddOnValidationError("Add-on variant label contains unsupported characters.");
+        }
+
+        if (!Number.isInteger(stockTotal) || stockTotal <= 0 || stockTotal > ADD_ON_VARIANT_STOCK_MAX) {
+            throw new AddOnValidationError(`Add-on variant stock must be between 1 and ${ADD_ON_VARIANT_STOCK_MAX.toLocaleString()}.`);
         }
 
         const normalizedLabel = normalizeComparableText(label);
@@ -1599,6 +1610,7 @@ export async function createPromotion(
         start_at?: string | null;
         end_at?: string | null;
         is_automatic?: boolean;
+        status?: 'active' | 'inactive';
     },
     ticketIds?: number[]
 ) {
@@ -1639,10 +1651,33 @@ export async function createPromotion(
 
     const startAt = normalizePromotionDateTime(fields.start_at, 'promotion start date/time');
     const endAt = normalizePromotionDateTime(fields.end_at, 'promotion end date/time');
-    const startAtDate = parseTicketDateTime(startAt ?? undefined);
-    const endAtDate = parseTicketDateTime(endAt ?? undefined);
+    const now = new Date();
 
-    if (startAtDate && endAtDate && startAtDate >= endAtDate) {
+    let effectiveStartAt = startAt;
+    let effectiveEndAt = endAt;
+
+    if (fields.status === 'inactive') {
+        effectiveEndAt = now.toISOString();
+        if (effectiveStartAt === undefined || effectiveStartAt === null) {
+            effectiveStartAt = new Date(now.getTime() - 60_000).toISOString();
+        }
+    } else if (fields.status === 'active') {
+        const parsedStartAt = parseTicketDateTime(effectiveStartAt ?? undefined);
+        const parsedEndAt = parseTicketDateTime(effectiveEndAt ?? undefined);
+
+        if (parsedStartAt && parsedStartAt > now) {
+            effectiveStartAt = now.toISOString();
+        }
+
+        if (parsedEndAt && parsedEndAt <= now) {
+            effectiveEndAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+        }
+    }
+
+    const effectiveStartAtDate = parseTicketDateTime(effectiveStartAt ?? undefined);
+    const effectiveEndAtDate = parseTicketDateTime(effectiveEndAt ?? undefined);
+
+    if (effectiveStartAtDate && effectiveEndAtDate && effectiveStartAtDate >= effectiveEndAtDate) {
         throw new PromotionValidationError('Promotion end date/time must be after the start date/time.');
     }
 
@@ -1660,8 +1695,8 @@ export async function createPromotion(
         discount_value: discountValue,
         max_uses: maxUses,
         current_uses: currentUses,
-        start_at: startAt === undefined ? null : startAt,
-        end_at: endAt === undefined ? null : endAt,
+        start_at: effectiveStartAt === undefined ? null : effectiveStartAt,
+        end_at: effectiveEndAt === undefined ? null : effectiveEndAt,
         is_automatic: fields.is_automatic ?? false,
     };
 
@@ -1707,6 +1742,7 @@ export async function updatePromotion(
         start_at: string | null;
         end_at: string | null;
         is_automatic: boolean;
+        status: 'active' | 'inactive';
     }>,
     ticketIds?: number[]
 ) {
@@ -1724,6 +1760,7 @@ export async function updatePromotion(
         start_at: string | null;
         end_at: string | null;
         is_automatic: boolean;
+        status: 'active' | 'inactive';
     }> = {};
 
     if (Object.prototype.hasOwnProperty.call(fields, 'name')) {
@@ -1787,6 +1824,40 @@ export async function updatePromotion(
         normalizedFields.is_automatic = Boolean(fields.is_automatic);
     }
 
+    if (Object.prototype.hasOwnProperty.call(fields, 'status')) {
+        const nextStatus = fields.status;
+        if (nextStatus !== 'active' && nextStatus !== 'inactive') {
+            throw new PromotionValidationError('Promotion status must be active or inactive.');
+        }
+        normalizedFields.status = nextStatus;
+    }
+
+    const now = new Date();
+
+    if (normalizedFields.status === 'inactive') {
+        normalizedFields.end_at = now.toISOString();
+        const currentStartAt = normalizedFields.start_at ?? (beforePromotion.start_at as string | null);
+        if (!currentStartAt) {
+            normalizedFields.start_at = new Date(now.getTime() - 60_000).toISOString();
+        }
+    }
+
+    if (normalizedFields.status === 'active') {
+        const startCandidate = normalizedFields.start_at ?? (beforePromotion.start_at as string | null);
+        const endCandidate = normalizedFields.end_at ?? (beforePromotion.end_at as string | null);
+
+        const parsedStartCandidate = parseTicketDateTime(startCandidate ?? undefined);
+        const parsedEndCandidate = parseTicketDateTime(endCandidate ?? undefined);
+
+        if (parsedStartCandidate && parsedStartCandidate > now) {
+            normalizedFields.start_at = now.toISOString();
+        }
+
+        if (parsedEndCandidate && parsedEndCandidate <= now) {
+            normalizedFields.end_at = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+        }
+    }
+
     const previousDiscountType: 'fixed' | 'percentage' =
         beforePromotion.discount_type === 'fixed' ? 'fixed' : 'percentage';
     const effectiveDiscountType: 'fixed' | 'percentage' = normalizedFields.discount_type ?? previousDiscountType;
@@ -1821,9 +1892,26 @@ export async function updatePromotion(
     const normalizedTicketIds = normalizePromotionTicketIds(ticketIds);
 
     if (Object.keys(normalizedFields).length > 0) {
+        const promotionUpdateFields = {
+            ...normalizedFields,
+        } as Partial<{
+            name: string;
+            code: string;
+            discount_type: 'fixed' | 'percentage';
+            discount_value: number;
+            max_uses: number;
+            current_uses: number;
+            start_at: string | null;
+            end_at: string | null;
+            is_automatic: boolean;
+            status: 'active' | 'inactive';
+        }>;
+
+        delete promotionUpdateFields.status;
+
         const { error: promoError } = await supabase
             .from('Promotion')
-            .update(normalizedFields)
+            .update(promotionUpdateFields)
             .eq('id', promotionId);
 
         if (promoError) throw promoError;

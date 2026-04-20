@@ -12,6 +12,7 @@ type PromotionUpdateBody = {
     start_at?: unknown;
     end_at?: unknown;
     is_automatic?: unknown;
+    status?: unknown;
     ticket_ids?: unknown;
 };
 
@@ -122,6 +123,7 @@ export async function PATCH(
             start_at: string | null;
             end_at: string | null;
             is_automatic: boolean;
+            status: 'active' | 'inactive';
         }> = {};
 
         if (promoFields.name !== undefined) normalizedPromoFields.name = String(promoFields.name);
@@ -133,6 +135,9 @@ export async function PATCH(
         if (promoFields.start_at !== undefined) normalizedPromoFields.start_at = promoFields.start_at === null ? null : String(promoFields.start_at);
         if (promoFields.end_at !== undefined) normalizedPromoFields.end_at = promoFields.end_at === null ? null : String(promoFields.end_at);
         if (promoFields.is_automatic !== undefined) normalizedPromoFields.is_automatic = Boolean(promoFields.is_automatic);
+        if (promoFields.status === 'active' || promoFields.status === 'inactive') {
+            normalizedPromoFields.status = promoFields.status;
+        }
 
         const existing = await getPromotion(id);
         if (existing.event_id !== parsedEventId) {

@@ -12,6 +12,7 @@ type PromotionRequestBody = {
     start_at?: unknown;
     end_at?: unknown;
     is_automatic?: unknown;
+    status?: unknown;
     ticket_ids?: unknown;
 };
 
@@ -107,6 +108,7 @@ export async function POST(
                 start_at: typeof body.start_at === 'string' || body.start_at === null ? body.start_at : undefined,
                 end_at: typeof body.end_at === 'string' || body.end_at === null ? body.end_at : undefined,
                 is_automatic: Boolean(body.is_automatic),
+                status: body.status === 'active' || body.status === 'inactive' ? body.status : undefined,
             },
             ticketIds
         );

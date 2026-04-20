@@ -9,7 +9,6 @@ import { AuthFormHydrationGate } from '@/components/auth/AuthFormHydrationGate';
 import { REGISTER_LIMITS, normalizeRegisterInput, validateRegisterInput } from '@/lib/validation/register';
 
 const NAME_INPUT_SANITIZE_PATTERN = /[^A-Za-z0-9 ]+/g;
-const PASSWORD_INPUT_SANITIZE_PATTERN = /[^A-Za-z0-9]+/g;
 
 function RegisterFormSkeleton() {
     return (
@@ -361,16 +360,13 @@ export default function RegisterPage() {
                                         autoComplete="new-password"
                                         value={password}
                                         onChange={(e) => {
-                                            const nextValue = e.target.value
-                                                .replace(PASSWORD_INPUT_SANITIZE_PATTERN, '')
-                                                .slice(0, REGISTER_LIMITS.PASSWORD_MAX);
+                                            const nextValue = e.target.value.slice(0, REGISTER_LIMITS.PASSWORD_MAX);
                                             setPassword(nextValue);
                                         }}
                                         className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
                                         placeholder="Set your password"
                                         minLength={REGISTER_LIMITS.PASSWORD_MIN}
                                         maxLength={REGISTER_LIMITS.PASSWORD_MAX}
-                                        pattern="[A-Za-z0-9]+"
                                     />
                                     <button
                                         type="button"
@@ -401,16 +397,13 @@ export default function RegisterPage() {
                                         autoComplete="new-password"
                                         value={confirmPassword}
                                         onChange={(e) => {
-                                            const nextValue = e.target.value
-                                                .replace(PASSWORD_INPUT_SANITIZE_PATTERN, '')
-                                                .slice(0, REGISTER_LIMITS.PASSWORD_MAX);
+                                            const nextValue = e.target.value.slice(0, REGISTER_LIMITS.PASSWORD_MAX);
                                             setConfirmPassword(nextValue);
                                         }}
                                         className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
                                         placeholder="Confirm your password"
                                         minLength={REGISTER_LIMITS.PASSWORD_MIN}
                                         maxLength={REGISTER_LIMITS.PASSWORD_MAX}
-                                        pattern="[A-Za-z0-9]+"
                                     />
                                     <button
                                         type="button"
@@ -424,7 +417,7 @@ export default function RegisterPage() {
                         </div>
 
                         <p className="text-xs text-gray-500 pl-1">
-                            Full name accepts letters, numbers, and spaces. Password accepts letters and numbers only.
+                            Full name accepts letters, numbers, and spaces.
                         </p>
 
                         {/* Terms & Conditions */}
