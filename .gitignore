@@ -46,3 +46,4 @@ next-env.d.ts
 /*.sql*
 *.log
 rlsenablednopolicy.json
+/.github/agents
