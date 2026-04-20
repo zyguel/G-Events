@@ -46,6 +46,8 @@ next-env.d.ts
 /.github/*/
 
 
+
+
 # Exclude SQL files (can opt-in for committing if needed)
 /*.sql*
 *.log
