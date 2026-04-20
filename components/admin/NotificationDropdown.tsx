@@ -81,8 +81,6 @@ const NotificationDropdown = () => {
         if (!notification.read) {
             markAsRead(notification.id);
         }
-        // Dismiss notification when clicked
-        dismissNotification(notification.id);
     };
 
     return (
@@ -200,7 +198,7 @@ const NotificationDropdown = () => {
                     {notifications.length > 0 && (
                         <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-100 dark:border-gray-700">
                             <p className="text-xs text-center text-gray-500 dark:text-gray-400">
-                                Click a notification to dismiss it
+                                Click a notification to mark as read
                             </p>
                         </div>
                     )}
