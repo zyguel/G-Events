@@ -44,6 +44,7 @@ export default async function AggregatedAnalyticsPage({ searchParams }: { search
         date: new Date().getFullYear().toString(),
         status: 'Ongoing' as const,
         stats: {
+            totalEvents: analytics.stats.totalEvents,
             registrations: analytics.stats.registrations,
             revenue: analytics.stats.revenue,
             expenses: 0,

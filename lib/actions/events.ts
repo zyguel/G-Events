@@ -1330,7 +1330,7 @@ export async function getEventAnalytics(eventId: number) {
         user: 'Attendee',
         type: ticketNameMap[r.ticket_id] || 'General',
         amount: parseFloat(r.final_price_paid) || 0,
-        date: formatRelativeTime(r.created_at),
+        date: formatAbsoluteTimestamp(r.created_at),
         status: r.status === 'confirmed' ? 'Success'
             : r.status === 'pending' ? 'Pending'
                 : 'Cancelled'
@@ -1461,6 +1461,12 @@ function formatRelativeTime(isoString: string): string {
     const diffDays = Math.floor(diffHours / 24);
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
     return past.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function formatAbsoluteTimestamp(isoString: string): string {
+    const d = new Date(isoString);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 // ΓöÇΓöÇΓöÇ General (All-Events) Analytics ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -1596,7 +1602,7 @@ export async function getGeneralAnalytics(year?: number) {
             user: r.User?.name || 'Attendee',
             type: r.Event?.title || 'Event Registration',
             amount: parseFloat(r.final_price_paid) || 0,
-            date: formatRelativeTime(r.created_at),
+            date: formatAbsoluteTimestamp(r.created_at),
             status: r.status === 'confirmed' ? 'Success'
                 : r.status === 'pending' ? 'Pending'
                     : 'Cancelled',
