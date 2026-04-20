@@ -1495,10 +1495,11 @@ export async function getGeneralAnalytics(year?: number) {
         );
 
         // 4. Avg satisfaction across all events (rating questions)
-        const { data: feedbackData } = await supabase
-            .from('FeedbackAnswer')
-            .select('answer, FeedbackQuestion(input_format)')
-            .eq('FeedbackQuestion.input_format', 'rating');
+        let feedbackQuery = supabase.from('FeedbackAnswer').select('answer, FeedbackQuestion(input_format)').eq('FeedbackQuestion.input_format', 'rating');
+        if (year) {
+            feedbackQuery = feedbackQuery.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { data: feedbackData } = await feedbackQuery;
 
         const ratings = (feedbackData || [])
             .map((f: any) => parseFloat(f.answer))
@@ -1605,10 +1606,11 @@ export async function getGeneralAnalytics(year?: number) {
         let comments: { user: string; rating: number; text: string; time: string; eventName?: string }[] = [];
         try {
             // Fetch all FeedbackAnswer rows with question type + form/event name
-            const { data: allAnswerRows } = await supabase
-                .from('FeedbackAnswer')
-                .select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format), FeedbackForm(Event(title))')
-                .limit(200);
+            let ansQ = supabase.from('FeedbackAnswer').select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format), FeedbackForm(Event(title))');
+            if (year) {
+                ansQ = ansQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+            }
+            const { data: allAnswerRows } = await ansQ.limit(200);
 
             // Fetch FeedbackSubmission rows (new-style) for name + timestamp
             let subQ = supabase.from('FeedbackSubmission').select('id, submitter_name, submitted_at, FeedbackForm(Event(title))');
