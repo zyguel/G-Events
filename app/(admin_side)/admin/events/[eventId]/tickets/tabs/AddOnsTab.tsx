@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
-import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, AddOnVariant, getTickets, Ticket } from "@/lib/eventManagement";
+import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
 
 interface AddOnsTabProps {
@@ -18,7 +18,7 @@ const initialAddOnForm: Omit<AddOn, "id" | "createdAt"> = {
   appliedTo: "all",
   hasVariants: false,
   variants: [],
-  stock: 0,
+  stock: 1,
 };
 
 const ADD_ON_ALLOWED_IMAGE_TYPES = [
@@ -88,8 +88,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     if (formData.hasVariants) {
       if (formData.variants.length === 0) {
         newErrors.variants = "At least one variant is required when variants are enabled";
-      } else if (formData.variants.some((v) => !v.label.trim() || v.stock < 0)) {
-        newErrors.variants = "All variants must have a valid label and stock >= 0";
+      } else if (formData.variants.some((v) => !v.label.trim() || !Number.isFinite(v.stock) || v.stock <= 0)) {
+        newErrors.variants = "All variants must have a valid label and stock greater than 0";
       } else {
         const seenLabels = new Set<string>();
         for (const variant of formData.variants) {
@@ -103,8 +103,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         }
       }
     } else {
-      if (formData.stock < 0) {
-        newErrors.stock = "Stock must be 0 or greater";
+      if (!Number.isFinite(formData.stock) || formData.stock <= 0) {
+        newErrors.stock = "Stock must be greater than 0";
       }
     }
 
@@ -114,7 +114,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
   const handleAddAddOn = () => {
     setEditingAddOnId(null);
-    setFormData(initialAddOnForm);
+    setFormData({ ...initialAddOnForm, appliedTo: "all" });
     setImagePreview(null);
     setErrors({});
     setIsModalOpen(true);
@@ -126,9 +126,9 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       name: addOn.name,
       description: addOn.description,
       image: addOn.image,
-      appliedTo: addOn.appliedTo,
+      appliedTo: "all",
       hasVariants: addOn.hasVariants || false,
-      variants: addOn.variants || [],
+      variants: addOn.hasVariants ? (addOn.variants || []) : [],
       stock: addOn.stock || 0,
     });
     setImagePreview(addOn.image || null);
@@ -148,10 +148,17 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         return next;
       });
 
+      const payload: Omit<AddOn, "id" | "createdAt"> = {
+        ...formData,
+        appliedTo: "all",
+        variants: formData.hasVariants ? formData.variants : [],
+        stock: formData.hasVariants ? 0 : formData.stock,
+      };
+
       if (editingAddOnId) {
-        await updateAddOn(event.id, editingAddOnId, formData);
+        await updateAddOn(event.id, editingAddOnId, payload);
       } else {
-        await createAddOn(event.id, formData);
+        await createAddOn(event.id, payload);
       }
       await loadData();
       setIsModalOpen(false);
@@ -279,7 +286,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   const handleAddVariant = () => {
-    if (!newVariantLabel.trim() || !newVariantStock.trim() || parseInt(newVariantStock) < 0) return;
+    const parsedStock = Number.parseInt(newVariantStock, 10);
+    if (!newVariantLabel.trim() || !newVariantStock.trim() || !Number.isFinite(parsedStock) || parsedStock <= 0) return;
 
     const variantId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
       ? crypto.randomUUID()
@@ -287,7 +295,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
     setFormData({
       ...formData,
-      variants: [...formData.variants, { id: variantId, label: newVariantLabel, stock: parseInt(newVariantStock) }],
+      variants: [...formData.variants, { id: variantId, label: newVariantLabel, stock: parsedStock }],
     });
     setNewVariantLabel("");
     setNewVariantStock("");
@@ -298,13 +306,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       ...formData,
       variants: formData.variants.filter((v) => v.id !== id),
     });
-  };
-
-  const handleUpdateVariant = (id: string, field: 'label' | 'stock', value: string | number) => {
-    const newVariants = formData.variants.map((v) =>
-      v.id === id ? { ...v, [field]: value } : v
-    );
-    setFormData({ ...formData, variants: newVariants });
   };
 
   if (loading) {
@@ -531,7 +532,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, hasVariants: false })}
+                onClick={() => setFormData({ ...formData, hasVariants: false, variants: [] })}
                 className={`px-4 py-1.5 text-sm rounded-md transition-all ${!formData.hasVariants ? 'bg-white dark:bg-gray-700 shadow text-[#3D518C] dark:text-indigo-300 font-semibold cursor-default' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
               >
                 No
@@ -544,11 +545,14 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               <label className="block text-sm font-medium mb-2">Stock/Quantity *</label>
               <ModalInput
                 type="number"
-                min="0"
+                min="1"
                 value={formData.stock.toString()}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const parsed = Number.parseInt(e.target.value, 10);
+                  setFormData({ ...formData, stock: Number.isFinite(parsed) ? parsed : 0 });
+                }}
                 className={errors.stock ? "border-red-500" : ""}
-                placeholder="0"
+                placeholder="1"
               />
               {errors.stock && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.stock}</p>}
             </div>
@@ -593,16 +597,16 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                   />
                   <ModalInput
                     type="number"
-                    min="0"
+                    min="1"
                     value={newVariantStock}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantStock(e.target.value)}
-                    placeholder="Stock"
+                    placeholder="Qty"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={handleAddVariant}
-                  disabled={!newVariantLabel.trim() || !newVariantStock.trim()}
+                  disabled={!newVariantLabel.trim() || !newVariantStock.trim() || Number.parseInt(newVariantStock, 10) <= 0}
                   className="w-[42px] h-[42px] flex items-center justify-center bg-[#5C6BC0] text-white rounded-[10px] hover:bg-[#3D518C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 >
                   <Plus size={20} />
@@ -615,18 +619,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
           <div>
             <label className="block text-sm font-medium mb-2">Apply To</label>
-            <select
-              value={typeof formData.appliedTo === 'string' ? formData.appliedTo : formData.appliedTo[0] || 'all'}
-              onChange={(e) => setFormData({ ...formData, appliedTo: e.target.value === 'all' ? 'all' : [e.target.value] })}
-              className="w-full pl-3 pr-10 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 border-gray-200 dark:border-gray-700 text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[position:right_12px_center] bg-no-repeat"
-            >
-              <option value="all">All Tickets</option>
-              {tickets.map((ticket) => (
-                <option key={ticket.id} value={ticket.id}>
-                  {ticket.name}
-                </option>
-              ))}
-            </select>
+            <div className="w-full py-2.5 px-3 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white font-medium">
+              All Tickets
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Applies to all current and future tickets for this event ({tickets.length} ticket type{tickets.length === 1 ? '' : 's'}).
+            </p>
           </div>
 
           {/* Modal Footer */}

@@ -16,6 +16,12 @@ const ALLOWED_ADD_ON_IMAGE_TYPES = new Set([
 ]);
 const ALLOWED_ADD_ON_IMAGE_LABEL = 'JPEG, PNG, WebP, GIF, AVIF, SVG';
 
+type AddOnVariantPayload = {
+    code: string;
+    label: string;
+    stock_total: number;
+};
+
 function getErrorMessage(error: unknown, fallback: string): string {
     return error instanceof Error ? error.message : fallback;
 }
@@ -76,6 +82,55 @@ function validateAddOnImage(file: File): string | null {
 
     if (file.size > ADD_ON_MAX_IMAGE_SIZE_BYTES) {
         return 'Image file is too large. Maximum allowed size is 20MB.';
+    }
+
+    return null;
+}
+
+function parseVariantsPayload(variantsJson: string): AddOnVariantPayload[] {
+    const parsed = JSON.parse(variantsJson) as unknown;
+    if (!Array.isArray(parsed)) {
+        throw new Error('Variants payload must be an array.');
+    }
+
+    return parsed.map((variant) => {
+        if (typeof variant !== 'object' || variant === null) {
+            throw new Error('Each variant must be an object.');
+        }
+
+        const stockTotal = Number((variant as { stock_total?: unknown }).stock_total);
+        const label = typeof (variant as { label?: unknown }).label === 'string'
+            ? (variant as { label: string }).label.trim()
+            : '';
+        const code = typeof (variant as { code?: unknown }).code === 'string'
+            ? (variant as { code: string }).code.trim()
+            : label;
+
+        return {
+            code,
+            label,
+            stock_total: stockTotal,
+        };
+    });
+}
+
+function validateVariantsPayload(variants: AddOnVariantPayload[] | undefined, hasVariants: boolean | undefined): string | null {
+    if (!variants) return null;
+
+    if (variants.length === 0) {
+        return 'Quantity is required and must be greater than 0.';
+    }
+
+    const hasInvalidStock = variants.some((variant) => !Number.isFinite(variant.stock_total) || variant.stock_total <= 0);
+    if (hasInvalidStock) {
+        return 'Quantity must be greater than 0.';
+    }
+
+    if (hasVariants === true) {
+        const hasInvalidLabel = variants.some((variant) => !variant.label || !variant.label.trim());
+        if (hasInvalidLabel) {
+            return 'Variant label is required when variants are enabled.';
+        }
     }
 
     return null;
@@ -154,7 +209,25 @@ export async function PATCH(
             image_path = await uploadAddOnImage(imageFile, numericEventId);
         }
 
-        const variants = variantsJson ? JSON.parse(variantsJson) : undefined;
+        let variants: AddOnVariantPayload[] | undefined;
+        if (variantsJson) {
+            try {
+                variants = parseVariantsPayload(variantsJson);
+            } catch {
+                return NextResponse.json(
+                    { success: false, error: 'Invalid variants payload.' },
+                    { status: 400 }
+                );
+            }
+        }
+
+        const variantsError = validateVariantsPayload(variants, has_variants);
+        if (variantsError) {
+            return NextResponse.json(
+                { success: false, error: variantsError },
+                { status: 400 }
+            );
+        }
 
         const addOn = await updateAddOn(
             id,

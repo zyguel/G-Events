@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Edit2, Trash2, Filter, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
+import Modal, { ModalInput, ModalFooter } from "@/components/admin/Modal";
 import DateInput from "@/components/admin/DateInput";
 import TimeInput from "@/components/admin/TimeInput";
 import TablePaginationControls from "@/components/admin/TablePaginationControls";
@@ -16,6 +16,7 @@ interface PromoCodesTabProps {
 
 const DATE_PART_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_PART_PATTERN = /^\d{2}:\d{2}$/;
+const PROMO_CODE_PATTERN = /^[A-Z0-9_-]+$/;
 
 const formatDatePart = (value: Date): string => {
   const year = value.getFullYear();
@@ -33,6 +34,20 @@ const getTimePartFromValue = (value: string): string => {
   const timePart = value.includes("T") ? value.split("T")[1] ?? "" : "";
   const normalizedTime = timePart.slice(0, 5);
   return TIME_PART_PATTERN.test(normalizedTime) ? normalizedTime : "";
+};
+
+const normalizePromoDateTimeValue = (value: string): string => {
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (DATE_PART_PATTERN.test(trimmed)) return `${trimmed}T00:00`;
+  return trimmed;
+};
+
+const parsePromoDateTime = (value: string): Date | null => {
+  const normalized = normalizePromoDateTimeValue(value);
+  if (!normalized) return null;
+  const parsed = new Date(normalized);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 const initialPromoForm: Omit<PromoCode, "id" | "createdAt"> = {
@@ -61,6 +76,8 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "promo_code" | "discount">("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [isSavingPromo, setIsSavingPromo] = useState(false);
+  const [isDeletingPromo, setIsDeletingPromo] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -94,12 +111,44 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.code.trim()) newErrors.code = "Promo code is required";
+    const normalizedCode = formData.code.trim().toUpperCase();
+    if (!normalizedCode) {
+      newErrors.code = "Promo code is required";
+    } else if (normalizedCode.length < 3) {
+      newErrors.code = "Promo code must be at least 3 characters";
+    } else if (normalizedCode.length > 40) {
+      newErrors.code = "Promo code must be at most 40 characters";
+    } else if (!PROMO_CODE_PATTERN.test(normalizedCode)) {
+      newErrors.code = "Promo code can only use letters, numbers, hyphens, and underscores";
+    }
+
     if (formData.value <= 0) newErrors.value = "Value must be greater than 0";
-    if (!formData.startDate) newErrors.startDate = "Start date is required";
-    if (!formData.endDate) newErrors.endDate = "End date is required";
-    if (new Date(formData.startDate) >= new Date(formData.endDate)) {
-      newErrors.endDate = "End date must be after start date";
+    if (formData.valueType === "percentage" && formData.value > 100) {
+      newErrors.value = "Percentage discount cannot be greater than 100";
+    }
+
+    const usageLimit = Number(formData.usageLimit);
+    if (!Number.isInteger(usageLimit) || usageLimit < 0) {
+      newErrors.usageLimit = "Usage limit must be 0 or greater";
+    }
+
+    const startAt = parsePromoDateTime(formData.startDate);
+    const endAt = parsePromoDateTime(formData.endDate);
+
+    if (!formData.startDate.trim()) {
+      newErrors.startDate = "Start date is required";
+    } else if (!startAt) {
+      newErrors.startDate = "Start date/time is invalid";
+    }
+
+    if (!formData.endDate.trim()) {
+      newErrors.endDate = "End date is required";
+    } else if (!endAt) {
+      newErrors.endDate = "End date/time is invalid";
+    }
+
+    if (startAt && endAt && startAt >= endAt) {
+      newErrors.endDate = "End date/time must be after start date/time";
     }
 
     setErrors(newErrors);
@@ -132,18 +181,43 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
   };
 
   const handleSavePromo = async () => {
+    if (isSavingPromo) return;
     if (!validateForm()) return;
 
     try {
+      setIsSavingPromo(true);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.form;
+        return next;
+      });
+
+      const payload: Omit<PromoCode, "id" | "createdAt"> = {
+        ...formData,
+        code: formData.code.trim().toUpperCase(),
+        value: Number(formData.value),
+        startDate: normalizePromoDateTimeValue(formData.startDate),
+        endDate: normalizePromoDateTimeValue(formData.endDate),
+        usageLimit: Number.isInteger(Number(formData.usageLimit)) && Number(formData.usageLimit) >= 0
+          ? Number(formData.usageLimit)
+          : 0,
+      };
+
       if (editingPromoId) {
-        await updatePromoCode(event.id, editingPromoId, formData);
+        await updatePromoCode(event.id, editingPromoId, payload);
       } else {
-        await createPromoCode(event.id, formData);
+        await createPromoCode(event.id, payload);
       }
       await loadData();
       setIsModalOpen(false);
     } catch (error) {
       console.error("Failed to save promo code:", error);
+      setErrors((prev) => ({
+        ...prev,
+        form: error instanceof Error ? error.message : "Failed to save promo code",
+      }));
+    } finally {
+      setIsSavingPromo(false);
     }
   };
 
@@ -153,15 +227,18 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isDeletingPromo) return;
 
     try {
+      setIsDeletingPromo(true);
       await deletePromoCode(event.id, deleteTarget);
       await loadData();
       setIsConfirmDeleteOpen(false);
       setDeleteTarget(null);
     } catch (error) {
       console.error("Failed to delete promo code:", error);
+    } finally {
+      setIsDeletingPromo(false);
     }
   };
 
@@ -205,6 +282,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
         </div>
         <button
           onClick={handleAddPromo}
+          disabled={isSavingPromo || isDeletingPromo}
           className="px-5 py-2.5 text-sm bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 text-white font-bold rounded-xl flex items-center gap-2"
         >
           <Plus size={18} strokeWidth={3} />
@@ -314,12 +392,14 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() => handleEditPromo(promo)}
+                            disabled={isSavingPromo || isDeletingPromo}
                             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                           >
                             <Edit2 size={16} className="text-gray-600 dark:text-gray-400" />
                           </button>
                           <button
                             onClick={() => handleDeleteClick(promo.id)}
+                            disabled={isSavingPromo || isDeletingPromo}
                             className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                           >
                             <Trash2 size={16} className="text-red-600" />
@@ -349,7 +429,10 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
       {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          if (isSavingPromo) return;
+          setIsModalOpen(false);
+        }}
         title={editingPromoId ? "Edit Promo Code" : "Add Promo Code"}
       >
         <div className="space-y-4">
@@ -485,6 +568,10 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
               </div>
               {errors.endDate && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.endDate}</p>}
             </div>
+
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              If time input is left blank, it defaults to 12:00 A.M.
+            </p>
           </div>
 
           <div>
@@ -511,7 +598,9 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
               placeholder="0"
               value={formData.usageLimit === 0 ? "" : formData.usageLimit}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, usageLimit: parseInt(e.target.value) || 0 })}
+              className={errors.usageLimit ? "border-red-500" : ""}
             />
+            {errors.usageLimit && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.usageLimit}</p>}
           </div>
 
           <div>
@@ -532,14 +621,19 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
             onSave={handleSavePromo}
             saveText={editingPromoId ? "Update Promo" : "Create Promo"}
             submitType="button"
+            isSubmitting={isSavingPromo}
           />
+          {errors.form && <p className="text-sm text-red-600 dark:text-red-400">{errors.form}</p>}
         </div>
       </Modal>
 
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={isConfirmDeleteOpen}
-        onClose={() => setIsConfirmDeleteOpen(false)}
+        onClose={() => {
+          if (isDeletingPromo) return;
+          setIsConfirmDeleteOpen(false);
+        }}
         title="Delete Promo Code"
       >
         <div className="space-y-4">
@@ -550,6 +644,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
             saveText="Delete"
             submitType="button"
             isDanger={true}
+            isSubmitting={isDeletingPromo}
           />
         </div>
       </Modal>

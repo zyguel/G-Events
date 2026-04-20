@@ -247,6 +247,29 @@ function addOnVariantsToDb(variants: AddOnVariant[], stock?: number) {
   return undefined;
 }
 
+function resolveAddOnVariantsForPayload(addOn: Partial<Omit<AddOn, 'id' | 'createdAt'>>) {
+  if (addOn.hasVariants === false) {
+    return addOnVariantsToDb([], addOn.stock);
+  }
+
+  if (addOn.hasVariants === true) {
+    return addOnVariantsToDb(addOn.variants ?? [], addOn.stock);
+  }
+
+  if (addOn.variants !== undefined) {
+    const namedVariants = addOn.variants.filter((variant) => variant.label.trim().length > 0);
+    return namedVariants.length > 0
+      ? addOnVariantsToDb(namedVariants, addOn.stock)
+      : addOnVariantsToDb([], addOn.stock);
+  }
+
+  if (addOn.stock !== undefined) {
+    return addOnVariantsToDb([], addOn.stock);
+  }
+
+  return undefined;
+}
+
 function promoToDb(promo: Partial<Omit<PromoCode, 'id' | 'createdAt'>>) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const fields: any = {};
@@ -346,7 +369,7 @@ function buildAddOnFormData(
 
 export async function createAddOn(eventId: string, addOn: Omit<AddOn, 'id' | 'createdAt'>): Promise<AddOn> {
   const numId = resolveEventId(eventId);
-  const variants = addOnVariantsToDb(addOn.variants, addOn.stock);
+  const variants = resolveAddOnVariantsForPayload(addOn);
   const fd = buildAddOnFormData(addOn, variants);
   const row = await apiFetch<any>(`/api/events/${numId}/addons`, {
     method: 'POST',
@@ -357,9 +380,7 @@ export async function createAddOn(eventId: string, addOn: Omit<AddOn, 'id' | 'cr
 
 export async function updateAddOn(eventId: string, addOnId: string, updates: Partial<AddOn>): Promise<AddOn | null> {
   const numEventId = resolveEventId(eventId);
-  const variants = updates.variants !== undefined
-    ? addOnVariantsToDb(updates.variants, updates.stock)
-    : (updates.stock !== undefined ? addOnVariantsToDb([], updates.stock) : undefined);
+  const variants = resolveAddOnVariantsForPayload(updates);
   const fd = buildAddOnFormData(updates, variants);
   const row = await apiFetch<any>(`/api/events/${numEventId}/addons/${addOnId}`, {
     method: 'PATCH',

@@ -888,6 +888,60 @@ class AddOnValidationError extends Error {
     }
 }
 
+class PromotionValidationError extends Error {
+    statusCode: number;
+
+    constructor(message: string, statusCode = 400) {
+        super(message);
+        this.name = 'PromotionValidationError';
+        this.statusCode = statusCode;
+    }
+}
+
+const PROMOTION_CODE_PATTERN = /^[A-Z0-9_-]+$/;
+const PROMOTION_DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizePromotionCode(value: unknown): string {
+    return String(value || '').trim().toUpperCase();
+}
+
+function normalizePromotionDateTime(value: unknown, fieldLabel: string): string | null | undefined {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value !== 'string') {
+        throw new PromotionValidationError(`Invalid ${fieldLabel}.`);
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const normalized = PROMOTION_DATE_ONLY_PATTERN.test(trimmed)
+        ? `${trimmed}T00:00`
+        : trimmed;
+
+    const parsed = parseTicketDateTime(normalized);
+    if (!parsed) {
+        throw new PromotionValidationError(`Invalid ${fieldLabel}.`);
+    }
+
+    return normalized;
+}
+
+function normalizePromotionTicketIds(ticketIds?: number[]): number[] | undefined {
+    if (ticketIds === undefined) return undefined;
+    if (!Array.isArray(ticketIds)) {
+        throw new PromotionValidationError('Invalid ticket selection.');
+    }
+
+    const normalized = ticketIds.map((id) => Number(id));
+    const hasInvalid = normalized.some((id) => !Number.isInteger(id) || id <= 0);
+    if (hasInvalid) {
+        throw new PromotionValidationError('Invalid ticket selection.');
+    }
+
+    return Array.from(new Set(normalized));
+}
+
 function normalizeComparableText(value: unknown): string {
     if (typeof value !== 'string') return '';
     return value.trim().toLowerCase().replace(/\s+/g, ' ');
@@ -986,8 +1040,8 @@ function normalizeAndValidateAddOnVariants(
             throw new AddOnValidationError('Add-on variant label is required.');
         }
 
-        if (!Number.isFinite(stockTotal) || stockTotal < 0) {
-            throw new AddOnValidationError('Add-on variant stock must be 0 or greater.');
+        if (!Number.isFinite(stockTotal) || stockTotal <= 0) {
+            throw new AddOnValidationError('Add-on variant stock must be greater than 0.');
         }
 
         const normalizedLabel = normalizeComparableText(label);
@@ -1329,6 +1383,9 @@ export async function createAddOn(
 
     const normalizedName = String(fields.name || '').trim();
     const normalizedVariants = normalizeAndValidateAddOnVariants(variants);
+    if (!normalizedVariants || normalizedVariants.length === 0) {
+        throw new AddOnValidationError('Add-on quantity must be greater than 0.');
+    }
     await ensureUniqueAddOnName(supabase, eventId, normalizedName);
 
     const { data: addOn, error: addOnError } = await supabase
@@ -1406,6 +1463,9 @@ export async function updateAddOn(
     }
 
     const normalizedVariants = normalizeAndValidateAddOnVariants(variants);
+    if (normalizedVariants !== undefined && normalizedVariants.length === 0) {
+        throw new AddOnValidationError('Add-on quantity must be greater than 0.');
+    }
 
     const { error: addOnError } = await supabase
         .from('AddOn')
@@ -1536,24 +1596,85 @@ export async function createPromotion(
         discount_value: number;
         max_uses?: number;
         current_uses?: number;
-        start_at?: string;
-        end_at?: string;
+        start_at?: string | null;
+        end_at?: string | null;
         is_automatic?: boolean;
     },
     ticketIds?: number[]
 ) {
     const supabase = await getSupabase();
 
+    const code = normalizePromotionCode(fields.code);
+    if (!code) {
+        throw new PromotionValidationError('Promotion code is required.');
+    }
+    if (!PROMOTION_CODE_PATTERN.test(code)) {
+        throw new PromotionValidationError('Promotion code must only contain letters, numbers, hyphens, or underscores.');
+    }
+
+    const discountType = fields.discount_type === 'fixed' || fields.discount_type === 'percentage'
+        ? fields.discount_type
+        : null;
+    if (!discountType) {
+        throw new PromotionValidationError('Discount type must be either fixed or percentage.');
+    }
+
+    const discountValue = Number(fields.discount_value);
+    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+        throw new PromotionValidationError('Discount value must be greater than 0.');
+    }
+    if (discountType === 'percentage' && discountValue > 100) {
+        throw new PromotionValidationError('Percentage discount cannot be greater than 100.');
+    }
+
+    const maxUses = fields.max_uses !== undefined ? Number(fields.max_uses) : undefined;
+    if (maxUses !== undefined && (!Number.isInteger(maxUses) || maxUses < 0)) {
+        throw new PromotionValidationError('Usage limit must be 0 or greater.');
+    }
+
+    const currentUses = fields.current_uses !== undefined ? Number(fields.current_uses) : 0;
+    if (!Number.isInteger(currentUses) || currentUses < 0) {
+        throw new PromotionValidationError('Current usage must be 0 or greater.');
+    }
+
+    const startAt = normalizePromotionDateTime(fields.start_at, 'promotion start date/time');
+    const endAt = normalizePromotionDateTime(fields.end_at, 'promotion end date/time');
+    const startAtDate = parseTicketDateTime(startAt ?? undefined);
+    const endAtDate = parseTicketDateTime(endAt ?? undefined);
+
+    if (startAtDate && endAtDate && startAtDate >= endAtDate) {
+        throw new PromotionValidationError('Promotion end date/time must be after the start date/time.');
+    }
+
+    if (maxUses !== undefined && maxUses > 0 && currentUses > maxUses) {
+        throw new PromotionValidationError('Current usage cannot exceed usage limit.');
+    }
+
+    const normalizedTicketIds = normalizePromotionTicketIds(ticketIds);
+
+    const promotionPayload = {
+        event_id: eventId,
+        name: fields.name?.trim() || code,
+        code,
+        discount_type: discountType,
+        discount_value: discountValue,
+        max_uses: maxUses,
+        current_uses: currentUses,
+        start_at: startAt === undefined ? null : startAt,
+        end_at: endAt === undefined ? null : endAt,
+        is_automatic: fields.is_automatic ?? false,
+    };
+
     const { data: promo, error: promoError } = await supabase
         .from('Promotion')
-        .insert([{ event_id: eventId, ...fields }])
+        .insert([promotionPayload])
         .select()
         .single();
 
     if (promoError) throw promoError;
 
-    if (ticketIds && ticketIds.length > 0) {
-        const rows = ticketIds.map((tid) => ({
+    if (normalizedTicketIds && normalizedTicketIds.length > 0) {
+        const rows = normalizedTicketIds.map((tid) => ({
             promotion_id: promo.id,
             ticket_id: tid,
         }));
@@ -1583,24 +1704,132 @@ export async function updatePromotion(
         discount_value: number;
         max_uses: number;
         current_uses: number;
-        start_at: string;
-        end_at: string;
+        start_at: string | null;
+        end_at: string | null;
         is_automatic: boolean;
     }>,
     ticketIds?: number[]
 ) {
     const supabase = await getSupabase();
 
-    const { error: promoError } = await supabase
-        .from('Promotion')
-        .update(fields)
-        .eq('id', promotionId);
-
-    if (promoError) throw promoError;
-
     const beforePromotion = await getPromotion(promotionId);
 
-    if (ticketIds !== undefined) {
+    const normalizedFields: Partial<{
+        name: string;
+        code: string;
+        discount_type: 'fixed' | 'percentage';
+        discount_value: number;
+        max_uses: number;
+        current_uses: number;
+        start_at: string | null;
+        end_at: string | null;
+        is_automatic: boolean;
+    }> = {};
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'name')) {
+        normalizedFields.name = String(fields.name || '').trim();
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'code')) {
+        const normalizedCode = normalizePromotionCode(fields.code);
+        if (!normalizedCode) {
+            throw new PromotionValidationError('Promotion code is required.');
+        }
+        if (!PROMOTION_CODE_PATTERN.test(normalizedCode)) {
+            throw new PromotionValidationError('Promotion code must only contain letters, numbers, hyphens, or underscores.');
+        }
+        normalizedFields.code = normalizedCode;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'discount_type')) {
+        const discountType = fields.discount_type === 'fixed' || fields.discount_type === 'percentage'
+            ? fields.discount_type
+            : null;
+        if (!discountType) {
+            throw new PromotionValidationError('Discount type must be either fixed or percentage.');
+        }
+        normalizedFields.discount_type = discountType;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'discount_value')) {
+        const discountValue = Number(fields.discount_value);
+        if (!Number.isFinite(discountValue) || discountValue <= 0) {
+            throw new PromotionValidationError('Discount value must be greater than 0.');
+        }
+        normalizedFields.discount_value = discountValue;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'max_uses')) {
+        const maxUses = Number(fields.max_uses);
+        if (!Number.isInteger(maxUses) || maxUses < 0) {
+            throw new PromotionValidationError('Usage limit must be 0 or greater.');
+        }
+        normalizedFields.max_uses = maxUses;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'current_uses')) {
+        const currentUses = Number(fields.current_uses);
+        if (!Number.isInteger(currentUses) || currentUses < 0) {
+            throw new PromotionValidationError('Current usage must be 0 or greater.');
+        }
+        normalizedFields.current_uses = currentUses;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'start_at')) {
+        normalizedFields.start_at = normalizePromotionDateTime(fields.start_at, 'promotion start date/time') ?? null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'end_at')) {
+        normalizedFields.end_at = normalizePromotionDateTime(fields.end_at, 'promotion end date/time') ?? null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'is_automatic')) {
+        normalizedFields.is_automatic = Boolean(fields.is_automatic);
+    }
+
+    const previousDiscountType: 'fixed' | 'percentage' =
+        beforePromotion.discount_type === 'fixed' ? 'fixed' : 'percentage';
+    const effectiveDiscountType: 'fixed' | 'percentage' = normalizedFields.discount_type ?? previousDiscountType;
+    const effectiveDiscountValue = normalizedFields.discount_value ?? Number(beforePromotion.discount_value ?? 0);
+    if (!Number.isFinite(effectiveDiscountValue) || effectiveDiscountValue <= 0) {
+        throw new PromotionValidationError('Discount value must be greater than 0.');
+    }
+    if (effectiveDiscountType === 'percentage' && effectiveDiscountValue > 100) {
+        throw new PromotionValidationError('Percentage discount cannot be greater than 100.');
+    }
+
+    const effectiveStartAt = normalizedFields.start_at ?? (beforePromotion.start_at as string | null);
+    const effectiveEndAt = normalizedFields.end_at ?? (beforePromotion.end_at as string | null);
+    const effectiveStartAtDate = parseTicketDateTime(effectiveStartAt ?? undefined);
+    const effectiveEndAtDate = parseTicketDateTime(effectiveEndAt ?? undefined);
+    if (effectiveStartAtDate && effectiveEndAtDate && effectiveStartAtDate >= effectiveEndAtDate) {
+        throw new PromotionValidationError('Promotion end date/time must be after the start date/time.');
+    }
+
+    const effectiveMaxUses = normalizedFields.max_uses ?? Number(beforePromotion.max_uses ?? 0);
+    const effectiveCurrentUses = normalizedFields.current_uses ?? Number(beforePromotion.current_uses ?? 0);
+    if (!Number.isInteger(effectiveMaxUses) || effectiveMaxUses < 0) {
+        throw new PromotionValidationError('Usage limit must be 0 or greater.');
+    }
+    if (!Number.isInteger(effectiveCurrentUses) || effectiveCurrentUses < 0) {
+        throw new PromotionValidationError('Current usage must be 0 or greater.');
+    }
+    if (effectiveMaxUses > 0 && effectiveCurrentUses > effectiveMaxUses) {
+        throw new PromotionValidationError('Current usage cannot exceed usage limit.');
+    }
+
+    const normalizedTicketIds = normalizePromotionTicketIds(ticketIds);
+
+    if (Object.keys(normalizedFields).length > 0) {
+        const { error: promoError } = await supabase
+            .from('Promotion')
+            .update(normalizedFields)
+            .eq('id', promotionId);
+
+        if (promoError) throw promoError;
+    }
+
+    if (normalizedTicketIds !== undefined) {
         // Delete existing ticket associations
         await supabase
             .from('PromotionTicket')
@@ -1608,8 +1837,8 @@ export async function updatePromotion(
             .eq('promotion_id', promotionId);
 
         // Insert new associations
-        if (ticketIds.length > 0) {
-            const rows = ticketIds.map((tid) => ({
+        if (normalizedTicketIds.length > 0) {
+            const rows = normalizedTicketIds.map((tid) => ({
                 promotion_id: promotionId,
                 ticket_id: tid,
             }));

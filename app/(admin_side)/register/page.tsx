@@ -6,6 +6,10 @@ import Image from 'next/image';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 import { AuthFormHydrationGate } from '@/components/auth/AuthFormHydrationGate';
+import { REGISTER_LIMITS, normalizeRegisterInput, validateRegisterInput } from '@/lib/validation/register';
+
+const NAME_INPUT_SANITIZE_PATTERN = /[^A-Za-z0-9 ]+/g;
+const PASSWORD_INPUT_SANITIZE_PATTERN = /[^A-Za-z0-9]+/g;
 
 function RegisterFormSkeleton() {
     return (
@@ -86,68 +90,94 @@ export default function RegisterPage() {
         setAuthError('');
         setAuthSuccess('');
 
-        if (!fullName.trim()) { setAuthError('Please provide your full name.'); return; }
-        if (!email) { setAuthError('Please provide your email.'); return; }
-        if (password.length < 8) { setAuthError('Password must be at least 8 characters.'); return; }
+        const normalizedInput = normalizeRegisterInput({
+            fullName,
+            email,
+            password,
+        });
+
+        const validationError = validateRegisterInput(normalizedInput);
+        if (validationError) { setAuthError(validationError); return; }
         if (password !== confirmPassword) { setAuthError('Passwords do not match.'); return; }
         if (!agreeTerms) { setAuthError('You must agree to the Terms & Conditions.'); return; }
 
         setIsSubmitting(true);
 
-        const normalizedEmail = email.trim().toLowerCase();
-
         try {
-            const accountCheckResponse = await fetch('/api/users/check-accounts', {
+            const registerValidationResponse = await fetch('/api/auth/register/validate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ emails: [normalizedEmail] }),
+                body: JSON.stringify(normalizedInput),
             });
 
-            if (accountCheckResponse.ok) {
-                const accountCheckData = await accountCheckResponse.json().catch(() => ({}));
-                if (accountCheckData?.data?.[normalizedEmail] === true) {
-                    setIsSubmitting(false);
-                    setAuthError('Account exists already, please sign in or do a forgot password request.');
+            if (!registerValidationResponse.ok) {
+                const validationErrorResponse = await registerValidationResponse.json().catch(() => ({}));
+                setAuthError(validationErrorResponse?.error || 'Registration input is invalid. Please review your details.');
+                return;
+            }
+
+            const registerValidationData = await registerValidationResponse.json().catch(() => ({}));
+            const normalizedEmail = typeof registerValidationData?.data?.email === 'string'
+                ? registerValidationData.data.email
+                : normalizedInput.email;
+            const normalizedFullName = typeof registerValidationData?.data?.fullName === 'string'
+                ? registerValidationData.data.fullName
+                : normalizedInput.fullName;
+
+            try {
+                const accountCheckResponse = await fetch('/api/users/check-accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emails: [normalizedEmail] }),
+                });
+
+                if (accountCheckResponse.ok) {
+                    const accountCheckData = await accountCheckResponse.json().catch(() => ({}));
+                    if (accountCheckData?.data?.[normalizedEmail] === true) {
+                        setAuthError('Account exists already, please sign in or do a forgot password request.');
+                        return;
+                    }
+                }
+            } catch {
+                // Continue to sign-up attempt if account pre-check is unavailable.
+            }
+
+            const redirectTo = typeof window !== 'undefined'
+                ? `${window.location.origin}/auth/callback?next=/dashboard`
+                : '/auth/callback?next=/dashboard';
+
+            const supabase = createClient();
+            const { data, error } = await supabase.auth.signUp({
+                email: normalizedEmail,
+                password: normalizedInput.password,
+                options: {
+                    emailRedirectTo: redirectTo,
+                    data: { name: normalizedFullName },
+                },
+            });
+
+            if (error) {
+                const loweredMessage = error.message.toLowerCase();
+                if (loweredMessage.includes('already') || loweredMessage.includes('exists')) {
+                    setAuthError('Account exists already, please sign in or forgot password.');
                     return;
                 }
+                setAuthError(error.message);
+                return;
             }
-        } catch {
-            // Continue to Supabase sign-up attempt if account pre-check is unavailable.
-        }
 
-        const redirectTo = typeof window !== 'undefined'
-            ? `${window.location.origin}/auth/callback?next=/dashboard`
-            : '/auth/callback?next=/dashboard';
-
-        const supabase = createClient();
-        const { data, error } = await supabase.auth.signUp({
-            email: normalizedEmail,
-            password,
-            options: {
-                emailRedirectTo: redirectTo,
-                data: { name: fullName },
-            },
-        });
-
-        setIsSubmitting(false);
-
-        if (error) {
-            const loweredMessage = error.message.toLowerCase();
-            if (loweredMessage.includes('already') || loweredMessage.includes('exists')) {
+            const userIdentities = Array.isArray(data?.user?.identities) ? data.user.identities : [];
+            if (data?.user && userIdentities.length === 0) {
                 setAuthError('Account exists already, please sign in or forgot password.');
                 return;
             }
-            setAuthError(error.message);
-            return;
-        }
 
-        const userIdentities = Array.isArray(data?.user?.identities) ? data.user.identities : [];
-        if (data?.user && userIdentities.length === 0) {
-            setAuthError('Account exists already, please sign in or forgot password.');
-            return;
+            setAuthSuccess('Account created! Please check your email to confirm your account before signing in.');
+        } catch {
+            setAuthError('Registration failed. Please try again.');
+        } finally {
+            setIsSubmitting(false);
         }
-
-        setAuthSuccess('Account created! Please check your email to confirm your account before signing in.');
     };
 
     const handleGoogleSignUp = async () => {
@@ -270,9 +300,17 @@ export default function RegisterPage() {
                                         name="name"
                                         autoComplete="name"
                                         value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
+                                        onChange={(e) => {
+                                            const nextValue = e.target.value
+                                                .replace(NAME_INPUT_SANITIZE_PATTERN, '')
+                                                .slice(0, REGISTER_LIMITS.FULL_NAME_MAX);
+                                            setFullName(nextValue);
+                                        }}
                                         className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
                                         placeholder="Dominic Matthew"
+                                        minLength={REGISTER_LIMITS.FULL_NAME_MIN}
+                                        maxLength={REGISTER_LIMITS.FULL_NAME_MAX}
+                                        pattern="[A-Za-z0-9 ]+"
                                     />
                                 </div>
                             </div>
@@ -295,9 +333,11 @@ export default function RegisterPage() {
                                         name="email"
                                         autoComplete="email"
                                         value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
+                                        onChange={(e) => setEmail(e.target.value.slice(0, REGISTER_LIMITS.EMAIL_MAX))}
                                         className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
                                         placeholder="domat@example.com"
+                                        minLength={REGISTER_LIMITS.EMAIL_MIN}
+                                        maxLength={REGISTER_LIMITS.EMAIL_MAX}
                                     />
                                 </div>
                             </div>
@@ -320,9 +360,17 @@ export default function RegisterPage() {
                                         name="new-password"
                                         autoComplete="new-password"
                                         value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
+                                        onChange={(e) => {
+                                            const nextValue = e.target.value
+                                                .replace(PASSWORD_INPUT_SANITIZE_PATTERN, '')
+                                                .slice(0, REGISTER_LIMITS.PASSWORD_MAX);
+                                            setPassword(nextValue);
+                                        }}
                                         className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
                                         placeholder="Set your password"
+                                        minLength={REGISTER_LIMITS.PASSWORD_MIN}
+                                        maxLength={REGISTER_LIMITS.PASSWORD_MAX}
+                                        pattern="[A-Za-z0-9]+"
                                     />
                                     <button
                                         type="button"
@@ -352,9 +400,17 @@ export default function RegisterPage() {
                                         name="confirm-password"
                                         autoComplete="new-password"
                                         value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
+                                        onChange={(e) => {
+                                            const nextValue = e.target.value
+                                                .replace(PASSWORD_INPUT_SANITIZE_PATTERN, '')
+                                                .slice(0, REGISTER_LIMITS.PASSWORD_MAX);
+                                            setConfirmPassword(nextValue);
+                                        }}
                                         className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
                                         placeholder="Confirm your password"
+                                        minLength={REGISTER_LIMITS.PASSWORD_MIN}
+                                        maxLength={REGISTER_LIMITS.PASSWORD_MAX}
+                                        pattern="[A-Za-z0-9]+"
                                     />
                                     <button
                                         type="button"
@@ -366,6 +422,10 @@ export default function RegisterPage() {
                                 </div>
                             </div>
                         </div>
+
+                        <p className="text-xs text-gray-500 pl-1">
+                            Full name accepts letters, numbers, and spaces. Password accepts letters and numbers only.
+                        </p>
 
                         {/* Terms & Conditions */}
                         <div className="flex items-start gap-2.5 pt-1 pb-1">
