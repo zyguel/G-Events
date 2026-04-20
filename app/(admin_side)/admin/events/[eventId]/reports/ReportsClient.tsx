@@ -679,6 +679,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
 
     return (
         <>
+        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Filter Modal */}
             <FilterModal
                 isOpen={isFilterOpen}
@@ -1029,5 +1030,6 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                 </div>
             </div>
         </>
+        </div>
     );
 }

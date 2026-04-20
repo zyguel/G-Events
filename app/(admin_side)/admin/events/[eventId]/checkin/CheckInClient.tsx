@@ -384,6 +384,15 @@ export default function CheckInClient({ event }: CheckInClientProps) {
     return (
         <>
             <div className="p-8 relative z-10 pb-24 lg:pb-8">
+        <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans selection:bg-indigo-500/30 transition-colors duration-300 relative">
+
+            {/* Background Glow Effects (Dark Mode Only) - Adjusted to blend with gray theme */}
+            <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0 opacity-0 dark:opacity-50 transition-opacity duration-500">
+                <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-indigo-900/10 rounded-full blur-[120px]" />
+                <div className="absolute bottom-[-10%] left-[10%] w-[400px] h-[400px] bg-blue-900/10 rounded-full blur-[100px]" />
+            </div>
+
+            <div className="p-4 sm:p-6 lg:p-8 relative z-10 pb-24 lg:pb-8">
                 <div className="max-w-5xl mx-auto space-y-6 lg:space-y-8 animate-in fade-in duration-500">
                     {/* Page Header */}
                     <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -943,6 +952,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                             <Search size={40} strokeWidth={1.5} className="opacity-50" />
                                                             <p className="text-lg font-medium text-gray-600 dark:text-gray-400">No add-on claims pending</p>
                                                             <p className="text-sm">All purchased add-ons for this event have been claimed or no add-ons were added.</p>
+                                                            <p className="text-sm">Everyone has already claimed add-ons or no add-ons were added for this event.</p>
                                                         </div>
                                                     </td>
                                                 </tr>
