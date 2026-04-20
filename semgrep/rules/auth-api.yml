@@ -1,0 +1,12 @@
+rules:
+  - id: auth-next-path-protocol-relative
+    message: next redirects must reject protocol-relative paths that start with //.
+    severity: ERROR
+    languages: [typescript, javascript]
+    paths:
+      include:
+        - '**/app/auth/**/*.ts'
+        - '**/app/auth/**/*.tsx'
+    patterns:
+      - pattern: |
+          const $REDIRECT = $NEXT.startsWith('/') ? $NEXT : $FALLBACK;

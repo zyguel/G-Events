@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
-import { requireUser } from "@/lib/apiAuth";
+import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -31,10 +31,15 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, data: users || [] });
-    } catch (e: any) {
-        console.error("User Search API Error:", e);
+    } catch (error: unknown) {
+        const authError = getAuthErrorResponse(error);
+        if (authError) {
+            return authError;
+        }
+
+        console.error("User Search API Error:", error);
         return NextResponse.json(
-            { success: false, error: e?.message || "Unexpected error" },
+            { success: false, error: error instanceof Error ? error.message : "Unexpected error" },
             { status: 500 }
         );
     }
