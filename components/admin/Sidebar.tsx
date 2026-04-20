@@ -113,7 +113,7 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
 
     if (showCompactNav) {
         return (
-            <aside className="fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-6 pb-6 gap-2 z-40 w-14">
+            <aside className="fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-col items-center pt-6 pb-6 gap-2 z-40 w-14 hidden lg:flex">
                 <div className="w-full px-3 flex flex-col gap-2 relative">
                     <div
                         className="absolute left-3 right-3 h-8.5 bg-[#3D518C] rounded-xl shadow-lg z-0"
@@ -135,7 +135,7 @@ const Sidebar = ({ activePage = 'dashboard', disableExpand = false }: SidebarPro
     }
 
     return (
-        <aside className="fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-6 pb-6 gap-2 z-40 w-14">
+        <aside className="fixed left-0 top-16 h-[calc(100vh-64px)] bg-[#F8F9FA] dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col items-center pt-6 pb-6 gap-2 z-40 w-14 hidden lg:flex">
             {/* Main navigation items */}
             <div className="w-full px-3 flex flex-col gap-2 relative">
                 {/* Sliding indicator for main items */}

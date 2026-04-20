@@ -417,7 +417,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
     if (!eventId || eventId === 'undefined') {
         console.error('Invalid eventId in reports page:', eventId);
         return (
-            <div className="flex flex-col h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 items-center justify-center">
+            <div className="flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 items-center justify-center p-8">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Error Loading Event</h1>
                     <p className="text-gray-600 dark:text-gray-400">Unable to load reports. Event ID is invalid.</p>
@@ -678,6 +678,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
     }, [activeTab, event.name, registrants, breakoutSessions]);
 
     return (
+        <>
         <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
             {/* Filter Modal */}
             <FilterModal
@@ -1029,5 +1030,6 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                 </div>
             </div>
         </div>
+        </>
     );
 }

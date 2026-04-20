@@ -990,9 +990,8 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
 
 
     return (
-        <div className="flex flex-col h-screen text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto scrollbar-hide p-8">
+        <>
+            <div className="p-8">
                 <div className="max-w-5xl mx-auto space-y-8">
                     {/* Page Header */}
                     <div className="mb-8">
@@ -1370,7 +1369,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
 
 
                 </div>
-            </main>
+            </div>
 
             {/* Edit Order Modal */}
             <EditOrderModal
@@ -1433,6 +1432,6 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                     />
                 </div>
             </Modal>
-        </div>
+        </>
     );
 }

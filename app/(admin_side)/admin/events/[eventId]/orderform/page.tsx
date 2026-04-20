@@ -53,12 +53,5 @@ export default async function OrderFormPage({
         status: status
     };
 
-    return (
-        <div className="flex flex-col h-screen text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable]">
-                <OrderForm eventId={numericId.toString()} eventSlug={slug} formId={formId} />
-            </main>
-        </div>
-    );
+    return <OrderForm eventId={numericId.toString()} eventSlug={slug} formId={formId} />;
 }

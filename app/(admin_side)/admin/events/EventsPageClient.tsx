@@ -65,6 +65,20 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
         };
     }, [openMenuId]);
 
+    // Load view mode from local storage on mount
+    useEffect(() => {
+        const savedView = localStorage.getItem('admin_events_view_mode');
+        if (savedView === 'grid' || savedView === 'list') {
+            setViewMode(savedView as 'list' | 'grid');
+        }
+    }, []);
+
+    // Helper to change view mode and save to storage
+    const handleSetViewMode = (mode: 'list' | 'grid') => {
+        setViewMode(mode);
+        localStorage.setItem('admin_events_view_mode', mode);
+    };
+
     const toggleMenu = useCallback((e: React.MouseEvent, eventId: string | number) => {
         e.preventDefault();
         e.stopPropagation();
@@ -194,7 +208,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
             <div className="flex flex-1 overflow-hidden">
                 <Sidebar activePage="events" />
 
-                <main className="flex-1 ml-20 overflow-y-auto p-4 md:p-8">
+                <main className="flex-1 lg:ml-20 overflow-y-auto p-4 md:p-8">
                     <div className="space-y-6 max-w-7xl mx-auto">
 
                         {/* Header Section */}
@@ -254,13 +268,13 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                                         {/* View Toggle - Hidden on mobile, forced to list or grid depending on preference, or kept small */}
                                         <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1 ml-auto shrink-0">
                                             <button
-                                                onClick={() => setViewMode('list')}
+                                                onClick={() => handleSetViewMode('list')}
                                                 className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white dark:bg-gray-600 shadow-sm' : ''}`}
                                             >
                                                 <List size={18} className={viewMode === 'list' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'} />
                                             </button>
                                             <button
-                                                onClick={() => setViewMode('grid')}
+                                                onClick={() => handleSetViewMode('grid')}
                                                 className={`p-2 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-gray-600 shadow-sm' : ''}`}
                                             >
                                                 <Grid size={18} className={viewMode === 'grid' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400'} />

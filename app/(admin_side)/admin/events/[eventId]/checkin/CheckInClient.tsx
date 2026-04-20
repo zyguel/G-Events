@@ -382,7 +382,8 @@ export default function CheckInClient({ event }: CheckInClientProps) {
     // --- UI Components ---
 
     return (
-        <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans selection:bg-indigo-500/30 transition-colors duration-300 relative">
+        <>
+            <div className="h-full bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans selection:bg-indigo-500/30 transition-colors duration-300 relative">
 
             {/* Background Glow Effects (Dark Mode Only) - Adjusted to blend with gray theme */}
             <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0 opacity-0 dark:opacity-50 transition-opacity duration-500">
@@ -949,6 +950,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                                                         <div className="flex flex-col items-center gap-3 text-gray-400 dark:text-gray-500">
                                                             <Search size={40} strokeWidth={1.5} className="opacity-50" />
                                                             <p className="text-lg font-medium text-gray-600 dark:text-gray-400">No add-on claims pending</p>
+                                                            <p className="text-sm">All purchased add-ons for this event have been claimed or no add-ons were added.</p>
                                                             <p className="text-sm">Everyone has already claimed add-ons or no add-ons were added for this event.</p>
                                                         </div>
                                                     </td>
@@ -974,5 +976,6 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                 </div>
             </div>
         </div>
+        </>
     );
 }

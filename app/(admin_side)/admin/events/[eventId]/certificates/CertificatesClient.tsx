@@ -320,7 +320,7 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     : null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#F4F7FC] to-gray-100 dark:from-gray-950 dark:to-gray-900">
+    <>
       {toast ? (
         <div
           role="status"
@@ -732,6 +732,6 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
           )}
         </section>
       </div>
-    </div>
+    </>
   );
 }

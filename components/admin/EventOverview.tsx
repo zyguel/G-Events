@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import DateTimeInput from "./DateTimeInput";
 import TimeInput from "./TimeInput";
 import dynamic from "next/dynamic";
-import { createEvent, saveAgendaSlot, deleteAgendaSlot } from '@/lib/actions/events';
+import { createEvent, saveAgendaSlot, deleteAgendaSlot, deleteEvent } from '@/lib/actions/events';
 import DateInput from "./DateInput";
 
 const LocationMapPicker = dynamic(() => import('./LocationMapPicker'), {
@@ -90,14 +90,20 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     const [tempStartTime, setTempStartTime] = useState<string>('');
     const [tempEndTime, setTempEndTime] = useState<string>('');
     const [tempLocation, setTempLocation] = useState<string>('');
+    const [tempTitle, setTempTitle] = useState<string>('');
+    const [tempDescription, setTempDescription] = useState<string>('');
+    const [tempTheme, setTempTheme] = useState<string>('');
 
-    const [activeModal, setActiveModal] = useState<null | 'banner' | 'title' | 'dateLocation' | 'overview' | 'agenda' | 'deleteBanner'>(null);
+    const [activeModal, setActiveModal] = useState<null | 'banner' | 'title' | 'dateLocation' | 'overview' | 'agenda' | 'deleteBanner' | 'deleteEvent'>(null);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // Form States
     const [newAgenda, setNewAgenda] = useState<Partial<AgendaItem>>({});
     const [editingAgendaId, setEditingAgendaId] = useState<string | null>(null);
     const [newObjective, setNewObjective] = useState("");
     const [isAddingObjective, setIsAddingObjective] = useState(false);
+    const [editingObjectiveIndex, setEditingObjectiveIndex] = useState<number | null>(null);
+    const [editingObjectiveValue, setEditingObjectiveValue] = useState("");
 
     const objectiveInputRef = useRef<HTMLInputElement>(null);
 
@@ -111,8 +117,17 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     const handleSaveTitle = (e: React.FormEvent) => {
         e.preventDefault();
-        const formData = new FormData(e.target as HTMLFormElement);
-        const name = formData.get('name') as string;
+        const name = tempTitle.trim();
+
+        if (!name) {
+            setToast({ message: 'Event title is required.', type: 'error' });
+            return;
+        }
+
+        if (name.length > 100) {
+            setToast({ message: 'Event title must be 100 characters or less.', type: 'error' });
+            return;
+        }
 
         const updatedEvent = {
             ...event,
@@ -152,8 +167,12 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             setTempStartTime(event.startTime || '');
             setTempEndTime(event.endTime || '');
             setTempLocation(event.location || '');
+        } else if (activeModal === 'overview') {
+            setTempTitle(event.name || '');
+            setTempDescription(event.description || '');
+            setTempTheme(event.theme || '');
         }
-    }, [activeModal, event.date, event.startTime, event.endTime, event.location]);
+    }, [activeModal, event.date, event.startTime, event.endTime, event.location, event.name, event.description, event.theme]);
 
 
     const handleSaveDateLocation = (e: React.FormEvent) => {
@@ -206,40 +225,69 @@ export default function EventOverview({ initialData }: { initialData: any }) {
         }
     };
 
-    const handleSaveOverview = (e: React.FormEvent) => {
+    const handleSaveBasicDetails = (e: React.FormEvent) => {
         e.preventDefault();
-        const formData = new FormData(e.target as HTMLFormElement);
+        const name = tempTitle.trim();
+        const description = tempDescription.trim();
+        const theme = tempTheme.trim();
+
+        if (!name) {
+            setToast({ message: 'Event title is required.', type: 'error' });
+            return;
+        }
+
+        if (name.length > 100) {
+            setToast({ message: 'Event title must be 100 characters or less.', type: 'error' });
+            return;
+        }
+
+        if (description && description.length > 250) {
+            setToast({ message: 'Event description must be 250 characters or less.', type: 'error' });
+            return;
+        }
+
+        if (theme && theme.length > 50) {
+            setToast({ message: 'Event theme must be 50 characters or less.', type: 'error' });
+            return;
+        }
+
         const updatedEvent = {
             ...event,
-            description: formData.get('description') as string,
-            theme: formData.get('theme') as string,
+            name,
+            description,
+            theme,
         };
-        console.log('Saving overview locally:', updatedEvent);
+        
         setEvent(updatedEvent);
         setActiveModal(null);
+        
         if (event.id !== 'new') {
-            setToast({ message: 'Saving overview...', type: 'info' });
+            setToast({ message: 'Saving event details...', type: 'info' });
             import('@/lib/actions/events').then(({ updateEvent }) => {
-                console.log('Calling backend updateEvent for overview...');
                 updateEvent(parseInt(event.id), {
+                    title: name,
                     description: updatedEvent.description,
                     theme: updatedEvent.theme
                 }).then(res => {
-                    console.log('Overview save result:', res);
-                    if (res.success) setToast({ message: 'Overview saved!', type: 'success' });
-                    else setToast({ message: 'Failed to save overview: ' + res.error, type: 'error' });
+                    if (res.success) setToast({ message: 'Event details saved!', type: 'success' });
+                    else setToast({ message: 'Failed to save details: ' + res.error, type: 'error' });
                 });
             });
         } else {
-            setToast({ message: 'Overview updated locally!', type: 'success' });
+            setToast({ message: 'Details updated locally!', type: 'success' });
         }
     };
 
     const handleAddObjective = () => {
-        if (newObjective.trim()) {
+        const objective = newObjective.trim();
+        if (objective) {
+            if (objective.length > 50) {
+                setToast({ message: 'Objective must be 50 characters or less.', type: 'error' });
+                return;
+            }
             const updatedEvent = {
                 ...event,
-                objectives: [...event.objectives, newObjective.trim()]
+                objectives: [...event.objectives, objective]
             };
             setEvent(updatedEvent);
             setNewObjective("");
@@ -252,6 +300,49 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     }).then(res => {
                         if (res.success) setToast({ message: 'Objective added!', type: 'success' });
                         else setToast({ message: 'Failed to save objective.', type: 'error' });
+                    });
+                });
+            }
+        }
+    };
+
+    const handleStartEditObjective = (index: number) => {
+        setEditingObjectiveIndex(index);
+        setEditingObjectiveValue(event.objectives[index]);
+    };
+
+    const handleCancelEditObjective = () => {
+        setEditingObjectiveIndex(null);
+        setEditingObjectiveValue("");
+    };
+
+    const handleSaveEditedObjective = () => {
+        const value = editingObjectiveValue.trim();
+        if (editingObjectiveIndex !== null && value) {
+            if (value.length > 50) {
+                setToast({ message: 'Objective must be 50 characters or less.', type: 'error' });
+                return;
+            }
+            
+            const newObjectives = [...event.objectives];
+            newObjectives[editingObjectiveIndex] = value;
+            
+            const updatedEvent = {
+                ...event,
+                objectives: newObjectives
+            };
+            setEvent(updatedEvent);
+            setEditingObjectiveIndex(null);
+            setEditingObjectiveValue("");
+
+            if (event.id !== 'new') {
+                setToast({ message: 'Updating objective...', type: 'info' });
+                import('@/lib/actions/events').then(({ updateEvent }) => {
+                    updateEvent(parseInt(event.id), {
+                        objectives: updatedEvent.objectives
+                    }).then(res => {
+                        if (res.success) setToast({ message: 'Objective updated!', type: 'success' });
+                        else setToast({ message: 'Failed to update objective.', type: 'error' });
                     });
                 });
             }
@@ -578,12 +669,59 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     const router = useRouter();
 
+    const handleDeleteEvent = async () => {
+        if (event.id === 'new') return;
+
+        setIsDeleting(true);
+        setToast({ message: 'Deleting event and all associated data...', type: 'info' });
+
+        try {
+            const result = await deleteEvent(parseInt(event.id));
+
+            if (result.success) {
+                setToast({ message: 'Event deleted successfully!', type: 'success' });
+                // Redirect to events list quickly to avoid server-side 404 on revalidation
+                setTimeout(() => {
+                    router.push('/admin/events');
+                }, 500);
+            } else {
+                setToast({ message: result.error || 'Failed to delete event', type: 'error' });
+                setIsDeleting(false);
+            }
+        } catch (error) {
+            console.error('Delete error:', error);
+            setToast({ message: 'An unexpected error occurred during deletion.', type: 'error' });
+            setIsDeleting(false);
+        }
+    };
+
     const handleCreateEvent = async () => {
         // Basic validation
-        if (!event.name) {
-            setToast({ message: 'Please enter an event title.', type: 'error' });
+        const title = event.name?.trim();
+        if (!title) {
+            setToast({ message: 'Event title is required.', type: 'error' });
             return;
         }
+
+        if (title.length > 100) {
+            setToast({ message: 'Event title must be 100 characters or less.', type: 'error' });
+            return;
+        }
+        if (event.description && event.description.length > 250) {
+            setToast({ message: 'Event description must be 250 characters or less.', type: 'error' });
+            return;
+        }
+
+        if (event.theme && event.theme.length > 50) {
+            setToast({ message: 'Event theme must be 50 characters or less.', type: 'error' });
+            return;
+        }
+
+        if (event.objectives.some(obj => obj.length > 50)) {
+            setToast({ message: 'Each objective must be 50 characters or less.', type: 'error' });
+            return;
+        }
+
         if (!event.date) {
             setToast({ message: 'Please select an event date.', type: 'error' });
             return;
@@ -670,7 +808,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     </div>
                 </div>
 
-                {event.id === 'new' && (
+                {event.id === 'new' ? (
                     <button
                         onClick={handleCreateEvent}
                         className="px-6 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-semibold hover:bg-[#2d3d6b] transition-all shadow-md hover:shadow-lg flex items-center gap-2"
@@ -678,217 +816,127 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         <Check size={18} />
                         Save Event
                     </button>
+                ) : isAdmin && (
+                    <button
+                        onClick={() => setActiveModal('deleteEvent')}
+                        className="px-6 py-2.5 bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-xl text-sm font-semibold hover:bg-red-100 dark:hover:bg-red-900/20 transition-all flex items-center gap-2"
+                    >
+                        <Trash2 size={18} />
+                        Delete Event
+                    </button>
                 )}
             </div>
 
-            {/* 1. Banner */}
-            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md group/card">
-                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                            <ImageIcon className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                Event Banner
-                            </h2>
-                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
-                                The main visual representation of your event
-                            </p>
-                        </div>
-                    </div>
-                    {event.bannerUrl && (
-                        <div className="flex gap-2">
-                            <button
-                                onClick={handleDeleteBanner}
-                                className="p-2 bg-white/80 dark:bg-gray-800/80 rounded-lg text-red-500 hover:text-red-700 shadow-sm hover:scale-105 transition-all"
-                                title="Delete Banner"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                            <button
+            {/* Unified Event Hero Section */}
+            <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg group/main">
+                {/* 1. Banner Area */}
+                <div className="relative w-full aspect-[21/7] md:aspect-[21/6] bg-gray-100 dark:bg-gray-900 overflow-hidden group/banner">
+                    {event.bannerUrl ? (
+                        <>
+                            <Image
+                                src={event.bannerUrl}
+                                alt="Event Banner"
+                                fill
+                                sizes="(max-width: 1024px) 100vw, 1200px"
+                                className="object-cover transition-transform duration-700 group-hover/banner:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent opacity-60 group-hover/banner:opacity-40 transition-opacity" />
+                        </>
+                    ) : (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+                            <div 
                                 onClick={() => setActiveModal('banner')}
-                                className="p-2 bg-white/80 dark:bg-gray-800/80 rounded-lg text-indigo-600 dark:text-indigo-400 shadow-sm hover:scale-105 transition-all"
-                                title="Change Banner"
+                                className="flex flex-col items-center gap-3 cursor-pointer group/upload"
                             >
-                                <Pencil size={16} />
-                            </button>
+                                <div className="w-16 h-16 bg-white dark:bg-gray-800 rounded-2xl shadow-sm flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover/upload:scale-110 transition-all duration-300 border border-dashed border-indigo-200 dark:border-indigo-800">
+                                    <Upload size={28} />
+                                </div>
+                                <span className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Upload Banner</span>
+                            </div>
                         </div>
                     )}
-                </div>
 
-                <div className="p-6">
-                    <div className="relative w-full aspect-[21/9] bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-inner group">
-                        {event.bannerUrl ? (
-                            <div className="absolute inset-0">
-                                <Image
-                                    src={event.bannerUrl!}
-                                    alt="Event Banner"
-                                    fill
-                                    sizes="(max-width: 768px) 100vw, 900px"
-                                    className="object-cover"
-                                />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                            </div>
-                        ) : (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                                <div
-                                    onClick={() => setActiveModal('banner')}
-                                    className="w-64 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex flex-col items-center gap-3 cursor-pointer hover:shadow-md hover:scale-105 transition-all border border-dashed border-gray-300 dark:border-gray-600"
+                    {/* Banner Controls Overlay */}
+                    <div className="absolute top-4 right-4 flex gap-2 z-10">
+                        {event.bannerUrl && (
+                            <>
+                                <button
+                                    onClick={handleDeleteBanner}
+                                    className="p-2.5 bg-white/20 hover:bg-red-500 text-white rounded-xl backdrop-blur-md border border-white/30 transition-all shadow-lg"
+                                    title="Delete Banner"
                                 >
-                                    <Upload className="text-indigo-600 dark:text-indigo-400" size={24} />
-                                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 text-center leading-tight">
-                                        Upload event banner image
-                                    </span>
-                                </div>
-                            </div>
+                                    <Trash2 size={18} />
+                                </button>
+                                <button
+                                    onClick={() => setActiveModal('banner')}
+                                    className="p-2.5 bg-white/20 hover:bg-indigo-600 text-white rounded-xl backdrop-blur-md border border-white/30 transition-all shadow-lg"
+                                    title="Change Banner"
+                                >
+                                    <Pencil size={18} />
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
-            </section>
 
-            {/* 2. Title & Details */}
-            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md relative">
-                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                            <Type className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                Event Details
-                            </h2>
-                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
-                                Basic information about your event
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => setActiveModal('title')}
-                        className="p-2 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50"
-                    >
-                        <Pencil size={20} />
-                    </button>
-                </div>
-
-                <div className="p-8">
-                    <div className="space-y-2">
-                        {event.name && (
-                            <span className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-1 font-sans">
-                                Event Title
-                            </span>
-                        )}
-                        <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight">
-                            {event.name || <span className="opacity-50">Event Title</span>}
-                        </h1>
-                    </div>
-                </div>
-            </section>
-
-            {/* 3. Date & Location */}
-            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-orange-400 to-pink-500 rounded-xl flex items-center justify-center">
-                            <MapPin className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                Date & Location
-                            </h2>
-                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
-                                When and where the event will take place
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => setActiveModal('dateLocation')}
-                        className="p-2 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50"
-                    >
-                        <Pencil size={20} />
-                    </button>
-                </div>
-
-                <div className="p-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-700 align-top">
-                        <div className="space-y-4">
-                            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <Clock className="text-[#3D518C]" size={18} /> Time & Date
-                            </h2>
-                            <div className="flex flex-col pl-7">
-                                {event.date ? (
-                                    <span className="text-xl font-semibold text-gray-900 dark:text-white tracking-tight">{formatDateDisplay(event.date)}</span>
-                                ) : (
-                                    <span className="text-xl font-medium text-gray-400 italic">Date TBD</span>
-                                )}
-                                <span className="text-sm text-gray-500 dark:text-gray-400 font-medium mt-1">
-                                    {formatTimeDisplay(event.startTime || "")} - {formatTimeDisplay(event.endTime || "")} PST
+                {/* 2. Content Area */}
+                <div className="p-8 md:p-10 space-y-8">
+                    {/* Header: Title and Status */}
+                    <div className="flex flex-col md:flex-row justify-between items-start gap-6">
+                        <div className="flex-1 space-y-3">
+                            <div className="flex items-center gap-3">
+                                <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-full text-[10px] font-bold uppercase tracking-widest border border-indigo-100 dark:border-indigo-800">
+                                    {event.status || 'Draft'}
                                 </span>
+                                <button
+                                    onClick={() => setActiveModal('overview')}
+                                    className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-all"
+                                    title="Edit Basic Details"
+                                >
+                                    <Pencil size={16} />
+                                </button>
                             </div>
-                        </div>
-                        <div className="md:pl-8 pt-6 md:pt-0 space-y-4">
-                            <h2 className="text-lg font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                                <MapPin className="text-[#3D518C]" size={18} /> Venue
-                            </h2>
-                            <div className="text-lg text-gray-700 dark:text-gray-300 font-medium pl-7">
-                                {event.location || <span className="text-gray-400 italic">No location set</span>}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            {/* 4. Overview */}
-            <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-teal-400 to-emerald-500 rounded-xl flex items-center justify-center">
-                            <AlignLeft className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                Overview
-                            </h2>
-                            <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">
-                                Detailed description and objectives
-                            </p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => setActiveModal('overview')}
-                        className="p-2 text-gray-400 hover:text-indigo-600 transition-colors rounded-lg hover:bg-white/50 dark:hover:bg-gray-700/50"
-                    >
-                        <Pencil size={20} />
-                    </button>
-                </div>
-
-                <div className="p-8">
-                    {event.description ? (
-                        <div className="space-y-6">
-                            <div className="prose dark:prose-invert max-w-none">
-                                <p className="text-gray-600 dark:text-gray-300 leading-relaxed whitespace-pre-line text-base">
-                                    {event.description}
-                                </p>
-                            </div>
-
-                            <div className="flex flex-wrap gap-6 pt-4 border-t border-gray-100 dark:border-gray-700">
+                            
+                            <div className="space-y-1">
+                                <h1 className="text-4xl md:text-5xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">
+                                    {event.name || "Untitled Event"}
+                                </h1>
                                 {event.theme && (
-                                    <div>
-                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Theme</span>
-                                        <span className="px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium">
-                                            {event.theme}
-                                        </span>
-                                    </div>
+                                    <p className="text-sm font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
+                                        Theme: {event.theme}
+                                    </p>
                                 )}
+                            </div>
+                        </div>
+                    </div>
 
+                    {/* Description and Overview */}
+                    <div className="pt-8 border-t border-gray-100 dark:border-gray-700 space-y-8 relative group/overview">
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+                            {/* Left: Description */}
+                            <div className="lg:col-span-2 space-y-4">
+                                <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">About the Event</h3>
+                                {event.description ? (
+                                    <p className="text-lg text-gray-700 dark:text-gray-200 leading-relaxed whitespace-pre-line font-medium tracking-tight">
+                                        {event.description}
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-gray-400 italic">No description provided yet.</p>
+                                )}
+                            </div>
+
+                            {/* Right: Theme & Objectives */}
+                            <div className="space-y-6">
                                 {event.objectives && event.objectives.length > 0 && (
-                                    <div className="flex-1 min-w-[200px]">
-                                        <span className="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Key Objectives</span>
-                                        <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <div>
+                                        <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-4">Key Objectives</h3>
+                                        <ul className="space-y-3">
                                             {event.objectives.map((obj, i) => (
-                                                <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-800/50 p-2 rounded-lg">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 flex-shrink-0 mt-1.5" />
-                                                    {obj}
+                                                <li key={i} className="flex items-start gap-3 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700/50 text-sm md:text-base">
+                                                    <div className="w-5 h-5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center shrink-0 mt-0.5">
+                                                        <Check size={12} strokeWidth={3} />
+                                                    </div>
+                                                    <span className="text-gray-700 dark:text-gray-300 font-medium">{obj}</span>
                                                 </li>
                                             ))}
                                         </ul>
@@ -896,13 +944,51 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                                 )}
                             </div>
                         </div>
-                    ) : (
-                        <div className="text-center py-8">
-                            <p className="text-gray-400 italic">No overview added yet.</p>
+                    </div>
+
+                    {/* Footer Meta Row: Date & Location */}
+                    <div className="flex flex-wrap items-start gap-x-12 gap-y-6 pt-8 border-t border-gray-100 dark:border-gray-700/50 relative">
+                        {/* Date & Time */}
+                        <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                                <Calendar size={20} />
+                            </div>
+                            <div className="flex flex-col">
+                                <p className="text-base font-bold text-gray-900 dark:text-white leading-tight">
+                                    {event.date ? formatDateDisplay(event.date) : "Date TBD"}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">
+                                    {event.startTime ? formatTimeDisplay(event.startTime) : "--:--"} - {event.endTime ? formatTimeDisplay(event.endTime) : "--:--"}
+                                </p>
+                            </div>
                         </div>
-                    )}
+
+                        {/* Location */}
+                        <div className="flex items-start gap-4">
+                            <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0">
+                                <MapPin size={20} />
+                            </div>
+                            <div className="flex flex-col">
+                                <p className="text-base font-bold text-gray-900 dark:text-white leading-tight">
+                                    {event.location || "Location TBD"}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 font-medium uppercase tracking-wider mt-1">
+                                    Venue Location
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Edit Button - Pinned to far right, aligned with first row */}
+                        <button
+                            onClick={() => setActiveModal('dateLocation')}
+                            className="absolute top-8 right-0 p-2.5 text-gray-300 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
+                            title="Edit Date & Location"
+                        >
+                            <Pencil size={20} />
+                        </button>
+                    </div>
                 </div>
-            </section>
+            </div>
 
             {/* 5. Agenda */}
             <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
@@ -1086,10 +1172,22 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
             {/* Title Modal */}
             <Modal isOpen={activeModal === 'title'} onClose={() => setActiveModal(null)} title="Edit Event Details" size="md">
-                <form onSubmit={handleSaveTitle} className="space-y-6">
+                <form onSubmit={handleSaveTitle} className="space-y-6" noValidate>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Title</label>
-                        <ModalInput name="name" defaultValue={event.name} placeholder="Input event title" />
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Event Title</label>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${tempTitle.length >= 100 ? 'text-red-500' : 'text-gray-400'}`}>
+                                {tempTitle.length} / 100 Characters
+                            </span>
+                        </div>
+                        <ModalInput 
+                            name="name" 
+                            value={tempTitle} 
+                            onChange={(e) => setTempTitle(e.target.value)}
+                            placeholder="Input event title" 
+                            required 
+                            maxLength={100} 
+                        />
                     </div>
                     <ModalFooter onCancel={() => setActiveModal(null)} />
                 </form>
@@ -1138,15 +1236,54 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             </Modal>
 
             {/* Overview Modal */}
-            <Modal isOpen={activeModal === 'overview'} onClose={() => setActiveModal(null)} title="Edit Overview" size="md">
-                <form onSubmit={handleSaveOverview} className="space-y-6">
+            <Modal isOpen={activeModal === 'overview'} onClose={() => setActiveModal(null)} title="Edit Event Basic Details" size="md">
+                <form onSubmit={handleSaveBasicDetails} className="space-y-6" noValidate>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Event Description</label>
-                        <ModalTextarea name="description" rows={5} defaultValue={event.description} placeholder="What is this event about?" />
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Event Title</label>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${tempTitle.length >= 100 ? 'text-red-500' : 'text-gray-400'}`}>
+                                {tempTitle.length} / 100 Characters
+                            </span>
+                        </div>
+                        <ModalInput 
+                            name="title" 
+                            value={tempTitle} 
+                            onChange={(e) => setTempTitle(e.target.value)}
+                            placeholder="Input event title" 
+                            required 
+                            maxLength={100} 
+                        />
                     </div>
                     <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Theme</label>
-                        <ModalInput name="theme" defaultValue={event.theme} placeholder="e.g. Technology & Innovation" />
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Event Description</label>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${tempDescription.length >= 250 ? 'text-red-500' : 'text-gray-400'}`}>
+                                {tempDescription.length} / 250 Characters
+                            </span>
+                        </div>
+                        <ModalTextarea 
+                            name="description" 
+                            rows={5} 
+                            value={tempDescription} 
+                            onChange={(e) => setTempDescription(e.target.value)}
+                            placeholder="What is this event about?" 
+                            maxLength={250} 
+                        />
+                    </div>
+                    <div>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">Theme</label>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${tempTheme.length >= 50 ? 'text-red-500' : 'text-gray-400'}`}>
+                                {tempTheme.length} / 50 Characters
+                            </span>
+                        </div>
+                        <ModalInput 
+                            name="theme" 
+                            value={tempTheme} 
+                            onChange={(e) => setTempTheme(e.target.value)}
+                            placeholder="e.g. Technology & Innovation" 
+                            maxLength={50} 
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Objectives</label>
@@ -1156,11 +1293,47 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                             )}
                             <ul className="space-y-2">
                                 {event.objectives.map((obj, i) => (
-                                    <li key={i} className="flex items-center justify-between group bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm transition-all hover:border-indigo-200">
-                                        <span className="text-sm text-gray-700 dark:text-gray-300">{obj}</span>
-                                        <button type="button" onClick={() => handleRemoveObjective(i)} className="text-gray-400 hover:text-red-500 transition-colors px-1">
-                                            <X size={14} />
-                                        </button>
+                                    <li key={i} className={`flex items-center justify-between group bg-white dark:bg-gray-800 p-2.5 rounded-lg border shadow-sm transition-all ${editingObjectiveIndex === i ? 'border-indigo-500 ring-1 ring-indigo-500/20' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-200'}`}>
+                                        {editingObjectiveIndex === i ? (
+                                            <div className="flex-1 flex flex-col gap-1.5">
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        autoFocus
+                                                        value={editingObjectiveValue}
+                                                        onChange={(e) => setEditingObjectiveValue(e.target.value)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') handleSaveEditedObjective();
+                                                            if (e.key === 'Escape') handleCancelEditObjective();
+                                                        }}
+                                                        maxLength={50}
+                                                        className="flex-1 bg-transparent text-sm text-gray-900 dark:text-white outline-none"
+                                                    />
+                                                    <button type="button" onClick={handleSaveEditedObjective} className="text-green-500 hover:text-green-600 transition-colors">
+                                                        <Check size={16} />
+                                                    </button>
+                                                    <button type="button" onClick={handleCancelEditObjective} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                                        <X size={16} />
+                                                    </button>
+                                                </div>
+                                                <div className="flex justify-end pr-1">
+                                                    <span className={`text-[9px] font-bold uppercase ${editingObjectiveValue.length >= 50 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                        {editingObjectiveValue.length} / 50
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <span className="text-sm text-gray-700 dark:text-gray-300 flex-1">{obj}</span>
+                                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                    <button type="button" onClick={() => handleStartEditObjective(i)} className="text-gray-400 hover:text-indigo-500 transition-colors px-1" title="Edit">
+                                                        <Pencil size={14} />
+                                                    </button>
+                                                    <button type="button" onClick={() => handleRemoveObjective(i)} className="text-gray-400 hover:text-red-500 transition-colors px-1" title="Remove">
+                                                        <X size={14} />
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
                                     </li>
                                 ))}
                             </ul>
@@ -1168,21 +1341,30 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                             {/* Add Objective Input */}
                             <div className="flex items-center gap-2 mt-2">
                                 {isAddingObjective ? (
-                                    <div className="flex-1 flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
-                                        <input
-                                            ref={objectiveInputRef}
-                                            value={newObjective}
-                                            onChange={(e) => setNewObjective(e.target.value)}
-                                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddObjective())}
-                                            placeholder="Type a new objective..."
-                                            className="flex-1 px-4 py-2 text-sm rounded-lg border border-indigo-300 focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-800 shadow-sm transition-all hover:border-indigo-400 dark:hover:border-indigo-400"
-                                        />
-                                        <button type="button" onClick={handleAddObjective} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
-                                            <Plus size={16} />
-                                        </button>
-                                        <button type="button" onClick={() => setIsAddingObjective(false)} className="text-gray-400 p-2 hover:text-gray-600">
-                                            <X size={16} />
-                                        </button>
+                                    <div className="flex-1 flex flex-col gap-2 animate-in fade-in slide-in-from-left-2">
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                ref={objectiveInputRef}
+                                                value={newObjective}
+                                                onChange={(e) => setNewObjective(e.target.value)}
+                                                onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddObjective())}
+                                                placeholder="Type a new objective..."
+                                                maxLength={50}
+                                                className="flex-1 px-4 py-2 text-sm rounded-lg border border-indigo-300 focus:ring-2 focus:ring-indigo-500 outline-none bg-white dark:bg-gray-800 shadow-sm transition-all hover:border-indigo-400 dark:hover:border-indigo-400"
+                                            />
+                                            <button type="button" onClick={handleAddObjective} className="bg-indigo-600 text-white p-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm">
+                                                <Plus size={16} />
+                                            </button>
+                                            <button type="button" onClick={() => setIsAddingObjective(false)} className="text-gray-400 p-2 hover:text-gray-600">
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                        <div className="flex justify-between items-center px-1">
+                                            <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Add Event Objective</p>
+                                            <span className={`text-[10px] font-bold uppercase tracking-wider transition-colors ${newObjective.length >= 50 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                {newObjective.length} / 50 Characters
+                                            </span>
+                                        </div>
                                     </div>
                                 ) : (
                                     <button type="button" onClick={() => setIsAddingObjective(true)} className="flex items-center gap-2 text-sm font-semibold text-indigo-600 hover:text-indigo-700 px-2 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors">
@@ -1279,7 +1461,46 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     />
                 </div>
             </Modal>
-
-        </div >
+            {/* Delete Event Modal */}
+            <Modal
+                isOpen={activeModal === 'deleteEvent'}
+                onClose={() => setActiveModal(null)}
+                title="Delete Event"
+                subtitle="Permanent and destructive action"
+                size="md"
+            >
+                <div className="space-y-4">
+                    <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-xl flex items-start gap-3">
+                        <Trash2 size={24} className="text-red-600 dark:text-red-400 shrink-0 mt-1" />
+                        <div>
+                            <p className="text-sm font-bold text-red-800 dark:text-red-300">Warning: Permanent Deletion</p>
+                            <p className="text-xs text-red-700 dark:text-red-400 mt-1 leading-relaxed">
+                                Are you sure you want to delete <span className="font-bold underline">"{event.name}"</span>? 
+                                This action is permanent and will remove all associated data including registrations, 
+                                tickets, agenda slots, and order forms.
+                            </p>
+                        </div>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 px-1">
+                        Please type the word <span className="font-bold text-gray-900 dark:text-white">DELETE</span> to confirm.
+                    </p>
+                    <ModalInput
+                        type="text"
+                        placeholder="Type DELETE to confirm"
+                        onChange={(e) => {
+                            // We could add local verification here if we wanted
+                        }}
+                    />
+                    <ModalFooter 
+                        onCancel={() => setActiveModal(null)}
+                        onSave={handleDeleteEvent}
+                        saveText="Delete Event"
+                        isDanger={true}
+                        isSubmitting={isDeleting}
+                        submitType="button"
+                    />
+                </div>
+            </Modal>
+        </div>
     );
 }

@@ -36,12 +36,12 @@ export default function NewEventOverviewPage() {
                 <Sidebar activePage="events" disableExpand={true} />
 
                 {/* Event Specific Sidebar */}
-                <div className="ml-20 hidden lg:block h-full flex-shrink-0">
+                <div className="lg:ml-20 hidden lg:block h-full flex-shrink-0">
                     <EventsSidebar event={sidebarEvent} />
                 </div>
 
                 {/* Main Content Area — ml-14 below lg: fixed primary Sidebar; EventsSidebar hidden on small screens */}
-                <main className="flex-1 min-w-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth ml-14 lg:ml-0">
+                <main className="flex-1 min-w-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth lg:ml-0">
                     <EventOverview initialData={newEventData} />
                 </main>
             </div>

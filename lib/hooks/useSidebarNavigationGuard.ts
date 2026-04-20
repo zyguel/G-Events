@@ -41,7 +41,7 @@ export function useSidebarNavigationGuard(
     }, [pendingHref, unlockTimeoutMs]);
 
     const handleNavigate = useCallback<SidebarNavigateHandler>((event, href, isCurrent) => {
-        if (!href || href === "#" || isCurrent || pathname === href) {
+        if (!href || href === "#" || pathname === href) {
             event.preventDefault();
             return;
         }

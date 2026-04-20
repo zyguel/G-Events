@@ -64,12 +64,12 @@ export default async function EventLayout({
                 <Sidebar activePage="events" disableExpand={true} />
 
                 {/* Event Specific Sidebar */}
-                <div className="ml-14 hidden lg:block h-full shrink-0">
+                <div className="lg:ml-14 hidden lg:block h-full shrink-0">
                     <EventsSidebar event={sidebarEvent} />
                 </div>
 
                 {/* Main Content Area — ml-14 below lg: primary Sidebar is fixed; EventsSidebar is hidden so content must clear the rail */}
-                <main className="flex-1 min-w-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable] ml-14 lg:ml-0">
+                <main className="flex-1 min-w-0 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth [scrollbar-gutter:stable] lg:ml-0">
                     <EventDataProvider initialEvent={data}>
                         {children}
                     </EventDataProvider>

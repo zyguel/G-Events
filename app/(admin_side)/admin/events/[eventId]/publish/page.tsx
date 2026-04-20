@@ -163,7 +163,7 @@ export default function PublishEventPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+            <div className="flex items-center justify-center p-12 bg-gray-50 dark:bg-gray-900">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#3D518C]"></div>
             </div>
         );
@@ -171,7 +171,7 @@ export default function PublishEventPage() {
 
     if (!eventData) {
         return (
-            <div className="flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900">
+            <div className="flex flex-col items-center justify-center p-12 bg-gray-50 dark:bg-gray-900">
                 <div className="text-center">
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Event Not Found</h1>
                     <p className="text-gray-600 dark:text-gray-400">The event you are looking for does not exist or has been removed.</p>
@@ -180,12 +180,5 @@ export default function PublishEventPage() {
         );
     }
 
-    return (
-        <div className="flex flex-col h-screen text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
-            {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto bg-gray-50 dark:bg-gray-900 scroll-smooth">
-                <PublishEventContent event={eventData} tickets={tickets} />
-            </main>
-        </div>
-    );
+    return <PublishEventContent event={eventData} tickets={tickets} />;
 }
