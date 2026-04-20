@@ -1,0 +1,482 @@
+
+=== DIRECTORY TREE (max depth 3, source files only) ===
+.agents
+.agents\skills
+.agents\skills\acquire-codebase-knowledge
+.agents\skills\acquire-codebase-knowledge\assets
+.agents\skills\acquire-codebase-knowledge\references
+.agents\skills\acquire-codebase-knowledge\scripts
+.agents\skills\acquire-codebase-knowledge\SKILL.md
+.env.local
+.gitattributes
+.github
+.github\agents
+.github\agents\expert-nextjs-developer.agent.md
+.github\agents\software-engineer-agent-v1.agent.md
+.github\agents\swe-subagent.agent.md
+.github\copilot-instructions.md
+.github\instructions
+.github\instructions\nextjs-docs.md
+.github\instructions\nextjs-tailwind.instructions.md
+.github\instructions\nextjs.instructions.md
+.github\skills
+.github\skills\supabase
+.github\workflows
+.gitignore
+.qodo
+.qodo\agents
+.qodo\workflows
+.vscode
+.vscode\mcp.json
+.vscode\settings.json
+app
+app\(admin_side)
+app\(admin_side)\admin
+app\(admin_side)\admin\events
+app\(admin_side)\analytics
+app\(admin_side)\analytics\all
+app\(admin_side)\dashboard
+app\(admin_side)\dashboard\DashboardPageClient.tsx
+app\(admin_side)\dashboard\page.tsx
+app\(admin_side)\events
+app\(admin_side)\events\[eventId]
+app\(admin_side)\forgot-password
+app\(admin_side)\forgot-password\page.tsx
+app\(admin_side)\layout.tsx
+app\(admin_side)\login
+app\(admin_side)\login\page.tsx
+app\(admin_side)\management
+app\(admin_side)\management\page.tsx
+app\(admin_side)\profile
+app\(admin_side)\profile\page.tsx
+app\(admin_side)\register
+app\(admin_side)\register\page.tsx
+app\(admin_side)\reset-password
+app\(admin_side)\reset-password\page.tsx
+app\(admin_side)\settings
+app\(admin_side)\settings\page.tsx
+app\(client_side)
+app\(client_side)\events
+app\(client_side)\events\[eventId]
+app\(client_side)\home
+app\(client_side)\home\page.tsx
+app\(client_side)\home\settings
+app\(client_side)\tickets
+app\(client_side)\tickets\page.tsx
+app\api
+app\api\analytics
+app\api\analytics\event
+app\api\analytics\events
+app\api\analytics\general
+app\api\audit
+app\api\audit\route.ts
+app\api\certificates
+app\api\certificates\[token]
+app\api\cron
+app\api\cron\process-certificate-emails
+app\api\cron\process-email-campaigns
+app\api\events
+app\api\events\[eventId]
+app\api\events\route.ts
+app\api\feedback
+app\api\feedback\[eventId]
+app\api\feedback\form
+app\api\management
+app\api\management\permissions
+app\api\management\roles
+app\api\management\users
+app\api\notifications
+app\api\notifications\route.ts
+app\api\orderform
+app\api\orderform\[id]
+app\api\orderform\route.ts
+app\api\profile
+app\api\profile\avatar
+app\api\profile\organization
+app\api\regions
+app\api\regions\route.ts
+app\api\registration
+app\api\registration\group-invite
+app\api\ticket-qr
+app\api\ticket-qr\route.ts
+app\api\tickets
+app\api\tickets\[registrationId]
+app\api\user
+app\api\user\locale
+app\api\users
+app\api\users\check-accounts
+app\api\users\search
+app\auth
+app\auth\callback
+app\auth\callback\route.ts
+app\auth\session-role
+app\auth\session-role\choose
+app\auth\session-role\organization
+app\auth\session-role\page.tsx
+app\certificates
+app\certificates\[token]
+app\certificates\[token]\CertificateView.tsx
+app\certificates\[token]\page.tsx
+app\globals.css
+app\layout.tsx
+app\page.tsx
+components
+components\admin
+components\admin\AccessDenied.tsx
+components\admin\AdminCompactShell.tsx
+components\admin\AnalyticsHeader.tsx
+components\admin\AuditLogViewer.tsx
+components\admin\checkin
+components\admin\checkin\CheckInQrScanner.tsx
+components\admin\checkin\CheckInScanPanel.tsx
+components\admin\CompactEventMobileBar.tsx
+components\admin\DashboardTabs.tsx
+components\admin\DateInput.tsx
+components\admin\DateTimeInput.tsx
+components\admin\EditorModals.tsx
+components\admin\EventOverview.tsx
+components\admin\EventSelector.tsx
+components\admin\EventsSidebar.tsx
+components\admin\ExportButton.tsx
+components\admin\Header.tsx
+components\admin\LocationMapPicker.tsx
+components\admin\Modal.tsx
+components\admin\NotificationDropdown.tsx
+components\admin\OrderConfirmation.tsx
+components\admin\OrderForm.tsx
+components\admin\PermissionGate.tsx
+components\admin\PublishEventContent.tsx
+components\admin\RegistrationChart.tsx
+components\admin\RichTextEditor.tsx
+components\admin\Sidebar.tsx
+components\admin\StatCard.tsx
+components\admin\SuccessModal.tsx
+components\admin\TablePaginationControls.tsx
+components\admin\ThemeToggle.tsx
+components\admin\TimeInput.tsx
+components\admin\TimezoneSelect.tsx
+components\admin\Toast.tsx
+components\admin\TopPerformingEvents.tsx
+components\auth
+components\auth\AuthFormHydrationGate.tsx
+components\auth\AuthLayout.tsx
+components\client
+components\client\ClientHeader.tsx
+components\client\ClientMobileNav.tsx
+components\client\ClientSidebar.tsx
+components\client\FeedbackFormClient.tsx
+components\client\TicketsPageClient.tsx
+components\common
+components\common\AppDataCacheProvider.tsx
+components\common\GuardedSidebarLink.tsx
+components\common\UnhandledMediaAbortGuard.tsx
+components\public
+components\public\BreakoutSessionPicker.tsx
+components\public\GroupMemberCompleteClient.tsx
+components\public\OrderFormDisplay.tsx
+components\public\PublicOrderForm.tsx
+components\public\RegistrationFlow.tsx
+contexts
+contexts\AdminCompactModeContext.tsx
+contexts\LocaleContext.tsx
+contexts\NotificationContext.tsx
+contexts\PermissionContext.tsx
+database
+database\add_audit_log_table.sql
+database\add_breakout_session_registration_ticket_token.sql
+database\add_certificate_blockchain_ledger.sql
+database\add_checkin_addon_claim_rpc.sql
+database\add_combined_event_feature_tables.sql
+database\add_event_certificates_tables.sql
+database\add_event_email_campaigns_table.sql
+database\add_event_updated_at.sql
+database\add_event_waitlist_settings_table.sql
+database\add_feedback_tables.sql
+database\add_order_form_entries_table.sql
+database\add_registration_checkin_tracking.sql
+database\add_registration_columns.sql
+database\add_registration_ticket_token_profile_pending.sql
+database\add_ticket_free_ticket_approval_mode.sql
+database\add_ticket_selling_window_guard.sql
+database\add_ticket_soft_delete_columns.sql
+database\add_ticket_waitlist_reserved_quantity.sql
+
+=== STACK DETECTION (manifest files) ===
+
+--- package-lock.json ---
+{
+  "name": "g-events-app",
+  "version": "0.3.0",
+  "lockfileVersion": 3,
+  "requires": true,
+  "packages": {
+    "": {
+      "name": "g-events-app",
+      "version": "0.3.0",
+      "dependencies": {
+        "@floating-ui/react": "^0.27.18",
+        "@supabase/ssr": "^0.9.0",
+        "@supabase/supabase-js": "^2.97.0",
+        "@tiptap/extension-color": "^3.17.1",
+        "@tiptap/extension-font-family": "^3.17.1",
+        "@tiptap/extension-font-size": "^3.0.0-next.3",
+        "@tiptap/extension-image": "^3.17.1",
+        "@tiptap/extension-link": "^3.17.1",
+        "@tiptap/extension-placeholder": "^3.17.1",
+        "@tiptap/extension-text-align": "^3.17.1",
+        "@tiptap/extension-text-style": "^3.17.1",
+        "@tiptap/extension-underline": "^3.17.1",
+        "@tiptap/react": "^3.17.1",
+        "@tiptap/starter-kit": "^3.17.1",
+        "@types/qrcode": "^1.5.6",
+        "@vercel/analytics": "^1.6.1",
+        "@xenova/transformers": "^2.0.1",
+        "date-fns": "^4.1.0",
+        "dotenv": "^17.3.1",
+        "exceljs": "^4.4.0",
+        "framer-motion": "^12.29.2",
+        "html5-qrcode": "^2.3.8",
+        "i18n-iso-countries": "^7.13.0",
+        "jspdf": "^4.2.1",
+        "jspdf-autotable": "^5.0.7",
+        "jsqr": "^1.4.0",
+        "leaflet": "^1.9.4",
+        "lucide-react": "^0.562.0",
+        "next": "latest",
+        "nodemailer": "^8.0.4",
+        "pdfjs-dist": "^5.4.624",
+        "qrcode": "^1.5.4",
+        "react": "19.2.3",
+        "react-colorful": "^5.6.1",
+        "react-datepicker": "^9.1.0",
+        "react-dom": "19.2.3",
+        "react-leaflet": "^5.0.0",
+        "react-pdf": "^10.3.0",
+        "react-time-picker": "^8.0.2"
+      },
+      "devDependencies": {
+        "@tailwindcss/postcss": "^4",
+        "@types/leaflet": "^1.9.21",
+        "@types/node": "^20",
+        "@types/nodemailer": "^7.0.11",
+        "@types/react": "^19",
+        "@types/react-datepicker": "^7.0.0",
+        "@types/react-dom": "^19",
+        "eslint": "^9",
+        "eslint-config-next": "16.1.3",
+        "tailwindcss": "^4",
+        "typescript": "^5",
+        "vite-tsconfig-paths": "^5.1.4",
+        "vitest": "^3.2.4"
+      }
+    },
+    "node_modules/@alloc/quick-lru": {
+      "version": "5.2.0",
+      "resolved": "https://registry.npmjs.org/@alloc/quick-lru/-/quick-lru-5.2.0.tgz",
+      "integrity": "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==",
+      "dev": true,
+      "license": "MIT",
+      "engines": {
+        "node": ">=10"
+      },
+      "funding": {
+        "url": "https://github.com/sponsors/sindresorhus"
+      }
+    },
+    "node_modules/@babel/code-frame": {
+
+[TRUNCATED] Showing first 80 of 12046 lines.
+--- package.json ---
+{
+  "name": "g-events-app",
+  "version": "0.3.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "test": "vitest run",
+    "test:unit": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:auth-api": "vitest run tests/unit/auth tests/integration/auth tests/integration/api",
+    "audit:deps": "npm audit --audit-level=high",
+    "sast:owasp": "x:/projects/g-events/G-Events/.venv/Scripts/semgrep.exe scan --config p/owasp-top-ten --config semgrep/rules/auth-api.yml",
+    "perf:smoke": "node scripts/perf/smoke-auth-api.mjs",
+    "ci:baseline": "npm run lint && npm run build && npm run test && npm run audit:deps && npm run sast:owasp && npm run perf:smoke",
+    "push": "node push-nightly.mjs",
+    "debug:supabase": "node scripts/debug/debug_supabase.js",
+    "check:event-schema": "node scripts/debug/check_event_schema.js",
+    "check:objectives": "node scripts/debug/check_objectives.js",
+    "check:theme": "node scripts/debug/check_theme.js",
+    "debug:login-layout-diff": "node scripts/debug/diff.js",
+    "translations:split-static": "node scripts/maintenance/split-translations.js",
+    "backfill:addon-entitlements": "node scripts/maintenance/backfill_addon_entitlements.js"
+  },
+  "dependencies": {
+    "@floating-ui/react": "^0.27.18",
+    "@supabase/ssr": "^0.9.0",
+    "@supabase/supabase-js": "^2.97.0",
+    "@tiptap/extension-color": "^3.17.1",
+    "@tiptap/extension-font-family": "^3.17.1",
+    "@tiptap/extension-font-size": "^3.0.0-next.3",
+    "@tiptap/extension-image": "^3.17.1",
+    "@tiptap/extension-link": "^3.17.1",
+    "@tiptap/extension-placeholder": "^3.17.1",
+    "@tiptap/extension-text-align": "^3.17.1",
+    "@tiptap/extension-text-style": "^3.17.1",
+    "@tiptap/extension-underline": "^3.17.1",
+    "@tiptap/react": "^3.17.1",
+    "@tiptap/starter-kit": "^3.17.1",
+    "@types/qrcode": "^1.5.6",
+    "@vercel/analytics": "^1.6.1",
+    "@xenova/transformers": "^2.0.1",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.3.1",
+    "exceljs": "^4.4.0",
+    "framer-motion": "^12.29.2",
+    "html5-qrcode": "^2.3.8",
+    "i18n-iso-countries": "^7.13.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.7",
+    "jsqr": "^1.4.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.562.0",
+    "next": "latest",
+    "nodemailer": "^8.0.4",
+    "pdfjs-dist": "^5.4.624",
+    "qrcode": "^1.5.4",
+    "react": "19.2.3",
+    "react-colorful": "^5.6.1",
+    "react-datepicker": "^9.1.0",
+    "react-dom": "19.2.3",
+    "react-leaflet": "^5.0.0",
+    "react-pdf": "^10.3.0",
+    "react-time-picker": "^8.0.2"
+  },
+  "overrides": {
+    "brace-expansion@^1.1.7": "1.1.13",
+    "brace-expansion@^2.0.1": "2.0.3",
+    "brace-expansion@^5.0.1": "5.0.5",
+    "picomatch@^2.3.1": "2.3.2",
+    "picomatch@^4.0.0": "4.0.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/leaflet": "^1.9.21",
+    "@types/node": "^20",
+    "@types/nodemailer": "^7.0.11",
+    "@types/react": "^19",
+
+[TRUNCATED] Showing first 80 of 90 lines.
+
+=== ENTRY POINTS ===
+No common entry points found. Check 'main' or 'scripts.start' in manifest files above.
+
+=== LINTING AND FORMATTING CONFIG ===
+Found: eslint.config.mjs
+Found: tsconfig.json
+
+=== ENVIRONMENT VARIABLE TEMPLATES ===
+No .env.example or .env.template found. Identify required environment variables by searching the code and config for environment variable reads.
+
+=== TODO / FIXME / HACK (production code only, test dirs excluded) ===
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:28: TODO_LIMIT = 60
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:291: """Search for TODO/FIXME/HACK comments."""
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:291: """Search for TODO/FIXME/HACK comments."""
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:291: """Search for TODO/FIXME/HACK comments."""
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:293: patterns = ["TODO", "FIXME", "HACK"]
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:293: patterns = ["TODO", "FIXME", "HACK"]
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:293: patterns = ["TODO", "FIXME", "HACK"]
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:320: return todos[:TODO_LIMIT]
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:617: # TODOs
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:620: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:620: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:620: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", todos, output_file)
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:622: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:622: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
+.agents\skills\acquire-codebase-knowledge\scripts\scan.py:622: print_section("TODO / FIXME / HACK (production code only, test dirs excluded)", ["None found."], output_file)
+
+=== GIT RECENT COMMITS (last 20) ===
+99793b6 fix(email): Fix Email subjects typo
+d49482c Delete qa-baseline.yml
+9796d9e Update .gitignore
+1f947e1 Merge branch 'nightly' of https://github.com/zyguel/G-Events into nightly
+36eefd2 Update .gitignore
+a17e61d fix(auth-api): harden redirects and auth error mapping with baseline QA gates
+e28c403 docs
+ffcf01e ci(qa): add baseline workflow and unignore workflows
+f2a3c6a fix(auth-api): harden redirects and auth error mapping with baseline QA gates
+8f5e32b fix(build): resolve JSX merge artifacts in checkin and reports
+02dcf45 Merge branch 'main' into nightly
+50f4143 fixed bugs
+7ab5bec fixed review order modal
+0e86d66 adjusted page title and icon in certificates
+405b1e2 adjusted color and font size picker in certificates
+086f610 fixed bugs and refactored some designs
+ae354ef removed issue refunds tab
+b96924d fixed review order modal
+03da3a2 adjusted page title and icon in certificates
+eea3a14 adjusted color and font size picker in certificates
+
+=== HIGH-CHURN FILES (last 90 days, top 20) ===
+  60 package-lock.json
+  34 package.json
+  31 components/admin/EventsSidebar.tsx
+  29 lib/actions/events.ts
+  22 components/admin/EventOverview.tsx
+  22 app/(admin_side)/dashboard/page.tsx
+  18 app/api/orderform/[id]/entries/route.ts
+  17 app/api/events/[eventId]/orders/route.ts
+  17 components/admin/Header.tsx
+  16 components/public/RegistrationFlow.tsx
+  15 app/(client_side)/events/[eventId]/page.tsx
+  15 proxy.ts
+  15 lib/db.ts
+  14 app/api/events/[eventId]/orders/[registrationId]/route.ts
+  14 app/(admin_side)/admin/events/[eventId]/checkin/CheckInClient.tsx
+  14 app/(admin_side)/management/page.tsx
+  14 components/admin/OrderConfirmation.tsx
+  14 components/admin/PublishEventContent.tsx
+  14 app/(admin_side)/events/page.tsx
+  13 lib/types.ts
+
+=== MONOREPO SIGNALS ===
+No monorepo signals detected.
+
+=== CODE METRICS ===
+Total files scanned: 380
+Total lines of code: 77777
+
+Files by language:
+  TypeScript: 138
+  TypeScript/React: 119
+  Other: 107
+  JavaScript: 15
+  Python: 1
+
+Top 10 largest files:
+.github\instructions\nextjs-docs.md: 499.8KB
+package-lock.json: 431.9KB
+tsconfig.tsbuildinfo: 209.0KB
+lib\staticTranslations.ts: 109.9KB
+app\(admin_side)\management\page.tsx: 100.6KB
+components\public\RegistrationFlow.tsx: 80.5KB
+components\admin\EventOverview.tsx: 78.6KB
+app\(admin_side)\admin\events\[eventId]\orders\ManageOrdersClient.tsx: 78.0KB
+lib\actions\events.ts: 75.1KB
+app\(admin_side)\admin\events\[eventId]\email-attendees\EmailAttendeesClient.tsx: 66.9KB
+
+=== CI/CD PIPELINES ===
+No CI/CD pipelines detected.
+
+=== CONTAINERS & ORCHESTRATION ===
+No containerization configs detected.
+
+=== SECURITY & COMPLIANCE ===
+Security: SECURITY.md
+
+=== PERFORMANCE & TESTING ===
+No performance testing configs detected.
+
+=== SCAN COMPLETE ===
