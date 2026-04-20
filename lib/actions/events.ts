@@ -77,6 +77,70 @@ async function getActiveOrganizationIdOrThrow() {
     return context.activeOrganizationId
 }
 
+function getTodayIsoDate(): string {
+    return new Date().toISOString().split('T')[0]
+}
+
+function isPastIsoDate(dateValue: string): boolean {
+    return dateValue < getTodayIsoDate()
+}
+
+function buildEventDateTimeRange(
+    dateValue: string,
+    startTimeValue: string | null | undefined,
+    endTimeValue: string | null | undefined,
+) {
+    const startTime = typeof startTimeValue === 'string' && startTimeValue.trim() ? startTimeValue.trim() : '00:00'
+    const endTime = typeof endTimeValue === 'string' && endTimeValue.trim() ? endTimeValue.trim() : '23:59'
+
+    const startDate = new Date(`${dateValue}T${startTime}:00`)
+    const endDate = new Date(`${dateValue}T${endTime}:00`)
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        return null
+    }
+
+    if (endDate <= startDate) {
+        endDate.setDate(endDate.getDate() + 1)
+    }
+
+    return {
+        startIso: startDate.toISOString(),
+        endIso: endDate.toISOString(),
+    }
+}
+
+interface TimeWindowBounds {
+    start: number
+    end: number
+    crossesMidnight: boolean
+}
+
+function buildTimeWindowBounds(startMinutes: number | null, endMinutes: number | null): TimeWindowBounds | null {
+    if (startMinutes === null || endMinutes === null) return null
+
+    const crossesMidnight = endMinutes <= startMinutes
+    return {
+        start: startMinutes,
+        end: crossesMidnight ? endMinutes + 1440 : endMinutes,
+        crossesMidnight,
+    }
+}
+
+function alignMinutesWithinWindow(minutes: number, window: TimeWindowBounds): number | null {
+    let aligned = minutes
+
+    while (aligned < window.start) {
+        aligned += 1440
+    }
+
+    if (aligned > window.end) {
+        return null
+    }
+
+    return aligned
+}
+
 // Helper for uploading
 async function uploadFileToStorage(supabase: SupabaseClient, file: File, bucket: string = 'events') {
     const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '')}`
@@ -98,6 +162,22 @@ async function uploadFileToStorage(supabase: SupabaseClient, file: File, bucket:
 
 export async function createEvent(prevState: CreateEventState, formData: FormData): Promise<CreateEventState> {
     let bannerUrl = null;
+
+    const rawDate = typeof formData.get('date') === 'string' ? (formData.get('date') as string).trim() : ''
+    const rawStartTime = typeof formData.get('startTime') === 'string' ? (formData.get('startTime') as string) : null
+    const rawEndTime = typeof formData.get('endTime') === 'string' ? (formData.get('endTime') as string) : null
+
+    if (rawDate && isPastIsoDate(rawDate)) {
+        return { error: 'Past dates are not allowed.', success: false }
+    }
+
+    const eventDateTimeRange = rawDate
+        ? buildEventDateTimeRange(rawDate, rawStartTime, rawEndTime)
+        : null
+
+    if (rawDate && !eventDateTimeRange) {
+        return { error: 'Invalid event date/time.', success: false }
+    }
 
     const supabase = await createClient();
 
@@ -121,8 +201,8 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
             title: formData.get('name') as string, // Schema uses 'title' not 'name'
             description: formData.get('description') as string,
             organization_id: activeOrganizationId,
-            event_start_at: formData.get('date') ? new Date(`${formData.get('date')}T${formData.get('startTime') || '00:00'}:00`).toISOString() : null,
-            event_end_at: formData.get('date') ? new Date(`${formData.get('date')}T${formData.get('endTime') || '23:59'}:00`).toISOString() : null,
+            event_start_at: eventDateTimeRange?.startIso ?? null,
+            event_end_at: eventDateTimeRange?.endIso ?? null,
             location: formData.get('location') as string,
             banner_image: bannerUrl, // Add banner URL
             // Default values for required fields
@@ -166,15 +246,35 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
             try {
                 const agendaItems = JSON.parse(agendaJson)
                 if (Array.isArray(agendaItems) && agendaItems.length > 0) {
-                    const agendaPayload = agendaItems.map((item: any, index: number) => ({
-                        event_id: eventId,
-                        title: item.title,
-                        description: item.description,
-                        speaker_name: item.speaker,
-                        start_time: item.startTime ? new Date(`${formData.get('date')}T${item.startTime}:00`).toISOString() : null,
-                        end_time: item.endTime ? new Date(`${formData.get('date')}T${item.endTime}:00`).toISOString() : null,
-                        order: index
-                    }))
+                    const agendaPayload = agendaItems.map((item: any, index: number) => {
+                        const agendaStartMinutes = parseHHMMToMinutes(item.startTime)
+                        const agendaEndMinutes = parseHHMMToMinutes(item.endTime)
+
+                        let startTimeIso: string | null = null
+                        let endTimeIso: string | null = null
+
+                        if (rawDate && agendaStartMinutes !== null && agendaEndMinutes !== null) {
+                            const startDate = new Date(`${rawDate}T${item.startTime}:00`)
+                            const endDate = new Date(`${rawDate}T${item.endTime}:00`)
+                            if (!Number.isNaN(startDate.getTime()) && !Number.isNaN(endDate.getTime())) {
+                                if (endDate <= startDate) {
+                                    endDate.setDate(endDate.getDate() + 1)
+                                }
+                                startTimeIso = startDate.toISOString()
+                                endTimeIso = endDate.toISOString()
+                            }
+                        }
+
+                        return {
+                            event_id: eventId,
+                            title: item.title,
+                            description: item.description,
+                            speaker_name: item.speaker,
+                            start_time: startTimeIso,
+                            end_time: endTimeIso,
+                            order: index
+                        }
+                    })
 
                     const { error: agendaError } = await supabase
                         .from('AgendaSlot')
@@ -760,9 +860,46 @@ export async function updateEvent(id: number, data: Partial<any>) {
             return { success: false, error: beforeError.message }
         }
 
+        const sanitizedData: Partial<any> = { ...data }
+
+        if (Object.prototype.hasOwnProperty.call(sanitizedData, 'event_start_at') && sanitizedData.event_start_at) {
+            const startMs = Date.parse(String(sanitizedData.event_start_at))
+            if (!Number.isFinite(startMs)) {
+                return { success: false, error: 'Invalid event start date/time.' }
+            }
+
+            const startDateOnly = new Date(startMs).toISOString().split('T')[0]
+            if (isPastIsoDate(startDateOnly)) {
+                return { success: false, error: 'Past dates are not allowed.' }
+            }
+        }
+
+        const nextStartIso = typeof sanitizedData.event_start_at === 'string'
+            ? sanitizedData.event_start_at
+            : beforeData?.event_start_at
+        const nextEndIso = typeof sanitizedData.event_end_at === 'string'
+            ? sanitizedData.event_end_at
+            : beforeData?.event_end_at
+
+        const nextStartMs = nextStartIso ? Date.parse(nextStartIso) : null
+        const nextEndMs = nextEndIso ? Date.parse(nextEndIso) : null
+
+        if (
+            Number.isFinite(nextStartMs)
+            && Number.isFinite(nextEndMs)
+            && (nextEndMs as number) <= (nextStartMs as number)
+        ) {
+            if (typeof sanitizedData.event_start_at === 'string' && typeof sanitizedData.event_end_at === 'string') {
+                const adjustedEndIso = new Date((nextEndMs as number) + (24 * 60 * 60 * 1000)).toISOString()
+                sanitizedData.event_end_at = adjustedEndIso
+            } else {
+                return { success: false, error: 'Event end time must be later than start time.' }
+            }
+        }
+
         const { data: updatedEvent, error } = await supabase
             .from('Event')
-            .update(data)
+            .update(sanitizedData)
             .eq('id', id)
             .eq('organization_id', activeOrganizationId)
             .select()
@@ -853,11 +990,11 @@ function parseHHMMToMinutes(value: string | null | undefined): number | null {
     return Number(match[1]) * 60 + Number(match[2])
 }
 
-function parseIsoToUtcMinutes(value: unknown): number | null {
+function parseIsoToLocalMinutes(value: unknown): number | null {
     if (!value || typeof value !== 'string') return null
     const parsed = new Date(value)
     if (Number.isNaN(parsed.getTime())) return null
-    return parsed.getUTCHours() * 60 + parsed.getUTCMinutes()
+    return parsed.getHours() * 60 + parsed.getMinutes()
 }
 
 export async function saveAgendaSlot(event_id: number, slot: { id?: string, title: string, description?: string, speaker?: string, startTime: string, endTime: string }) {
@@ -879,10 +1016,6 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
             return { success: false, error: 'Agenda start and end time are required.' }
         }
 
-        if (agendaStartMinutes >= agendaEndMinutes) {
-            return { success: false, error: 'Agenda end time must be later than start time.' }
-        }
-
         // Fetch event date to construct timestamp
         const { data: event } = await supabase
             .from('Event')
@@ -893,15 +1026,37 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
 
         if (!event) throw new Error("Event not found");
 
-        const eventStartMinutes = parseIsoToUtcMinutes(event.event_start_at)
-        const eventEndMinutes = parseIsoToUtcMinutes(event.event_end_at)
+        const eventStartMinutes = parseIsoToLocalMinutes(event.event_start_at)
+        const eventEndMinutes = parseIsoToLocalMinutes(event.event_end_at)
 
-        if (eventStartMinutes !== null && agendaStartMinutes < eventStartMinutes) {
-            return { success: false, error: 'Agenda cannot start earlier than the event start time.' }
-        }
+        const eventWindow = buildTimeWindowBounds(eventStartMinutes, eventEndMinutes)
 
-        if (eventEndMinutes !== null && agendaEndMinutes > eventEndMinutes) {
-            return { success: false, error: 'Agenda cannot end later than the event end time.' }
+        let agendaStartAbsolute = agendaStartMinutes
+        let agendaEndAbsolute = agendaEndMinutes
+
+        if (eventWindow) {
+            const alignedStart = alignMinutesWithinWindow(agendaStartMinutes, eventWindow)
+            if (alignedStart === null) {
+                return { success: false, error: 'Agenda cannot start outside the event time window.' }
+            }
+
+            agendaStartAbsolute = alignedStart
+
+            while (agendaEndAbsolute <= agendaStartAbsolute) {
+                agendaEndAbsolute += 1440
+            }
+
+            if (agendaEndAbsolute > eventWindow.end) {
+                return { success: false, error: 'Agenda cannot end later than the event end time.' }
+            }
+        } else {
+            while (agendaEndAbsolute <= agendaStartAbsolute) {
+                agendaEndAbsolute += 1440
+            }
+
+            if (agendaEndAbsolute - agendaStartAbsolute >= 24 * 60) {
+                return { success: false, error: 'Agenda end time must be later than start time.' }
+            }
         }
 
         // Use event date or fallback to today if not set (to allow saving in drafts)
@@ -909,8 +1064,13 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
             ? new Date(event.event_start_at).toISOString().split('T')[0]
             : new Date().toISOString().split('T')[0];
 
-        payload.start_time = slot.startTime ? new Date(`${eventDate}T${slot.startTime}:00`).toISOString() : null;
-        payload.end_time = slot.endTime ? new Date(`${eventDate}T${slot.endTime}:00`).toISOString() : null;
+        const agendaStartDate = new Date(`${eventDate}T00:00:00`)
+        const agendaEndDate = new Date(`${eventDate}T00:00:00`)
+        agendaStartDate.setMinutes(agendaStartAbsolute)
+        agendaEndDate.setMinutes(agendaEndAbsolute)
+
+        payload.start_time = slot.startTime ? agendaStartDate.toISOString() : null;
+        payload.end_time = slot.endTime ? agendaEndDate.toISOString() : null;
 
         const slotIdStr = slot.id ? slot.id.toString() : '';
         let error;
@@ -1891,10 +2051,13 @@ export async function deleteEvent(id: number) {
     const supabase = await createClient();
 
     try {
+        const activeOrganizationId = await getActiveOrganizationIdOrThrow();
+
         const { data: eventBefore, error: beforeError } = await supabase
             .from('Event')
             .select('*')
             .eq('id', id)
+            .eq('organization_id', activeOrganizationId)
             .single();
 
         if (beforeError) {
@@ -1902,49 +2065,341 @@ export async function deleteEvent(id: number) {
             return { success: false, error: beforeError.message };
         }
 
-        // Find forms to delete their answers first
-        const { data: forms } = await supabase
+        const failIfError = (tableName: string, error: { message?: string } | null) => {
+            if (!error) return;
+            throw new Error(`Failed deleting ${tableName}: ${error.message || 'Unknown error'}`);
+        };
+
+        const { data: registrations, error: registrationsError } = await supabase
+            .from('Registration')
+            .select('id, registration_group_id')
+            .eq('event_id', id);
+        failIfError('Registration (load)', registrationsError);
+
+        const registrationIds = (registrations || [])
+            .map((row: any) => Number(row.id))
+            .filter((value: number) => Number.isFinite(value));
+
+        const registrationGroupIdsFromRegistrations = (registrations || [])
+            .map((row: any) => Number(row.registration_group_id))
+            .filter((value: number) => Number.isFinite(value));
+
+        const { data: registrationGroups, error: registrationGroupsError } = await supabase
+            .from('RegistrationGroup')
+            .select('id')
+            .eq('event_id', id);
+        failIfError('RegistrationGroup (load)', registrationGroupsError);
+
+        const registrationGroupIds = Array.from(new Set([
+            ...registrationGroupIdsFromRegistrations,
+            ...((registrationGroups || []).map((row: any) => Number(row.id)).filter((value: number) => Number.isFinite(value))),
+        ]));
+
+        const { data: addOns, error: addOnsError } = await supabase
+            .from('AddOn')
+            .select('id')
+            .eq('event_id', id);
+        failIfError('AddOn (load)', addOnsError);
+
+        const addOnIds = (addOns || [])
+            .map((row: any) => Number(row.id))
+            .filter((value: number) => Number.isFinite(value));
+
+        let addOnVariantIds: number[] = [];
+        if (addOnIds.length > 0) {
+            const { data: variants, error: variantsError } = await supabase
+                .from('AddOnVariant')
+                .select('id')
+                .in('add_on_id', addOnIds);
+            failIfError('AddOnVariant (load)', variantsError);
+
+            addOnVariantIds = (variants || [])
+                .map((row: any) => Number(row.id))
+                .filter((value: number) => Number.isFinite(value));
+        }
+
+        const { data: breakoutSessions, error: breakoutSessionsError } = await supabase
+            .from('BreakoutSession')
+            .select('id')
+            .eq('event_id', id);
+        failIfError('BreakoutSession (load)', breakoutSessionsError);
+
+        const breakoutSessionIds = (breakoutSessions || [])
+            .map((row: any) => Number(row.id))
+            .filter((value: number) => Number.isFinite(value));
+
+        const { data: feedbackForms, error: feedbackFormsError } = await supabase
             .from('FeedbackForm')
             .select('id')
             .eq('event_id', id);
+        failIfError('FeedbackForm (load)', feedbackFormsError);
 
-        if (forms && forms.length > 0) {
-            const formIds = forms.map((f: any) => f.id);
-            await supabase.from('FeedbackAnswer').delete().in('feedback_form_id', formIds);
-            await supabase.from('FeedbackForm').delete().eq('event_id', id);
-        }
+        const feedbackFormIds = (feedbackForms || [])
+            .map((row: any) => Number(row.id))
+            .filter((value: number) => Number.isFinite(value));
 
-        // Delete Registration-related data (AddOnRedemption references Registration)
-        const { data: regs } = await supabase
-            .from('Registration')
+        const { data: feedbackSubmissions, error: feedbackSubmissionsError } = await supabase
+            .from('FeedbackSubmission')
             .select('id')
             .eq('event_id', id);
+        failIfError('FeedbackSubmission (load)', feedbackSubmissionsError);
 
-        if (regs && regs.length > 0) {
-            const regIds = regs.map((r: any) => r.id);
-            await supabase.from('AddOnRedemption').delete().in('registration_id', regIds);
+        const feedbackSubmissionIds = (feedbackSubmissions || [])
+            .map((row: any) => Number(row.id))
+            .filter((value: number) => Number.isFinite(value));
+
+        const { data: orderForms, error: orderFormsError } = await supabase
+            .from('OrderForm')
+            .select('id')
+            .eq('event_id', id);
+        failIfError('OrderForm (load)', orderFormsError);
+
+        const orderFormIds = (orderForms || [])
+            .map((row: any) => Number(row.id))
+            .filter((value: number) => Number.isFinite(value));
+
+        let orderFormSectionIds: number[] = [];
+        if (orderFormIds.length > 0) {
+            const { data: orderSections, error: orderSectionsError } = await supabase
+                .from('OrderFormSection')
+                .select('id')
+                .in('order_form_id', orderFormIds);
+            failIfError('OrderFormSection (load)', orderSectionsError);
+
+            orderFormSectionIds = (orderSections || [])
+                .map((row: any) => Number(row.id))
+                .filter((value: number) => Number.isFinite(value));
         }
 
-        // Delete other related tables
-        await Promise.all([
-            supabase.from('AgendaSlot').delete().eq('event_id', id),
-            supabase.from('Ticket').delete().eq('event_id', id),
-            supabase.from('AddOn').delete().eq('event_id', id),
-            supabase.from('PromoCode').delete().eq('event_id', id),
-            supabase.from('Registration').delete().eq('event_id', id), // Finally delete registrations
-            supabase.from('OrderForm').delete().eq('event_id', id)
+        let orderFormQuestionIds: number[] = [];
+        if (orderFormSectionIds.length > 0) {
+            const { data: orderQuestions, error: orderQuestionsError } = await supabase
+                .from('OrderFormQuestion')
+                .select('id')
+                .in('section_id', orderFormSectionIds);
+            failIfError('OrderFormQuestion (load)', orderQuestionsError);
+
+            orderFormQuestionIds = (orderQuestions || [])
+                .map((row: any) => Number(row.id))
+                .filter((value: number) => Number.isFinite(value));
+        }
+
+        const { data: promotions, error: promotionsError } = await supabase
+            .from('Promotion')
+            .select('id')
+            .eq('event_id', id);
+        failIfError('Promotion (load)', promotionsError);
+
+        const promotionIds = (promotions || [])
+            .map((row: any) => Number(row.id))
+            .filter((value: number) => Number.isFinite(value));
+
+        const { data: certificateIssues, error: certificateIssuesError } = await supabase
+            .from('CertificateIssue')
+            .select('id')
+            .eq('event_id', id);
+        failIfError('CertificateIssue (load)', certificateIssuesError);
+
+        const certificateIssueIds = (certificateIssues || [])
+            .map((row: any) => Number(row.id))
+            .filter((value: number) => Number.isFinite(value));
+
+        if (certificateIssueIds.length > 0) {
+            const { error } = await supabase
+                .from('CertificateLedger')
+                .delete()
+                .in('issue_id', certificateIssueIds);
+            failIfError('CertificateLedger', error);
+        }
+
+        if (promotionIds.length > 0) {
+            const { error } = await supabase
+                .from('PromotionTicket')
+                .delete()
+                .in('promotion_id', promotionIds);
+            failIfError('PromotionTicket', error);
+        }
+
+        if (breakoutSessionIds.length > 0) {
+            const { error } = await supabase
+                .from('BreakoutSessionRegistration')
+                .delete()
+                .in('breakout_session_id', breakoutSessionIds);
+            failIfError('BreakoutSessionRegistration (by breakout)', error);
+        }
+
+        if (registrationIds.length > 0) {
+            const [breakoutRegResult, addOnRedemptionByRegResult, entitlementByRegResult, certificateByRegResult, orderEntriesByRegResult, registrationAnswersByRegResult, paymentProofByRegResult, feedbackAnswerByRegResult] = await Promise.all([
+                supabase.from('BreakoutSessionRegistration').delete().in('registration_id', registrationIds),
+                supabase.from('AddOnRedemption').delete().in('registration_id', registrationIds),
+                supabase.from('AttendeeEntitlement').delete().in('registration_id', registrationIds),
+                supabase.from('Certificate').delete().in('registration_id', registrationIds),
+                supabase.from('OrderFormEntries').delete().in('registration_id', registrationIds),
+                supabase.from('RegistrationAnswer').delete().in('registration_id', registrationIds),
+                supabase.from('PaymentProof').delete().in('registration_id', registrationIds),
+                supabase.from('FeedbackAnswer').delete().in('registration_id', registrationIds),
+            ]);
+
+            failIfError('BreakoutSessionRegistration (by registration)', breakoutRegResult.error);
+            failIfError('AddOnRedemption (by registration)', addOnRedemptionByRegResult.error);
+            failIfError('AttendeeEntitlement (by registration)', entitlementByRegResult.error);
+            failIfError('Certificate (by registration)', certificateByRegResult.error);
+            failIfError('OrderFormEntries (by registration)', orderEntriesByRegResult.error);
+            failIfError('RegistrationAnswer (by registration)', registrationAnswersByRegResult.error);
+            failIfError('PaymentProof (by registration)', paymentProofByRegResult.error);
+            failIfError('FeedbackAnswer (by registration)', feedbackAnswerByRegResult.error);
+        }
+
+        if (addOnVariantIds.length > 0) {
+            const [addOnRedemptionByVariantResult, entitlementByVariantResult] = await Promise.all([
+                supabase.from('AddOnRedemption').delete().in('add_on_variant_id', addOnVariantIds),
+                supabase.from('AttendeeEntitlement').delete().in('add_on_variant_id', addOnVariantIds),
+            ]);
+
+            failIfError('AddOnRedemption (by variant)', addOnRedemptionByVariantResult.error);
+            failIfError('AttendeeEntitlement (by variant)', entitlementByVariantResult.error);
+        }
+
+        if (feedbackFormIds.length > 0) {
+            const { error } = await supabase
+                .from('FeedbackAnswer')
+                .delete()
+                .in('feedback_form_id', feedbackFormIds);
+            failIfError('FeedbackAnswer (by form)', error);
+        }
+
+        if (feedbackSubmissionIds.length > 0) {
+            const { error } = await supabase
+                .from('FeedbackAnswer')
+                .delete()
+                .in('feedback_submission_id', feedbackSubmissionIds);
+            failIfError('FeedbackAnswer (by submission)', error);
+        }
+
+        if (orderFormQuestionIds.length > 0) {
+            const { error } = await supabase
+                .from('RegistrationAnswer')
+                .delete()
+                .in('question_id', orderFormQuestionIds);
+            failIfError('RegistrationAnswer (by question)', error);
+        }
+
+        if (registrationGroupIds.length > 0) {
+            const { error } = await supabase
+                .from('PaymentProof')
+                .delete()
+                .in('registration_group_id', registrationGroupIds);
+            failIfError('PaymentProof (by registration group)', error);
+        }
+
+        const [emailRecipientsResult, feedbackSubmissionsResult, eventOrderEntriesResult, waitlistEntriesResult] = await Promise.all([
+            supabase.from('EventEmailRecipient').delete().eq('event_id', id),
+            supabase.from('FeedbackSubmission').delete().eq('event_id', id),
+            supabase.from('OrderFormEntries').delete().eq('event_id', id),
+            supabase.from('WaitlistEntry').delete().eq('event_id', id),
         ]);
 
-        // Attempt to delete order form entries
-        try {
-            await supabase.from('OrderFormEntries').delete().eq('event_id', id);
-        } catch (e) { /* ignore if doesn't exist */ }
+        failIfError('EventEmailRecipient', emailRecipientsResult.error);
+        failIfError('FeedbackSubmission', feedbackSubmissionsResult.error);
+        failIfError('OrderFormEntries (by event)', eventOrderEntriesResult.error);
+        failIfError('WaitlistEntry', waitlistEntriesResult.error);
+
+        if (feedbackFormIds.length > 0) {
+            const { error } = await supabase
+                .from('FeedbackQuestion')
+                .delete()
+                .in('feedback_form_id', feedbackFormIds);
+            failIfError('FeedbackQuestion', error);
+        }
+
+        if (orderFormSectionIds.length > 0) {
+            const { error } = await supabase
+                .from('OrderFormQuestion')
+                .delete()
+                .in('section_id', orderFormSectionIds);
+            failIfError('OrderFormQuestion', error);
+        }
+
+        if (orderFormIds.length > 0) {
+            const { error } = await supabase
+                .from('OrderFormSection')
+                .delete()
+                .in('order_form_id', orderFormIds);
+            failIfError('OrderFormSection', error);
+        }
+
+        if (addOnIds.length > 0) {
+            const { error } = await supabase
+                .from('AddOnVariant')
+                .delete()
+                .in('add_on_id', addOnIds);
+            failIfError('AddOnVariant', error);
+        }
+
+        const [breakoutDeleteResult, emailCampaignDeleteResult, promotionDeleteResult, certificateIssueDeleteResult] = await Promise.all([
+            supabase.from('BreakoutSession').delete().eq('event_id', id),
+            supabase.from('EventEmailCampaign').delete().eq('event_id', id),
+            supabase.from('Promotion').delete().eq('event_id', id),
+            supabase.from('CertificateIssue').delete().eq('event_id', id),
+        ]);
+
+        failIfError('BreakoutSession', breakoutDeleteResult.error);
+        failIfError('EventEmailCampaign', emailCampaignDeleteResult.error);
+        failIfError('Promotion', promotionDeleteResult.error);
+        failIfError('CertificateIssue', certificateIssueDeleteResult.error);
+
+        const [registrationDetachResult, registrationGroupDetachResult] = await Promise.all([
+            supabase
+                .from('Registration')
+                .update({ registration_group_id: null })
+                .eq('event_id', id),
+            supabase
+                .from('RegistrationGroup')
+                .update({ payer_registration_id: null })
+                .eq('event_id', id),
+        ]);
+
+        failIfError('Registration (detach group)', registrationDetachResult.error);
+        failIfError('RegistrationGroup (detach payer)', registrationGroupDetachResult.error);
+
+        const [registrationDeleteResult, registrationGroupDeleteResult, ticketDeleteResult, addOnDeleteResult, agendaDeleteResult, feedbackFormDeleteResult, orderFormDeleteResult, eventWaitlistDeleteResult, orderConfirmationDeleteResult, certificateTemplateDeleteResult, certificateSettingDeleteResult] = await Promise.all([
+            supabase.from('Registration').delete().eq('event_id', id),
+            supabase.from('RegistrationGroup').delete().eq('event_id', id),
+            supabase.from('Ticket').delete().eq('event_id', id),
+            supabase.from('AddOn').delete().eq('event_id', id),
+            supabase.from('AgendaSlot').delete().eq('event_id', id),
+            supabase.from('FeedbackForm').delete().eq('event_id', id),
+            supabase.from('OrderForm').delete().eq('event_id', id),
+            supabase.from('EventWaitlistSettings').delete().eq('event_id', id),
+            supabase.from('OrderConfirmationSettings').delete().eq('event_id', id),
+            supabase.from('CertificateTemplate').delete().eq('event_id', id),
+            supabase.from('CertificateSetting').delete().eq('event_id', id),
+        ]);
+
+        failIfError('Registration', registrationDeleteResult.error);
+        failIfError('RegistrationGroup', registrationGroupDeleteResult.error);
+        failIfError('Ticket', ticketDeleteResult.error);
+        failIfError('AddOn', addOnDeleteResult.error);
+        failIfError('AgendaSlot', agendaDeleteResult.error);
+        failIfError('FeedbackForm', feedbackFormDeleteResult.error);
+        failIfError('OrderForm', orderFormDeleteResult.error);
+        failIfError('EventWaitlistSettings', eventWaitlistDeleteResult.error);
+        failIfError('OrderConfirmationSettings', orderConfirmationDeleteResult.error);
+        failIfError('CertificateTemplate', certificateTemplateDeleteResult.error);
+        failIfError('CertificateSetting', certificateSettingDeleteResult.error);
+
+        // Some deployments still use PromoCode instead of Promotion.
+        const promoCodeDelete = await supabase.from('PromoCode').delete().eq('event_id', id)
+        if (promoCodeDelete.error && promoCodeDelete.error.code !== 'PGRST205') {
+            failIfError('PromoCode', promoCodeDelete.error)
+        }
 
         // Finally, delete the Event itself
         const { error } = await supabase
             .from('Event')
             .delete()
-            .eq('id', id);
+            .eq('id', id)
+            .eq('organization_id', activeOrganizationId);
 
         if (error) {
             console.error('Error deleting event:', error);

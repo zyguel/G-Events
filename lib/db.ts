@@ -871,11 +871,147 @@ export async function getTicket(ticketId: number) {
 class TicketValidationError extends Error {
     statusCode: number;
 
-    constructor(message: string) {
+    constructor(message: string, statusCode = 400) {
         super(message);
         this.name = 'TicketValidationError';
-        this.statusCode = 400;
+        this.statusCode = statusCode;
     }
+}
+
+class AddOnValidationError extends Error {
+    statusCode: number;
+
+    constructor(message: string, statusCode = 400) {
+        super(message);
+        this.name = 'AddOnValidationError';
+        this.statusCode = statusCode;
+    }
+}
+
+function normalizeComparableText(value: unknown): string {
+    if (typeof value !== 'string') return '';
+    return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function normalizeVariantCode(value: unknown): string {
+    if (typeof value !== 'string') return '';
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+async function ensureUniqueTicketName(
+    supabase: SupabaseClient,
+    eventId: number,
+    ticketName: string,
+    excludeTicketId?: number,
+): Promise<void> {
+    const normalizedCandidate = normalizeComparableText(ticketName);
+    if (!normalizedCandidate) {
+        throw new TicketValidationError('Ticket name is required.');
+    }
+
+    const { data, error } = await supabase
+        .from('Ticket')
+        .select('id, name, is_deleted')
+        .eq('event_id', eventId);
+
+    if (error) throw error;
+
+    const conflictingTicket = (data || []).find((row: { id: number | string; name: string | null; is_deleted: boolean | null }) => {
+        const rowId = Number(row.id);
+        if (Number.isFinite(excludeTicketId) && rowId === excludeTicketId) {
+            return false;
+        }
+
+        if (row.is_deleted === true) {
+            return false;
+        }
+
+        return normalizeComparableText(row.name) === normalizedCandidate;
+    });
+
+    if (conflictingTicket) {
+        throw new TicketValidationError('A ticket with this name already exists for this event.', 409);
+    }
+}
+
+async function ensureUniqueAddOnName(
+    supabase: SupabaseClient,
+    eventId: number,
+    addOnName: string,
+    excludeAddOnId?: number,
+): Promise<void> {
+    const normalizedCandidate = normalizeComparableText(addOnName);
+    if (!normalizedCandidate) {
+        throw new AddOnValidationError('Add-on name is required.');
+    }
+
+    const { data, error } = await supabase
+        .from('AddOn')
+        .select('id, name')
+        .eq('event_id', eventId);
+
+    if (error) throw error;
+
+    const conflictingAddOn = (data || []).find((row: { id: number | string; name: string | null }) => {
+        const rowId = Number(row.id);
+        if (Number.isFinite(excludeAddOnId) && rowId === excludeAddOnId) {
+            return false;
+        }
+
+        return normalizeComparableText(row.name) === normalizedCandidate;
+    });
+
+    if (conflictingAddOn) {
+        throw new AddOnValidationError('An add-on with this name already exists for this event.', 409);
+    }
+}
+
+function normalizeAndValidateAddOnVariants(
+    variants?: { id?: number; code: string; label: string; stock_total: number }[]
+) {
+    if (variants === undefined) return undefined;
+
+    const seenLabels = new Set<string>();
+    const seenCodes = new Set<string>();
+
+    return variants.map((variant, index) => {
+        const label = typeof variant.label === 'string' ? variant.label.trim() : '';
+        const stockTotal = Number(variant.stock_total);
+
+        if (!label) {
+            throw new AddOnValidationError('Add-on variant label is required.');
+        }
+
+        if (!Number.isFinite(stockTotal) || stockTotal < 0) {
+            throw new AddOnValidationError('Add-on variant stock must be 0 or greater.');
+        }
+
+        const normalizedLabel = normalizeComparableText(label);
+        if (seenLabels.has(normalizedLabel)) {
+            throw new AddOnValidationError('Add-on variant labels must be unique.', 409);
+        }
+        seenLabels.add(normalizedLabel);
+
+        const fallbackCode = `variant_${index + 1}`;
+        const inputCode = variant.code && String(variant.code).trim().length > 0 ? variant.code : label;
+        const normalizedCode = normalizeVariantCode(inputCode) || fallbackCode;
+
+        if (seenCodes.has(normalizedCode)) {
+            throw new AddOnValidationError('Add-on variants must have unique codes.', 409);
+        }
+        seenCodes.add(normalizedCode);
+
+        return {
+            ...variant,
+            label,
+            code: normalizedCode,
+            stock_total: stockTotal,
+        };
+    });
 }
 
 function parseTicketDateTime(value: string | null | undefined): Date | null {
@@ -945,6 +1081,9 @@ export async function createTicket(
 ) {
     const supabase = await getSupabase();
 
+    const ticketName = String(fields.name || '').trim();
+    await ensureUniqueTicketName(supabase, eventId, ticketName);
+
     await validateTicketSellingWindow(
         supabase,
         eventId,
@@ -961,6 +1100,7 @@ export async function createTicket(
 
     const insertFields = {
         ...fields,
+        name: ticketName,
         free_ticket_approval_mode: normalizedFreeTicketApprovalMode,
     };
 
@@ -970,7 +1110,12 @@ export async function createTicket(
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        if ((error as { code?: string }).code === '23505') {
+            throw new TicketValidationError('A ticket with this name already exists for this event.', 409);
+        }
+        throw error;
+    }
 
     try {
       await logAuditEntry('Ticket', data.id, 'create', { before: null, after: data });
@@ -1022,12 +1167,18 @@ export async function updateTicket(
         Object.prototype.hasOwnProperty.call(normalizedFields, 'selling_start_at')
         || Object.prototype.hasOwnProperty.call(normalizedFields, 'selling_end_at');
 
-    if (shouldValidateSellingWindow) {
-        const eventId = Number(beforeData.event_id);
-        if (!Number.isFinite(eventId)) {
-            throw new TicketValidationError('Ticket is not linked to a valid event.');
-        }
+    const eventId = Number(beforeData.event_id);
+    if (!Number.isFinite(eventId)) {
+        throw new TicketValidationError('Ticket is not linked to a valid event.');
+    }
 
+    if (typeof normalizedFields.name === 'string') {
+        const nextName = normalizedFields.name.trim();
+        await ensureUniqueTicketName(supabase, eventId, nextName, ticketId);
+        normalizedFields.name = nextName;
+    }
+
+    if (shouldValidateSellingWindow) {
         await validateTicketSellingWindow(
             supabase,
             eventId,
@@ -1043,7 +1194,12 @@ export async function updateTicket(
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        if ((error as { code?: string }).code === '23505') {
+            throw new TicketValidationError('A ticket with this name already exists for this event.', 409);
+        }
+        throw error;
+    }
 
     try {
       await logAuditEntry('Ticket', ticketId, 'update', { before: beforeData, after: data });
@@ -1171,13 +1327,22 @@ export async function createAddOn(
 ) {
     const supabase = await getSupabase();
 
+    const normalizedName = String(fields.name || '').trim();
+    const normalizedVariants = normalizeAndValidateAddOnVariants(variants);
+    await ensureUniqueAddOnName(supabase, eventId, normalizedName);
+
     const { data: addOn, error: addOnError } = await supabase
         .from('AddOn')
-        .insert([{ event_id: eventId, ...fields }])
+        .insert([{ event_id: eventId, ...fields, name: normalizedName }])
         .select()
         .single();
 
-    if (addOnError) throw addOnError;
+    if (addOnError) {
+        if ((addOnError as { code?: string }).code === '23505') {
+            throw new AddOnValidationError('An add-on with this name already exists for this event.', 409);
+        }
+        throw addOnError;
+    }
 
     try {
       await logAuditEntry('AddOn', addOn.id, 'create', { before: null, after: addOn });
@@ -1185,8 +1350,8 @@ export async function createAddOn(
       console.warn('AddOn audit log failed:', e);
     }
 
-    if (variants && variants.length > 0) {
-        const variantRows = variants.map((v) => ({
+    if (normalizedVariants && normalizedVariants.length > 0) {
+        const variantRows = normalizedVariants.map((v) => ({
             add_on_id: addOn.id,
             code: v.code,
             label: v.label,
@@ -1197,7 +1362,12 @@ export async function createAddOn(
             .from('AddOnVariant')
             .insert(variantRows);
 
-        if (varError) throw varError;
+        if (varError) {
+            if ((varError as { code?: string }).code === '23505') {
+                throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
+            }
+            throw varError;
+        }
     }
 
     // Re-fetch with variants
@@ -1223,12 +1393,31 @@ export async function updateAddOn(
         .single();
     if (beforeError) throw beforeError;
 
+    const eventId = Number(beforeData.event_id);
+    if (!Number.isFinite(eventId)) {
+        throw new AddOnValidationError('Add-on is not linked to a valid event.');
+    }
+
+    const normalizedFields = { ...fields };
+    if (typeof normalizedFields.name === 'string') {
+        const nextName = normalizedFields.name.trim();
+        await ensureUniqueAddOnName(supabase, eventId, nextName, addOnId);
+        normalizedFields.name = nextName;
+    }
+
+    const normalizedVariants = normalizeAndValidateAddOnVariants(variants);
+
     const { error: addOnError } = await supabase
         .from('AddOn')
-        .update(fields)
+        .update(normalizedFields)
         .eq('id', addOnId);
 
-    if (addOnError) throw addOnError;
+    if (addOnError) {
+        if ((addOnError as { code?: string }).code === '23505') {
+            throw new AddOnValidationError('An add-on with this name already exists for this event.', 409);
+        }
+        throw addOnError;
+    }
 
     const updatedAddOn = await getAddOn(addOnId);
     try {
@@ -1238,7 +1427,7 @@ export async function updateAddOn(
     }
 
     // If variants are provided, replace them
-    if (variants !== undefined) {
+    if (normalizedVariants !== undefined) {
         // Delete existing variants
         await supabase
             .from('AddOnVariant')
@@ -1246,8 +1435,8 @@ export async function updateAddOn(
             .eq('add_on_id', addOnId);
 
         // Insert new variants
-        if (variants.length > 0) {
-            const variantRows = variants.map((v) => ({
+        if (normalizedVariants.length > 0) {
+            const variantRows = normalizedVariants.map((v) => ({
                 add_on_id: addOnId,
                 code: v.code,
                 label: v.label,
@@ -1258,7 +1447,12 @@ export async function updateAddOn(
                 .from('AddOnVariant')
                 .insert(variantRows);
 
-            if (varError) throw varError;
+            if (varError) {
+                if ((varError as { code?: string }).code === '23505') {
+                    throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
+                }
+                throw varError;
+            }
         }
     }
 

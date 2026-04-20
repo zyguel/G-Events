@@ -62,10 +62,12 @@ export function CheckInScanPanel({
   eventId,
   onAttendanceChanged,
   workflow = 'checkin',
+  onWorkflowChange,
 }: {
   eventId: string;
   onAttendanceChanged: () => Promise<void>;
   workflow?: 'checkin' | 'addon_claims';
+  onWorkflowChange?: (next: 'checkin' | 'addon_claims') => void;
 }) {
   const [scannerOn, setScannerOn] = useState(true);
   const [scanMode, setScanMode] = useState<ScanMode>('all');
@@ -78,6 +80,73 @@ export function CheckInScanPanel({
   const [scanResult, setScanResult] = useState<ScanJson | null>(null);
   const [lastRaw, setLastRaw] = useState('');
   const lastCameraScanAt = useRef(0);
+
+  const applyRaw = useCallback(async (raw: string, fallbackResult?: ScanJson | null) => {
+    if (!raw) return;
+
+    setApplyLoading(true);
+    setScanError(null);
+    try {
+      const res = await fetch(`/api/events/${eventId}/checkin/scan/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ raw }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.success) throw new Error(json?.error || 'Check-in failed');
+
+      await onAttendanceChanged();
+
+      setScanResult((prev) => {
+        const current = prev ?? fallbackResult ?? null;
+        if (!current) return prev;
+
+        if (json.alreadyCheckedIn) {
+          if (current.kind === 'main') {
+            return {
+              ...current,
+              mainEventCheckedIn: true,
+              mainEventStatus: 'Checked-In',
+            };
+          }
+          if (current.kind === 'breakout' && current.breakout) {
+            return {
+              ...current,
+              breakout: {
+                ...current.breakout,
+                checkedIn: true,
+                checkInTime: current.breakout.checkInTime || new Date().toLocaleString(),
+              },
+            };
+          }
+          return current;
+        }
+
+        if (json.kind === 'main') {
+          return {
+            ...current,
+            mainEventCheckedIn: true,
+            mainEventStatus: 'Checked-In',
+          };
+        }
+        if (current.kind === 'breakout' && current.breakout) {
+          return {
+            ...current,
+            breakout: {
+              ...current.breakout,
+              checkedIn: true,
+              checkInTime: json.checkInTime || new Date().toLocaleString(),
+            },
+          };
+        }
+        return current;
+      });
+    } catch (e) {
+      setScanError(e instanceof Error ? e.message : 'Check-in failed');
+    } finally {
+      setApplyLoading(false);
+    }
+  }, [eventId, onAttendanceChanged]);
 
   const resolveScan = useCallback(
     async (raw: string) => {
@@ -108,6 +177,20 @@ export function CheckInScanPanel({
         }
         setScanResult(parsed);
         setLastRaw(raw);
+
+        if (workflow === 'checkin') {
+          const shouldAutoApply =
+            (parsed.kind === 'main' && !parsed.mainEventCheckedIn) ||
+            (parsed.kind === 'breakout' && !!parsed.breakout && !parsed.breakout.checkedIn);
+
+          if (shouldAutoApply) {
+            await applyRaw(raw, parsed);
+          }
+
+          if (parsed.claimableAddOnQty > 0) {
+            onWorkflowChange?.('addon_claims');
+          }
+        }
       } catch (e) {
         setScanResult(null);
         setLastRaw('');
@@ -116,7 +199,7 @@ export function CheckInScanPanel({
         setScanLoading(false);
       }
     },
-    [eventId, scanMode]
+    [applyRaw, onWorkflowChange, scanMode, workflow]
   );
 
   const onDecoded = useCallback(
@@ -132,74 +215,6 @@ export function CheckInScanPanel({
     },
     [resolveScan, scanLoading, scanResult]
   );
-
-  const apply = useCallback(async () => {
-    if (!lastRaw) return;
-    setApplyLoading(true);
-    setScanError(null);
-    try {
-      const res = await fetch(`/api/events/${eventId}/checkin/scan/apply`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ raw: lastRaw }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json?.success) throw new Error(json?.error || 'Check-in failed');
-
-      await onAttendanceChanged();
-
-      if (json.alreadyCheckedIn) {
-        setScanResult((prev) => {
-          if (!prev) return prev;
-          if (prev.kind === 'main') {
-            return {
-              ...prev,
-              mainEventCheckedIn: true,
-              mainEventStatus: 'Checked-In',
-            };
-          }
-          if (prev.kind === 'breakout' && prev.breakout) {
-            return {
-              ...prev,
-              breakout: {
-                ...prev.breakout,
-                checkedIn: true,
-                checkInTime: prev.breakout.checkInTime || new Date().toLocaleString(),
-              },
-            };
-          }
-          return prev;
-        });
-        return;
-      }
-
-      setScanResult((prev) => {
-        if (!prev) return prev;
-        if (json.kind === 'main') {
-          return {
-            ...prev,
-            mainEventCheckedIn: true,
-            mainEventStatus: 'Checked-In',
-          };
-        }
-        if (prev.kind === 'breakout' && prev.breakout) {
-          return {
-            ...prev,
-            breakout: {
-              ...prev.breakout,
-              checkedIn: true,
-              checkInTime: json.checkInTime || new Date().toLocaleString(),
-            },
-          };
-        }
-        return prev;
-      });
-    } catch (e) {
-      setScanError(e instanceof Error ? e.message : 'Check-in failed');
-    } finally {
-      setApplyLoading(false);
-    }
-  }, [eventId, lastRaw, onAttendanceChanged]);
 
   const claimAddOns = useCallback(async (variantId: number) => {
     if (!scanResult || scanResult.claimableAddOnQty <= 0) return;
@@ -490,20 +505,16 @@ export function CheckInScanPanel({
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2">
-              {workflow === 'checkin' && canCheckIn ? (
-                <button
-                  type="button"
-                  disabled={applyLoading || claimLoading}
-                  onClick={() => void apply()}
-                  className="flex-1 min-h-[48px] rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {applyLoading ? (
-                    <Loader2 className="animate-spin" size={18} />
-                  ) : (
-                    <CheckCircle2 size={18} />
-                  )}
-                  {scanResult.kind === 'main' ? 'Check in — main event' : 'Check in — breakout'}
-                </button>
+              {workflow === 'checkin' && applyLoading ? (
+                <div className="flex-1 min-h-[48px] rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-900/20 flex items-center justify-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200 px-3 text-center">
+                  <Loader2 className="animate-spin shrink-0" size={18} />
+                  Recording check-in automatically...
+                </div>
+              ) : workflow === 'checkin' && canCheckIn ? (
+                <div className="flex-1 min-h-[48px] rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-900/20 flex items-center justify-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200 px-3 text-center">
+                  <AlertTriangle size={18} className="shrink-0" />
+                  Auto check-in did not complete. Scan again to retry.
+                </div>
               ) : workflow === 'checkin' && alreadyCheckedInForTarget ? (
                 <div className="flex-1 min-h-[48px] rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-900/20 flex items-center justify-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200 px-3 text-center">
                   <CheckCircle2 size={18} className="shrink-0" />

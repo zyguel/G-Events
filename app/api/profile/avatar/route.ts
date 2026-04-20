@@ -12,6 +12,7 @@ const ALLOWED_IMAGE_TYPES = new Set([
   'image/gif',
   'image/avif',
 ])
+const ALLOWED_IMAGE_FORMAT_LABEL = 'JPEG, PNG, WebP, GIF, AVIF'
 const SIGNED_URL_EXPIRES_IN_SECONDS = 60 * 60
 const SIGNED_URL_CACHE_TTL_MS = 5 * 60 * 1000
 
@@ -167,7 +168,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!image.type.startsWith('image/') || !ALLOWED_IMAGE_TYPES.has(image.type)) {
-      return badRequest('Unsupported image format.')
+      return badRequest(`Unsupported image format. Allowed formats: ${ALLOWED_IMAGE_FORMAT_LABEL}.`)
     }
 
     if (image.size <= 0) {

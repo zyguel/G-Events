@@ -146,3 +146,33 @@ export function buildGroupMemberInviteEmailHtml(params: {
 </body>
 </html>`;
 }
+
+export function buildRegistrationCompletionEmailHtml(params: {
+  attendeeName: string;
+  eventTitle: string;
+  completeUrl: string;
+  isGroupRegistration?: boolean;
+}): string {
+  const attendeeName = escapeHtml(params.attendeeName || 'Attendee');
+  const eventTitle = escapeHtml(params.eventTitle);
+  const completeUrl = escapeHtml(params.completeUrl);
+
+  const groupNote = params.isGroupRegistration
+    ? `<p style="margin:0 0 14px;font-size:14px;color:#444;line-height:1.6">You were added as part of a group registration. Please complete your details using the button below.</p>`
+    : `<p style="margin:0 0 14px;font-size:14px;color:#444;line-height:1.6">Please complete your attendee details using the button below.</p>`;
+
+  return `
+<!DOCTYPE html>
+<html>
+<body style="font-family:system-ui,-apple-system,sans-serif;background:#f4f7fc;padding:24px;color:#111">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 8px 30px rgba(61,81,140,0.12)">
+    <p style="margin:0 0 8px;font-size:15px">Hi ${attendeeName},</p>
+    <p style="margin:0 0 12px;font-size:15px;line-height:1.5">An organizer created a registration entry for <strong>${eventTitle}</strong>.</p>
+    ${groupNote}
+    <p style="margin:0 0 18px"><a href="${completeUrl}" style="display:inline-block;padding:14px 22px;background:linear-gradient(90deg,#3D518C,#5C6BC0);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;font-size:15px">Complete registration form</a></p>
+    <p style="margin:0;font-size:12px;color:#888;word-break:break-all">${completeUrl}</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#888;line-height:1.6">Your e-ticket QR will be sent after the organizer confirms your registration.</p>
+  </div>
+</body>
+</html>`;
+}

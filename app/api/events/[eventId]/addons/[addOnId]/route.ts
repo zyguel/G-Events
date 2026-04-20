@@ -4,6 +4,38 @@ import { createClient } from '@/lib/supabase-server';
 import { requireUser } from '@/lib/apiAuth';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 
+const ADD_ON_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
+const ALLOWED_ADD_ON_IMAGE_TYPES = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+    'image/svg+xml',
+]);
+const ALLOWED_ADD_ON_IMAGE_LABEL = 'JPEG, PNG, WebP, GIF, AVIF, SVG';
+
+function getErrorMessage(error: unknown, fallback: string): string {
+    return error instanceof Error ? error.message : fallback;
+}
+
+function getErrorStatus(error: unknown): number {
+    if (typeof error === 'object' && error !== null) {
+        const maybeStatus = (error as { statusCode?: number }).statusCode;
+        if (typeof maybeStatus === 'number') {
+            return maybeStatus;
+        }
+
+        const maybeCode = (error as { code?: string }).code;
+        if (maybeCode === '23505') {
+            return 409;
+        }
+    }
+
+    return 500;
+}
+
 async function getStorageClient() {
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
         return createSupabaseClient(
@@ -33,6 +65,22 @@ async function uploadAddOnImage(file: File, eventId: number): Promise<string> {
     return publicUrl;
 }
 
+function validateAddOnImage(file: File): string | null {
+    if (file.size <= 0) {
+        return 'Image file is empty.';
+    }
+
+    if (!ALLOWED_ADD_ON_IMAGE_TYPES.has(file.type)) {
+        return `Unsupported image format. Allowed formats: ${ALLOWED_ADD_ON_IMAGE_LABEL}.`;
+    }
+
+    if (file.size > ADD_ON_MAX_IMAGE_SIZE_BYTES) {
+        return 'Image file is too large. Maximum allowed size is 20MB.';
+    }
+
+    return null;
+}
+
 // GET /api/events/[eventId]/addons/[addOnId] - Get a single add-on
 export async function GET(
     request: NextRequest,
@@ -52,16 +100,16 @@ export async function GET(
 
         const addOn = await getAddOn(id);
         return NextResponse.json({ success: true, data: addOn });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error fetching add-on:', error);
-        if (error.code === 'PGRST116') {
+        if (typeof error === 'object' && error !== null && (error as { code?: string }).code === 'PGRST116') {
             return NextResponse.json(
                 { success: false, error: 'Add-on not found' },
                 { status: 404 }
             );
         }
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to fetch add-on' },
+            { success: false, error: getErrorMessage(error, 'Failed to fetch add-on') },
             { status: 500 }
         );
     }
@@ -95,6 +143,14 @@ export async function PATCH(
 
         let image_path: string | undefined;
         if (imageFile && imageFile.size > 0) {
+            const imageError = validateAddOnImage(imageFile);
+            if (imageError) {
+                return NextResponse.json(
+                    { success: false, error: imageError },
+                    { status: 400 }
+                );
+            }
+
             image_path = await uploadAddOnImage(imageFile, numericEventId);
         }
 
@@ -112,11 +168,12 @@ export async function PATCH(
         );
 
         return NextResponse.json({ success: true, data: addOn });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error updating add-on:', error);
+        const status = getErrorStatus(error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to update add-on' },
-            { status: 500 }
+            { success: false, error: getErrorMessage(error, 'Failed to update add-on') },
+            { status }
         );
     }
 }
@@ -140,11 +197,12 @@ export async function DELETE(
 
         await deleteAddOn(id);
         return NextResponse.json({ success: true, message: 'Add-on deleted successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Error deleting add-on:', error);
+        const status = getErrorStatus(error);
         return NextResponse.json(
-            { success: false, error: error.message || 'Failed to delete add-on' },
-            { status: 500 }
+            { success: false, error: getErrorMessage(error, 'Failed to delete add-on') },
+            { status }
         );
     }
 }

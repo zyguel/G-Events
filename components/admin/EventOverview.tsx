@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List, Check, CheckCircle } from "lucide-react";
+import { Calendar, MapPin, Upload, Plus, Clock, Trash2, X, Users, Pencil, Image as ImageIcon, Type, AlignLeft, List, Check, CheckCircle, Loader2 } from "lucide-react";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "./Modal";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -68,6 +68,36 @@ function parseHHMMToMinutes(value: string | undefined): number | null {
     return Number(match[1]) * 60 + Number(match[2]);
 }
 
+interface TimeWindowBounds {
+    start: number;
+    end: number;
+    crossesMidnight: boolean;
+}
+
+function buildTimeWindowBounds(startMinutes: number | null, endMinutes: number | null): TimeWindowBounds | null {
+    if (startMinutes === null || endMinutes === null) return null;
+
+    const crossesMidnight = endMinutes <= startMinutes;
+    return {
+        start: startMinutes,
+        end: crossesMidnight ? endMinutes + 1440 : endMinutes,
+        crossesMidnight,
+    };
+}
+
+function alignMinutesWithinWindow(minutes: number, window: TimeWindowBounds): number | null {
+    let aligned = minutes;
+    while (aligned < window.start) {
+        aligned += 1440;
+    }
+
+    if (aligned > window.end) {
+        return null;
+    }
+
+    return aligned;
+}
+
 export default function EventOverview({ initialData }: { initialData: any }) {
     const { hasPermission, isAdmin } = usePermissions();
     const canEditAgenda = isAdmin || hasPermission('Manage Event Agenda');
@@ -96,6 +126,8 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     const [activeModal, setActiveModal] = useState<null | 'banner' | 'title' | 'dateLocation' | 'overview' | 'agenda' | 'deleteBanner' | 'deleteEvent'>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+    const [isSavingAgenda, setIsSavingAgenda] = useState(false);
 
     // Form States
     const [newAgenda, setNewAgenda] = useState<Partial<AgendaItem>>({});
@@ -112,6 +144,14 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     // ... useEffect ...
+
+    const minEventDate = new Date();
+    minEventDate.setHours(0, 0, 0, 0);
+    const eventStartMinutesForHint = parseHHMMToMinutes(event.startTime);
+    const eventEndMinutesForHint = parseHHMMToMinutes(event.endTime);
+    const eventSpansMidnight = eventStartMinutesForHint !== null
+        && eventEndMinutesForHint !== null
+        && eventEndMinutesForHint <= eventStartMinutesForHint;
 
     // --- Actions ---
 
@@ -177,7 +217,18 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     const handleSaveDateLocation = (e: React.FormEvent) => {
         e.preventDefault();
-        const formData = new FormData(e.target as HTMLFormElement);
+
+        if (tempEventDate) {
+            const selectedDate = new Date(tempEventDate);
+            selectedDate.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            if (selectedDate < today) {
+                setToast({ message: 'Past dates are not allowed.', type: 'error' });
+                return;
+            }
+        }
 
         // Format date from Date object to YYYY-MM-DD
         const formattedDate = tempEventDate ? tempEventDate.toISOString().split('T')[0] : event.date;
@@ -197,8 +248,23 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             setToast({ message: 'Saving date & location...', type: 'info' });
 
             // Construct timestamps
-            const startAt = tempStartTime ? new Date(`${formattedDate}T${tempStartTime}:00`).toISOString() : null;
-            const endAt = tempEndTime ? new Date(`${formattedDate}T${tempEndTime}:00`).toISOString() : null;
+            let startAt: string | null = null;
+            let endAt: string | null = null;
+
+            if (formattedDate && tempStartTime) {
+                const startDateTime = new Date(`${formattedDate}T${tempStartTime}:00`);
+                startAt = startDateTime.toISOString();
+
+                if (tempEndTime) {
+                    const endDateTime = new Date(`${formattedDate}T${tempEndTime}:00`);
+                    if (endDateTime <= startDateTime) {
+                        endDateTime.setDate(endDateTime.getDate() + 1);
+                    }
+                    endAt = endDateTime.toISOString();
+                }
+            } else if (formattedDate && tempEndTime) {
+                endAt = new Date(`${formattedDate}T${tempEndTime}:00`).toISOString();
+            }
 
             import('@/lib/actions/events').then(({ updateEvent }) => {
                 updateEvent(parseInt(event.id), {
@@ -369,6 +435,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     };
 
     const handleAddAgendaSlot = async () => {
+        if (isSavingAgenda) return;
         if (!newAgenda.title || !newAgenda.speaker || !newAgenda.startTime || !newAgenda.endTime) return;
 
         const agendaStartMinutes = parseHHMMToMinutes(newAgenda.startTime);
@@ -378,85 +445,107 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             return;
         }
 
-        if (agendaStartMinutes >= agendaEndMinutes) {
-            setToast({ message: 'Agenda end time must be later than agenda start time.', type: 'error' });
-            return;
-        }
-
         const eventStartMinutes = parseHHMMToMinutes(event.startTime);
         const eventEndMinutes = parseHHMMToMinutes(event.endTime);
+        const eventWindow = buildTimeWindowBounds(eventStartMinutes, eventEndMinutes);
 
-        if (eventStartMinutes !== null && agendaStartMinutes < eventStartMinutes) {
-            setToast({
-                message: `Agenda cannot start earlier than event start time (${formatTimeDisplay(event.startTime || '')}).`,
-                type: 'error'
-            });
-            return;
-        }
+        let agendaStartAbsolute = agendaStartMinutes;
+        let agendaEndAbsolute = agendaEndMinutes;
 
-        if (eventEndMinutes !== null && agendaEndMinutes > eventEndMinutes) {
-            setToast({
-                message: `Agenda cannot end later than event end time (${formatTimeDisplay(event.endTime || '')}).`,
-                type: 'error'
-            });
-            return;
-        }
+        if (eventWindow) {
+            const alignedStart = alignMinutesWithinWindow(agendaStartMinutes, eventWindow);
+            if (alignedStart === null) {
+                setToast({
+                    message: `Agenda cannot start outside the event time window (${formatTimeDisplay(event.startTime || '')} to ${formatTimeDisplay(event.endTime || '')}${eventWindow.crossesMidnight ? ' next day' : ''}).`,
+                    type: 'error'
+                });
+                return;
+            }
 
-        let updatedEvent: EventData;
-        let itemToSave: AgendaItem;
+            agendaStartAbsolute = alignedStart;
+            while (agendaEndAbsolute <= agendaStartAbsolute) {
+                agendaEndAbsolute += 1440;
+            }
 
-        if (editingAgendaId) {
-            // Update existing item
-            updatedEvent = {
-                ...event,
-                agenda: event.agenda.map(item =>
-                    item.id === editingAgendaId
-                        ? { ...item, ...newAgenda } as AgendaItem
-                        : item
-                )
-            };
-            itemToSave = updatedEvent.agenda.find(i => i.id === editingAgendaId)!;
-        } else {
-            // Add new item
-            const newItem: AgendaItem = {
-                id: `new-${Date.now()}`, // Helper ID for optimistic update
-                title: newAgenda.title || '',
-                speaker: newAgenda.speaker || '',
-                startTime: newAgenda.startTime || '',
-                endTime: newAgenda.endTime || '',
-                description: newAgenda.description || ''
-            };
-
-            updatedEvent = {
-                ...event,
-                agenda: [...(event.agenda || []), newItem]
-            };
-            itemToSave = newItem;
-        }
-        setEvent(updatedEvent);
-        setNewAgenda({});
-        setEditingAgendaId(null);
-        setActiveModal(null);
-
-        if (event.id !== 'new') {
-            setToast({ message: 'Saving agenda item...', type: 'info' });
-            const res = await saveAgendaSlot(parseInt(event.id), {
-                id: itemToSave.id,
-                title: itemToSave.title,
-                description: itemToSave.description,
-                speaker: itemToSave.speaker,
-                startTime: itemToSave.startTime,
-                endTime: itemToSave.endTime
-            });
-
-            if (res.success) {
-                setToast({ message: 'Agenda item saved!', type: 'success' });
-            } else {
-                setToast({ message: 'Failed to save agenda item: ' + res.error, type: 'error' });
-                console.error("Failed to save agenda item", res.error);
+            if (agendaEndAbsolute > eventWindow.end) {
+                setToast({
+                    message: `Agenda cannot end later than event end time (${formatTimeDisplay(event.endTime || '')}${eventWindow.crossesMidnight ? ' next day' : ''}).`,
+                    type: 'error'
+                });
+                return;
             }
         } else {
-            setToast({ message: 'Agenda item added locally!', type: 'success' });
+            while (agendaEndAbsolute <= agendaStartAbsolute) {
+                agendaEndAbsolute += 1440;
+            }
+
+            if (agendaEndAbsolute - agendaStartAbsolute >= 24 * 60) {
+                setToast({ message: 'Agenda end time must be later than agenda start time.', type: 'error' });
+                return;
+            }
+        }
+
+        setIsSavingAgenda(true);
+
+        try {
+            let updatedEvent: EventData;
+            let itemToSave: AgendaItem;
+
+            if (editingAgendaId) {
+                // Update existing item
+                updatedEvent = {
+                    ...event,
+                    agenda: event.agenda.map(item =>
+                        item.id === editingAgendaId
+                            ? { ...item, ...newAgenda } as AgendaItem
+                            : item
+                    )
+                };
+                itemToSave = updatedEvent.agenda.find(i => i.id === editingAgendaId)!;
+            } else {
+                // Add new item
+                const newItem: AgendaItem = {
+                    id: `new-${Date.now()}`, // Helper ID for optimistic update
+                    title: newAgenda.title || '',
+                    speaker: newAgenda.speaker || '',
+                    startTime: newAgenda.startTime || '',
+                    endTime: newAgenda.endTime || '',
+                    description: newAgenda.description || ''
+                };
+
+                updatedEvent = {
+                    ...event,
+                    agenda: [...(event.agenda || []), newItem]
+                };
+                itemToSave = newItem;
+            }
+            setEvent(updatedEvent);
+            setNewAgenda({});
+            setEditingAgendaId(null);
+            setActiveModal(null);
+
+            if (event.id !== 'new') {
+                setToast({ message: 'Saving agenda item...', type: 'info' });
+                const res = await saveAgendaSlot(parseInt(event.id), {
+                    id: itemToSave.id,
+                    title: itemToSave.title,
+                    description: itemToSave.description,
+                    speaker: itemToSave.speaker,
+                    startTime: itemToSave.startTime,
+                    endTime: itemToSave.endTime
+                });
+
+                if (res.success) {
+                    setToast({ message: 'Agenda item saved!', type: 'success' });
+                } else {
+                    setToast({ message: 'Failed to save agenda item: ' + res.error, type: 'error' });
+                    console.error("Failed to save agenda item", res.error);
+                }
+            } else {
+                setToast({ message: 'Agenda item added locally!', type: 'success' });
+            }
+        } finally {
+            setIsSavingAgenda(false);
         }
     };
 
@@ -696,6 +785,8 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     };
 
     const handleCreateEvent = async () => {
+        if (isCreatingEvent) return;
+
         // Basic validation
         const title = event.name?.trim();
         if (!title) {
@@ -727,7 +818,15 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             return;
         }
 
+        const now = new Date();
+        const todayDateOnly = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        if (event.date < todayDateOnly) {
+            setToast({ message: 'Past dates are not allowed.', type: 'error' });
+            return;
+        }
+
         setToast({ message: 'Creating event...', type: 'info' });
+        setIsCreatingEvent(true);
 
         try {
             const formData = new FormData();
@@ -770,11 +869,13 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 }, 1000);
             } else {
                 setToast({ message: result.error || 'Failed to create event', type: 'error' });
+                setIsCreatingEvent(false);
             }
 
         } catch (error) {
             console.error('Creation error:', error);
             setToast({ message: 'An unexpected error occurred.', type: 'error' });
+            setIsCreatingEvent(false);
         }
     };
 
@@ -811,10 +912,11 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 {event.id === 'new' ? (
                     <button
                         onClick={handleCreateEvent}
-                        className="px-6 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-semibold hover:bg-[#2d3d6b] transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                        disabled={isCreatingEvent}
+                        className="px-6 py-2.5 bg-[#3D518C] text-white rounded-xl text-sm font-semibold hover:bg-[#2d3d6b] transition-all shadow-md hover:shadow-lg flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                        <Check size={18} />
-                        Save Event
+                        {isCreatingEvent ? <Loader2 size={18} className="animate-spin" /> : <Check size={18} />}
+                        {isCreatingEvent ? 'Saving...' : 'Save Event'}
                     </button>
                 ) : isAdmin && (
                     <button
@@ -1203,6 +1305,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                                 value={tempEventDate}
                                 onChange={(date) => setTempEventDate(date)}
                                 placeholder="Select event date"
+                                minDate={minEventDate}
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
@@ -1379,11 +1482,14 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             </Modal>
 
             {/* Agenda Modal */}
-            <Modal isOpen={activeModal === 'agenda'} onClose={() => setActiveModal(null)} title="Add Agenda Item" size="md">
+            <Modal isOpen={activeModal === 'agenda'} onClose={() => {
+                if (isSavingAgenda) return;
+                setActiveModal(null);
+            }} title="Add Agenda Item" size="md">
                 <form onSubmit={(e) => { e.preventDefault(); handleAddAgendaSlot(); }} className="space-y-6">
                     {event.startTime && event.endTime ? (
                         <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs text-indigo-700 dark:border-indigo-900/50 dark:bg-indigo-950/40 dark:text-indigo-300">
-                            Agenda time must stay within the event window: <strong>{formatTimeDisplay(event.startTime)}</strong> to <strong>{formatTimeDisplay(event.endTime)}</strong>.
+                            Agenda time must stay within the event window: <strong>{formatTimeDisplay(event.startTime)}</strong> to <strong>{formatTimeDisplay(event.endTime)}</strong>{eventSpansMidnight ? ' (next day)' : ''}.
                         </div>
                     ) : null}
                     <div>
@@ -1437,6 +1543,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     <ModalFooter
                         onCancel={() => setActiveModal(null)}
                         saveText={editingAgendaId ? "Save Changes" : "Add Item"}
+                        isSubmitting={isSavingAgenda}
                     />
                 </form>
             </Modal>

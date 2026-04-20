@@ -21,6 +21,19 @@ const initialAddOnForm: Omit<AddOn, "id" | "createdAt"> = {
   stock: 0,
 };
 
+const ADD_ON_ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "image/svg+xml",
+];
+const ADD_ON_ALLOWED_IMAGE_ACCEPT = "image/jpeg,image/jpg,image/png,image/webp,image/gif,image/avif,image/svg+xml";
+const ADD_ON_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
+const ADD_ON_ALLOWED_IMAGE_LABEL = "JPEG, PNG, WebP, GIF, AVIF, SVG";
+
 export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [addOns, setAddOns] = useState<AddOn[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -36,6 +49,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [formData, setFormData] = useState(initialAddOnForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isSavingAddOn, setIsSavingAddOn] = useState(false);
+  const [isDeletingAddOn, setIsDeletingAddOn] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -58,6 +73,16 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) newErrors.name = "Add-on name is required";
+    const normalizedName = formData.name.trim().toLowerCase();
+    if (normalizedName) {
+      const hasDuplicateName = addOns.some((addOn) =>
+        addOn.id !== editingAddOnId
+        && addOn.name.trim().toLowerCase() === normalizedName
+      );
+      if (hasDuplicateName) {
+        newErrors.name = "Add-on name must be unique";
+      }
+    }
     if (!formData.description.trim()) newErrors.description = "Description is required";
 
     if (formData.hasVariants) {
@@ -65,6 +90,17 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         newErrors.variants = "At least one variant is required when variants are enabled";
       } else if (formData.variants.some((v) => !v.label.trim() || v.stock < 0)) {
         newErrors.variants = "All variants must have a valid label and stock >= 0";
+      } else {
+        const seenLabels = new Set<string>();
+        for (const variant of formData.variants) {
+          const normalizedLabel = variant.label.trim().toLowerCase();
+          if (!normalizedLabel) continue;
+          if (seenLabels.has(normalizedLabel)) {
+            newErrors.variants = "Variant labels must be unique";
+            break;
+          }
+          seenLabels.add(normalizedLabel);
+        }
       }
     } else {
       if (formData.stock < 0) {
@@ -101,9 +137,17 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   const handleSaveAddOn = async () => {
+    if (isSavingAddOn) return;
     if (!validateForm()) return;
 
     try {
+      setIsSavingAddOn(true);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.form;
+        return next;
+      });
+
       if (editingAddOnId) {
         await updateAddOn(event.id, editingAddOnId, formData);
       } else {
@@ -113,6 +157,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       setIsModalOpen(false);
     } catch (error) {
       console.error("Failed to save add-on:", error);
+      setErrors((prev) => ({
+        ...prev,
+        form: error instanceof Error ? error.message : "Failed to save add-on",
+      }));
+    } finally {
+      setIsSavingAddOn(false);
     }
   };
 
@@ -122,22 +172,25 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isDeletingAddOn) return;
 
     try {
+      setIsDeletingAddOn(true);
       await deleteAddOn(event.id, deleteTarget);
       await loadData();
       setIsConfirmDeleteOpen(false);
       setDeleteTarget(null);
     } catch (error) {
       console.error("Failed to delete add-on:", error);
+    } finally {
+      setIsDeletingAddOn(false);
     }
   };
 
   const compressImage = (file: File, maxWidth = 1920, quality = 0.85): Promise<File> => {
     return new Promise((resolve) => {
       // Skip compression for small files (< 500KB) or non-raster formats
-      if (file.size < 512_000 || !file.type.startsWith('image/')) {
+      if (file.size < 512_000 || !file.type.startsWith('image/') || file.type === 'image/svg+xml') {
         return resolve(file);
       }
 
@@ -195,19 +248,46 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const compressed = await compressImage(file);
-      setFormData({ ...formData, imageFile: compressed });
-      setImagePreview(URL.createObjectURL(compressed));
+    if (!file) return;
+
+    if (!ADD_ON_ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setErrors((prev) => ({
+        ...prev,
+        image: `Unsupported format. Allowed: ${ADD_ON_ALLOWED_IMAGE_LABEL}`,
+      }));
+      e.target.value = "";
+      return;
     }
+
+    if (file.size > ADD_ON_MAX_IMAGE_SIZE_BYTES) {
+      setErrors((prev) => ({
+        ...prev,
+        image: "Image is too large. Maximum size is 20MB.",
+      }));
+      e.target.value = "";
+      return;
+    }
+
+    const compressed = await compressImage(file);
+    setFormData({ ...formData, imageFile: compressed });
+    setImagePreview(URL.createObjectURL(compressed));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.image;
+      return next;
+    });
   };
 
   const handleAddVariant = () => {
     if (!newVariantLabel.trim() || !newVariantStock.trim() || parseInt(newVariantStock) < 0) return;
 
+    const variantId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
     setFormData({
       ...formData,
-      variants: [...formData.variants, { id: Date.now().toString(), label: newVariantLabel, stock: parseInt(newVariantStock) }],
+      variants: [...formData.variants, { id: variantId, label: newVariantLabel, stock: parseInt(newVariantStock) }],
     });
     setNewVariantLabel("");
     setNewVariantStock("");
@@ -245,6 +325,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         </div>
         <button
           onClick={handleAddAddOn}
+          disabled={isSavingAddOn || isDeletingAddOn}
           className="px-5 py-2.5 text-sm bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 text-white font-bold rounded-xl flex items-center gap-2"
         >
           <Plus size={18} strokeWidth={3} />
@@ -262,6 +343,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-6 text-center max-w-xs">Start by creating your first add-on to offer extra value to your attendees.</p>
           <button
             onClick={handleAddAddOn}
+            disabled={isSavingAddOn || isDeletingAddOn}
             className="px-6 py-2.5 text-sm border font-bold text-[#3D518C] dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
           >
             Add New Item
@@ -357,6 +439,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                       <div className="flex gap-1.5">
                         <button
                           onClick={() => handleEditAddOn(addOn)}
+                          disabled={isSavingAddOn || isDeletingAddOn}
                           className="w-11 h-11 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-2xl transition-all"
                           title="Edit"
                         >
@@ -364,6 +447,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         </button>
                         <button
                           onClick={() => handleDeleteClick(addOn.id)}
+                          disabled={isSavingAddOn || isDeletingAddOn}
                           className="w-11 h-11 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 dark:text-gray-400 hover:text-red-500 rounded-2xl transition-all"
                           title="Delete"
                         >
@@ -382,7 +466,10 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          if (isSavingAddOn) return;
+          setIsModalOpen(false);
+        }}
         title={editingAddOnId ? "Edit Add-on" : "Create Add-on"}
       >
         <div className="space-y-4">
@@ -390,10 +477,14 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <label className="block text-sm font-medium mb-2">Add-on Image</label>
             <input
               type="file"
-              accept="image/*"
+              accept={ADD_ON_ALLOWED_IMAGE_ACCEPT}
               onChange={handleImageUpload}
               className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-l-xl file:border-0 file:text-sm file:font-semibold file:bg-[#3D518C] file:text-white hover:file:bg-indigo-700 border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]/20 transition-all cursor-pointer"
             />
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Supported formats: {ADD_ON_ALLOWED_IMAGE_LABEL}. Maximum file size: 20MB.
+            </p>
+            {errors.image && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.image}</p>}
             {formData.image && (
               <div className="mt-3">
                 <img src={imagePreview || formData.image} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
@@ -544,7 +635,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             onSave={handleSaveAddOn}
             saveText={editingAddOnId ? "Update Add-on" : "Create Add-on"}
             submitType="button"
+            isSubmitting={isSavingAddOn}
           />
+          {errors.form && (
+            <p className="text-sm text-red-600 dark:text-red-400">{errors.form}</p>
+          )}
         </div>
       </Modal>
 
@@ -594,7 +689,10 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={isConfirmDeleteOpen}
-        onClose={() => setIsConfirmDeleteOpen(false)}
+        onClose={() => {
+          if (isDeletingAddOn) return;
+          setIsConfirmDeleteOpen(false);
+        }}
         title="Delete Add-on"
       >
         <div className="space-y-4">
@@ -605,6 +703,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             saveText="Delete"
             submitType="button"
             isDanger={true}
+            isSubmitting={isDeletingAddOn}
           />
         </div>
       </Modal>

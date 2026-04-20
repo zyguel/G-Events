@@ -7,7 +7,7 @@ import { legacyAdminEventsRedirectTarget } from '@/lib/legacyAdminEventsRedirect
 const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/auth/callback']);
 const PUBLIC_ROUTE_PREFIXES = ['/auth/session-role'];
 const AUTH_VALIDATED_AT_COOKIE_NAME = 'g_events_auth_validated_at';
-const AUTH_VALIDATION_TTL_SECONDS = 90;
+const AUTH_VALIDATION_TTL_SECONDS = 300;
 const LEGACY_ADMIN_ROUTE_REDIRECTS: Record<string, string> = {
   '/admin/dashboard': '/dashboard',
   '/admin/management': '/management',
@@ -60,6 +60,17 @@ function isAdminRoute(pathname: string) {
   }
 
   return false;
+}
+
+function clearAuthCookies(request: NextRequest, response: NextResponse) {
+  response.cookies.delete(AUTH_VALIDATED_AT_COOKIE_NAME);
+  response.cookies.delete(SESSION_ROLE_COOKIE_NAME);
+
+  request.cookies.getAll().forEach(({ name }) => {
+    if (name.startsWith('sb-')) {
+      response.cookies.delete(name);
+    }
+  });
 }
 
 /**
@@ -156,17 +167,22 @@ export async function proxy(request: NextRequest) {
 
     const {
       data: { user },
+      error: userError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
+    if (userError || !user) {
       if (pathname.startsWith('/api/')) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        const unauthorizedResponse = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        clearAuthCookies(request, unauthorizedResponse);
+        return unauthorizedResponse;
       }
 
       const loginUrl = request.nextUrl.clone();
       loginUrl.pathname = '/login';
       loginUrl.searchParams.set('next', pathname + search);
-      return NextResponse.redirect(loginUrl);
+      const redirectResponse = NextResponse.redirect(loginUrl);
+      clearAuthCookies(request, redirectResponse);
+      return redirectResponse;
     }
 
     response.cookies.set(AUTH_VALIDATED_AT_COOKIE_NAME, String(Date.now()), {

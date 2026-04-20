@@ -6,12 +6,9 @@ import { getPublicAppBaseUrl } from "@/lib/appBaseUrl";
 import { sendEmail } from "@/lib/emailProvider";
 import { buildEventSlug } from "@/lib/slug";
 import { newTicketToken } from "@/lib/ticketToken";
-import { buildAndStoreTicketQrImage } from "@/lib/ticketQrStorage";
 import {
-    buildEticketUrl,
     buildGroupCompleteUrl,
-    buildGroupMemberInviteEmailHtml,
-    buildRegistrationConfirmationEmailHtml,
+    buildRegistrationCompletionEmailHtml,
 } from "@/lib/ticketEmail";
 import { getCachedEventOrders, invalidateEventOrdersCache, setCachedEventOrders } from "@/lib/eventOrdersCache";
 
@@ -529,7 +526,7 @@ export async function POST(
             }
 
             const token = newTicketToken();
-            const profilePending = isGroup && i > 0;
+            const profilePending = true;
 
             const { data: reg, error: regErr } = await supabase
                 .from("Registration")
@@ -570,52 +567,27 @@ export async function POST(
         try {
             const baseUrl = getPublicAppBaseUrl(request);
             const slug = buildEventSlug(eventRow.title, numericEventId);
-            const breakoutsEnabled = !!(eventRow as { allow_breakout_sessions?: boolean })
-                .allow_breakout_sessions;
 
-            const primary = inserted[0];
-            if (primary) {
-                const ticketUrl = buildEticketUrl(baseUrl, slug, primary.token);
-                const qrImageUrl = await buildAndStoreTicketQrImage({
-                    supabase,
-                    ticketUrl,
-                    folder: `event-${numericEventId}`,
-                });
-                const html = buildRegistrationConfirmationEmailHtml({
-                    attendeeName:
-                        primary.reg.User?.name ||
-                        attendees.find((x) => x.email.toLowerCase().trim() === primary.email)?.name ||
-                        "Attendee",
-                    eventTitle: eventRow.title,
-                    ticketName: ticket.name,
-                    qrImageUrl,
-                    ticketUrl,
-                    isGroupPrimary: isGroup && inserted.length > 1,
-                    breakoutsEnabled,
-                });
-                const to = primary.reg.User?.email || primary.email;
-                    await sendEmail({
-                    to,
-                        subject: `Your e-ticket - ${eventRow.title}`,
-                    html,
-                });
-            }
-
-            for (let i = 1; i < inserted.length; i++) {
+            for (let i = 0; i < inserted.length; i++) {
                 const row = inserted[i];
                 const completeUrl = buildGroupCompleteUrl(baseUrl, slug, row.token);
                 const to = row.reg.User?.email || row.email;
                 await sendEmail({
                     to,
-                        subject: `Complete your registration - ${eventRow.title}`,
-                    html: buildGroupMemberInviteEmailHtml({
+                    subject: `Complete your registration - ${eventRow.title}`,
+                    html: buildRegistrationCompletionEmailHtml({
+                        attendeeName:
+                            row.reg.User?.name ||
+                            attendees.find((x) => x.email.toLowerCase().trim() === row.email)?.name ||
+                            'Attendee',
                         eventTitle: eventRow.title,
                         completeUrl,
+                        isGroupRegistration: isGroup,
                     }),
                 });
             }
         } catch (emailErr) {
-            console.error("Manual add order: confirmation email failed:", emailErr);
+            console.error("Manual add order: completion email failed:", emailErr);
         }
 
         // 6. Build response objects (similar to GET)

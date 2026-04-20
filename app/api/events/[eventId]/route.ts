@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEvent, updateEvent, deleteEvent } from '@/lib/db';
+import { getEvent, updateEvent } from '@/lib/db';
 import { requireUser } from '@/lib/apiAuth';
 import { ACTIVE_ORGANIZATION_COOKIE_NAME } from '@/lib/constants';
 import { getCurrentUserActiveOrganization, parseOrganizationId } from '@/lib/auth/sessionRole';
+import { deleteEvent as deleteEventAction } from '@/lib/actions/events';
 
 async function getScopedOrganizationId(request: NextRequest) {
     const preferredOrganizationId = parseOrganizationId(
@@ -113,7 +114,14 @@ export async function DELETE(
             );
         }
 
-        await deleteEvent(id, activeOrganizationId);
+        const result = await deleteEventAction(id);
+        if (!result.success) {
+            return NextResponse.json(
+                { success: false, error: result.error || 'Failed to delete event' },
+                { status: 500 }
+            );
+        }
+
         return NextResponse.json({ success: true, message: 'Event deleted successfully' });
     } catch (error: unknown) {
         console.error('Error deleting event:', error);

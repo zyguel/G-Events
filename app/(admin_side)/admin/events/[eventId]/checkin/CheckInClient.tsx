@@ -177,6 +177,12 @@ export default function CheckInClient({ event }: CheckInClientProps) {
         }
     }, [event.id, listTab, loadAttendees, loadBreakoutRoster]);
 
+    const handleWorkflowChange = useCallback((nextWorkflow: 'checkin' | 'addon_claims') => {
+        if (nextWorkflow === 'addon_claims') {
+            setListTab('addons');
+        }
+    }, []);
+
     useEffect(() => {
         void loadAttendees();
     }, [loadAttendees]);
@@ -415,6 +421,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                             eventId={event.id}
                             onAttendanceChanged={refreshAttendance}
                             workflow={listTab === 'addons' ? 'addon_claims' : 'checkin'}
+                            onWorkflowChange={handleWorkflowChange}
                         />
                     )}
 

@@ -18,6 +18,13 @@ interface UserProfile {
     bucketAvatarUrl: string | null;
 }
 
+function isRecoverableAuthSessionError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error || '').toLowerCase();
+    return message.includes('refresh_token_not_found')
+        || message.includes('invalid refresh token')
+        || message.includes('refresh token not found');
+}
+
 export type ClientHeaderVariant = 'default' | 'guest';
 
 interface ClientHeaderProps {
@@ -141,7 +148,11 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
             try {
                 const { data, error } = await supabase.auth.getSession();
                 if (error) {
-                    console.warn('ClientHeader: failed to read auth session', error);
+                    if (isRecoverableAuthSessionError(error)) {
+                        await supabase.auth.signOut().catch(() => undefined);
+                    } else {
+                        console.warn('ClientHeader: failed to read auth session', error);
+                    }
                     if (!cancelled) {
                         setUser(null);
                     }
@@ -161,7 +172,9 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
                     setUser(null);
                 }
             } catch (error) {
-                console.warn('ClientHeader: auth session bootstrap failed', error);
+                if (!isRecoverableAuthSessionError(error)) {
+                    console.warn('ClientHeader: auth session bootstrap failed', error);
+                }
                 if (!cancelled) {
                     setUser(null);
                 }

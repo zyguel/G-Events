@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Edit2, Plus, Trash2, AlertCircle, Ticket as TicketIcon, Users, ShoppingCart, Archive, EyeOff, CalendarRange, Undo2, Trash } from "lucide-react";
+import { Edit2, Plus, Trash2, AlertCircle, Ticket as TicketIcon, Users, ShoppingCart, Archive, EyeOff, CalendarRange, Undo2, Trash, Loader2 } from "lucide-react";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import DateInput from "@/components/admin/DateInput";
 import TimeInput from "@/components/admin/TimeInput";
@@ -101,6 +101,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [dateWarning, setDateWarning] = useState<string | null>(null);
+  const [isSavingTicket, setIsSavingTicket] = useState(false);
+  const [isDeletingTicket, setIsDeletingTicket] = useState(false);
+  const [restoringTicketId, setRestoringTicketId] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
   const eventEndAt = parseDateTimeInput(event.eventEndAt);
 
   useEffect(() => {
@@ -126,6 +130,16 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     const endAt = parseDateTimeInput(formData.endDate);
 
     if (!formData.name.trim()) newErrors.name = "Ticket name is required";
+    const normalizedName = formData.name.trim().toLowerCase();
+    if (normalizedName) {
+      const hasDuplicateName = tickets.some((ticket) =>
+        ticket.id !== editingTicketId
+        && ticket.name.trim().toLowerCase() === normalizedName
+      );
+      if (hasDuplicateName) {
+        newErrors.name = "Ticket name must be unique";
+      }
+    }
     if (formData.quantity <= 0) newErrors.quantity = "Quantity must be greater than 0";
     if (formData.type === "paid" && !formData.price) newErrors.price = "Price is required for paid tickets";
     if (!formData.startDate) newErrors.startDate = "Start date is required";
@@ -150,7 +164,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     nextFormData: typeof formData,
     changedField: "startDate" | "endDate"
   ): { normalizedFormData: typeof formData; warningMessage: string | null } => {
-    let normalized = { ...nextFormData };
+    const normalized = { ...nextFormData };
     const warnings: string[] = [];
 
     if (eventEndAt) {
@@ -224,6 +238,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     setShowAdvanced(false);
     setErrors({});
     setDateWarning(null);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
@@ -247,13 +262,17 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
     setShowAdvanced(true);
     setErrors({});
     setDateWarning(null);
+    setFormError(null);
     setIsModalOpen(true);
   };
 
   const handleSaveTicket = async () => {
+    if (isSavingTicket) return;
     if (!validateForm()) return;
 
     try {
+      setIsSavingTicket(true);
+      setFormError(null);
       if (editingTicketId) {
         await updateTicket(event.id, editingTicketId, formData);
       } else {
@@ -264,6 +283,9 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       setDateWarning(null);
     } catch (error) {
       console.error("Failed to save ticket:", error);
+      setFormError(error instanceof Error ? error.message : "Failed to save ticket");
+    } finally {
+      setIsSavingTicket(false);
     }
   };
 
@@ -274,9 +296,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isDeletingTicket) return;
 
     try {
+      setIsDeletingTicket(true);
       await deleteTicket(event.id, deleteTarget);
       await loadTickets();
       setIsConfirmDeleteOpen(false);
@@ -286,15 +309,21 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       console.error("Failed to delete ticket:", error);
       const message = error instanceof Error ? error.message : "Failed to delete ticket";
       setDeleteError(message);
+    } finally {
+      setIsDeletingTicket(false);
     }
   };
 
   const handleRestoreTicket = async (ticketId: string) => {
+    if (restoringTicketId) return;
     try {
+      setRestoringTicketId(ticketId);
       await restoreTicket(event.id, ticketId);
       await loadTickets();
     } catch (error) {
       console.error("Failed to restore ticket:", error);
+    } finally {
+      setRestoringTicketId(null);
     }
   };
 
@@ -336,6 +365,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
         </div>
         <button
           onClick={handleAddTicket}
+          disabled={isSavingTicket || isDeletingTicket}
           className="px-5 py-2.5 text-sm bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 text-white font-bold rounded-xl flex items-center gap-2"
         >
           <Plus size={18} strokeWidth={3} />
@@ -480,12 +510,14 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handleEditTicket(ticket)}
+                      disabled={isSavingTicket || isDeletingTicket}
                       className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                     >
                       <Edit2 size={18} className="text-gray-600 dark:text-gray-400" />
                     </button>
                     <button
                       onClick={() => handleDeleteClick(ticket.id)}
+                      disabled={isSavingTicket || isDeletingTicket}
                       className="p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                     >
                       <Trash2 size={18} className="text-red-600" />
@@ -528,10 +560,20 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 </div>
                 <button
                   onClick={() => handleRestoreTicket(ticket.id)}
+                  disabled={restoringTicketId !== null}
                   className="inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium bg-[#3D518C] text-white hover:bg-[#2f406f] transition-colors"
                 >
-                  <Undo2 size={12} />
-                  Restore
+                  {restoringTicketId === ticket.id ? (
+                    <>
+                      <Loader2 size={12} className="animate-spin" />
+                      Restoring...
+                    </>
+                  ) : (
+                    <>
+                      <Undo2 size={12} />
+                      Restore
+                    </>
+                  )}
                 </button>
               </div>
             ))}
@@ -543,8 +585,10 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       <Modal
         isOpen={isModalOpen}
         onClose={() => {
+          if (isSavingTicket) return;
           setIsModalOpen(false);
           setDateWarning(null);
+          setFormError(null);
         }}
         title={editingTicketId ? "Edit Ticket" : "Add New Ticket"}
       >
@@ -796,11 +840,18 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             onCancel={() => {
               setIsModalOpen(false);
               setDateWarning(null);
+              setFormError(null);
             }}
             onSave={handleSaveTicket}
             saveText={editingTicketId ? "Update Ticket" : "Create Ticket"}
             submitType="button"
+            isSubmitting={isSavingTicket}
           />
+          {formError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/40 dark:bg-red-900/20 dark:text-red-300">
+              {formError}
+            </div>
+          )}
         </div>
       </Modal >
 
@@ -808,6 +859,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
       < Modal
         isOpen={isConfirmDeleteOpen}
         onClose={() => {
+          if (isDeletingTicket) return;
           setIsConfirmDeleteOpen(false);
           setDeleteError(null);
         }}
@@ -829,6 +881,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             saveText="Delete"
             submitType="button"
             isDanger={true}
+            isSubmitting={isDeletingTicket}
           />
         </div>
       </Modal >

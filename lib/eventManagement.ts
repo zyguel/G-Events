@@ -216,11 +216,29 @@ function addOnToDb(addOn: Partial<Omit<AddOn, 'id' | 'createdAt'>>) {
 
 function addOnVariantsToDb(variants: AddOnVariant[], stock?: number) {
   if (variants && variants.length > 0) {
-    return variants.map((v) => ({
-      code: v.label.toLowerCase().replace(/\s+/g, '_'),
-      label: v.label,
-      stock_total: v.stock,
-    }));
+    const seenCodes = new Set<string>();
+
+    return variants.map((v, index) => {
+      const normalizedBaseCode = v.label
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || `variant_${index + 1}`;
+
+      let code = normalizedBaseCode;
+      let suffix = 2;
+      while (seenCodes.has(code)) {
+        code = `${normalizedBaseCode}_${suffix}`;
+        suffix += 1;
+      }
+      seenCodes.add(code);
+
+      return {
+        code,
+        label: v.label,
+        stock_total: v.stock,
+      };
+    });
   }
   // When there are no named variants but stock is provided, create a default variant
   if (stock !== undefined && stock > 0) {

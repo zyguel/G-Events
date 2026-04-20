@@ -94,13 +94,34 @@ export default function RegisterPage() {
 
         setIsSubmitting(true);
 
+        const normalizedEmail = email.trim().toLowerCase();
+
+        try {
+            const accountCheckResponse = await fetch('/api/users/check-accounts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ emails: [normalizedEmail] }),
+            });
+
+            if (accountCheckResponse.ok) {
+                const accountCheckData = await accountCheckResponse.json().catch(() => ({}));
+                if (accountCheckData?.data?.[normalizedEmail] === true) {
+                    setIsSubmitting(false);
+                    setAuthError('Account exists already, please sign in or do a forgot password request.');
+                    return;
+                }
+            }
+        } catch {
+            // Continue to Supabase sign-up attempt if account pre-check is unavailable.
+        }
+
         const redirectTo = typeof window !== 'undefined'
             ? `${window.location.origin}/auth/callback?next=/dashboard`
             : '/auth/callback?next=/dashboard';
 
         const supabase = createClient();
-        const { error } = await supabase.auth.signUp({
-            email,
+        const { data, error } = await supabase.auth.signUp({
+            email: normalizedEmail,
             password,
             options: {
                 emailRedirectTo: redirectTo,
@@ -111,7 +132,18 @@ export default function RegisterPage() {
         setIsSubmitting(false);
 
         if (error) {
+            const loweredMessage = error.message.toLowerCase();
+            if (loweredMessage.includes('already') || loweredMessage.includes('exists')) {
+                setAuthError('Account exists already, please sign in or forgot password.');
+                return;
+            }
             setAuthError(error.message);
+            return;
+        }
+
+        const userIdentities = Array.isArray(data?.user?.identities) ? data.user.identities : [];
+        if (data?.user && userIdentities.length === 0) {
+            setAuthError('Account exists already, please sign in or forgot password.');
             return;
         }
 
