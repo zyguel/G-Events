@@ -269,7 +269,12 @@ export default function DashboardTabs({
                                     {data.revenueBreakdown.map((item, i) => (
                                         <div key={i}>
                                             <div className="flex justify-between items-center text-sm mb-1">
-                                                <span className="text-gray-600 dark:text-gray-300 font-medium">{item.name}</span>
+                                                <span 
+                                                    className="text-gray-600 dark:text-gray-300 font-medium cursor-default"
+                                                    title={item.name.length > 30 ? item.name : undefined}
+                                                >
+                                                    {item.name.length > 30 ? `${item.name.substring(0, 30)}...` : item.name}
+                                                </span>
                                                 <span className="text-gray-900 dark:text-white font-bold">${item.value.toLocaleString()}</span>
                                             </div>
                                             <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2.5">
@@ -381,8 +386,11 @@ export default function DashboardTabs({
                                                         <span className="text-xs text-yellow-500">{"★".repeat(comment.rating)}</span>
                                                     )}
                                                     {comment.eventName && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded font-medium">
-                                                            {comment.eventName}
+                                                        <span 
+                                                            className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded font-medium cursor-default"
+                                                            title={comment.eventName.length > 30 ? comment.eventName : undefined}
+                                                        >
+                                                            {comment.eventName.length > 30 ? `${comment.eventName.substring(0, 30)}...` : comment.eventName}
                                                         </span>
                                                     )}
                                                 </div>

@@ -7,10 +7,13 @@ import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
 import { getEvents, getGeneralAnalytics } from '@/lib/actions/events';
 import PermissionGate from '@/components/admin/PermissionGate';
 
-export default async function AggregatedAnalyticsPage() {
+export default async function AggregatedAnalyticsPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
+    const resolvedParams = await searchParams;
+    const yearParam = resolvedParams.year ? parseInt(resolvedParams.year, 10) : undefined;
+
     // Fetch real data in parallel
     const [analytics, allEventsRaw] = await Promise.all([
-        getGeneralAnalytics(),
+        getGeneralAnalytics(yearParam),
         getEvents(),
     ]);
 

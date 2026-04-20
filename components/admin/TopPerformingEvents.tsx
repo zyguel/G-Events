@@ -67,8 +67,11 @@ export default function TopPerformingEvents({ events }: TopPerformingEventsProps
                                         }`}>
                                         {index + 1}
                                     </span>
-                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate max-w-[150px]">
-                                        {event.name}
+                                    <span 
+                                        className="text-sm font-medium text-gray-700 dark:text-gray-200 cursor-default"
+                                        title={event.name.length > 30 ? event.name : undefined}
+                                    >
+                                        {event.name.length > 30 ? `${event.name.substring(0, 30)}...` : event.name}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-900 dark:text-white">

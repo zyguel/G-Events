@@ -1465,26 +1465,30 @@ function formatRelativeTime(isoString: string): string {
 
 // ΓöÇΓöÇΓöÇ General (All-Events) Analytics ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-export async function getGeneralAnalytics() {
+export async function getGeneralAnalytics(year?: number) {
     const supabase = await createClient();
 
     try {
         // 1. Total events (published or not)
-        const { count: totalEvents } = await supabase
-            .from('Event')
-            .select('*', { count: 'exact', head: true });
+        let eventQ = supabase.from('Event').select('*', { count: 'exact', head: true });
+        if (year) {
+            eventQ = eventQ.gte('event_start_at', new Date(year, 0, 1).toISOString()).lte('event_start_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { count: totalEvents } = await eventQ;
 
         // 2. Total registrations across all events (non-cancelled)
-        const { count: totalRegistrations } = await supabase
-            .from('Registration')
-            .select('*', { count: 'exact', head: true })
-            .neq('status', 'cancelled');
+        let regQ = supabase.from('Registration').select('*', { count: 'exact', head: true }).neq('status', 'cancelled');
+        if (year) {
+            regQ = regQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { count: totalRegistrations } = await regQ;
 
         // 3. Total revenue across all confirmed registrations
-        const { data: revenueData } = await supabase
-            .from('Registration')
-            .select('final_price_paid')
-            .eq('status', 'confirmed');
+        let revQ = supabase.from('Registration').select('final_price_paid').eq('status', 'confirmed');
+        if (year) {
+            revQ = revQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { data: revenueData } = await revQ;
 
         const totalRevenue = (revenueData || []).reduce(
             (sum: number, r: any) => sum + (parseFloat(r.final_price_paid) || 0), 0
@@ -1503,21 +1507,26 @@ export async function getGeneralAnalytics() {
             ? parseFloat((ratings.reduce((s: number, v: number) => s + v, 0) / ratings.length).toFixed(1))
             : 0;
 
-        // 5. Monthly registration trend for current year
-        const yearStart = new Date(new Date().getFullYear(), 0, 1).toISOString();
+        // 5. Monthly registration trend for selected year
+        const trendYear = year || new Date().getFullYear();
+        const trendStart = new Date(trendYear, 0, 1).toISOString();
+        const trendEnd = new Date(trendYear, 11, 31, 23, 59, 59, 999).toISOString();
         const { data: trendData } = await supabase
             .from('Registration')
             .select('created_at')
             .neq('status', 'cancelled')
-            .gte('created_at', yearStart)
+            .gte('created_at', trendStart)
+            .lte('created_at', trendEnd)
             .order('created_at', { ascending: true });
 
         const monthlyTrend = buildMonthlyTrend(trendData || []);
 
         // 6. Attendance breakdown across all events
-        const { data: attendanceData } = await supabase
-            .from('Registration')
-            .select('has_checked_in, is_waitlisted, status');
+        let attQ = supabase.from('Registration').select('has_checked_in, is_waitlisted, status');
+        if (year) {
+            attQ = attQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { data: attendanceData } = await attQ;
 
         const checkedIn = (attendanceData || []).filter((r: any) => r.has_checked_in).length;
         const waitlisted = (attendanceData || []).filter((r: any) => r.is_waitlisted).length;
@@ -1525,10 +1534,11 @@ export async function getGeneralAnalytics() {
         const noShow = Math.max(0, totalReg - checkedIn - waitlisted);
 
         // 7. Revenue breakdown by ticket type
-        const { data: ticketRevData } = await supabase
-            .from('Registration')
-            .select('final_price_paid, Ticket(name)')
-            .eq('status', 'confirmed');
+        let tRevQ = supabase.from('Registration').select('final_price_paid, Ticket(name)').eq('status', 'confirmed');
+        if (year) {
+            tRevQ = tRevQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { data: ticketRevData } = await tRevQ;
 
         const ticketMap: Record<string, number> = {};
         (ticketRevData || []).forEach((r: any) => {
@@ -1541,11 +1551,12 @@ export async function getGeneralAnalytics() {
             percentage: totalRevenue > 0 ? Math.round((value / totalRevenue) * 100) : 0
         }));
 
-        // 8. Top performing events ΓÇö registrations + revenue + attendance per event
-        const { data: topEventsData } = await supabase
-            .from('Registration')
-            .select('event_id, status, final_price_paid, has_checked_in, Event(title)')
-            .neq('status', 'cancelled');
+        // 8. Top performing events — registrations + revenue + attendance per event
+        let topEvQ = supabase.from('Registration').select('event_id, status, final_price_paid, has_checked_in, Event(title)').neq('status', 'cancelled');
+        if (year) {
+            topEvQ = topEvQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { data: topEventsData } = await topEvQ;
 
         const eventMap: Record<string, {
             name: string; registrations: number; revenue: number; checkedIn: number;
@@ -1573,12 +1584,11 @@ export async function getGeneralAnalytics() {
             .slice(0, 5);
 
         // 9. Recent transactions across all events
-        const { data: recentRows } = await supabase
-            .from('Registration')
-            .select('id, status, final_price_paid, created_at, Event(title), User(name)')
-            .neq('status', 'cancelled')
-            .order('created_at', { ascending: false })
-            .limit(20);
+        let recQ = supabase.from('Registration').select('id, status, final_price_paid, created_at, Event(title), User(name)').neq('status', 'cancelled');
+        if (year) {
+            recQ = recQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { data: recentRows } = await recQ.order('created_at', { ascending: false }).limit(20);
 
         const recentTransactions = (recentRows || []).map((r: any) => ({
             id: `REG-${r.id}`,
@@ -1601,11 +1611,11 @@ export async function getGeneralAnalytics() {
                 .limit(200);
 
             // Fetch FeedbackSubmission rows (new-style) for name + timestamp
-            const { data: submissionRows } = await supabase
-                .from('FeedbackSubmission')
-                .select('id, submitter_name, submitted_at, FeedbackForm(Event(title))')
-                .order('submitted_at', { ascending: false })
-                .limit(60);
+            let subQ = supabase.from('FeedbackSubmission').select('id, submitter_name, submitted_at, FeedbackForm(Event(title))');
+            if (year) {
+                subQ = subQ.gte('submitted_at', new Date(year, 0, 1).toISOString()).lte('submitted_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+            }
+            const { data: submissionRows } = await subQ.order('submitted_at', { ascending: false }).limit(60);
 
             const commentMap: Record<string, { user: string; rating: number; text: string; time: string; eventName?: string }> = {};
 
