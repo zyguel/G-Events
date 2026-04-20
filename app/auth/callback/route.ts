@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     await supabase.auth.verifyOtp({ token_hash: tokenHash, type: type as 'recovery' | 'email' | 'signup' });
   }
 
-  const redirectTo = next.startsWith('/') ? next : '/dashboard';
+  const redirectTo = next.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
 
   // Keep password recovery flow intact.
   if (type === 'recovery' || redirectTo === '/reset-password') {
