@@ -121,6 +121,11 @@ function mapDbTicket(row: any): Ticket {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbAddOn(row: any): AddOn {
   const dbVariants: any[] = row.AddOnVariant ?? [];
+  const ticketLinks: any[] = row.AddOnTicket ?? [];
+  const appliedTo: 'all' | string[] =
+    ticketLinks.length > 0
+      ? ticketLinks.map((link: any) => String(link.ticket_id))
+      : 'all';
   const variants: AddOnVariant[] = dbVariants.map((v: any) => ({
     id: String(v.id),
     label: v.label ?? v.code ?? '',
@@ -136,7 +141,7 @@ function mapDbAddOn(row: any): AddOn {
     hasVariants: row.has_variants ?? false,
     variants,
     stock: totalStock,
-    appliedTo: 'all',
+    appliedTo,
     createdAt: row.created_at ?? new Date().toISOString(),
   };
 }
@@ -294,6 +299,17 @@ function promoTicketIds(appliedTo: 'all' | string[] | undefined): number[] | und
   return appliedTo.map((id) => parseInt(id, 10)).filter((n) => !isNaN(n));
 }
 
+function addOnTicketIds(appliedTo: 'all' | string[] | undefined): number[] | undefined {
+  if (appliedTo === undefined) return undefined;
+  if (appliedTo === 'all') return [];
+
+  const normalized = appliedTo
+    .map((id) => parseInt(id, 10))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
+  return Array.from(new Set(normalized));
+}
+
 // ============================================================================
 // TICKETS CRUD
 // ============================================================================
@@ -365,6 +381,8 @@ function buildAddOnFormData(
   if (addOn.hasVariants !== undefined) fd.append('has_variants', String(addOn.hasVariants));
   if (addOn.imageFile) fd.append('image', addOn.imageFile);
   if (variants) fd.append('variants', JSON.stringify(variants));
+  const ticket_ids = addOnTicketIds(addOn.appliedTo);
+  if (ticket_ids !== undefined) fd.append('ticket_ids', JSON.stringify(ticket_ids));
   return fd;
 }
 

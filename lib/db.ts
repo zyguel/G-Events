@@ -912,6 +912,8 @@ class PromotionValidationError extends Error {
 
 const PROMOTION_CODE_PATTERN = /^[A-Z0-9_-]+$/;
 const PROMOTION_DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const ADD_ON_NAME_MAX_LENGTH = 23;
+const ADD_ON_DESCRIPTION_MAX_LENGTH = 256;
 const ADD_ON_VARIANT_LABEL_MAX_LENGTH = 30;
 const ADD_ON_VARIANT_STOCK_MAX = 1_000_000;
 const ADD_ON_VARIANT_LABEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,'&()_/-]*$/;
@@ -955,6 +957,52 @@ function normalizePromotionTicketIds(ticketIds?: number[]): number[] | undefined
     }
 
     return Array.from(new Set(normalized));
+}
+
+function normalizeAddOnTicketIds(ticketIds?: number[]): number[] | undefined {
+    if (ticketIds === undefined) return undefined;
+    if (!Array.isArray(ticketIds)) {
+        throw new AddOnValidationError('Invalid ticket selection.');
+    }
+
+    const normalized = ticketIds.map((id) => Number(id));
+    const hasInvalid = normalized.some((id) => !Number.isInteger(id) || id <= 0);
+    if (hasInvalid) {
+        throw new AddOnValidationError('Invalid ticket selection.');
+    }
+
+    return Array.from(new Set(normalized));
+}
+
+function isPermissionOrRlsError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+
+    const code = String((error as { code?: unknown }).code ?? '').toUpperCase();
+    if (code === '42501') {
+        return true;
+    }
+
+    const message = String((error as { message?: unknown }).message ?? '').toLowerCase();
+    return message.includes('row-level security') || message.includes('permission denied');
+}
+
+async function getAddOnTicketMutationClient(fallbackClient: SupabaseClient): Promise<SupabaseClient> {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return fallbackClient;
+    }
+
+    return await createAdminClient();
+}
+
+function throwAddOnTicketScopeWriteError(error: unknown): never {
+    if (isPermissionOrRlsError(error)) {
+        throw new AddOnValidationError(
+            'Failed to update add-on ticket scope due database permissions. Run the AddOnTicket grants/policies migration.',
+            500,
+        );
+    }
+
+    throw error;
 }
 
 function normalizeComparableText(value: unknown): string {
@@ -1367,7 +1415,10 @@ export async function getAddOns(eventId: number) {
         .from('AddOn')
         .select(`
             *,
-            AddOnVariant (*)
+            AddOnVariant (*),
+            AddOnTicket (
+                ticket_id
+            )
         `)
         .eq('event_id', eventId)
         .order('id', { ascending: true });
@@ -1383,7 +1434,10 @@ export async function getAddOn(addOnId: number) {
         .from('AddOn')
         .select(`
             *,
-            AddOnVariant (*)
+            AddOnVariant (*),
+            AddOnTicket (
+                ticket_id
+            )
         `)
         .eq('id', addOnId)
         .single();
@@ -1400,20 +1454,44 @@ export async function createAddOn(
         image_path?: string;
         has_variants?: boolean;
     },
-    variants?: { code: string; label: string; stock_total: number }[]
+    variants?: { code: string; label: string; stock_total: number }[],
+    ticketIds?: number[]
 ) {
     const supabase = await getSupabase();
+    const addOnTicketClient = await getAddOnTicketMutationClient(supabase);
 
     const normalizedName = String(fields.name || '').trim();
+    if (!normalizedName) {
+        throw new AddOnValidationError('Add-on name is required.');
+    }
+    if (normalizedName.length > ADD_ON_NAME_MAX_LENGTH) {
+        throw new AddOnValidationError(`Add-on name must be at most ${ADD_ON_NAME_MAX_LENGTH} characters.`);
+    }
+
+    const normalizedDescription = typeof fields.description === 'string' ? fields.description.trim() : '';
+    if (!normalizedDescription) {
+        throw new AddOnValidationError('Add-on description is required.');
+    }
+    if (normalizedDescription.length > ADD_ON_DESCRIPTION_MAX_LENGTH) {
+        throw new AddOnValidationError(`Add-on description must be at most ${ADD_ON_DESCRIPTION_MAX_LENGTH} characters.`);
+    }
+
     const normalizedVariants = normalizeAndValidateAddOnVariants(variants);
+    const normalizedTicketIds = normalizeAddOnTicketIds(ticketIds);
     if (!normalizedVariants || normalizedVariants.length === 0) {
         throw new AddOnValidationError('Add-on quantity must be greater than 0.');
     }
     await ensureUniqueAddOnName(supabase, eventId, normalizedName);
 
+    const normalizedFields = {
+        ...fields,
+        name: normalizedName,
+        description: normalizedDescription,
+    };
+
     const { data: addOn, error: addOnError } = await supabase
         .from('AddOn')
-        .insert([{ event_id: eventId, ...fields, name: normalizedName }])
+        .insert([{ event_id: eventId, ...normalizedFields }])
         .select()
         .single();
 
@@ -1450,6 +1528,21 @@ export async function createAddOn(
         }
     }
 
+    if (normalizedTicketIds && normalizedTicketIds.length > 0) {
+        const ticketRows = normalizedTicketIds.map((ticketId) => ({
+            add_on_id: addOn.id,
+            ticket_id: ticketId,
+        }));
+
+        const { error: addOnTicketError } = await addOnTicketClient
+            .from('AddOnTicket')
+            .insert(ticketRows);
+
+        if (addOnTicketError) {
+            throwAddOnTicketScopeWriteError(addOnTicketError);
+        }
+    }
+
     // Re-fetch with variants
     return getAddOn(addOn.id);
 }
@@ -1462,9 +1555,11 @@ export async function updateAddOn(
         image_path: string;
         has_variants: boolean;
     }>,
-    variants?: { id?: number; code: string; label: string; stock_total: number }[]
+    variants?: { id?: number; code: string; label: string; stock_total: number }[],
+    ticketIds?: number[]
 ) {
     const supabase = await getSupabase();
+    const addOnTicketClient = await getAddOnTicketMutationClient(supabase);
 
     const { data: beforeData, error: beforeError } = await supabase
         .from('AddOn')
@@ -1481,11 +1576,26 @@ export async function updateAddOn(
     const normalizedFields = { ...fields };
     if (typeof normalizedFields.name === 'string') {
         const nextName = normalizedFields.name.trim();
+        if (nextName.length > ADD_ON_NAME_MAX_LENGTH) {
+            throw new AddOnValidationError(`Add-on name must be at most ${ADD_ON_NAME_MAX_LENGTH} characters.`);
+        }
         await ensureUniqueAddOnName(supabase, eventId, nextName, addOnId);
         normalizedFields.name = nextName;
     }
 
+    if (typeof normalizedFields.description === 'string') {
+        const nextDescription = normalizedFields.description.trim();
+        if (!nextDescription) {
+            throw new AddOnValidationError('Add-on description is required.');
+        }
+        if (nextDescription.length > ADD_ON_DESCRIPTION_MAX_LENGTH) {
+            throw new AddOnValidationError(`Add-on description must be at most ${ADD_ON_DESCRIPTION_MAX_LENGTH} characters.`);
+        }
+        normalizedFields.description = nextDescription;
+    }
+
     const normalizedVariants = normalizeAndValidateAddOnVariants(variants);
+    const normalizedTicketIds = normalizeAddOnTicketIds(ticketIds);
     if (normalizedVariants !== undefined && normalizedVariants.length === 0) {
         throw new AddOnValidationError('Add-on quantity must be greater than 0.');
     }
@@ -1539,11 +1649,38 @@ export async function updateAddOn(
         }
     }
 
+    if (normalizedTicketIds !== undefined) {
+        const { error: addOnTicketDeleteError } = await addOnTicketClient
+            .from('AddOnTicket')
+            .delete()
+            .eq('add_on_id', addOnId);
+
+        if (addOnTicketDeleteError) {
+            throwAddOnTicketScopeWriteError(addOnTicketDeleteError);
+        }
+
+        if (normalizedTicketIds.length > 0) {
+            const ticketRows = normalizedTicketIds.map((ticketId) => ({
+                add_on_id: addOnId,
+                ticket_id: ticketId,
+            }));
+
+            const { error: addOnTicketError } = await addOnTicketClient
+                .from('AddOnTicket')
+                .insert(ticketRows);
+
+            if (addOnTicketError) {
+                throwAddOnTicketScopeWriteError(addOnTicketError);
+            }
+        }
+    }
+
     return getAddOn(addOnId);
 }
 
 export async function deleteAddOn(addOnId: number) {
     const supabase = await getSupabase();
+    const addOnTicketClient = await getAddOnTicketMutationClient(supabase);
 
     const { data: beforeData, error: beforeError } = await supabase
         .from('AddOn')
@@ -1551,6 +1688,16 @@ export async function deleteAddOn(addOnId: number) {
         .eq('id', addOnId)
         .single();
     if (beforeError) throw beforeError;
+
+    // Delete ticket associations first (FK constraint)
+    const { error: addOnTicketDeleteError } = await addOnTicketClient
+        .from('AddOnTicket')
+        .delete()
+        .eq('add_on_id', addOnId);
+
+    if (addOnTicketDeleteError) {
+        throwAddOnTicketScopeWriteError(addOnTicketDeleteError);
+    }
 
     // Delete variants first (FK constraint)
     await supabase

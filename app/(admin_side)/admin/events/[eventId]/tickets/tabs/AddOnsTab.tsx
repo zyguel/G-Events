@@ -33,6 +33,8 @@ const ADD_ON_ALLOWED_IMAGE_TYPES = [
 const ADD_ON_ALLOWED_IMAGE_ACCEPT = "image/jpeg,image/jpg,image/png,image/webp,image/gif,image/avif,image/svg+xml";
 const ADD_ON_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
 const ADD_ON_ALLOWED_IMAGE_LABEL = "JPEG, PNG, WebP, GIF, AVIF, SVG";
+const ADD_ON_NAME_MAX_LENGTH = 23;
+const ADD_ON_DESCRIPTION_MAX_LENGTH = 256;
 const VARIANT_LABEL_MAX_LENGTH = 30;
 const VARIANT_STOCK_MAX = 1_000_000;
 const VARIANT_LABEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,'&()_/-]*$/;
@@ -93,18 +95,27 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) newErrors.name = "Add-on name is required";
-    const normalizedName = formData.name.trim().toLowerCase();
-    if (normalizedName) {
+    const normalizedName = formData.name.trim();
+    if (!normalizedName) {
+      newErrors.name = "Add-on name is required";
+    } else if (normalizedName.length > ADD_ON_NAME_MAX_LENGTH) {
+      newErrors.name = `Add-on name must be at most ${ADD_ON_NAME_MAX_LENGTH} characters`;
+    } else {
       const hasDuplicateName = addOns.some((addOn) =>
         addOn.id !== editingAddOnId
-        && addOn.name.trim().toLowerCase() === normalizedName
+        && addOn.name.trim().toLowerCase() === normalizedName.toLowerCase()
       );
       if (hasDuplicateName) {
         newErrors.name = "Add-on name must be unique";
       }
     }
-    if (!formData.description.trim()) newErrors.description = "Description is required";
+
+    const normalizedDescription = formData.description.trim();
+    if (!normalizedDescription) {
+      newErrors.description = "Description is required";
+    } else if (normalizedDescription.length > ADD_ON_DESCRIPTION_MAX_LENGTH) {
+      newErrors.description = `Description must be at most ${ADD_ON_DESCRIPTION_MAX_LENGTH} characters`;
+    }
 
     if (formData.hasVariants) {
       if (formData.variants.length === 0) {
@@ -156,7 +167,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       name: addOn.name,
       description: addOn.description,
       image: addOn.image,
-      appliedTo: "all",
+      appliedTo: addOn.appliedTo,
       hasVariants: addOn.hasVariants || false,
       variants: addOn.hasVariants ? (addOn.variants || []) : [],
       stock: addOn.stock || 0,
@@ -180,7 +191,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
       const payload: Omit<AddOn, "id" | "createdAt"> = {
         ...formData,
-        appliedTo: "all",
         variants: formData.hasVariants ? formData.variants : [],
         stock: formData.hasVariants ? 0 : formData.stock,
       };
@@ -582,9 +592,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <ModalInput
               type="text"
               value={formData.name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value.slice(0, ADD_ON_NAME_MAX_LENGTH) })}
               className={errors.name ? "border-red-500" : ""}
+              maxLength={ADD_ON_NAME_MAX_LENGTH}
             />
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Maximum {ADD_ON_NAME_MAX_LENGTH} characters.</p>
             {errors.name && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.name}</p>}
           </div>
 
@@ -592,10 +604,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <label className="block text-sm font-medium mb-2">Description *</label>
             <ModalTextarea
               value={formData.description}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value.slice(0, ADD_ON_DESCRIPTION_MAX_LENGTH) })}
               rows={3}
               className={errors.description ? "border-red-500" : ""}
+              maxLength={ADD_ON_DESCRIPTION_MAX_LENGTH}
             />
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Maximum {ADD_ON_DESCRIPTION_MAX_LENGTH} characters.</p>
             {errors.description && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.description}</p>}
           </div>
 
@@ -717,11 +731,25 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
           <div>
             <label className="block text-sm font-medium mb-2">Apply To</label>
-            <div className="w-full py-2.5 px-3 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white font-medium">
-              All Tickets
-            </div>
+            <select
+              value={typeof formData.appliedTo === 'string' ? formData.appliedTo : formData.appliedTo[0] || 'all'}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({
+                ...formData,
+                appliedTo: e.target.value === 'all' ? 'all' : [e.target.value],
+              })}
+              className="w-full py-2.5 px-3 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white"
+            >
+              <option value="all">All Tickets</option>
+              {tickets.map((ticket) => (
+                <option key={ticket.id} value={ticket.id}>
+                  {ticket.name}
+                </option>
+              ))}
+            </select>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-              Applies to all current and future tickets for this event ({tickets.length} ticket type{tickets.length === 1 ? '' : 's'}).
+              {typeof formData.appliedTo === 'string'
+                ? `Applies to all current and future tickets for this event (${tickets.length} ticket type${tickets.length === 1 ? '' : 's'}).`
+                : 'Applies only to the selected ticket type.'}
             </p>
           </div>
 

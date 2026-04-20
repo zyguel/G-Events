@@ -15,6 +15,8 @@ const ALLOWED_ADD_ON_IMAGE_TYPES = new Set([
     'image/svg+xml',
 ]);
 const ALLOWED_ADD_ON_IMAGE_LABEL = 'JPEG, PNG, WebP, GIF, AVIF, SVG';
+const ADD_ON_NAME_MAX_LENGTH = 23;
+const ADD_ON_DESCRIPTION_MAX_LENGTH = 256;
 
 type AddOnVariantPayload = {
     code: string;
@@ -23,7 +25,23 @@ type AddOnVariantPayload = {
 };
 
 function getErrorMessage(error: unknown, fallback: string): string {
-    return error instanceof Error ? error.message : fallback;
+    if (error instanceof Error) {
+        return error.message;
+    }
+
+    if (typeof error === 'object' && error !== null) {
+        const maybeMessage = (error as { message?: unknown }).message;
+        if (typeof maybeMessage === 'string' && maybeMessage.trim()) {
+            return maybeMessage;
+        }
+
+        const maybeDetails = (error as { details?: unknown }).details;
+        if (typeof maybeDetails === 'string' && maybeDetails.trim()) {
+            return maybeDetails;
+        }
+    }
+
+    return fallback;
 }
 
 function getErrorStatus(error: unknown): number {
@@ -114,6 +132,29 @@ function parseVariantsPayload(variantsJson: string): AddOnVariantPayload[] {
     });
 }
 
+function parseTicketIdsPayload(ticketIdsJson: FormDataEntryValue | null): number[] | undefined {
+    if (ticketIdsJson === null) {
+        return undefined;
+    }
+
+    if (typeof ticketIdsJson !== 'string') {
+        throw new Error('Ticket selection payload must be a JSON array.');
+    }
+
+    const parsed = JSON.parse(ticketIdsJson) as unknown;
+    if (!Array.isArray(parsed)) {
+        throw new Error('Ticket selection payload must be an array.');
+    }
+
+    const normalized = parsed.map((id) => Number(id));
+    const hasInvalid = normalized.some((id) => !Number.isInteger(id) || id <= 0);
+    if (hasInvalid) {
+        throw new Error('Ticket selection payload contains invalid IDs.');
+    }
+
+    return Array.from(new Set(normalized));
+}
+
 function validateVariantsPayload(variants: AddOnVariantPayload[] | undefined, hasVariants: boolean): string | null {
     if (!variants || variants.length === 0) {
         return 'Quantity is required and must be greater than 0.';
@@ -186,9 +227,32 @@ export async function POST(
         const variantsJson = formData.get('variants') as string | null;
         const imageFile = formData.get('image') as File | null;
 
-        if (!name) {
+        const normalizedName = typeof name === 'string' ? name.trim() : '';
+        if (!normalizedName) {
             return NextResponse.json(
                 { success: false, error: 'Add-on name is required' },
+                { status: 400 }
+            );
+        }
+
+        if (normalizedName.length > ADD_ON_NAME_MAX_LENGTH) {
+            return NextResponse.json(
+                { success: false, error: `Add-on name must be at most ${ADD_ON_NAME_MAX_LENGTH} characters.` },
+                { status: 400 }
+            );
+        }
+
+        const normalizedDescription = typeof description === 'string' ? description.trim() : '';
+        if (!normalizedDescription) {
+            return NextResponse.json(
+                { success: false, error: 'Add-on description is required.' },
+                { status: 400 }
+            );
+        }
+
+        if (normalizedDescription.length > ADD_ON_DESCRIPTION_MAX_LENGTH) {
+            return NextResponse.json(
+                { success: false, error: `Add-on description must be at most ${ADD_ON_DESCRIPTION_MAX_LENGTH} characters.` },
                 { status: 400 }
             );
         }
@@ -218,6 +282,16 @@ export async function POST(
             }
         }
 
+        let ticketIds: number[] | undefined;
+        try {
+            ticketIds = parseTicketIdsPayload(formData.get('ticket_ids'));
+        } catch {
+            return NextResponse.json(
+                { success: false, error: 'Invalid ticket_ids payload.' },
+                { status: 400 }
+            );
+        }
+
         const variantsError = validateVariantsPayload(variants, has_variants);
         if (variantsError) {
             return NextResponse.json(
@@ -229,12 +303,13 @@ export async function POST(
         const addOn = await createAddOn(
             id,
             {
-                name,
-                description: description ?? undefined,
+                name: normalizedName,
+                description: normalizedDescription,
                 image_path,
                 has_variants,
             },
-            variants
+            variants,
+            ticketIds
         );
 
         return NextResponse.json({ success: true, data: addOn }, { status: 201 });
