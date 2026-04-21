@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3, Save, Loader } from "lucide-react";
+import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3, Save, Loader, Check } from "lucide-react";
 
 type InputType = "short_answer" | "paragraph" | "multiple_choice" | "checkboxes" | "dropdown" | "file_upload" | "multiple_choice_grid" | "checkbox_grid" | "date" | "time";
 
@@ -14,6 +14,25 @@ interface FormInput {
     required: boolean;
     options?: string[];
 }
+
+// Toast Component
+const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 4000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    const bgColor = type === 'success' ? 'from-emerald-500 to-green-600' : type === 'error' ? 'from-red-500 to-rose-600' : 'from-blue-500 to-indigo-600';
+
+    return (
+        <div className={`fixed bottom-6 right-6 z-100 bg-gradient-to-r ${bgColor} text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-slide-up`}>
+            <div className="w-8 h-8 bg-white/20 rounded-lg flex items-center justify-center">
+                <Check size={18} />
+            </div>
+            <span className="font-medium">{message}</span>
+        </div>
+    );
+};
 
 interface FormSection {
     id: string;
@@ -103,9 +122,10 @@ export default function OrderForm({
     const [editingInput, setEditingInput] = useState<string | null>(null);
     const [previewMode, setPreviewMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    const [saveMessage, setSaveMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [hasLoaded, setHasLoaded] = useState(false);
+    const [showValidationErrors, setShowValidationErrors] = useState(false);
     const lastLoadedIdRef = useRef<string | null>(null);
 
     const loadForm = async (id: number) => {
@@ -127,7 +147,7 @@ export default function OrderForm({
                 if (result.data.form_data) {
                     setData(result.data.form_data);
                 }
-                setSaveMessage(null);
+                setToast(null);
                 setHasLoaded(true);
                 lastLoadedIdRef.current = idStr;
             } else {
@@ -135,7 +155,7 @@ export default function OrderForm({
             }
         } catch (e) {
             console.error('Failed to load form:', e);
-            setSaveMessage({ type: 'error', text: `Failed to load form: ${e instanceof Error ? e.message : 'Unknown error'}` });
+            setToast({ type: 'error', message: `Failed to load form: ${e instanceof Error ? e.message : 'Unknown error'}` });
             setHasLoaded(true);
         } finally {
             setIsLoading(false);
@@ -163,7 +183,7 @@ export default function OrderForm({
                 if (existingForm.form_data) {
                     setData(existingForm.form_data);
                 }
-                setSaveMessage(null);
+                setToast(null);
                 lastLoadedIdRef.current = foundId;
 
                 // Sync URL if needed
@@ -181,7 +201,7 @@ export default function OrderForm({
             setHasLoaded(true);
         } catch (e) {
             console.error('Failed to load existing form for event:', e);
-            setSaveMessage({ type: 'error', text: `Failed to load form: ${e instanceof Error ? e.message : 'Unknown error'}` });
+            setToast({ type: 'error', message: `Failed to load form: ${e instanceof Error ? e.message : 'Unknown error'}` });
             setHasLoaded(true);
         } finally {
             setIsLoading(false);
@@ -210,8 +230,26 @@ export default function OrderForm({
     }, [eventId, formId]);
 
     const handleSaveForm = async () => {
+        // Validation check
+        let isFormValid = true;
+        if (!formTitle.trim()) isFormValid = false;
+        
+        for (const section of data.sections) {
+            if (!section.title.trim()) isFormValid = false;
+            for (const input of section.inputs) {
+                if (!input.question.trim()) isFormValid = false;
+            }
+        }
+
+        if (!isFormValid) {
+            setShowValidationErrors(true);
+            return;
+        }
+
+        // Proceed with saving
+        setShowValidationErrors(false);
         setIsSaving(true);
-        setSaveMessage(null);
+        setToast(null);
 
         try {
             const endpoint = currentFormId
@@ -225,8 +263,8 @@ export default function OrderForm({
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     eventId: parseInt(eventId),
-                    title: formTitle,
-                    description: formDescription,
+                    title: formTitle.trim(),
+                    description: formDescription.trim(),
                     form_data: data
                 })
             });
@@ -238,7 +276,7 @@ export default function OrderForm({
             const result = await response.json();
 
             if (result.success) {
-                setSaveMessage({ type: 'success', text: result.message || 'Form saved successfully!' });
+                setToast({ type: 'success', message: result.message || 'Form saved successfully!' });
 
                 // If this was a new form (no currentFormId), navigate with the returned formId as query param
                 if (!currentFormId && result.formId) {
@@ -247,14 +285,11 @@ export default function OrderForm({
                         router.push(`/admin/events/${eventPathId}/orderform?formId=${result.formId}`);
                     }, 1500); // Wait a bit so user sees success message
                 }
-
-                // Auto-dismiss message after 3 seconds
-                setTimeout(() => setSaveMessage(null), 3000);
             } else {
-                setSaveMessage({ type: 'error', text: result.error || 'Failed to save form' });
+                setToast({ type: 'error', message: result.error || 'Failed to save form' });
             }
         } catch (e) {
-            setSaveMessage({ type: 'error', text: e instanceof Error ? e.message : 'An error occurred' });
+            setToast({ type: 'error', message: e instanceof Error ? e.message : 'An error occurred' });
         } finally {
             setIsSaving(false);
         }
@@ -519,17 +554,16 @@ export default function OrderForm({
 
     return (
         <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans">
-            {/* Save Status Message */}
-            {saveMessage && (
-                <div className={`p-4 rounded-lg flex items-center gap-3 ${saveMessage.type === 'success'
-                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200'
-                        : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200'
-                    }`}>
-                    <div className={`w-4 h-4 rounded-full ${saveMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-                        }`}></div>
-                    {saveMessage.text}
-                </div>
-            )}
+            <style jsx global>{`
+                @keyframes slide-up {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-slide-up { animation: slide-up 0.3s ease-out; }
+            `}</style>
+
+            {/* Toast Notification */}
+            {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
             {/* Page Header */}
             <div className="space-y-4">
@@ -556,9 +590,12 @@ export default function OrderForm({
                                 type="text"
                                 value={formTitle}
                                 onChange={(e) => setFormTitle(e.target.value)}
-                                className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-lg font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${showValidationErrors && !formTitle.trim() ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-lg text-lg font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
                                 placeholder="Enter form title"
                             />
+                            {showValidationErrors && !formTitle.trim() && (
+                                <p className="text-red-500 text-xs mt-1 font-medium italic">Form requires a title.</p>
+                            )}
                         </div>
                         <div>
                             <label className="text-sm font-medium text-gray-700 dark:text-gray-300 block mb-2">Form Description (optional)</label>
@@ -575,7 +612,7 @@ export default function OrderForm({
                             <button
                                 onClick={handleSaveForm}
                                 disabled={isSaving}
-                                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-linear-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-linear-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
                                 {isSaving ? (
                                     <>
@@ -592,7 +629,7 @@ export default function OrderForm({
                             <button
                                 onClick={() => setPreviewMode(true)}
                                 disabled={isSaving}
-                                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                             >
                                 <Eye className="w-4 h-4" />
                                 Preview
@@ -637,9 +674,12 @@ export default function OrderForm({
                                             value={section.title}
                                             maxLength={50}
                                             onChange={(e) => updateSection(section.id, { title: e.target.value })}
-                                            className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-base font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] transition-all"
+                                            className={`w-full px-4 py-2.5 bg-white dark:bg-gray-700 border ${showValidationErrors && !section.title.trim() ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-lg text-base font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] transition-all`}
                                             placeholder="Enter section title…"
                                         />
+                                        {showValidationErrors && !section.title.trim() && (
+                                            <p className="text-red-500 text-[10px] mt-1 font-medium italic">Sections requires a title.</p>
+                                        )}
                                     </div>
 
                                     {/* Description row */}
@@ -670,7 +710,7 @@ export default function OrderForm({
                                     <div className="flex justify-end">
                                         <button
                                             onClick={() => deleteSection(section.id)}
-                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all cursor-pointer"
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                             Delete Section
@@ -688,7 +728,7 @@ export default function OrderForm({
                                         </p>
                                         <button
                                             onClick={() => addInput(section.id)}
-                                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
+                                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all cursor-pointer"
                                         >
                                             <Plus className="w-4 h-4" />
                                             Add Field
@@ -710,9 +750,12 @@ export default function OrderForm({
                                                                     type="text"
                                                                     value={input.question}
                                                                     onChange={(e) => updateInput(section.id, input.id, { question: e.target.value })}
-                                                                    className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                                                    className={`w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border ${showValidationErrors && !input.question.trim() ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] transition-all`}
                                                                     placeholder="Enter question"
                                                                 />
+                                                                {showValidationErrors && !input.question.trim() && (
+                                                                    <p className="text-red-500 text-[10px] mt-1 font-medium italic">Question requires a question title.</p>
+                                                                )}
                                                             </div>
                                                             <div>
                                                                 <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Input Type</label>
@@ -763,7 +806,7 @@ export default function OrderForm({
                                                                                     const newOptions = input.options?.filter((_, i) => i !== idx) || [];
                                                                                     updateInput(section.id, input.id, { options: newOptions });
                                                                                 }}
-                                                                                className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                                                className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer"
                                                                                 title="Delete option"
                                                                             >
                                                                                 <Trash2 className="w-4 h-4" />
@@ -776,7 +819,7 @@ export default function OrderForm({
                                                                             const newOptions = [...(input.options || []), ""];
                                                                             updateInput(section.id, input.id, { options: newOptions });
                                                                         }}
-                                                                        className="w-full py-2 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2"
+                                                                        className="w-full py-2 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2 cursor-pointer"
                                                                     >
                                                                         <Plus className="w-4 h-4" />
                                                                         Add Option
@@ -800,13 +843,14 @@ export default function OrderForm({
                                                         <div className="flex gap-2">
                                                             <button
                                                                 onClick={() => setEditingInput(null)}
-                                                                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
+                                                                disabled={!input.question.trim()}
+                                                                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                                                             >
                                                                 Done
                                                             </button>
                                                             <button
                                                                 onClick={() => deleteInput(section.id, input.id)}
-                                                                className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
+                                                                className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all cursor-pointer"
                                                             >
                                                                 <Trash2 className="w-4 h-4" />
                                                             </button>
@@ -820,8 +864,8 @@ export default function OrderForm({
                                                         <div className="flex items-start justify-between gap-4">
                                                             <div className="flex-1">
                                                                 <div className="flex items-center gap-2">
-                                                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                                        {input.question}
+                                                                    <p className={`text-sm font-medium ${showValidationErrors && !input.question.trim() ? 'text-red-500 italic' : 'text-gray-900 dark:text-white'}`}>
+                                                                        {input.question || (showValidationErrors ? 'Question requires a question title.' : 'Untitled Question')}
                                                                     </p>
                                                                     {input.required && (
                                                                         <span className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
@@ -835,16 +879,6 @@ export default function OrderForm({
                                                                 </div>
                                                             </div>
                                                             <div className="flex gap-2">
-                                                                <button
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        duplicateInput(section.id, input.id);
-                                                                    }}
-                                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-[#3D518C] dark:hover:text-[#5C6BC0] transition-colors"
-                                                                    title="Duplicate field"
-                                                                >
-                                                                    <Copy className="w-4 h-4" />
-                                                                </button>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -854,7 +888,7 @@ export default function OrderForm({
 
                                         <button
                                             onClick={() => addInput(section.id)}
-                                            className="w-full py-2.5 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border-2 border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2"
+                                            className="w-full py-2.5 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border-2 border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2 cursor-pointer"
                                         >
                                             <Plus className="w-4 h-4" />
                                             Add Field
@@ -870,7 +904,7 @@ export default function OrderForm({
             {/* Add Section Button */}
             <button
                 onClick={addSection}
-                className="w-full py-3 text-sm font-semibold text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2"
+                className="w-full py-3 text-sm font-semibold text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
             >
                 <Plus className="w-5 h-5" />
                 Add New Section
