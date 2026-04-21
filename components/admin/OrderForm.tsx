@@ -62,13 +62,13 @@ const FIELD_IDENTIFIERS = [
     { value: "custom", label: "Custom Field" }
 ];
 
-export default function OrderForm({ 
-    eventId, 
+export default function OrderForm({
+    eventId,
     formId,
     eventSlug,
     initialTitle = "New Order Form",
     initialDescription = ""
-}: { 
+}: {
     eventId: string
     formId?: string
     eventSlug?: string
@@ -111,7 +111,7 @@ export default function OrderForm({
     const loadForm = async (id: number) => {
         const idStr = id.toString();
         if (lastLoadedIdRef.current === idStr) return;
-        
+
         setIsLoading(true);
         try {
             console.log('Fetching form from API:', id);
@@ -120,7 +120,7 @@ export default function OrderForm({
                 throw new Error(`API Error: ${response.status}`);
             }
             const result = await response.json();
-            
+
             if (result.data && result.success) {
                 setFormTitle(result.data.title || initialTitle);
                 setFormDescription(result.data.description || initialDescription);
@@ -192,7 +192,7 @@ export default function OrderForm({
     useEffect(() => {
         // If the current prop matches what we last loaded, don't re-fetch
         if (formId && formId === lastLoadedIdRef.current) return;
-        
+
         const init = async () => {
             const eventIdNum = parseInt(eventId);
             if (formId) {
@@ -214,12 +214,12 @@ export default function OrderForm({
         setSaveMessage(null);
 
         try {
-            const endpoint = currentFormId 
+            const endpoint = currentFormId
                 ? `/api/orderform/${currentFormId}`
                 : '/api/orderform';
-            
+
             const method = currentFormId ? 'PUT' : 'POST';
-            
+
             const response = await fetch(endpoint, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
@@ -239,7 +239,7 @@ export default function OrderForm({
 
             if (result.success) {
                 setSaveMessage({ type: 'success', text: result.message || 'Form saved successfully!' });
-                
+
                 // If this was a new form (no currentFormId), navigate with the returned formId as query param
                 if (!currentFormId && result.formId) {
                     setCurrentFormId(result.formId.toString());
@@ -247,7 +247,7 @@ export default function OrderForm({
                         router.push(`/admin/events/${eventPathId}/orderform?formId=${result.formId}`);
                     }, 1500); // Wait a bit so user sees success message
                 }
-                
+
                 // Auto-dismiss message after 3 seconds
                 setTimeout(() => setSaveMessage(null), 3000);
             } else {
@@ -521,14 +521,12 @@ export default function OrderForm({
         <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans">
             {/* Save Status Message */}
             {saveMessage && (
-                <div className={`p-4 rounded-lg flex items-center gap-3 ${
-                    saveMessage.type === 'success' 
-                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200' 
+                <div className={`p-4 rounded-lg flex items-center gap-3 ${saveMessage.type === 'success'
+                        ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200'
                         : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200'
-                }`}>
-                    <div className={`w-4 h-4 rounded-full ${
-                        saveMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'
-                    }`}></div>
+                    }`}>
+                    <div className={`w-4 h-4 rounded-full ${saveMessage.type === 'success' ? 'bg-green-500' : 'bg-red-500'
+                        }`}></div>
                     {saveMessage.text}
                 </div>
             )}
@@ -612,252 +610,260 @@ export default function OrderForm({
                 </div>
             ) : (
                 <div className="space-y-6">
-                {data.sections.map((section, sectionIndex) => (
-                    <div
-                        key={section.id}
-                        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md"
-                    >
-                        {/* Section Header */}
-                        <div className="p-6 border-b border-[#3D518C]/10 bg-linear-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
-                            <div className="flex items-start justify-between gap-4">
-                                <div className="flex-1">
-                                    {editingSection === section.id ? (
-                                        <div className="space-y-3">
-                                            <input
-                                                type="text"
-                                                value={section.title}
-                                                onChange={(e) => updateSection(section.id, { title: e.target.value })}
-                                                className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-lg font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                placeholder="Section title"
-                                            />
-                                            <textarea
-                                                value={section.description}
-                                                onChange={(e) => updateSection(section.id, { description: e.target.value })}
-                                                className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                placeholder="Section description (optional)"
-                                                rows={2}
-                                            />
-                                            <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => setEditingSection(null)}
-                                                    className="px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
-                                                >
-                                                    Done
-                                                </button>
-                                                <button
-                                                    onClick={() => {
-                                                        deleteSection(section.id);
-                                                    }}
-                                                    className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
-                                                >
-                                                    Delete Section
-                                                </button>
-                                            </div>
+                    {data.sections.map((section, sectionIndex) => (
+                        <div
+                            key={section.id}
+                            className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md"
+                        >
+                            {/* Section Header — always editable */}
+                            <div className="px-6 pt-5 pb-4 border-b border-[#3D518C]/10 bg-linear-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10">
+                                <div className="space-y-3">
+                                    {/* Title row */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-xs font-semibold text-[#3D518C] dark:text-indigo-300 uppercase tracking-wide">
+                                                Section Title
+                                            </label>
+                                            <span className={`text-[10px] font-medium tabular-nums ${
+                                                section.title.length >= 50
+                                                    ? 'text-red-500'
+                                                    : 'text-gray-400 dark:text-gray-500'
+                                            }`}>
+                                                {section.title.length}/50
+                                            </span>
                                         </div>
-                                    ) : (
-                                        <div
-                                            onClick={() => setEditingSection(section.id)}
-                                            className="cursor-pointer hover:opacity-80 transition-opacity"
+                                        <input
+                                            type="text"
+                                            value={section.title}
+                                            maxLength={50}
+                                            onChange={(e) => updateSection(section.id, { title: e.target.value })}
+                                            className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-base font-semibold text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] transition-all"
+                                            placeholder="Enter section title…"
+                                        />
+                                    </div>
+
+                                    {/* Description row */}
+                                    <div>
+                                        <div className="flex items-center justify-between mb-1">
+                                            <label className="text-xs font-semibold text-[#3D518C] dark:text-indigo-300 uppercase tracking-wide">
+                                                Section Description <span className="font-normal normal-case text-gray-400">(optional)</span>
+                                            </label>
+                                            <span className={`text-[10px] font-medium tabular-nums ${
+                                                section.description.length >= 250
+                                                    ? 'text-red-500'
+                                                    : 'text-gray-400 dark:text-gray-500'
+                                            }`}>
+                                                {section.description.length}/250
+                                            </span>
+                                        </div>
+                                        <textarea
+                                            value={section.description}
+                                            maxLength={250}
+                                            onChange={(e) => updateSection(section.id, { description: e.target.value })}
+                                            className="w-full px-4 py-2.5 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-600 dark:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#3D518C] transition-all resize-none"
+                                            placeholder="Describe this section…"
+                                            rows={2}
+                                        />
+                                    </div>
+
+                                    {/* Delete button — always shown */}
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={() => deleteSection(section.id)}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
                                         >
-                                            <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                                {section.title}
-                                            </h2>
-                                            {section.description && (
-                                                <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70 mt-1">
-                                                    {section.description}
-                                                </p>
-                                            )}
-                                        </div>
-                                    )}
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                            Delete Section
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Section Inputs */}
-                        <div className="p-6 space-y-4">
-                            {section.inputs.length === 0 ? (
-                                <div className="text-center py-8">
-                                    <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
-                                        No fields added yet
-                                    </p>
-                                    <button
-                                        onClick={() => addInput(section.id)}
-                                        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Add Field
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    {section.inputs.map((input) => (
-                                        <div
-                                            key={input.id}
-                                            className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border border-gray-200 dark:border-gray-600 transition-all hover:border-[#3D518C]/30"
+                            {/* Section Inputs */}
+                            <div className="p-6 space-y-4">
+                                {section.inputs.length === 0 ? (
+                                    <div className="text-center py-8">
+                                        <p className="text-gray-500 dark:text-gray-400 text-sm mb-4">
+                                            No fields added yet
+                                        </p>
+                                        <button
+                                            onClick={() => addInput(section.id)}
+                                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
                                         >
-                                            {editingInput === input.id ? (
-                                                <div className="space-y-4">
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <div className="col-span-2">
-                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Question</label>
-                                                            <input
-                                                                type="text"
-                                                                value={input.question}
-                                                                onChange={(e) => updateInput(section.id, input.id, { question: e.target.value })}
-                                                                className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                                placeholder="Enter question"
-                                                            />
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Input Type</label>
-                                                            <select
-                                                                value={input.type}
-                                                                onChange={(e) => updateInput(section.id, input.id, { type: e.target.value as FormInput["type"] })}
-                                                                className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                            >
-                                                                {INPUT_TYPES.map(type => (
-                                                                    <option key={type.value} value={type.value}>{type.label}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                        <div>
-                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Field Identifier</label>
-                                                            <select
-                                                                value={input.fieldIdentifier}
-                                                                onChange={(e) => updateInput(section.id, input.id, { fieldIdentifier: e.target.value })}
-                                                                className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                            >
-                                                                {FIELD_IDENTIFIERS.map(field => (
-                                                                    <option key={field.value} value={field.value}>{field.label}</option>
-                                                                ))}
-                                                            </select>
-                                                        </div>
-                                                    </div>
-
-                                                    {(input.type === "dropdown" || input.type === "checkboxes" || input.type === "multiple_choice" || input.type === "multiple_choice_grid" || input.type === "checkbox_grid") && (
-                                                        <div>
-                                                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase mb-3 block">Options</label>
-                                                            <div className="space-y-2">
-                                                                {(input.options || []).map((option, idx) => (
-                                                                    <div key={idx} className="flex gap-2 items-center">
-                                                                        <input
-                                                                            type="text"
-                                                                            value={option}
-                                                                            onChange={(e) => {
-                                                                                const newOptions = [...(input.options || [])];
-                                                                                newOptions[idx] = e.target.value;
-                                                                                updateInput(section.id, input.id, { options: newOptions });
-                                                                            }}
-                                                                            className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                                            placeholder={`Option ${idx + 1}`}
-                                                                        />
-                                                                        <button
-                                                                            type="button"
-                                                                            onClick={() => {
-                                                                                const newOptions = input.options?.filter((_, i) => i !== idx) || [];
-                                                                                updateInput(section.id, input.id, { options: newOptions });
-                                                                            }}
-                                                                            className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                                                                            title="Delete option"
-                                                                        >
-                                                                            <Trash2 className="w-4 h-4" />
-                                                                        </button>
-                                                                    </div>
-                                                                ))}
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => {
-                                                                        const newOptions = [...(input.options || []), ""];
-                                                                        updateInput(section.id, input.id, { options: newOptions });
-                                                                    }}
-                                                                    className="w-full py-2 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2"
+                                            <Plus className="w-4 h-4" />
+                                            Add Field
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {section.inputs.map((input) => (
+                                            <div
+                                                key={input.id}
+                                                className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border border-gray-200 dark:border-gray-600 transition-all hover:border-[#3D518C]/30"
+                                            >
+                                                {editingInput === input.id ? (
+                                                    <div className="space-y-4">
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            <div className="col-span-2">
+                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Question</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={input.question}
+                                                                    onChange={(e) => updateInput(section.id, input.id, { question: e.target.value })}
+                                                                    className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                                                    placeholder="Enter question"
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Input Type</label>
+                                                                <select
+                                                                    value={input.type}
+                                                                    onChange={(e) => updateInput(section.id, input.id, { type: e.target.value as FormInput["type"] })}
+                                                                    className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
                                                                 >
-                                                                    <Plus className="w-4 h-4" />
-                                                                    Add Option
-                                                                </button>
+                                                                    {INPUT_TYPES.map(type => (
+                                                                        <option key={type.value} value={type.value}>{type.label}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            <div>
+                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Field Identifier</label>
+                                                                <select
+                                                                    value={input.fieldIdentifier}
+                                                                    onChange={(e) => updateInput(section.id, input.id, { fieldIdentifier: e.target.value })}
+                                                                    className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                                                >
+                                                                    {FIELD_IDENTIFIERS.map(field => (
+                                                                        <option key={field.value} value={field.value}>{field.label}</option>
+                                                                    ))}
+                                                                </select>
                                                             </div>
                                                         </div>
-                                                    )}
 
-                                                    <div className="flex items-center gap-3">
-                                                        <label className="flex items-center gap-2 cursor-pointer">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={input.required}
-                                                                onChange={(e) => updateInput(section.id, input.id, { required: e.target.checked })}
-                                                                className="w-4 h-4 rounded border-gray-300 text-[#3D518C] focus:ring-[#3D518C]"
-                                                            />
-                                                            <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Required</span>
-                                                        </label>
-                                                    </div>
+                                                        {(input.type === "dropdown" || input.type === "checkboxes" || input.type === "multiple_choice" || input.type === "multiple_choice_grid" || input.type === "checkbox_grid") && (
+                                                            <div>
+                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase mb-3 block">Options</label>
+                                                                <div className="space-y-2">
+                                                                    {(input.options || []).map((option, idx) => (
+                                                                        <div key={idx} className="flex gap-2 items-center">
+                                                                            <input
+                                                                                type="text"
+                                                                                value={option}
+                                                                                onChange={(e) => {
+                                                                                    const newOptions = [...(input.options || [])];
+                                                                                    newOptions[idx] = e.target.value;
+                                                                                    updateInput(section.id, input.id, { options: newOptions });
+                                                                                }}
+                                                                                className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                                                                placeholder={`Option ${idx + 1}`}
+                                                                            />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const newOptions = input.options?.filter((_, i) => i !== idx) || [];
+                                                                                    updateInput(section.id, input.id, { options: newOptions });
+                                                                                }}
+                                                                                className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                                                                title="Delete option"
+                                                                            >
+                                                                                <Trash2 className="w-4 h-4" />
+                                                                            </button>
+                                                                        </div>
+                                                                    ))}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const newOptions = [...(input.options || []), ""];
+                                                                            updateInput(section.id, input.id, { options: newOptions });
+                                                                        }}
+                                                                        className="w-full py-2 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2"
+                                                                    >
+                                                                        <Plus className="w-4 h-4" />
+                                                                        Add Option
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
 
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            onClick={() => setEditingInput(null)}
-                                                            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
-                                                        >
-                                                            Done
-                                                        </button>
-                                                        <button
-                                                            onClick={() => deleteInput(section.id, input.id)}
-                                                            className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <div
-                                                    onClick={() => setEditingInput(input.id)}
-                                                    className="cursor-pointer"
-                                                >
-                                                    <div className="flex items-start justify-between gap-4">
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2">
-                                                                <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                                                    {input.question}
-                                                                </p>
-                                                                {input.required && (
-                                                                    <span className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
-                                                                        Required
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                                <span>Type: <span className="font-medium">{INPUT_TYPES.find(t => t.value === input.type)?.label}</span></span>
-                                                                <span>ID: <span className="font-medium">{input.fieldIdentifier}</span></span>
-                                                            </div>
+                                                        <div className="flex items-center gap-3">
+                                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={input.required}
+                                                                    onChange={(e) => updateInput(section.id, input.id, { required: e.target.checked })}
+                                                                    className="w-4 h-4 rounded border-gray-300 text-[#3D518C] focus:ring-[#3D518C]"
+                                                                />
+                                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Required</span>
+                                                            </label>
                                                         </div>
+
                                                         <div className="flex gap-2">
                                                             <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    duplicateInput(section.id, input.id);
-                                                                }}
-                                                                className="p-2 text-gray-500 dark:text-gray-400 hover:text-[#3D518C] dark:hover:text-[#5C6BC0] transition-colors"
-                                                                title="Duplicate field"
+                                                                onClick={() => setEditingInput(null)}
+                                                                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all"
                                                             >
-                                                                <Copy className="w-4 h-4" />
+                                                                Done
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteInput(section.id, input.id)}
+                                                                className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
                                                             </button>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
+                                                ) : (
+                                                    <div
+                                                        onClick={() => setEditingInput(input.id)}
+                                                        className="cursor-pointer"
+                                                    >
+                                                        <div className="flex items-start justify-between gap-4">
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                                                        {input.question}
+                                                                    </p>
+                                                                    {input.required && (
+                                                                        <span className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
+                                                                            Required
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                                                    <span>Type: <span className="font-medium">{INPUT_TYPES.find(t => t.value === input.type)?.label}</span></span>
+                                                                    <span>ID: <span className="font-medium">{input.fieldIdentifier}</span></span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        duplicateInput(section.id, input.id);
+                                                                    }}
+                                                                    className="p-2 text-gray-500 dark:text-gray-400 hover:text-[#3D518C] dark:hover:text-[#5C6BC0] transition-colors"
+                                                                    title="Duplicate field"
+                                                                >
+                                                                    <Copy className="w-4 h-4" />
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
 
-                                    <button
-                                        onClick={() => addInput(section.id)}
-                                        className="w-full py-2.5 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border-2 border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Add Field
-                                    </button>
-                                </>
-                            )}
+                                        <button
+                                            onClick={() => addInput(section.id)}
+                                            className="w-full py-2.5 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border-2 border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            Add Field
+                                        </button>
+                                    </>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
                 </div>
             )}
 
