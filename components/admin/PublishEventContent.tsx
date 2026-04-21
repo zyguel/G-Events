@@ -108,7 +108,9 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                     allow_group_registration: settings.allowGroupRegistration,
                     allow_waitlist: settings.allowWaitlist,
                     allow_breakout_sessions: settings.enableBreakoutSession,
-                    is_visible: settings.isVisibleToPublic,
+                    // First-time publish always exposes the landing page to the public.
+                    // After that, "Save changes" keeps the current visibility from settings.
+                    is_visible: isEventPublished ? settings.isVisibleToPublic : true,
                     registration_open_at: regStart,
                     registration_close_at: regEnd
                 });
@@ -143,6 +145,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
             }
 
             setLocalStatus('Published');
+            setSettings((prev) => ({ ...prev, isVisibleToPublic: true }));
             setShowSuccessModal(true);
 
         } catch (e) {
@@ -166,7 +169,8 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                 const { updateEvent } = await import('@/lib/actions/events');
 
                 const res = await updateEvent(id, {
-                    is_published: false
+                    is_published: false,
+                    is_visible: false,
                 });
 
                 if (res.success) {
@@ -504,6 +508,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                         </div>
                     </div>
 
+                    {!isEventPublished && (
                     <div className="pt-8 border-t border-gray-100 dark:border-gray-700">
                         <label className={`
                             flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer
@@ -522,10 +527,11 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                             <input type="checkbox" className="hidden" checked={settings.isVisibleToPublic} onChange={() => handleCheckboxChange('isVisibleToPublic')} disabled={!canManageEventStatus} />
                             <div>
                                 <span className="text-sm font-semibold text-gray-900 dark:text-white block">Make Event Page Visible to Public</span>
-                                <span className="text-xs text-gray-500">Enable this to make the landing page accessible even if registration hasn't started.</span>
+                                <span className="text-xs text-gray-500">While the event is still unpublished, enable this to make the landing page accessible even if registration has not started or tickets are not on sale yet. Publishing the event always makes the public page available.</span>
                             </div>
                         </label>
                     </div>
+                    )}
                 </div>
             </section>
 

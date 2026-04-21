@@ -1,6 +1,6 @@
 // lib/hooks/useOrderFormSubmit.ts
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { OrderFormData, FormInputField } from '@/lib/types';
 
 interface FormAnswers {
@@ -42,6 +42,7 @@ export function useOrderFormSubmit({
     const [success, setSuccess] = useState(false);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [submissionResult, setSubmissionResult] = useState<Record<string, unknown> | null>(null);
+    const submitInFlightRef = useRef(false);
 
     const submit = useCallback(async (
         formData: OrderFormData,
@@ -52,6 +53,8 @@ export function useOrderFormSubmit({
         promotionCode?: string | null,
         waitlistInviteToken?: string | null
     ) => {
+        if (submitInFlightRef.current) return;
+        submitInFlightRef.current = true;
         setIsSubmitting(true);
         setError(null);
         setSuccess(false);
@@ -99,6 +102,7 @@ export function useOrderFormSubmit({
             setError(err instanceof Error ? err.message : 'An unexpected error occurred');
         } finally {
             setIsSubmitting(false);
+            submitInFlightRef.current = false;
         }
     }, [eventId, orderFormId, userEmail, registrationId]);
 

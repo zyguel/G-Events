@@ -593,9 +593,9 @@ function ChooseTicketStep({
                             relative group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 rounded-2xl border-2 transition-all duration-300 text-left w-full min-h-[52px]
                             ${ticket.is_sold_out 
                                 ? 'opacity-60 grayscale border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40 cursor-not-allowed' 
-                                : hovered === ticket.id
+                                : `cursor-pointer ${hovered === ticket.id
                                     ? 'border-[#3D518C] bg-gradient-to-r from-[#3D518C]/5 to-[#5C6BC0]/5 shadow-lg shadow-blue-100 dark:shadow-blue-900/20 scale-[1.01]'
-                                    : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/60 hover:shadow-md'}
+                                    : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/60 hover:shadow-md'}`}
                         `}
                     >
                         <div className="flex items-center gap-4">
@@ -835,10 +835,13 @@ function ChooseTypeStep({
 
 function GroupMembersStep({
     initialEmails,
+    leadEmail,
     onBack,
     onContinue,
 }: {
     initialEmails: string[];
+    /** Primary registrant — cannot appear again in the member list */
+    leadEmail?: string;
     onBack: () => void;
     onContinue: (emails: string[]) => void;
 }) {
@@ -941,6 +944,15 @@ function GroupMembersStep({
             seen.add(e.toLowerCase());
         });
 
+        const leadNorm = leadEmail?.trim().toLowerCase();
+        if (leadNorm) {
+            emails.forEach((e, i) => {
+                if (e.trim().toLowerCase() === leadNorm) {
+                    newErrors[i] = 'Cannot use the same email as the group lead';
+                }
+            });
+        }
+
         setErrors(newErrors);
         
         // Final verification check
@@ -958,9 +970,9 @@ function GroupMembersStep({
             return;
         }
 
-        if (newErrors.some(e => e !== '')) return;
+        if (newErrors.some((e) => e !== '')) return;
 
-        onContinue(emails.map(e => e.trim()));
+        onContinue(emails.map((e) => e.trim()));
     };
 
     return (
@@ -1554,6 +1566,7 @@ export default function RegistrationFlow({
                     {step === 'group-members' && (
                         <GroupMembersStep
                             initialEmails={groupEmails}
+                            leadEmail={userEmail}
                             onBack={handleBack}
                             onContinue={handleGroupContinue}
                         />

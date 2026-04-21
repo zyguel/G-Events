@@ -114,6 +114,25 @@ async function adjustTicketReservation(
     return { success: true };
 }
 
+async function countActiveRegistrationsForUser(
+    supabase: SupabaseClient,
+    eventId: number,
+    userId: number
+): Promise<{ count: number; error: string | null }> {
+    const { count, error } = await supabase
+        .from('Registration')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .not('status', 'in', '(cancelled,rejected)');
+
+    if (error) {
+        return { count: 0, error: error.message };
+    }
+
+    return { count: count ?? 0, error: null };
+}
+
 /**
  * POST /api/orderform/[id]/entries
  * Submit a form entry — supports both Individual and Group registrations.
@@ -354,6 +373,13 @@ export async function POST(
         const groupEmailsList: string[] = Array.isArray(groupEmails)
             ? groupEmails.map((e: string) => e?.trim().toLowerCase()).filter(Boolean)
             : [];
+
+        if (groupEmailsList.some((e) => e === normalizedPrimaryEmail)) {
+            return NextResponse.json(
+                { error: 'Group member emails cannot include the primary registrant email.' },
+                { status: 400 }
+            );
+        }
 
         if (waitlistInviteEntry && groupEmailsList.length > 0) {
             return NextResponse.json({ error: 'Waitlist invite registrations must be individual only' }, { status: 400 });
@@ -678,6 +704,21 @@ export async function POST(
 
             const primaryUserId = pUserRows![0].id;
 
+            const primaryActive = await countActiveRegistrationsForUser(supabase, numericEventId, primaryUserId);
+            if (primaryActive.error) {
+                console.error('[Registration] Pre-insert duplicate check failed (primary):', primaryActive.error);
+                return NextResponse.json(
+                    { error: 'Failed to verify registration status. Please try again.' },
+                    { status: 500 }
+                );
+            }
+            if (primaryActive.count > 0) {
+                return NextResponse.json(
+                    { error: 'This account already has an active registration for this event.' },
+                    { status: 409 }
+                );
+            }
+
             primaryTicketToken = newTicketToken();
 
             const { data: pReg, error: pErr } = await supabase
@@ -723,6 +764,24 @@ export async function POST(
                 }
 
                 const memberUserId = memberUserRows[0].id;
+
+                const memberActive = await countActiveRegistrationsForUser(supabase, numericEventId, memberUserId);
+                if (memberActive.error) {
+                    console.error('[Registration] Pre-insert duplicate check failed (member):', memberActive.error);
+                    return NextResponse.json(
+                        { error: 'Failed to verify registration status. Please try again.' },
+                        { status: 500 }
+                    );
+                }
+                if (memberActive.count > 0) {
+                    return NextResponse.json(
+                        {
+                            error: `The following email(s) are already registered for this event: ${memberEmail}`,
+                            duplicateEmails: [memberEmail],
+                        },
+                        { status: 409 }
+                    );
+                }
 
                 const { data: memberReg, error: memberErr } = await supabase
                     .from('Registration')

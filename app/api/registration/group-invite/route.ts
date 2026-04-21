@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
 
         const { data: reg, error: regErr } = await admin
             .from('Registration')
-            .select('id, user_id, event_id, profile_pending')
+            .select('id, user_id, event_id, profile_pending, status')
             .eq('ticket_token', tokenStr)
             .maybeSingle();
 
@@ -248,6 +248,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: entryErr.message }, { status: 500 });
         }
 
+        const registrationStatus =
+            typeof reg.status === 'string' ? reg.status.toLowerCase() : String(reg.status || '').toLowerCase();
+
         const { error: updErr } = await admin
             .from('Registration')
             .update({ profile_pending: false })
@@ -260,6 +263,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             message: 'Your details have been saved.',
+            registrationStatus,
         });
     } catch (e) {
         console.error(e);

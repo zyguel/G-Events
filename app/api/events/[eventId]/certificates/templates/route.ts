@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminSupabaseForEventOr404 } from "@/lib/apiEventAccess";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
+import { validateCertificateBackgroundDataUrl } from "@/lib/certificateImageValidation";
 
 export async function GET(
   _request: NextRequest,
@@ -61,6 +62,15 @@ export async function POST(
     if (!name || !backgroundImage) {
       return NextResponse.json(
         { success: false, error: "name and backgroundImage are required" },
+        { status: 400 }
+      );
+    }
+
+    try {
+      validateCertificateBackgroundDataUrl(backgroundImage);
+    } catch (err) {
+      return NextResponse.json(
+        { success: false, error: err instanceof Error ? err.message : "Invalid background image" },
         { status: 400 }
       );
     }

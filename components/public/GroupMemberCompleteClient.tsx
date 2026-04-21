@@ -33,6 +33,7 @@ export function GroupMemberCompleteClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hasPendingUploads, setHasPendingUploads] = useState(false);
+  const [registrationStatusAfterSubmit, setRegistrationStatusAfterSubmit] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -137,6 +138,11 @@ export function GroupMemberCompleteClient({
           setSubmitError(data?.error || 'Submission failed');
           return;
         }
+        const st =
+          typeof data.registrationStatus === 'string'
+            ? data.registrationStatus.toLowerCase()
+            : '';
+        setRegistrationStatusAfterSubmit(st || 'pending');
         setLoadState('done');
       } catch {
         setSubmitError('An unexpected error occurred');
@@ -194,6 +200,8 @@ export function GroupMemberCompleteClient({
   }
 
   if (loadState === 'done') {
+    const canShowEticket = registrationStatusAfterSubmit === 'confirmed';
+
     return (
       <div className="text-center py-10 animate-fade-in px-1">
         <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-200 dark:shadow-green-900/30">
@@ -203,13 +211,21 @@ export function GroupMemberCompleteClient({
         <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mx-auto mb-6">
           Thanks for completing your details for {eventTitle}.
         </p>
+        {!canShowEticket && (
+          <p className="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-6 leading-relaxed">
+            Your registration is waiting for the organizer to confirm the order. You will receive your e-ticket by email
+            once it is confirmed.
+          </p>
+        )}
         <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch max-w-sm mx-auto">
-          <Link
-            href={`/events/${eventSlug}/e-ticket?token=${encodeURIComponent(token)}`}
-            className="inline-flex min-h-[48px] items-center justify-center px-6 py-3 border-2 border-[#3D518C] dark:border-blue-500 text-[#3D518C] dark:text-blue-400 font-bold rounded-2xl"
-          >
-            View e-ticket (QR)
-          </Link>
+          {canShowEticket ? (
+            <Link
+              href={`/events/${eventSlug}/e-ticket?token=${encodeURIComponent(token)}`}
+              className="inline-flex min-h-[48px] items-center justify-center px-6 py-3 border-2 border-[#3D518C] dark:border-blue-500 text-[#3D518C] dark:text-blue-400 font-bold rounded-2xl"
+            >
+              View e-ticket (QR)
+            </Link>
+          ) : null}
           <button
             type="button"
             onClick={() => router.push(`/events/${eventSlug}`)}
