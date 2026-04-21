@@ -28,8 +28,8 @@ export default function TopPerformingEvents({ events }: TopPerformingEventsProps
         attendance: { label: "Attendance", icon: TrendingUp, format: (v: number) => v ? `${v}%` : "N/A" },
     };
 
-    // Sort events by the selected filter
-    const sortedEvents = [...events].sort((a, b) => b[filter] - a[filter]);
+    // Sort events by the selected filter and take the top 5
+    const sortedEvents = [...events].sort((a, b) => b[filter] - a[filter]).slice(0, 5);
 
     return (
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">

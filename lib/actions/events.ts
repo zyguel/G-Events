@@ -1551,15 +1551,29 @@ export async function getGeneralAnalytics(year?: number) {
         }
 
         // 4. Avg satisfaction across all events (rating questions)
-        let feedbackQuery = supabase.from('FeedbackAnswer').select('answer, created_at, FeedbackQuestion(input_format)').eq('FeedbackQuestion.input_format', 'rating');
+        let feedbackQuery = supabase.from('FeedbackAnswer').select('answer, created_at, FeedbackQuestion(input_format), FeedbackForm(event_id)').eq('FeedbackQuestion.input_format', 'rating');
         if (year) {
             feedbackQuery = feedbackQuery.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
         const { data: feedbackData } = await feedbackQuery;
 
+        const eventSatisfactionMap: Record<string, { sum: number; count: number }> = {};
         const ratings = (feedbackData || [])
-            .map((f: any) => parseFloat(f.answer))
-            .filter((v: number) => !isNaN(v) && v >= 1 && v <= 5);
+            .map((f: any) => {
+                const v = parseFloat(f.answer);
+                if (!isNaN(v) && v >= 1 && v <= 5) {
+                    const eid = f.FeedbackForm?.event_id?.toString();
+                    if (eid) {
+                        if (!eventSatisfactionMap[eid]) eventSatisfactionMap[eid] = { sum: 0, count: 0 };
+                        eventSatisfactionMap[eid].sum += v;
+                        eventSatisfactionMap[eid].count += 1;
+                    }
+                    return v;
+                }
+                return NaN;
+            })
+            .filter((v: number) => !isNaN(v));
+            
         const avgSatisfaction = ratings.length > 0
             ? parseFloat((ratings.reduce((s: number, v: number) => s + v, 0) / ratings.length).toFixed(1))
             : 0;
@@ -1655,11 +1669,9 @@ export async function getGeneralAnalytics(year?: number) {
                 name,
                 registrations,
                 revenue,
-                satisfaction: 0,     // would need per-event feedback query ΓÇö defaulting to 0
+                satisfaction: eventSatisfactionMap[id] ? parseFloat((eventSatisfactionMap[id].sum / eventSatisfactionMap[id].count).toFixed(1)) : 0,
                 attendance: registrations > 0 ? Math.round((checkedIn / registrations) * 100) : 0,
-            }))
-            .sort((a, b) => b.registrations - a.registrations)
-            .slice(0, 5);
+            }));
 
         // 9. Recent transactions across all events
         let recQ = supabase.from('Registration').select('id, status, final_price_paid, created_at, Event(title), User(name)').neq('status', 'cancelled');
