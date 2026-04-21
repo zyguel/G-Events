@@ -43,7 +43,7 @@ export function buildRegistrationConfirmationEmailHtml(params: {
 
   const groupNote =
     params.isGroupPrimary === true
-      ? `<p style="margin:16px 0 0;font-size:14px;color:#444;line-height:1.5">Your group members will receive a separate email with a link to complete their details. They must sign in before submitting.</p>`
+      ? `<p style="margin:16px 0 0;font-size:14px;color:#444;line-height:1.5">Your group members will receive a separate email with a secure link to complete their details.</p>`
       : '';
 
   const breakoutNote =
@@ -139,9 +139,10 @@ export function buildGroupMemberInviteEmailHtml(params: {
 <body style="font-family:system-ui,-apple-system,sans-serif;background:#f4f7fc;padding:24px;color:#111">
   <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 8px 30px rgba(99,102,241,0.12)">
     <p style="margin:0 0 12px;font-size:15px;line-height:1.5">You&apos;ve been added to a group registration for <strong>${title}</strong>.</p>
-    <p style="margin:0 0 16px;font-size:14px;color:#444;line-height:1.5">The organizer already submitted payment details for the group. Please sign in and complete your attendee information using the link below.</p>
+    <p style="margin:0 0 16px;font-size:14px;color:#444;line-height:1.5">The organizer already submitted payment details for the group. Please complete your attendee information using the secure link below.</p>
     <p style="margin:0"><a href="${url}" style="display:inline-block;padding:14px 22px;background:linear-gradient(90deg,#3D518C,#5C6BC0);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;font-size:15px">Complete my registration</a></p>
     <p style="margin:20px 0 0;font-size:12px;color:#888;word-break:break-all">${url}</p>
+    <p style="margin:14px 0 0;font-size:12px;color:#888;line-height:1.6">This link expires in 3 days or when the event starts, whichever comes first.</p>
   </div>
 </body>
 </html>`;
@@ -152,6 +153,7 @@ export function buildRegistrationCompletionEmailHtml(params: {
   eventTitle: string;
   completeUrl: string;
   isGroupRegistration?: boolean;
+  expiresAtText?: string | null;
 }): string {
   const attendeeName = escapeHtml(params.attendeeName || 'Attendee');
   const eventTitle = escapeHtml(params.eventTitle);
@@ -160,6 +162,10 @@ export function buildRegistrationCompletionEmailHtml(params: {
   const groupNote = params.isGroupRegistration
     ? `<p style="margin:0 0 14px;font-size:14px;color:#444;line-height:1.6">You were added as part of a group registration. Please complete your details using the button below.</p>`
     : `<p style="margin:0 0 14px;font-size:14px;color:#444;line-height:1.6">Please complete your attendee details using the button below.</p>`;
+
+  const expiryNote = params.expiresAtText
+    ? `<p style="margin:14px 0 0;font-size:12px;color:#888;line-height:1.6">This link expires on ${escapeHtml(params.expiresAtText)} or before the event starts, whichever comes first.</p>`
+    : `<p style="margin:14px 0 0;font-size:12px;color:#888;line-height:1.6">This link expires in 3 days or when the event starts, whichever comes first.</p>`;
 
   return `
 <!DOCTYPE html>
@@ -171,6 +177,7 @@ export function buildRegistrationCompletionEmailHtml(params: {
     ${groupNote}
     <p style="margin:0 0 18px"><a href="${completeUrl}" style="display:inline-block;padding:14px 22px;background:linear-gradient(90deg,#3D518C,#5C6BC0);color:#fff;text-decoration:none;font-weight:700;border-radius:12px;font-size:15px">Complete registration form</a></p>
     <p style="margin:0;font-size:12px;color:#888;word-break:break-all">${completeUrl}</p>
+    ${expiryNote}
     <p style="margin:16px 0 0;font-size:12px;color:#888;line-height:1.6">Your e-ticket QR will be sent after the organizer confirms your registration.</p>
   </div>
 </body>

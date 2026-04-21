@@ -422,10 +422,11 @@ export async function POST(
                 0
             );
 
-            // If this request redeems an invite, treat that reserved slot as consumed by this submission.
-            const reserveAdjustment = waitlistInviteEntry ? 1 : 0;
-            const activeReservedSeats = Math.max(0, reservedFromTickets - reserveAdjustment);
-            const effectiveCapacity = Math.max(0, eventCapacity - activeReservedSeats);
+            // When redeeming a waitlist invite, one reserved slot is being consumed by this request.
+            // Keep capacity validation aligned with the temporary +1 ticket allocation used by invites.
+            const redeemingInviteSeat = waitlistInviteEntry ? 1 : 0;
+            const activeReservedSeats = Math.max(0, reservedFromTickets - redeemingInviteSeat);
+            const effectiveCapacity = Math.max(0, eventCapacity - activeReservedSeats + redeemingInviteSeat);
 
             const nextTotal = Number(activeRegistrationCount || 0) + totalRequested;
             if (nextTotal > effectiveCapacity) {

@@ -86,9 +86,6 @@ function isAttendeeRoute(pathname: string) {
     if (parts.length === 3 && third && ['register', 'review', 'my-breakouts', 'breakout-sessions'].includes(third)) {
       return true;
     }
-    if (parts.length === 4 && third === 'register' && parts[3] === 'complete') {
-      return true;
-    }
   }
 
   return false;
@@ -96,6 +93,17 @@ function isAttendeeRoute(pathname: string) {
 
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
+
+  const pathParts = pathname.split('/').filter(Boolean);
+  const isWaitlistInviteRegistrationRoute =
+    pathParts.length === 3 &&
+    pathParts[0] === 'events' &&
+    pathParts[2] === 'register' &&
+    !!request.nextUrl.searchParams.get('waitlistInvite')?.trim();
+
+  if (isWaitlistInviteRegistrationRoute) {
+    return NextResponse.next();
+  }
 
   // Skip static assets
   if (pathname.startsWith('/_next/') || pathname.startsWith('/favicon.ico')) {

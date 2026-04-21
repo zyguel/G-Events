@@ -93,6 +93,39 @@ const mapStatusToUi = (s: string): UiStatus => {
 };
 
 const PROOF_OF_PAYMENT_FIELD_IDENTIFIER = "proof_of_payment";
+const REGISTRATION_COMPLETION_LINK_MAX_AGE_MS = 3 * 24 * 60 * 60 * 1000;
+
+function parseIsoToMs(value: string | null | undefined): number | null {
+    if (!value) return null;
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : null;
+}
+
+function computeCompletionLinkExpiryMs(createdAt: string | null | undefined, eventStartAt: string | null | undefined): number | null {
+    const createdAtMs = parseIsoToMs(createdAt);
+    const eventStartMs = parseIsoToMs(eventStartAt);
+    const byAgeMs = createdAtMs !== null ? createdAtMs + REGISTRATION_COMPLETION_LINK_MAX_AGE_MS : null;
+
+    if (byAgeMs !== null && eventStartMs !== null) {
+        return Math.min(byAgeMs, eventStartMs);
+    }
+
+    if (byAgeMs !== null) return byAgeMs;
+    if (eventStartMs !== null) return eventStartMs;
+    return null;
+}
+
+function formatExpiryForEmail(expiryMs: number | null): string | null {
+    if (expiryMs === null) return null;
+    return new Date(expiryMs).toLocaleString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+    });
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
     typeof value === "object" && value !== null && !Array.isArray(value)
@@ -421,7 +454,7 @@ export async function POST(
 
         const { data: eventRow, error: eventErr } = await supabase
             .from("Event")
-            .select("id, title, allow_breakout_sessions")
+            .select("id, title, allow_breakout_sessions, event_start_at")
             .eq("id", numericEventId)
             .single();
 
@@ -572,6 +605,11 @@ export async function POST(
                 const row = inserted[i];
                 const completeUrl = buildGroupCompleteUrl(baseUrl, slug, row.token);
                 const to = row.reg.User?.email || row.email;
+                const expiryMs = computeCompletionLinkExpiryMs(
+                    row.reg.created_at,
+                    eventRow.event_start_at || null
+                );
+                const expiresAtText = formatExpiryForEmail(expiryMs);
                 await sendEmail({
                     to,
                     subject: `Complete your registration - ${eventRow.title}`,
@@ -583,6 +621,7 @@ export async function POST(
                         eventTitle: eventRow.title,
                         completeUrl,
                         isGroupRegistration: isGroup,
+                        expiresAtText,
                     }),
                 });
             }

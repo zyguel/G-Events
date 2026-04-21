@@ -54,6 +54,7 @@ interface RegistrationFlowProps {
     waitlistInviteToken?: string;
     waitlistInviteTicketId?: number | null;
     waitlistInviteEmail?: string;
+    waitlistInviteName?: string;
 }
 
 type CheckInPass = {
@@ -1162,7 +1163,7 @@ function OrderFormStep({
         }
 
         const requestedSeats = registrationType === 'group' ? groupEmails.length + 1 : 1;
-        if (ticketId && requestedSeats > 0) {
+        if (ticketId && requestedSeats > 0 && !waitlistInviteToken) {
             const selectedTicket = tickets.find((t) => t.id === ticketId) || null;
             if (selectedTicket && selectedTicket.available_quantity > 0) {
                 const remaining = Math.max(0, selectedTicket.available_quantity - selectedTicket.used_quantity);
@@ -1212,7 +1213,7 @@ function OrderFormStep({
                     <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-left max-w-sm mx-auto border border-indigo-100 dark:border-indigo-800/40">
                         <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">Group members</p>
                         <p className="text-xs text-indigo-800/90 dark:text-indigo-200/90 mb-3 leading-relaxed">
-                            Each person below will get an email with a link to complete their details. They must sign in before submitting (payment fields are not required for them).
+                            Each person below will get an email with a secure link to complete their details (payment fields are not required for them).
                         </p>
                         <ul className="space-y-1">
                             {groupEmails.map((email, i) => (
@@ -1391,6 +1392,7 @@ export default function RegistrationFlow({
     waitlistInviteToken,
     waitlistInviteTicketId = null,
     waitlistInviteEmail,
+    waitlistInviteName,
 }: RegistrationFlowProps) {
     const router = useRouter();
     const [userEmail, setUserEmail] = useState<string | undefined>(waitlistInviteEmail || initialUserEmail);
@@ -1533,6 +1535,21 @@ export default function RegistrationFlow({
                         {eventTitle}
                     </h1>
                 </div>
+
+                {waitlistInviteToken && (waitlistInviteEmail || userEmail) && (
+                    <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-900 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-100">
+                        <p className="font-semibold">Exclusive waitlist invite</p>
+                        <p className="mt-1 leading-relaxed">
+                            Submitting registration as{' '}
+                            <strong>
+                                {waitlistInviteName?.trim()
+                                    ? `${waitlistInviteName.trim()} (${waitlistInviteEmail || userEmail})`
+                                    : (waitlistInviteEmail || userEmail)}
+                            </strong>
+                            .
+                        </p>
+                    </div>
+                )}
 
                 {/* Step indicator */}
                 <StepIndicator currentStep={step} type={registrationType} userEmail={userEmail} allowGroupRegistration={allowGroupRegistration} />

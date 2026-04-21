@@ -56,6 +56,8 @@ export default async function PublicEventRegistrationPage({
       ? waitlistInviteVerification.claims
       : null;
 
+  let waitlistInviteName: string | undefined;
+
   const formsResult = await getOrderFormsByEventPublic(numericEventId);
   const form = formsResult?.data?.[0];
   const eventSlug = buildEventSlug(event.title, event.id);
@@ -68,6 +70,17 @@ export default async function PublicEventRegistrationPage({
   const userEmail = validWaitlistInviteClaims?.email || user?.email || undefined;
 
   const adminClient = await createAdminClient();
+  if (validWaitlistInviteClaims?.email) {
+    const { data: invitedUserRow } = await adminClient
+      .from("User")
+      .select("name")
+      .ilike("email", validWaitlistInviteClaims.email)
+      .limit(1)
+      .maybeSingle();
+
+    waitlistInviteName = typeof invitedUserRow?.name === 'string' ? invitedUserRow.name : undefined;
+  }
+
   const { data: ticketRows } = await adminClient
       .from("Ticket")
       .select("id, name, price, available_quantity, waitlist_reserved_quantity")
@@ -238,6 +251,7 @@ export default async function PublicEventRegistrationPage({
           waitlistInviteToken={waitlistInviteToken || undefined}
           waitlistInviteTicketId={validWaitlistInviteClaims?.tid ?? null}
           waitlistInviteEmail={validWaitlistInviteClaims?.email || undefined}
+          waitlistInviteName={waitlistInviteName}
         />
       )}
     </div>
