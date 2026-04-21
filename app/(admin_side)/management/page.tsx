@@ -755,9 +755,9 @@ function ManagementPageInner() {
         member.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const filteredRoles = roles.filter(role =>
-        role.name.toLowerCase().includes(searchQuery.toLowerCase())
-    );
+    const filteredRoles = roles
+        .filter(role => role.name.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => a.name.localeCompare(b.name));
 
     const toggleMenu = (id: number) => {
         setOpenMenuId(openMenuId === id ? null : id);
