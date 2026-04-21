@@ -53,6 +53,8 @@ export default async function AggregatedAnalyticsPage({ searchParams }: { search
         },
         trends: analytics.trends,
         revenueBreakdown: analytics.revenueBreakdown,
+        revenueByYear: analytics.revenueByYear,
+        satisfactionByYear: analytics.satisfactionByYear,
         recentTransactions: analytics.recentTransactions || [],
         comments: analytics.comments || [],
         topEvents: analytics.topEvents,
@@ -83,33 +85,33 @@ export default async function AggregatedAnalyticsPage({ searchParams }: { search
                                 <StatCard
                                     title="Total Events"
                                     value={formatNumber(analytics.stats.totalEvents)}
-                                    growth=""
-                                    trend="up"
+                                    // No trend arrow for Total Events — comparing event count to last year
+                                    // isn't meaningful without more context
                                 />
                                 <StatCard
                                     title="Registrations"
                                     value={formatNumber(analytics.stats.registrations)}
-                                    growth=""
-                                    trend="up"
+                                    growth={analytics.stats.growth.registrations ?? undefined}
+                                    trend={analytics.stats.growth.registrations?.startsWith('-') ? 'down' : 'up'}
                                 />
                                 <StatCard
                                     title="Total Revenue"
                                     value={formatCurrency(analytics.stats.revenue)}
-                                    growth=""
-                                    trend="up"
+                                    growth={analytics.stats.growth.revenue ?? undefined}
+                                    trend={analytics.stats.growth.revenue?.startsWith('-') ? 'down' : 'up'}
                                 />
                                 <StatCard
                                     title="Satisfaction"
                                     value={analytics.stats.satisfaction > 0
                                         ? `${analytics.stats.satisfaction}/5.0`
                                         : 'N/A'}
-                                    growth=""
-                                    trend="up"
+                                    // No trend arrow for Satisfaction — a single decimal change
+                                    // doesn't warrant a directional indicator at the overview level
                                 />
                             </div>
 
                             {/* Summary & Trends Section */}
-                            <DashboardTabs data={data} hideDemographics />
+                            <DashboardTabs data={data} hideDemographics activeYear={yearParam} />
                         </div>
                     </PermissionGate>
                 </main>

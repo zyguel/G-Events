@@ -1530,7 +1530,7 @@ export async function getGeneralAnalytics(year?: number) {
         const { count: totalRegistrations } = await regQ;
 
         // 3. Total revenue across all confirmed registrations
-        let revQ = supabase.from('Registration').select('final_price_paid').eq('status', 'confirmed');
+        let revQ = supabase.from('Registration').select('final_price_paid, created_at').eq('status', 'confirmed');
         if (year) {
             revQ = revQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
@@ -1540,33 +1540,118 @@ export async function getGeneralAnalytics(year?: number) {
             (sum: number, r: any) => sum + (parseFloat(r.final_price_paid) || 0), 0
         );
 
+        // Revenue grouped by year (only for All Years mode)
+        const revenueByYear: { year: string; amount: number }[] = [];
+        if (!year) {
+            const rYearMap: Record<string, number> = {};
+            (revenueData || []).forEach((r: any) => {
+                const y = new Date(r.created_at).getFullYear().toString();
+                rYearMap[y] = (rYearMap[y] || 0) + (parseFloat(r.final_price_paid) || 0);
+            });
+            Object.entries(rYearMap)
+                .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                .forEach(([y, amount]) => revenueByYear.push({ year: y, amount }));
+        }
+
+        // Year-over-year comparison (only when a specific year is selected)
+        let regGrowth: string | null = null;
+        let revGrowth: string | null = null;
+        if (year) {
+            const prevYear = year - 1;
+            const prevStart = new Date(prevYear, 0, 1).toISOString();
+            const prevEnd   = new Date(prevYear, 11, 31, 23, 59, 59, 999).toISOString();
+
+            const [prevRegResult, prevRevResult] = await Promise.all([
+                supabase.from('Registration')
+                    .select('*', { count: 'exact', head: true })
+                    .neq('status', 'cancelled')
+                    .gte('created_at', prevStart)
+                    .lte('created_at', prevEnd),
+                supabase.from('Registration')
+                    .select('final_price_paid')
+                    .eq('status', 'confirmed')
+                    .gte('created_at', prevStart)
+                    .lte('created_at', prevEnd),
+            ]);
+
+            const prevRegs = prevRegResult.count || 0;
+            const prevRev  = (prevRevResult.data || []).reduce(
+                (s: number, r: any) => s + (parseFloat(r.final_price_paid) || 0), 0
+            );
+
+            const fmtGrowth = (curr: number, prev: number): string | null => {
+                if (prev === 0) return curr > 0 ? `+${curr} vs ${prevYear}` : null;
+                const pct = Math.round(((curr - prev) / prev) * 100);
+                const sign = pct >= 0 ? '+' : '';
+                return `${sign}${pct}% vs ${prevYear}`;
+            };
+
+            regGrowth = fmtGrowth(totalRegistrations || 0, prevRegs);
+            revGrowth = fmtGrowth(totalRevenue, prevRev);
+        }
+
         // 4. Avg satisfaction across all events (rating questions)
-        let feedbackQuery = supabase.from('FeedbackAnswer').select('answer, FeedbackQuestion(input_format)').eq('FeedbackQuestion.input_format', 'rating');
+        let feedbackQuery = supabase.from('FeedbackAnswer').select('answer, created_at, FeedbackQuestion(input_format), FeedbackForm(event_id)').eq('FeedbackQuestion.input_format', 'rating');
         if (year) {
             feedbackQuery = feedbackQuery.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
         const { data: feedbackData } = await feedbackQuery;
 
+        const eventSatisfactionMap: Record<string, { sum: number; count: number }> = {};
         const ratings = (feedbackData || [])
-            .map((f: any) => parseFloat(f.answer))
-            .filter((v: number) => !isNaN(v) && v >= 1 && v <= 5);
+            .map((f: any) => {
+                const v = parseFloat(f.answer);
+                if (!isNaN(v) && v >= 1 && v <= 5) {
+                    const eid = f.FeedbackForm?.event_id?.toString();
+                    if (eid) {
+                        if (!eventSatisfactionMap[eid]) eventSatisfactionMap[eid] = { sum: 0, count: 0 };
+                        eventSatisfactionMap[eid].sum += v;
+                        eventSatisfactionMap[eid].count += 1;
+                    }
+                    return v;
+                }
+                return NaN;
+            })
+            .filter((v: number) => !isNaN(v));
+            
         const avgSatisfaction = ratings.length > 0
             ? parseFloat((ratings.reduce((s: number, v: number) => s + v, 0) / ratings.length).toFixed(1))
             : 0;
 
-        // 5. Monthly registration trend for selected year
-        const trendYear = year || new Date().getFullYear();
-        const trendStart = new Date(trendYear, 0, 1).toISOString();
-        const trendEnd = new Date(trendYear, 11, 31, 23, 59, 59, 999).toISOString();
-        const { data: trendData } = await supabase
+        // Satisfaction grouped by year (only for All Years mode)
+        const satisfactionByYear: { year: string; score: number }[] = [];
+        if (!year) {
+            const sYearMap: Record<string, number[]> = {};
+            (feedbackData || []).forEach((f: any) => {
+                const v = parseFloat(f.answer);
+                if (isNaN(v) || v < 1 || v > 5) return;
+                const y = new Date(f.created_at).getFullYear().toString();
+                if (!sYearMap[y]) sYearMap[y] = [];
+                sYearMap[y].push(v);
+            });
+            Object.entries(sYearMap)
+                .sort(([a], [b]) => parseInt(a) - parseInt(b))
+                .forEach(([y, scores]) => {
+                    const avg = parseFloat((scores.reduce((s, v) => s + v, 0) / scores.length).toFixed(1));
+                    satisfactionByYear.push({ year: y, score: avg });
+                });
+        }
+
+        // 5. Registration trend — yearly when All Years, monthly when a year is selected
+        let trendQ = supabase
             .from('Registration')
             .select('created_at')
             .neq('status', 'cancelled')
-            .gte('created_at', trendStart)
-            .lte('created_at', trendEnd)
             .order('created_at', { ascending: true });
-
-        const monthlyTrend = buildMonthlyTrend(trendData || []);
+        if (year) {
+            trendQ = trendQ
+                .gte('created_at', new Date(year, 0, 1).toISOString())
+                .lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
+        }
+        const { data: trendData } = await trendQ;
+        const registrationsTrend = year
+            ? buildMonthlyTrend(trendData || [])
+            : buildYearlyTrend(trendData || []);
 
         // 6. Attendance breakdown across all events
         let attQ = supabase.from('Registration').select('has_checked_in, is_waitlisted, status');
@@ -1624,11 +1709,9 @@ export async function getGeneralAnalytics(year?: number) {
                 name,
                 registrations,
                 revenue,
-                satisfaction: 0,     // would need per-event feedback query ΓÇö defaulting to 0
+                satisfaction: eventSatisfactionMap[id] ? parseFloat((eventSatisfactionMap[id].sum / eventSatisfactionMap[id].count).toFixed(1)) : 0,
                 attendance: registrations > 0 ? Math.round((checkedIn / registrations) * 100) : 0,
-            }))
-            .sort((a, b) => b.registrations - a.registrations)
-            .slice(0, 5);
+            }));
 
         // 9. Recent transactions across all events
         let recQ = supabase.from('Registration').select('id, status, final_price_paid, created_at, Event(title), User(name)').neq('status', 'cancelled');
@@ -1724,12 +1807,18 @@ export async function getGeneralAnalytics(year?: number) {
                 registrations: totalRegistrations || 0,
                 revenue: totalRevenue,
                 satisfaction: avgSatisfaction,
+                growth: {
+                    registrations: regGrowth,
+                    revenue: revGrowth,
+                },
             },
             trends: {
-                registrations: monthlyTrend,
+                registrations: registrationsTrend,
                 attendance: { checkedIn, noShow, waitlisted },
             },
             revenueBreakdown,
+            revenueByYear,
+            satisfactionByYear,
             topEvents,
             recentTransactions,
             comments,
@@ -1737,12 +1826,14 @@ export async function getGeneralAnalytics(year?: number) {
     } catch (e: any) {
         console.error('Error fetching general analytics:', e);
         return {
-            stats: { totalEvents: 0, registrations: 0, revenue: 0, satisfaction: 0 },
+            stats: { totalEvents: 0, registrations: 0, revenue: 0, satisfaction: 0, growth: { registrations: null, revenue: null } },
             trends: {
                 registrations: { monthly: [], monthLabels: [] },
                 attendance: { checkedIn: 0, noShow: 0, waitlisted: 0 },
             },
             revenueBreakdown: [],
+            revenueByYear: [],
+            satisfactionByYear: [],
             topEvents: [],
             recentTransactions: [],
             comments: [],
@@ -1753,15 +1844,27 @@ export async function getGeneralAnalytics(year?: number) {
 function buildMonthlyTrend(registrations: { created_at: string }[]) {
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const counts = Array(12).fill(0);
-
     registrations.forEach(r => {
-        const month = new Date(r.created_at).getMonth(); // 0-indexed
+        const month = new Date(r.created_at).getMonth();
         counts[month] += 1;
     });
-
-    // Return raw counts per month (not cumulative)
     return { monthly: counts, monthLabels: months };
 }
+
+function buildYearlyTrend(registrations: { created_at: string }[]) {
+    if (registrations.length === 0) return { yearly: [] as number[], yearLabels: [] as string[] };
+    const years = registrations.map(r => new Date(r.created_at).getFullYear());
+    const minYear = Math.min(...years);
+    const maxYear = Math.max(...years, new Date().getFullYear());
+    const yearLabels: string[] = [];
+    const counts: number[] = [];
+    for (let y = minYear; y <= maxYear; y++) {
+        yearLabels.push(y.toString());
+        counts.push(years.filter(yr => yr === y).length);
+    }
+    return { yearly: counts, yearLabels };
+}
+
 
 // ΓöÇΓöÇΓöÇ Event Reports ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 

@@ -6,17 +6,19 @@ import { getRegistrationTrendData } from "@/lib/actions/events";
 
 interface RegistrationChartProps {
     data: {
-        // Weekly format for individual events
         weekly?: number[];
         weekLabels?: string[];
         registrationOpenDate?: string;
         eventDate?: string;
-        // Monthly format for all events overview
         monthly?: number[];
         monthLabels?: string[];
+        // All-Years mode — x-axis is calendar years
+        yearly?: number[];
+        yearLabels?: string[];
     };
     tickets?: { id: number; name: string }[];
     eventId?: number;
+    activeYear?: number | null;
 }
 
 const allMonthLabels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -29,15 +31,20 @@ const quarterRanges: Record<string, { start: number; end: number; labels: string
     "Q4": { start: 9, end: 12, labels: ["Oct", "Nov", "Dec"] },
 };
 
-export default function RegistrationChart({ data: initialData, tickets = [], eventId }: RegistrationChartProps) {
-    const isMonthly = !!(initialData.monthly && initialData.monthLabels);
-
+export default function RegistrationChart({ data: initialData, tickets = [], eventId, activeYear }: RegistrationChartProps) {
     const [selectedQuarter, setSelectedQuarter] = useState("Full Year");
     const [selectedTicketId, setSelectedTicketId] = useState<number | "all">("all");
     const [chartData, setChartData] = useState(initialData);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Update chart data when initialData changes (e.g. initial load or parent update)
+    // Derive mode flags from chartData (the state) — NOT from initialData (the prop).
+    // This prevents a one-render mismatch where the flag says "monthly" but
+    // chartData.monthly is still undefined because the useEffect hasn't fired yet.
+    const isYearly  = !!(chartData.yearly  && chartData.yearLabels);
+    const isMonthly = !isYearly && !!(chartData.monthly && chartData.monthLabels);
+
+
+    // Update chart data when initialData changes (e.g. after a year filter change)
     useEffect(() => {
         setChartData(initialData);
     }, [initialData]);
@@ -67,7 +74,10 @@ export default function RegistrationChart({ data: initialData, tickets = [], eve
     let currentData: number[];
     let labels: string[];
 
-    if (isMonthly) {
+    if (isYearly) {
+        currentData = chartData.yearly || [];
+        labels = chartData.yearLabels || [];
+    } else if (isMonthly) {
         // Use REAL monthly data from the server
         const fullMonthly = chartData.monthly!;
         // Pad to 12 if shorter (months not yet reached will be 0)
@@ -83,7 +93,6 @@ export default function RegistrationChart({ data: initialData, tickets = [], eve
 
     const maxValue = Math.max(...currentData, 1); // avoid division by zero
     const hasData = currentData.some(v => v > 0);
-    const currentYear = new Date().getFullYear();
 
     return (
         <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm min-h-[300px] transition-colors relative">
@@ -96,14 +105,19 @@ export default function RegistrationChart({ data: initialData, tickets = [], eve
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                 <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">Registration Trends</h3>
-                    {!isMonthly && chartData.registrationOpenDate && chartData.eventDate && (
+                    {!isMonthly && !isYearly && chartData.registrationOpenDate && chartData.eventDate && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             {chartData.registrationOpenDate} → {chartData.eventDate}
                         </p>
                     )}
+                    {isYearly && (
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">All events • All Years</p>
+                    )}
                     {isMonthly && (
                         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                            All events • {selectedQuarter === "Full Year" ? currentYear : `${selectedQuarter} ${currentYear}`}
+                            All events • {activeYear
+                                ? (selectedQuarter === "Full Year" ? activeYear : `${selectedQuarter} ${activeYear}`)
+                                : 'All Years'}
                         </p>
                     )}
                 </div>
@@ -126,8 +140,8 @@ export default function RegistrationChart({ data: initialData, tickets = [], eve
                         </div>
                     )}
 
-                    {/* Filters for monthly view / Weekly label */}
-                    {isMonthly ? (
+                    {/* Quarter filter only in monthly mode; hidden in yearly/weekly */}
+                    {isYearly ? null : isMonthly ? (
                         <div className="flex items-center gap-2">
                             {/* Quarter Filter */}
                             <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-0.5">
