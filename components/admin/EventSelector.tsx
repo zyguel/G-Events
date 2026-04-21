@@ -41,15 +41,11 @@ export default function EventSelector({ events, currentEventId, selectedYear, on
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, []);
 
-    // Get unique years from events - add test years for demonstration
+    // Get unique years from events + always include the current year so the dropdown is never empty
     const availableYears = useMemo(() => {
         const years = new Set<number>();
+        years.add(new Date().getFullYear()); // always include current year
         events.forEach(event => years.add(extractYear(event.date)));
-        // Add test years
-        years.add(2025);
-        years.add(2024);
-        years.add(2023);
-        years.add(2022);
         return Array.from(years).sort((a, b) => b - a); // Most recent first
     }, [events]);
 
