@@ -122,15 +122,24 @@ function mapDbTicket(row: any): Ticket {
 function mapDbAddOn(row: any): AddOn {
   const dbVariants: any[] = row.AddOnVariant ?? [];
   const ticketLinks: any[] = row.AddOnTicket ?? [];
+  const variantById = new Map<string, AddOnVariant>();
+  for (const v of dbVariants) {
+    const id = String(v.id);
+    if (variantById.has(id)) continue;
+    variantById.set(id, {
+      id,
+      label: v.label ?? v.code ?? '',
+      stock: v.stock_total ?? 0,
+    });
+  }
+  const variants = Array.from(variantById.values());
+  const ticketIds = new Set<string>();
+  for (const link of ticketLinks) {
+    const tid = String(link.ticket_id ?? '').trim();
+    if (tid) ticketIds.add(tid);
+  }
   const appliedTo: 'all' | string[] =
-    ticketLinks.length > 0
-      ? ticketLinks.map((link: any) => String(link.ticket_id))
-      : 'all';
-  const variants: AddOnVariant[] = dbVariants.map((v: any) => ({
-    id: String(v.id),
-    label: v.label ?? v.code ?? '',
-    stock: v.stock_total ?? 0,
-  }));
+    ticketIds.size > 0 ? Array.from(ticketIds) : 'all';
   const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
 
   return {

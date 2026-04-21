@@ -227,6 +227,20 @@ export default function CheckInClient({ event }: CheckInClientProps) {
             if (!res.ok || !json?.success) {
                 throw new Error(json?.error || `Failed to update check-in (${res.status})`);
             }
+            if (nextStatus === 'Checked-In' && typeof json?.checkInTime === 'string' && json.checkInTime) {
+                setAttendees(prev => prev.map(att =>
+                    att.registrationId === registrationId
+                        ? { ...att, checkInTime: json.checkInTime }
+                        : att
+                ));
+            }
+            if (nextStatus === 'Not Yet Checked-In') {
+                setAttendees(prev => prev.map(att =>
+                    att.registrationId === registrationId
+                        ? { ...att, checkInTime: undefined }
+                        : att
+                ));
+            }
         } catch (e) {
             console.error("Error updating check-in:", e);
             // Roll back optimistic update

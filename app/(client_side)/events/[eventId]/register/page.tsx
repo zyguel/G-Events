@@ -77,7 +77,12 @@ export default async function PublicEventRegistrationPage({
       .order("price", { ascending: true })
       .order("id", { ascending: true });
 
-  const eventTickets = (ticketRows || []) as EventTicketRow[];
+  const eventTicketsRaw = (ticketRows || []) as EventTicketRow[];
+  const eventTicketsById = new Map<number, EventTicketRow>();
+  for (const row of eventTicketsRaw) {
+    if (!eventTicketsById.has(row.id)) eventTicketsById.set(row.id, row);
+  }
+  const eventTickets = Array.from(eventTicketsById.values());
   const ticketIds = eventTickets.map((t) => t.id);
   const usageByTicket = new Map<number, number>();
 

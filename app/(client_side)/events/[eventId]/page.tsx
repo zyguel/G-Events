@@ -83,7 +83,12 @@ export default function ClientEventDetailPage() {
             getPublicBreakoutSessions(eventId).catch(() => []),
         ]).then(([eventData, ticketData, breakoutData]) => {
             setEvent(eventData ?? null);
-            setTickets(ticketData.filter(t => t.visibility === 'visible'));
+            const visible = ticketData.filter((t) => t.visibility === "visible");
+            const byId = new Map<string, (typeof visible)[0]>();
+            for (const t of visible) {
+                if (!byId.has(t.id)) byId.set(t.id, t);
+            }
+            setTickets(Array.from(byId.values()));
             setBreakoutSessions(eventData?.allow_breakout_sessions ? (breakoutData as BreakoutSessionItem[]) : []);
             setLoading(false);
         }).catch(() => setLoading(false));
