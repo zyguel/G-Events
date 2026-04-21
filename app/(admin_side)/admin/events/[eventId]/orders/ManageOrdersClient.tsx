@@ -204,15 +204,13 @@ function AttendeeSearch({
 
     // Debounced search
     useEffect(() => {
-        if (query.length < 2) {
-            setResults([]);
-            return;
-        }
-
         const handler = setTimeout(async () => {
             setIsSearching(true);
             try {
-                const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
+                const endpoint = query.trim()
+                    ? `/api/users/search?q=${encodeURIComponent(query)}`
+                    : '/api/users/search';
+                const res = await fetch(endpoint);
                 const json = await res.json();
                 if (json.success) setResults(json.data || []);
             } catch (e) {
@@ -264,7 +262,12 @@ function AttendeeSearch({
                         setQuery(e.target.value);
                         setIsOpen(true);
                     }}
-                    onFocus={() => setIsOpen(true)}
+                    onFocus={() => {
+                        setIsOpen(true);
+                        if (!query.trim()) {
+                            setQuery('');
+                        }
+                    }}
                     placeholder={placeholder}
                     className="w-full pl-11 pr-10 py-3 bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700/50 rounded-2xl text-sm focus:border-[#3D518C] dark:focus:border-blue-500/50 outline-none transition-all placeholder:text-gray-400 dark:placeholder:text-gray-600 font-medium"
                 />
@@ -276,7 +279,7 @@ function AttendeeSearch({
             </div>
 
             <AnimatePresence>
-                {isOpen && query.length >= 2 && (
+                {isOpen && (
                     <motion.div
                         initial={{ opacity: 0, y: 5, scale: 0.98 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -306,7 +309,7 @@ function AttendeeSearch({
                                 ))
                             ) : (
                                 <div className="p-8 text-center">
-                                    <p className="text-sm text-gray-400">No registered users found</p>
+                                    <p className="text-sm text-gray-400">No matching users found</p>
                                 </div>
                             )}
                         </div>

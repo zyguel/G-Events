@@ -874,6 +874,46 @@ export async function updateEvent(id: number, data: Partial<any>) {
             }
         }
 
+        const nextRegistrationOpenIso = typeof sanitizedData.registration_open_at === 'string'
+            ? sanitizedData.registration_open_at
+            : beforeData?.registration_open_at
+        const nextRegistrationCloseIso = typeof sanitizedData.registration_close_at === 'string'
+            ? sanitizedData.registration_close_at
+            : beforeData?.registration_close_at
+
+        const nextRegistrationOpenMs = nextRegistrationOpenIso ? Date.parse(nextRegistrationOpenIso) : null
+        const nextRegistrationCloseMs = nextRegistrationCloseIso ? Date.parse(nextRegistrationCloseIso) : null
+
+        if (nextRegistrationOpenIso && !Number.isFinite(nextRegistrationOpenMs)) {
+            return { success: false, error: 'Invalid registration open date/time.' }
+        }
+
+        if (nextRegistrationCloseIso && !Number.isFinite(nextRegistrationCloseMs)) {
+            return { success: false, error: 'Invalid registration close date/time.' }
+        }
+
+        if (Number.isFinite(nextRegistrationOpenMs)) {
+            const registrationOpenDateOnly = new Date(nextRegistrationOpenMs as number).toISOString().split('T')[0]
+            if (isPastIsoDate(registrationOpenDateOnly)) {
+                return { success: false, error: 'Registration open date cannot be earlier than today.' }
+            }
+        }
+
+        if (Number.isFinite(nextRegistrationCloseMs)) {
+            const registrationCloseDateOnly = new Date(nextRegistrationCloseMs as number).toISOString().split('T')[0]
+            if (isPastIsoDate(registrationCloseDateOnly)) {
+                return { success: false, error: 'Registration close date cannot be earlier than today.' }
+            }
+        }
+
+        if (
+            Number.isFinite(nextRegistrationOpenMs)
+            && Number.isFinite(nextRegistrationCloseMs)
+            && (nextRegistrationCloseMs as number) < (nextRegistrationOpenMs as number)
+        ) {
+            return { success: false, error: 'Registration close date/time cannot be earlier than open date/time.' }
+        }
+
         const nextStartIso = typeof sanitizedData.event_start_at === 'string'
             ? sanitizedData.event_start_at
             : beforeData?.event_start_at

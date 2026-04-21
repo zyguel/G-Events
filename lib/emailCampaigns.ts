@@ -94,11 +94,12 @@ export async function resolveEventRecipients(
   rawFilters: EmailAudienceFilters
 ): Promise<CampaignRecipient[]> {
   const filters = normalizeFilters(rawFilters);
+  const selectedTicketIds = filters.ticketTypes.selectedTicketIds ?? [];
 
   const shouldFilterTicket =
     !filters.ticketTypes.selectAll &&
     (
-      filters.ticketTypes.selectedTicketIds.length > 0 ||
+      selectedTicketIds.length > 0 ||
       filters.ticketTypes.generalAdmission ||
       filters.ticketTypes.premiumAdmission
     );
@@ -145,7 +146,6 @@ export async function resolveEventRecipients(
 
     const ticketName = String(row.Ticket?.name || "General Admission");
     if (shouldFilterTicket) {
-      const selectedTicketIds = filters.ticketTypes.selectedTicketIds;
       if (selectedTicketIds.length > 0) {
         const ticketId = Number(row.ticket_id);
         if (!Number.isFinite(ticketId) || !selectedTicketIds.includes(ticketId)) {

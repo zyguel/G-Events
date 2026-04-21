@@ -179,9 +179,10 @@ const SessionModal = ({
         joinLink: '',
         location: '',
         currentAttendees: 0,
-        maxCapacity: 30,
+        maxCapacity: undefined,
         speakers: [],
     });
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
     const [newSpeakerName, setNewSpeakerName] = useState('');
     const [newSpeakerImage, setNewSpeakerImage] = useState('');
 
@@ -198,10 +199,11 @@ const SessionModal = ({
                 joinLink: '',
                 location: '',
                 currentAttendees: 0,
-                maxCapacity: 30,
+                maxCapacity: undefined,
                 speakers: [],
             });
         }
+        setValidationErrors({});
     }, [session, isOpen]);
 
     const handleAddSpeaker = () => {
@@ -223,17 +225,50 @@ const SessionModal = ({
     };
 
     const handleSave = () => {
+        const nextErrors: Record<string, string> = {};
+        const title = String(formData.title || '').trim();
+        const date = String(formData.date || '').trim();
+        const time = String(formData.time || '').trim();
+        const maxCapacity = Number(formData.maxCapacity);
+        const locationOrJoinLink = formData.type === 'Online'
+            ? String(formData.joinLink || '').trim()
+            : String(formData.location || '').trim();
+
+        if (!title) {
+            nextErrors.title = 'Title is required.';
+        }
+        if (!date) {
+            nextErrors.date = 'Date is required.';
+        }
+        if (!time) {
+            nextErrors.time = 'Time is required.';
+        }
+        if (!locationOrJoinLink) {
+            nextErrors.locationOrJoinLink = formData.type === 'Online'
+                ? 'Join link is required for online sessions.'
+                : 'Location is required for in-person sessions.';
+        }
+        if (!Number.isFinite(maxCapacity) || maxCapacity <= 0) {
+            nextErrors.maxCapacity = 'Maximum capacity must be greater than 0.';
+        }
+
+        if (Object.keys(nextErrors).length > 0) {
+            setValidationErrors(nextErrors);
+            return;
+        }
+
+        setValidationErrors({});
         onSave({
             id: session?.id || Date.now().toString(),
-            title: formData.title || '',
+            title,
             type: formData.type || 'In-Person',
             status: formData.status || 'Not Started',
-            date: formData.date || '',
-            time: formData.time || '',
+            date,
+            time,
             joinLink: formData.joinLink,
             location: formData.location,
             currentAttendees: formData.currentAttendees || 0,
-            maxCapacity: formData.maxCapacity || 30,
+            maxCapacity,
             speakers: formData.speakers || [],
         });
         onClose();
@@ -272,10 +307,18 @@ const SessionModal = ({
                             <input
                                 type="text"
                                 value={formData.title}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                                onChange={(e) => {
+                                    setFormData({ ...formData, title: e.target.value });
+                                    if (validationErrors.title) {
+                                        setValidationErrors((prev) => ({ ...prev, title: '' }));
+                                    }
+                                }}
                                 className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
                                 placeholder="Enter session title"
                             />
+                            {validationErrors.title && (
+                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.title}</p>
+                            )}
                         </div>
 
                         {/* Type & Status */}
@@ -313,19 +356,35 @@ const SessionModal = ({
                                 <input
                                     type="date"
                                     value={formData.date}
-                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, date: e.target.value });
+                                        if (validationErrors.date) {
+                                            setValidationErrors((prev) => ({ ...prev, date: '' }));
+                                        }
+                                    }}
                                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
                                 />
+                                {validationErrors.date && (
+                                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.date}</p>
+                                )}
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time</label>
                                 <input
                                     type="text"
                                     value={formData.time}
-                                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, time: e.target.value });
+                                        if (validationErrors.time) {
+                                            setValidationErrors((prev) => ({ ...prev, time: '' }));
+                                        }
+                                    }}
                                     placeholder="e.g. 2:00 PM – 3:30 PM"
                                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
                                 />
+                                {validationErrors.time && (
+                                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.time}</p>
+                                )}
                             </div>
                         </div>
 
@@ -337,13 +396,21 @@ const SessionModal = ({
                             <input
                                 type="text"
                                 value={formData.type === 'Online' ? formData.joinLink : formData.location}
-                                onChange={(e) => setFormData({
-                                    ...formData,
-                                    [formData.type === 'Online' ? 'joinLink' : 'location']: e.target.value
-                                })}
+                                onChange={(e) => {
+                                    setFormData({
+                                        ...formData,
+                                        [formData.type === 'Online' ? 'joinLink' : 'location']: e.target.value
+                                    });
+                                    if (validationErrors.locationOrJoinLink) {
+                                        setValidationErrors((prev) => ({ ...prev, locationOrJoinLink: '' }));
+                                    }
+                                }}
                                 placeholder={formData.type === 'Online' ? 'https://meet.example.com/session' : 'Room A, Main Hall'}
                                 className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
                             />
+                            {validationErrors.locationOrJoinLink && (
+                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.locationOrJoinLink}</p>
+                            )}
                         </div>
 
                         {/* Capacity */}
@@ -361,10 +428,23 @@ const SessionModal = ({
                                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Maximum Capacity</label>
                                 <input
                                     type="number"
-                                    value={formData.maxCapacity}
-                                    onChange={(e) => setFormData({ ...formData, maxCapacity: parseInt(e.target.value) || 30 })}
+                                    min={1}
+                                    value={formData.maxCapacity ?? ''}
+                                    onChange={(e) => {
+                                        const nextValue = e.target.value.trim();
+                                        setFormData({
+                                            ...formData,
+                                            maxCapacity: nextValue === '' ? undefined : Number(nextValue),
+                                        });
+                                        if (validationErrors.maxCapacity) {
+                                            setValidationErrors((prev) => ({ ...prev, maxCapacity: '' }));
+                                        }
+                                    }}
                                     className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
                                 />
+                                {validationErrors.maxCapacity && (
+                                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.maxCapacity}</p>
+                                )}
                             </div>
                         </div>
                     </div>

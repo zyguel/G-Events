@@ -67,6 +67,53 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
     // Toast State
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const toIsoDate = (value: Date) => {
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const buildRegistrationTimestamp = (date: string, time: string, fallbackTime: string) => {
+        if (!date) return null;
+        const normalizedTime = time || fallbackTime;
+        const candidate = new Date(`${date}T${normalizedTime}:00`);
+        return Number.isNaN(candidate.getTime()) ? null : candidate;
+    };
+
+    const validateRegistrationWindow = () => {
+        const openDate = settings.registrationOpenDate;
+        const closeDate = settings.registrationCloseDate;
+
+        if (openDate && openDate < toIsoDate(startOfToday)) {
+            return 'Registration open date cannot be earlier than today.';
+        }
+
+        if (closeDate && closeDate < toIsoDate(startOfToday)) {
+            return 'Registration close date cannot be earlier than today.';
+        }
+
+        const openAt = buildRegistrationTimestamp(openDate, settings.registrationOpenTime, '00:00');
+        const closeAt = buildRegistrationTimestamp(closeDate, settings.registrationCloseTime, '23:59');
+
+        if (openDate && !openAt) {
+            return 'Registration open date/time is invalid.';
+        }
+
+        if (closeDate && !closeAt) {
+            return 'Registration close date/time is invalid.';
+        }
+
+        if (openAt && closeAt && closeAt.getTime() < openAt.getTime()) {
+            return 'Registration close date/time cannot be earlier than registration open date/time.';
+        }
+
+        return null;
+    };
+
     // Toast Component
     const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
         useEffect(() => {
@@ -88,6 +135,13 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
 
     const handlePublish = async () => {
         if (isPublishing) return;
+
+        const validationError = validateRegistrationWindow();
+        if (validationError) {
+            setToast({ message: validationError, type: 'error' });
+            return;
+        }
+
         setIsPublishing(true);
         try {
             // 1. Update in Supabase
@@ -96,12 +150,10 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                 const { updateEvent } = await import('@/lib/actions/events');
 
                 // Construct timestamps
-                const regStart = settings.registrationOpenDate
-                    ? new Date(`${settings.registrationOpenDate}T${settings.registrationOpenTime || '00:00'}:00`).toISOString()
-                    : null;
-                const regEnd = settings.registrationCloseDate
-                    ? new Date(`${settings.registrationCloseDate}T${settings.registrationCloseTime || '23:59'}:00`).toISOString()
-                    : null;
+                const regStartDate = buildRegistrationTimestamp(settings.registrationOpenDate, settings.registrationOpenTime, '00:00');
+                const regEndDate = buildRegistrationTimestamp(settings.registrationCloseDate, settings.registrationCloseTime, '23:59');
+                const regStart = regStartDate ? regStartDate.toISOString() : null;
+                const regEnd = regEndDate ? regEndDate.toISOString() : null;
 
                 const res = await updateEvent(id, {
                     is_published: true,
@@ -468,6 +520,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         onChange={(date) => setSettings({ ...settings, registrationOpenDate: date ? date.toISOString().split('T')[0] : '' })}
                                         placeholder="Select date"
                                         disabled={!canManageEventStatus}
+                                        minDate={startOfToday}
                                     />
                                 </div>
                                 <div>
@@ -493,6 +546,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         onChange={(date) => setSettings({ ...settings, registrationCloseDate: date ? date.toISOString().split('T')[0] : '' })}
                                         placeholder="Select date"
                                         disabled={!canManageEventStatus}
+                                        minDate={startOfToday}
                                     />
                                 </div>
                                 <div>

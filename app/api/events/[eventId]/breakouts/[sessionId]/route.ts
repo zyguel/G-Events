@@ -24,6 +24,33 @@ interface SessionPayload {
     speakers: SpeakerPayload[];
 }
 
+function validateSessionPayload(session: SessionPayload): string | null {
+    const title = String(session.title || '').trim();
+    const date = String(session.date || '').trim();
+    const time = String(session.time || '').trim();
+    const maxCapacity = Number(session.maxCapacity);
+    const type: UiType = session.type === 'In-Person' ? 'In-Person' : 'Online';
+    const location = String(session.location || '').trim();
+    const joinLink = String(session.joinLink || '').trim();
+
+    if (!title) return 'Session title is required.';
+    if (!date) return 'Session date is required.';
+    if (!time) return 'Session time is required.';
+    if (!Number.isFinite(maxCapacity) || maxCapacity <= 0) {
+        return 'Session max capacity must be greater than 0.';
+    }
+
+    if (type === 'Online' && !joinLink) {
+        return 'Join link is required for online sessions.';
+    }
+
+    if (type === 'In-Person' && !location) {
+        return 'Location is required for in-person sessions.';
+    }
+
+    return null;
+}
+
 const buildDescription = (session: SessionPayload) =>
     JSON.stringify({
         date: session.date,
@@ -110,6 +137,14 @@ export async function PATCH(
         }
 
         const session = body.session;
+        const validationError = validateSessionPayload(session);
+        if (validationError) {
+            return NextResponse.json(
+                { success: false, error: validationError },
+                { status: 400 }
+            );
+        }
+
         const description = buildDescription(session);
         const speakerName = session.speakers.map(s => s.name.trim()).join(", ");
 

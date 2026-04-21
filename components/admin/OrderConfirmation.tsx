@@ -38,6 +38,12 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
     });
 
     const [isLoading, setIsLoading] = useState(true);
+    const [initialData, setInitialData] = useState<OrderConfirmationData | null>(null);
+    const [noChangeStates, setNoChangeStates] = useState({
+        submissionEmail: false,
+        confirmationEmail: false,
+        rejectionEmail: false,
+    });
 
     // Fetch initial data
     useEffect(() => {
@@ -48,6 +54,15 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                 // If data exists, populate the form
                 if (fetchedData) {
                     setData(fetchedData);
+                    setInitialData(fetchedData);
+                } else {
+                    setInitialData({
+                        submissionMessage: "",
+                        submissionEmail: { subject: "", body: "" },
+                        confirmationEmail: { subject: "", body: "" },
+                        rejectionEmail: { subject: "", body: "" },
+                        freeTicketApprovalMode: "manual",
+                    });
                 }
             } catch (error) {
                 console.error("Failed to load settings:", error);
@@ -61,9 +76,36 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
         }
     }, [eventId]);
 
+    const hasSectionChanged = (type: 'submission' | 'confirmation' | 'rejection') => {
+        if (!initialData) {
+            return false;
+        }
+
+        if (type === 'submission') {
+            return data.submissionEmail.subject !== initialData.submissionEmail.subject
+                || data.submissionEmail.body !== initialData.submissionEmail.body;
+        }
+
+        if (type === 'confirmation') {
+            return data.confirmationEmail.subject !== initialData.confirmationEmail.subject
+                || data.confirmationEmail.body !== initialData.confirmationEmail.body;
+        }
+
+        return data.rejectionEmail.subject !== initialData.rejectionEmail.subject
+            || data.rejectionEmail.body !== initialData.rejectionEmail.body;
+    };
+
     const handleSaveEmail = async (type: 'submission' | 'confirmation' | 'rejection') => {
+        if (!hasSectionChanged(type)) {
+            const key = `${type}Email` as keyof typeof noChangeStates;
+            setNoChangeStates((prev) => ({ ...prev, [key]: true }));
+            setTimeout(() => setNoChangeStates((prev) => ({ ...prev, [key]: false })), 3000);
+            return;
+        }
+
         try {
             await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
+            setInitialData(data);
             const key = `${type}Email` as keyof typeof savedStates;
             setSavedStates((prev) => ({ ...prev, [key]: true }));
             setTimeout(() => setSavedStates((prev) => ({ ...prev, [key]: false })), 3000);
@@ -134,6 +176,11 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         />
                     </div>
                     <div className="flex items-center justify-end gap-3">
+                        {noChangeStates.submissionEmail && (
+                            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                                No changes to save.
+                            </span>
+                        )}
                         {savedStates.submissionEmail && (
                             <span className="text-sm text-green-600 dark:text-green-400 font-medium">
                                 ✓ Changes saved
@@ -186,6 +233,11 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         />
                     </div>
                     <div className="flex items-center justify-end gap-3">
+                        {noChangeStates.confirmationEmail && (
+                            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                                No changes to save.
+                            </span>
+                        )}
                         {savedStates.confirmationEmail && (
                             <span className="text-sm text-green-600 dark:text-green-400 font-medium">
                                 ✓ Changes saved
@@ -238,6 +290,11 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         />
                     </div>
                     <div className="flex items-center justify-end gap-3">
+                        {noChangeStates.rejectionEmail && (
+                            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                                No changes to save.
+                            </span>
+                        )}
                         {savedStates.rejectionEmail && (
                             <span className="text-sm text-green-600 dark:text-green-400 font-medium">
                                 ✓ Changes saved
