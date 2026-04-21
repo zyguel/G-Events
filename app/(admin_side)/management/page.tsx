@@ -236,20 +236,26 @@ function ManagementPageInner() {
             return;
         }
 
-        try {
-            const selectedRoleObj = roles.find(r => r.name === selectedRole);
-            if (!selectedRoleObj) {
-                showToast('Invalid role selected', 'error');
-                return;
-            }
+        const selectedRoleObj = roles.find(r => r.name === selectedRole);
+        if (!selectedRoleObj) {
+            showToast('Invalid role selected', 'error');
+            return;
+        }
 
+        // Close the modal immediately after validation passes
+        const capturedName = inviteName;
+        const capturedEmail = inviteEmail;
+        const capturedRoleObj = selectedRoleObj;
+        handleCloseModal();
+
+        try {
             const response = await fetch('/api/management/users', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    name: inviteName,
-                    email: inviteEmail,
-                    roleId: selectedRoleObj.id,
+                    name: capturedName,
+                    email: capturedEmail,
+                    roleId: capturedRoleObj.id,
                 }),
             });
 
@@ -258,7 +264,6 @@ function ManagementPageInner() {
             if (result.success) {
                 setMembers((currentMembers) => dedupeMembers([...currentMembers, result.data]));
                 showToast('User invited successfully!', 'success');
-                handleCloseModal();
             } else {
                 showToast(result.error || 'Failed to invite user', 'error');
             }
