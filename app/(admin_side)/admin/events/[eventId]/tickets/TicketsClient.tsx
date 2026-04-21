@@ -261,11 +261,19 @@ export default function TicketsClient({ event }: TicketsClientProps) {
             <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Ticket Details</h3>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Ticket Name *
-              </label>
+              <div className="flex items-center justify-between mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Ticket Name *
+                </label>
+                <span className={`text-[10px] font-medium tabular-nums ${
+                  formData.name.length >= 30 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
+                }`}>
+                  {formData.name.length}/30
+                </span>
+              </div>
               <input
                 type="text"
+                maxLength={30}
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="e.g., Early Bird, VIP Pass"
@@ -308,8 +316,9 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                   min="0"
                   value={formData.quantity}
                   onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.quantity ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                    } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
+                    } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 />
                 {errors.quantity && <p className="text-red-500 text-xs mt-1">{errors.quantity}</p>}
               </div>
@@ -325,8 +334,9 @@ export default function TicketsClient({ event }: TicketsClientProps) {
                     step="0.01"
                     value={formData.price || ""}
                     onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     className={`w-full px-4 py-2 bg-white dark:bg-gray-700 border ${errors.price ? "border-red-500" : "border-gray-300 dark:border-gray-600"
-                      } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]`}
+                      } rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                   />
                   {errors.price && <p className="text-red-500 text-xs mt-1">{errors.price}</p>}
                 </div>
