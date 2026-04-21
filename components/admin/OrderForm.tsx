@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3, Save, Loader, Check } from "lucide-react";
+import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3, Save, Loader, Check, GripVertical } from "lucide-react";
+import { Reorder, AnimatePresence, useDragControls } from "framer-motion";
 
 type InputType = "short_answer" | "paragraph" | "multiple_choice" | "checkboxes" | "dropdown" | "file_upload" | "multiple_choice_grid" | "checkbox_grid" | "date" | "time";
 
@@ -80,6 +81,200 @@ const FIELD_IDENTIFIERS = [
     { value: "payment_reference", label: "Payment reference / code — group: primary only" },
     { value: "custom", label: "Custom Field" }
 ];
+
+const DraggableInputItem = ({
+    input,
+    sectionId,
+    editingInput,
+    setEditingInput,
+    updateInput,
+    deleteInput,
+    showValidationErrors,
+    INPUT_TYPES,
+    FIELD_IDENTIFIERS
+}: {
+    input: FormInput;
+    sectionId: string;
+    editingInput: string | null;
+    setEditingInput: (id: string | null) => void;
+    updateInput: (sectionId: string, inputId: string, updates: Partial<FormInput>) => void;
+    deleteInput: (sectionId: string, inputId: string) => void;
+    showValidationErrors: boolean;
+    INPUT_TYPES: any[];
+    FIELD_IDENTIFIERS: any[];
+}) => {
+    const dragControls = useDragControls();
+
+    return (
+        <Reorder.Item
+            key={input.id}
+            value={input}
+            dragListener={false}
+            dragControls={dragControls}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2 }}
+        >
+            <div className="relative group/item">
+                {/* Drag Handle - Absolutely positioned to the left */}
+                <div 
+                    className="absolute -left-6 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-gray-300 dark:text-gray-600 opacity-0 group-hover/item:opacity-100 transition-opacity p-1"
+                    onPointerDown={(e) => dragControls.start(e)}
+                >
+                    <GripVertical className="w-5 h-5" />
+                </div>
+
+                <div
+                    className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border border-gray-200 dark:border-gray-600 transition-all hover:border-[#3D518C]/30"
+                >
+                    {editingInput === input.id ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="col-span-2">
+                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Question</label>
+                                    <input
+                                        type="text"
+                                        value={input.question}
+                                        onChange={(e) => updateInput(sectionId, input.id, { question: e.target.value })}
+                                        className={`w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border ${showValidationErrors && !input.question.trim() ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] transition-all`}
+                                        placeholder="Enter question"
+                                    />
+                                    {showValidationErrors && !input.question.trim() && (
+                                        <p className="text-red-500 text-[10px] mt-1 font-medium italic">Question requires a question title.</p>
+                                    )}
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Input Type</label>
+                                    <select
+                                        value={input.type}
+                                        onChange={(e) => updateInput(sectionId, input.id, { type: e.target.value as FormInput["type"] })}
+                                        className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                    >
+                                        {INPUT_TYPES.map(type => (
+                                            <option key={type.value} value={type.value}>{type.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Field Identifier</label>
+                                    <select
+                                        value={input.fieldIdentifier}
+                                        onChange={(e) => updateInput(sectionId, input.id, { fieldIdentifier: e.target.value })}
+                                        className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                    >
+                                        {FIELD_IDENTIFIERS.map(field => (
+                                            <option key={field.value} value={field.value}>{field.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {(input.type === "dropdown" || input.type === "checkboxes" || input.type === "multiple_choice" || input.type === "multiple_choice_grid" || input.type === "checkbox_grid") && (
+                                <div>
+                                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase mb-3 block">Options</label>
+                                    <div className="space-y-2">
+                                        {(input.options || []).map((option, idx) => (
+                                            <div key={idx} className="flex gap-2 items-center">
+                                                <input
+                                                    type="text"
+                                                    value={option}
+                                                    onChange={(e) => {
+                                                        const newOptions = [...(input.options || [])];
+                                                        newOptions[idx] = e.target.value;
+                                                        updateInput(sectionId, input.id, { options: newOptions });
+                                                    }}
+                                                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                                    placeholder={`Option ${idx + 1}`}
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const newOptions = input.options?.filter((_, i) => i !== idx) || [];
+                                                        updateInput(sectionId, input.id, { options: newOptions });
+                                                    }}
+                                                    className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer"
+                                                    title="Delete option"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newOptions = [...(input.options || []), ""];
+                                                updateInput(sectionId, input.id, { options: newOptions });
+                                            }}
+                                            className="w-full py-2 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            Add Option
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex items-center gap-3">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={input.required}
+                                        onChange={(e) => updateInput(sectionId, input.id, { required: e.target.checked })}
+                                        className="w-4 h-4 rounded border-gray-300 text-[#3D518C] focus:ring-[#3D518C]"
+                                    />
+                                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Required</span>
+                                </label>
+                            </div>
+
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setEditingInput(null)}
+                                    disabled={!input.question.trim()}
+                                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    Done
+                                </button>
+                                <button
+                                    onClick={() => deleteInput(sectionId, input.id)}
+                                    className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all cursor-pointer"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div
+                            onClick={() => setEditingInput(input.id)}
+                            className="cursor-pointer"
+                        >
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2">
+                                        <p className={`text-sm font-medium ${showValidationErrors && !input.question.trim() ? 'text-red-500 italic' : 'text-gray-900 dark:text-white'}`}>
+                                            {input.question || (showValidationErrors ? 'Question requires a question title.' : 'Untitled Question')}
+                                        </p>
+                                        {input.required && (
+                                            <span className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
+                                                Required
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+                                        <span>Type: <span className="font-medium">{INPUT_TYPES.find(t => t.value === input.type)?.label}</span></span>
+                                        <span>ID: <span className="font-medium">{input.fieldIdentifier}</span></span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </Reorder.Item>
+    );
+};
 
 export default function OrderForm({
     eventId,
@@ -371,6 +566,15 @@ export default function OrderForm({
             )
         });
         setEditingInput(null);
+    };
+
+    const handleReorderInputs = (sectionId: string, newInputs: FormInput[]) => {
+        setData({
+            ...data,
+            sections: data.sections.map(s =>
+                s.id === sectionId ? { ...s, inputs: newInputs } : s
+            )
+        });
     };
 
     const duplicateInput = (sectionId: string, inputId: string) => {
@@ -736,155 +940,40 @@ export default function OrderForm({
                                     </div>
                                 ) : (
                                     <>
-                                        {section.inputs.map((input) => (
-                                            <div
-                                                key={input.id}
-                                                className="bg-gray-50 dark:bg-gray-700/30 rounded-xl p-4 border border-gray-200 dark:border-gray-600 transition-all hover:border-[#3D518C]/30"
-                                            >
-                                                {editingInput === input.id ? (
-                                                    <div className="space-y-4">
-                                                        <div className="grid grid-cols-2 gap-4">
-                                                            <div className="col-span-2">
-                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Question</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={input.question}
-                                                                    onChange={(e) => updateInput(section.id, input.id, { question: e.target.value })}
-                                                                    className={`w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border ${showValidationErrors && !input.question.trim() ? 'border-red-500 ring-1 ring-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] transition-all`}
-                                                                    placeholder="Enter question"
-                                                                />
-                                                                {showValidationErrors && !input.question.trim() && (
-                                                                    <p className="text-red-500 text-[10px] mt-1 font-medium italic">Question requires a question title.</p>
-                                                                )}
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Input Type</label>
-                                                                <select
-                                                                    value={input.type}
-                                                                    onChange={(e) => updateInput(section.id, input.id, { type: e.target.value as FormInput["type"] })}
-                                                                    className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                                >
-                                                                    {INPUT_TYPES.map(type => (
-                                                                        <option key={type.value} value={type.value}>{type.label}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                            <div>
-                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase">Field Identifier</label>
-                                                                <select
-                                                                    value={input.fieldIdentifier}
-                                                                    onChange={(e) => updateInput(section.id, input.id, { fieldIdentifier: e.target.value })}
-                                                                    className="w-full mt-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                                >
-                                                                    {FIELD_IDENTIFIERS.map(field => (
-                                                                        <option key={field.value} value={field.value}>{field.label}</option>
-                                                                    ))}
-                                                                </select>
-                                                            </div>
-                                                        </div>
-
-                                                        {(input.type === "dropdown" || input.type === "checkboxes" || input.type === "multiple_choice" || input.type === "multiple_choice_grid" || input.type === "checkbox_grid") && (
-                                                            <div>
-                                                                <label className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase mb-3 block">Options</label>
-                                                                <div className="space-y-2">
-                                                                    {(input.options || []).map((option, idx) => (
-                                                                        <div key={idx} className="flex gap-2 items-center">
-                                                                            <input
-                                                                                type="text"
-                                                                                value={option}
-                                                                                onChange={(e) => {
-                                                                                    const newOptions = [...(input.options || [])];
-                                                                                    newOptions[idx] = e.target.value;
-                                                                                    updateInput(section.id, input.id, { options: newOptions });
-                                                                                }}
-                                                                                className="flex-1 px-3 py-2 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                                                                placeholder={`Option ${idx + 1}`}
-                                                                            />
-                                                                            <button
-                                                                                type="button"
-                                                                                onClick={() => {
-                                                                                    const newOptions = input.options?.filter((_, i) => i !== idx) || [];
-                                                                                    updateInput(section.id, input.id, { options: newOptions });
-                                                                                }}
-                                                                                className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors cursor-pointer"
-                                                                                title="Delete option"
-                                                                            >
-                                                                                <Trash2 className="w-4 h-4" />
-                                                                            </button>
-                                                                        </div>
-                                                                    ))}
-                                                                    <button
-                                                                        type="button"
-                                                                        onClick={() => {
-                                                                            const newOptions = [...(input.options || []), ""];
-                                                                            updateInput(section.id, input.id, { options: newOptions });
-                                                                        }}
-                                                                        className="w-full py-2 text-sm font-medium text-[#3D518C] dark:text-[#5C6BC0] border border-dashed border-[#3D518C]/30 dark:border-[#5C6BC0]/30 rounded-lg hover:bg-[#3D518C]/5 dark:hover:bg-[#5C6BC0]/5 transition-all flex items-center justify-center gap-2 cursor-pointer"
-                                                                    >
-                                                                        <Plus className="w-4 h-4" />
-                                                                        Add Option
-                                                                    </button>
-                                                                </div>
-                                                            </div>
-                                                        )}
-
-                                                        <div className="flex items-center gap-3">
-                                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={input.required}
-                                                                    onChange={(e) => updateInput(section.id, input.id, { required: e.target.checked })}
-                                                                    className="w-4 h-4 rounded border-gray-300 text-[#3D518C] focus:ring-[#3D518C]"
-                                                                />
-                                                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Required</span>
-                                                            </label>
-                                                        </div>
-
-                                                        <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => setEditingInput(null)}
-                                                                disabled={!input.question.trim()}
-                                                                className="flex-1 px-4 py-2 text-sm font-medium text-white bg-linear-to-r from-[#3D518C] to-[#5C6BC0] rounded-lg hover:shadow-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                                                            >
-                                                                Done
-                                                            </button>
-                                                            <button
-                                                                onClick={() => deleteInput(section.id, input.id)}
-                                                                className="px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-all cursor-pointer"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                ) : (
-                                                    <div
-                                                        onClick={() => setEditingInput(input.id)}
-                                                        className="cursor-pointer"
-                                                    >
-                                                        <div className="flex items-start justify-between gap-4">
-                                                            <div className="flex-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className={`text-sm font-medium ${showValidationErrors && !input.question.trim() ? 'text-red-500 italic' : 'text-gray-900 dark:text-white'}`}>
-                                                                        {input.question || (showValidationErrors ? 'Question requires a question title.' : 'Untitled Question')}
-                                                                    </p>
-                                                                    {input.required && (
-                                                                        <span className="text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded">
-                                                                            Required
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                                <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
-                                                                    <span>Type: <span className="font-medium">{INPUT_TYPES.find(t => t.value === input.type)?.label}</span></span>
-                                                                    <span>ID: <span className="font-medium">{input.fieldIdentifier}</span></span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="flex gap-2">
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
+                                        <div className="flex items-center justify-between mb-2 px-1">
+                                            <p className="text-[10px] font-semibold text-[#3D518C]/60 dark:text-indigo-300/50 flex items-center gap-1.5 uppercase tracking-wider">
+                                                <GripVertical className="w-3 h-3" />
+                                                Drag handle to reorder questions
+                                            </p>
+                                        </div>
+                                        <Reorder.Group
+                                            axis="y"
+                                            values={section.inputs}
+                                            onReorder={(newInputs) => handleReorderInputs(section.id, newInputs)}
+                                            className="space-y-4"
+                                        >
+                                            <AnimatePresence initial={false}>
+                                                {section.inputs.map((input) => {
+                                                    // useDragControls must be called inside the map component or a sub-component
+                                                    // but hooks can't be called inside a map. 
+                                                    // Let's create a sub-component for the draggable item to use hooks properly.
+                                                    return (
+                                                        <DraggableInputItem
+                                                            key={input.id}
+                                                            input={input}
+                                                            sectionId={section.id}
+                                                            editingInput={editingInput}
+                                                            setEditingInput={setEditingInput}
+                                                            updateInput={updateInput}
+                                                            deleteInput={deleteInput}
+                                                            showValidationErrors={showValidationErrors}
+                                                            INPUT_TYPES={INPUT_TYPES}
+                                                            FIELD_IDENTIFIERS={FIELD_IDENTIFIERS}
+                                                        />
+                                                    );
+                                                })}
+                                            </AnimatePresence>
+                                        </Reorder.Group>
 
                                         <button
                                             onClick={() => addInput(section.id)}
