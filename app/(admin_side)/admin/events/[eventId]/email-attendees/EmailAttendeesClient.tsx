@@ -86,6 +86,11 @@ interface CampaignApiRow {
     schedule_at?: string | null;
 }
 
+interface TicketTypeOption {
+    id: number;
+    name: string;
+}
+
 // Checkbox component with modern styling
 const Checkbox = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: () => void }) => (
     <div
@@ -316,9 +321,9 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     // Filter states
     const [ticketTypes, setTicketTypes] = useState({
         selectAll: false,
-        generalAdmission: false,
-        premiumAdmission: false,
+        selectedTicketIds: [] as number[],
     });
+    const [ticketTypeOptions, setTicketTypeOptions] = useState<TicketTypeOption[]>([]);
 
     const [statuses, setStatuses] = useState({
         selectAll: false,
@@ -393,6 +398,55 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [event.id]);
 
+    const loadTicketTypes = async () => {
+        if (event.id.startsWith('evt-')) {
+            setTicketTypeOptions([]);
+            setTicketTypes({ selectAll: false, selectedTicketIds: [] });
+            return;
+        }
+
+        try {
+            const res = await fetch(`/api/events/${event.id}/tickets`);
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.error || `Failed to load tickets (${res.status})`);
+            }
+
+            const rows = Array.isArray(json?.data) ? json.data : [];
+            const options: TicketTypeOption[] = rows
+                .map((row: { id?: unknown; name?: unknown }) => {
+                    const id = Number(row?.id);
+                    const name = String(row?.name || '').trim();
+                    if (!Number.isFinite(id) || id <= 0 || !name) {
+                        return null;
+                    }
+
+                    return { id, name };
+                })
+                .filter((ticket: TicketTypeOption | null): ticket is TicketTypeOption => ticket !== null);
+
+            setTicketTypeOptions(options);
+            setTicketTypes((prev) => {
+                const validSelected = prev.selectedTicketIds.filter((id) => options.some((ticket) => ticket.id === id));
+                const shouldSelectAll = options.length > 0 && validSelected.length === options.length;
+                return {
+                    selectAll: shouldSelectAll,
+                    selectedTicketIds: validSelected,
+                };
+            });
+        } catch (error) {
+            console.error('Error loading ticket types:', error);
+            setTicketTypeOptions([]);
+            setTicketTypes({ selectAll: false, selectedTicketIds: [] });
+            setToast({ message: error instanceof Error ? error.message : 'Failed to load ticket types', type: 'error' });
+        }
+    };
+
+    useEffect(() => {
+        loadTicketTypes();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [event.id]);
+
     const uploadEditorImage = useCallback(async (file: File): Promise<string> => {
         if (event.id.startsWith('evt-')) {
             return new Promise((resolve, reject) => {
@@ -427,8 +481,22 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
         const newValue = !ticketTypes.selectAll;
         setTicketTypes({
             selectAll: newValue,
-            generalAdmission: newValue,
-            premiumAdmission: newValue,
+            selectedTicketIds: newValue ? ticketTypeOptions.map((ticket) => ticket.id) : [],
+        });
+    };
+
+    const toggleTicketType = (ticketId: number) => {
+        setTicketTypes((prev) => {
+            const isSelected = prev.selectedTicketIds.includes(ticketId);
+            const selectedTicketIds = isSelected
+                ? prev.selectedTicketIds.filter((id) => id !== ticketId)
+                : [...prev.selectedTicketIds, ticketId];
+            const selectAll = ticketTypeOptions.length > 0 && selectedTicketIds.length === ticketTypeOptions.length;
+
+            return {
+                selectAll,
+                selectedTicketIds,
+            };
         });
     };
 
@@ -478,6 +546,26 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
         attendanceTypes,
     });
 
+    const fetchRecipientEstimate = useCallback(async (signal?: AbortSignal) => {
+        const res = await fetch(`/api/events/${event.id}/email-attendees`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            signal,
+            body: JSON.stringify({
+                action: 'estimate',
+                filters: buildFiltersPayload(),
+            }),
+        });
+
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok || !json?.success) {
+            throw new Error(json?.error || `Failed to estimate recipients (${res.status})`);
+        }
+
+        const nextCount = Number(json?.data?.recipientCount || 0);
+        return Number.isFinite(nextCount) ? nextCount : 0;
+    }, [event.id, ticketTypes, statuses, attendanceTypes]);
+
     useEffect(() => {
         if (event.id.startsWith('evt-')) {
             setEstimatedAttendeesCount(0);
@@ -489,23 +577,8 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
         const timer = setTimeout(async () => {
             try {
                 setIsLoadingAttendeeEstimate(true);
-                const res = await fetch(`/api/events/${event.id}/email-attendees`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    signal: controller.signal,
-                    body: JSON.stringify({
-                        action: 'estimate',
-                        filters: buildFiltersPayload(),
-                    }),
-                });
-
-                const json = await res.json().catch(() => ({}));
-                if (!res.ok || !json?.success) {
-                    throw new Error(json?.error || `Failed to estimate recipients (${res.status})`);
-                }
-
-                const nextCount = Number(json?.data?.recipientCount || 0);
-                setEstimatedAttendeesCount(Number.isFinite(nextCount) ? nextCount : 0);
+                const nextCount = await fetchRecipientEstimate(controller.signal);
+                setEstimatedAttendeesCount(nextCount);
             } catch (error) {
                 if (error instanceof DOMException && error.name === 'AbortError') {
                     return;
@@ -576,6 +649,21 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     // Send email
     const handleSendEmail = async () => {
         if (!validateForm()) return;
+
+        if (sendOption === 'attendees') {
+            try {
+                const recipientCount = await fetchRecipientEstimate();
+                setEstimatedAttendeesCount(recipientCount);
+
+                if (recipientCount <= 0) {
+                    setToast({ message: 'No recipient, email cannot be sent.', type: 'error' });
+                    return;
+                }
+            } catch (error) {
+                setToast({ message: error instanceof Error ? error.message : 'Failed to estimate recipients', type: 'error' });
+                return;
+            }
+        }
 
         setIsLoading(true);
         try {
@@ -838,8 +926,18 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                                 </h3>
                                                 <div className="space-y-1">
                                                     <Checkbox label="Select All" checked={ticketTypes.selectAll} onChange={handleTicketSelectAll} />
-                                                    <Checkbox label="General Admission" checked={ticketTypes.generalAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, generalAdmission: !prev.generalAdmission, selectAll: false }))} />
-                                                    <Checkbox label="Premium Admission" checked={ticketTypes.premiumAdmission} onChange={() => setTicketTypes(prev => ({ ...prev, premiumAdmission: !prev.premiumAdmission, selectAll: false }))} />
+                                                    {ticketTypeOptions.length === 0 ? (
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 py-1">No tickets available for this event.</p>
+                                                    ) : (
+                                                        ticketTypeOptions.map((ticket) => (
+                                                            <Checkbox
+                                                                key={ticket.id}
+                                                                label={ticket.name}
+                                                                checked={ticketTypes.selectedTicketIds.includes(ticket.id)}
+                                                                onChange={() => toggleTicketType(ticket.id)}
+                                                            />
+                                                        ))
+                                                    )}
                                                 </div>
                                             </div>
 

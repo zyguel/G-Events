@@ -318,6 +318,12 @@ export async function POST(
 
     // Send to attendees
     const recipients = await resolveEventRecipients(supabase, id, filters);
+    if (recipients.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "No recipient, email cannot be sent." },
+        { status: 400 }
+      );
+    }
 
     const initialStatus = scheduleOption === "later" ? "scheduled" : "sending";
     const { data: campaign, error: campaignError } = await supabase
