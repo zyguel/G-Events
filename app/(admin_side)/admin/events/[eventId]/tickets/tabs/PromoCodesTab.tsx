@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Filter, Search } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Plus, Edit2, Trash2, Filter, Search, ChevronDown, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalFooter } from "@/components/admin/Modal";
 import DateInput from "@/components/admin/DateInput";
@@ -78,6 +78,8 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isSavingPromo, setIsSavingPromo] = useState(false);
   const [isDeletingPromo, setIsDeletingPromo] = useState(false);
+  const [isApplyToOpen, setIsApplyToOpen] = useState(false);
+  const applyToRef = useRef<HTMLDivElement>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -576,18 +578,79 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
 
           <div>
             <label className="block text-sm font-medium mb-2">Apply To</label>
-            <select
-              value={typeof formData.appliedTo === 'string' ? formData.appliedTo : formData.appliedTo[0] || 'all'}
-              onChange={(e) => setFormData({ ...formData, appliedTo: e.target.value === 'all' ? 'all' : [e.target.value] })}
-              className="w-full pl-3 pr-10 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 border-gray-200 dark:border-gray-700 text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[position:right_12px_center] bg-no-repeat"
-            >
-              <option value="all">All Tickets</option>
-              {tickets.map((ticket) => (
-                <option key={ticket.id} value={ticket.id}>
-                  {ticket.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={applyToRef}>
+              <button
+                type="button"
+                onClick={() => setIsApplyToOpen((o) => !o)}
+                className="w-full flex items-center justify-between gap-2 py-2.5 px-3 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-sm text-gray-900 dark:text-white transition-all focus:outline-none focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C]"
+              >
+                <span className="truncate">
+                  {typeof formData.appliedTo === 'string'
+                    ? 'All Tickets'
+                    : tickets.find((t) => formData.appliedTo[0] === t.id)?.name ?? 'Select ticket'}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`shrink-0 text-gray-400 transition-transform duration-200 ${isApplyToOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {isApplyToOpen && (
+                <>
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsApplyToOpen(false)}
+                  />
+                  <div className="absolute z-20 mt-1.5 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, appliedTo: 'all' });
+                        setIsApplyToOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
+                        typeof formData.appliedTo === 'string'
+                          ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                      }`}
+                    >
+                      <span>All Tickets</span>
+                      {typeof formData.appliedTo === 'string' && (
+                        <Check size={14} className="shrink-0 text-[#3D518C] dark:text-indigo-400" />
+                      )}
+                    </button>
+
+                    {tickets.length > 0 && (
+                      <div className="border-t border-gray-100 dark:border-gray-700">
+                        {tickets.map((ticket) => {
+                          const isSelected = Array.isArray(formData.appliedTo) && formData.appliedTo[0] === ticket.id;
+                          return (
+                            <button
+                              key={ticket.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, appliedTo: [ticket.id] });
+                                setIsApplyToOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
+                                isSelected
+                                  ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                              }`}
+                            >
+                              <span className="truncate">{ticket.name}</span>
+                              {isSelected && (
+                                <Check size={14} className="shrink-0 text-[#3D518C] dark:text-indigo-400" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           <div>

@@ -126,10 +126,13 @@ function mapDbAddOn(row: any): AddOn {
   for (const v of dbVariants) {
     const id = String(v.id);
     if (variantById.has(id)) continue;
+    const stockTotal = v.stock_total ?? 0;
+    const stockRedeemed = v.stock_redeemed ?? 0;
+    const remainingStock = Math.max(0, stockTotal - stockRedeemed);
     variantById.set(id, {
       id,
       label: v.label ?? v.code ?? '',
-      stock: v.stock_total ?? 0,
+      stock: remainingStock,
     });
   }
   const variants = Array.from(variantById.values());

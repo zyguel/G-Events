@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import ClientHeader from '@/components/client/ClientHeader';
 import { getPublishedEventById, getPublicBreakoutSessions } from '@/lib/actions/events';
-import { getTickets, Ticket as TicketType } from '@/lib/eventManagement';
+import { getTickets, Ticket as TicketType, getAddOns, AddOn } from '@/lib/eventManagement';
 import { createClient } from '@/lib/supabase-browser';
 
 interface BreakoutSessionItem {
@@ -72,6 +72,7 @@ export default function ClientEventDetailPage() {
 
     const [event, setEvent] = useState<EventDetail | null>(null);
     const [tickets, setTickets] = useState<TicketType[]>([]);
+    const [addOns, setAddOns] = useState<AddOn[]>([]);
     const [breakoutSessions, setBreakoutSessions] = useState<BreakoutSessionItem[]>([]);
     const [loading, setLoading] = useState(() => !isNaN(eventId));
     const [registrationState, setRegistrationState] = useState<RegistrationState>('none');
@@ -82,7 +83,8 @@ export default function ClientEventDetailPage() {
             getPublishedEventById(eventId),
             getTickets(String(eventId)).catch(() => []),
             getPublicBreakoutSessions(eventId).catch(() => []),
-        ]).then(([eventData, ticketData, breakoutData]) => {
+            getAddOns(String(eventId)).catch(() => []),
+        ]).then(([eventData, ticketData, breakoutData, addOnData]) => {
             setEvent(eventData ?? null);
             const visible = ticketData.filter((t) => t.visibility === "visible");
             const byId = new Map<string, (typeof visible)[0]>();
@@ -90,6 +92,7 @@ export default function ClientEventDetailPage() {
                 if (!byId.has(t.id)) byId.set(t.id, t);
             }
             setTickets(Array.from(byId.values()));
+            setAddOns(addOnData as AddOn[]);
             setBreakoutSessions(eventData?.allow_breakout_sessions ? (breakoutData as BreakoutSessionItem[]) : []);
             setLoading(false);
         }).catch(() => setLoading(false));
@@ -435,10 +438,10 @@ export default function ClientEventDetailPage() {
                                                 </span>
                                             </div>
 
-                                            {/* Inclusions */}
+                                            {/* Ticket Description */}
                                             {inclusions.length > 0 && (
                                                 <div>
-                                                    <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">What&apos;s included</p>
+                                                    <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Ticket Description</p>
                                                     <ul className="space-y-1.5">
                                                         {inclusions.map((line, i) => (
                                                             <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
@@ -451,6 +454,32 @@ export default function ClientEventDetailPage() {
                                                     </ul>
                                                 </div>
                                             )}
+
+                                            {/* Add-ons */}
+                                            {(() => {
+                                                const ticketAddOns = addOns.filter((a) =>
+                                                    a.appliedTo === 'all' ||
+                                                    (Array.isArray(a.appliedTo) && a.appliedTo.includes(ticket.id))
+                                                );
+                                                if (ticketAddOns.length === 0) return null;
+                                                return (
+                                                    <div>
+                                                        <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Included Add-ons</p>
+                                                        <ul className="space-y-2">
+                                                            {ticketAddOns.map((addOn) => (
+                                                                <li key={addOn.id} className="text-sm text-gray-600 dark:text-gray-300">
+                                                                    <span className="font-medium text-gray-800 dark:text-gray-100">{addOn.name}</span>
+                                                                    {addOn.hasVariants && addOn.variants.length > 0 && (
+                                                                        <span className="ml-1.5 text-gray-400 dark:text-gray-500">
+                                                                            ({addOn.variants.map((v) => v.label).join(', ')})
+                                                                        </span>
+                                                                    )}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     );
                                 })}

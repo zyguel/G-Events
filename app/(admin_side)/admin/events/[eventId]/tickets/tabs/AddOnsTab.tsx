@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag, ChevronDown, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
@@ -56,6 +56,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSavingAddOn, setIsSavingAddOn] = useState(false);
   const [isDeletingAddOn, setIsDeletingAddOn] = useState(false);
+  const [isApplyToOpen, setIsApplyToOpen] = useState(false);
+  const applyToRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -672,6 +674,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                   const parsed = Number.parseInt(e.target.value, 10);
                   setFormData({ ...formData, stock: Number.isFinite(parsed) ? parsed : 0 });
                 }}
+                onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 className={errors.stock ? "border-red-500" : ""}
                 placeholder="1"
               />
@@ -700,6 +703,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         max={VARIANT_STOCK_MAX}
                         value={variant.stock.toString()}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'stock', e.target.value)}
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
                         placeholder="Qty"
                       />
                     </div>
@@ -731,6 +735,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                     max={VARIANT_STOCK_MAX}
                     value={newVariantStock}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantStock(e.target.value)}
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
                     placeholder="Qty"
                   />
                 </div>
@@ -759,21 +764,81 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
           <div>
             <label className="block text-sm font-medium mb-2">Apply To</label>
-            <select
-              value={typeof formData.appliedTo === 'string' ? formData.appliedTo : formData.appliedTo[0] || 'all'}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setFormData({
-                ...formData,
-                appliedTo: e.target.value === 'all' ? 'all' : [e.target.value],
-              })}
-              className="w-full py-2.5 px-3 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-700 text-sm text-gray-900 dark:text-white"
-            >
-              <option value="all">All Tickets</option>
-              {tickets.map((ticket) => (
-                <option key={ticket.id} value={ticket.id}>
-                  {ticket.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={applyToRef}>
+              <button
+                type="button"
+                onClick={() => setIsApplyToOpen((o) => !o)}
+                className="w-full flex items-center justify-between gap-2 py-2.5 px-3 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-sm text-gray-900 dark:text-white transition-all focus:outline-none focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C]"
+              >
+                <span className="truncate">
+                  {typeof formData.appliedTo === 'string'
+                    ? 'All Tickets'
+                    : tickets.find((t) => formData.appliedTo[0] === t.id)?.name ?? 'Select ticket'}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`shrink-0 text-gray-400 transition-transform duration-200 ${isApplyToOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {isApplyToOpen && (
+                <>
+                  {/* click-outside overlay */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsApplyToOpen(false)}
+                  />
+                  <div className="absolute z-20 mt-1.5 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
+                    {/* All Tickets option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, appliedTo: 'all' });
+                        setIsApplyToOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
+                        typeof formData.appliedTo === 'string'
+                          ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
+                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                      }`}
+                    >
+                      <span>All Tickets</span>
+                      {typeof formData.appliedTo === 'string' && (
+                        <Check size={14} className="shrink-0 text-[#3D518C] dark:text-indigo-400" />
+                      )}
+                    </button>
+
+                    {tickets.length > 0 && (
+                      <div className="border-t border-gray-100 dark:border-gray-700">
+                        {tickets.map((ticket) => {
+                          const isSelected = Array.isArray(formData.appliedTo) && formData.appliedTo[0] === ticket.id;
+                          return (
+                            <button
+                              key={ticket.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, appliedTo: [ticket.id] });
+                                setIsApplyToOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
+                                isSelected
+                                  ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
+                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                              }`}
+                            >
+                              <span className="truncate">{ticket.name}</span>
+                              {isSelected && (
+                                <Check size={14} className="shrink-0 text-[#3D518C] dark:text-indigo-400" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
               {typeof formData.appliedTo === 'string'
                 ? `Applies to all current and future tickets for this event (${tickets.length} ticket type${tickets.length === 1 ? '' : 's'}).`

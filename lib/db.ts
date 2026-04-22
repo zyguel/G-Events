@@ -1729,14 +1729,29 @@ export async function updateAddOn(
             (id) => !seenIncomingVariantIds.has(id)
         );
         if (removableVariantIds.length > 0) {
-            const { error: variantDeleteError } = await supabase
-                .from('AddOnVariant')
-                .delete()
-                .eq('add_on_id', addOnId)
-                .in('id', removableVariantIds);
+            // Check which of these variants are still referenced by entitlements.
+            // We must not hard-delete them or the FK constraint will fire.
+            const { data: entitlementRefs } = await supabase
+                .from('AttendeeEntitlement')
+                .select('add_on_variant_id')
+                .in('add_on_variant_id', removableVariantIds);
 
-            if (variantDeleteError) {
-                throw variantDeleteError;
+            const referencedIds = new Set(
+                (entitlementRefs ?? []).map((row: { add_on_variant_id: number }) => row.add_on_variant_id)
+            );
+
+            const safeToDelete = removableVariantIds.filter((id) => !referencedIds.has(id));
+
+            if (safeToDelete.length > 0) {
+                const { error: variantDeleteError } = await supabase
+                    .from('AddOnVariant')
+                    .delete()
+                    .eq('add_on_id', addOnId)
+                    .in('id', safeToDelete);
+
+                if (variantDeleteError) {
+                    throw variantDeleteError;
+                }
             }
         }
     }

@@ -597,9 +597,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="block text-sm font-medium">Ticket Name *</label>
-              <span className={`text-[10px] font-medium tabular-nums ${
-                formData.name.length >= 30 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
-              }`}>
+              <span className={`text-[10px] font-medium tabular-nums ${formData.name.length >= 30 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
+                }`}>
                 {formData.name.length}/30
               </span>
             </div>
@@ -643,13 +642,16 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
             <div>
               <label className="block text-sm font-medium mb-2">Quantity *</label>
               <ModalInput
-                type="number"
-                min="1"
+                type="text"
+                inputMode="numeric"
                 placeholder="0"
                 value={formData.quantity || ""}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const digits = e.target.value.replace(/\D/g, '');
+                  setFormData({ ...formData, quantity: parseInt(digits) || 0 });
+                }}
                 onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                className={`${errors.quantity ? "border-red-500" : ""} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                className={`${errors.quantity ? "border-red-500" : ""}`}
               />
               {errors.quantity && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.quantity}</p>}
             </div>
@@ -663,14 +665,18 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   ₱
                 </span>
                 <ModalInput
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   placeholder="0.00"
                   value={formData.price || ""}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const raw = e.target.value.replace(/[^0-9.]/g, '');
+                    const parts = raw.split('.');
+                    const sanitized = parts.length > 2 ? parts[0] + '.' + parts.slice(1).join('') : raw;
+                    setFormData({ ...formData, price: parseFloat(sanitized) || 0 });
+                  }}
                   onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                  className={`pl-8 ${errors.price ? "border-red-500" : ""} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                  className={`pl-8 ${errors.price ? "border-red-500" : ""}`}
                 />
               </div>
               {errors.price && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.price}</p>}
