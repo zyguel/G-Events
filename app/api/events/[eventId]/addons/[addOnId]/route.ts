@@ -18,6 +18,7 @@ const ALLOWED_ADD_ON_IMAGE_TYPES = new Set([
 const ALLOWED_ADD_ON_IMAGE_LABEL = 'JPEG, PNG, WebP, GIF, AVIF, SVG';
 const ADD_ON_NAME_MAX_LENGTH = 23;
 const ADD_ON_DESCRIPTION_MAX_LENGTH = 256;
+const EVENTS_PUBLIC_URL_MARKER = '/storage/v1/object/public/events/';
 
 type AddOnVariantPayload = {
     code: string;
@@ -88,6 +89,34 @@ async function uploadAddOnImage(file: File, eventId: number): Promise<string> {
         .getPublicUrl(fileName);
 
     return publicUrl;
+}
+
+function getEventsObjectPathFromPublicUrl(publicUrl: string | null | undefined): string | null {
+    if (!publicUrl) return null;
+
+    try {
+        const parsed = new URL(publicUrl);
+        const markerIndex = parsed.pathname.indexOf(EVENTS_PUBLIC_URL_MARKER);
+        if (markerIndex === -1) return null;
+
+        const objectPath = parsed.pathname.slice(markerIndex + EVENTS_PUBLIC_URL_MARKER.length).trim();
+        if (!objectPath) return null;
+
+        return decodeURIComponent(objectPath);
+    } catch {
+        return null;
+    }
+}
+
+async function deleteEventsImageByPublicUrl(publicUrl: string | null | undefined): Promise<void> {
+    const objectPath = getEventsObjectPathFromPublicUrl(publicUrl);
+    if (!objectPath) return;
+
+    const supabase = await getStorageClient();
+    const { error } = await supabase.storage.from('events').remove([objectPath]);
+    if (error) {
+        console.warn('Failed to delete old add-on image from storage:', error.message);
+    }
 }
 
 async function validateAddOnImage(file: File): Promise<string | null> {
@@ -264,6 +293,7 @@ export async function PATCH(
             }
         }
 
+        let oldImagePath: string | null = null;
         let image_path: string | undefined;
         if (imageFile && imageFile.size > 0) {
             const imageError = await validateAddOnImage(imageFile);
@@ -273,6 +303,11 @@ export async function PATCH(
                     { status: 400 }
                 );
             }
+
+            const existingAddOn = await getAddOn(id) as { image_path?: string | null };
+            oldImagePath = typeof existingAddOn?.image_path === 'string'
+                ? existingAddOn.image_path.trim() || null
+                : null;
 
             image_path = await uploadAddOnImage(imageFile, numericEventId);
         }
@@ -318,6 +353,10 @@ export async function PATCH(
             variants,
             ticketIds
         );
+
+        if (image_path && oldImagePath && oldImagePath !== image_path) {
+            await deleteEventsImageByPublicUrl(oldImagePath);
+        }
 
         return NextResponse.json({ success: true, data: addOn });
     } catch (error: unknown) {

@@ -30,6 +30,7 @@ const ALLOWED_EVENT_BANNER_MIME_TYPES = new Set([
     'image/svg+xml',
 ])
 const ALLOWED_EVENT_BANNER_FORMAT_LABEL = 'JPEG, PNG, WebP, GIF, AVIF, SVG'
+const EVENTS_PUBLIC_URL_MARKER = '/storage/v1/object/public/events/'
 
 export interface CreateEventState {
     success?: boolean
@@ -171,6 +172,34 @@ async function uploadFileToStorage(supabase: SupabaseClient, file: File, bucket:
         .getPublicUrl(fileName)
 
     return publicUrl
+}
+
+function getEventsObjectPathFromPublicUrl(publicUrl: unknown): string | null {
+    if (typeof publicUrl !== 'string' || !publicUrl.trim()) return null
+
+    try {
+        const parsed = new URL(publicUrl)
+        const markerIndex = parsed.pathname.indexOf(EVENTS_PUBLIC_URL_MARKER)
+        if (markerIndex === -1) return null
+
+        const objectPath = parsed.pathname.slice(markerIndex + EVENTS_PUBLIC_URL_MARKER.length).trim()
+        if (!objectPath) return null
+
+        return decodeURIComponent(objectPath)
+    } catch {
+        return null
+    }
+}
+
+async function removeEventsObjectByPublicUrl(publicUrl: unknown): Promise<void> {
+    const objectPath = getEventsObjectPathFromPublicUrl(publicUrl)
+    if (!objectPath) return
+
+    const storageClient = await getStorageClient()
+    const { error } = await storageClient.storage.from('events').remove([objectPath])
+    if (error) {
+        console.warn('Failed deleting old event image from storage:', error.message)
+    }
 }
 
 export async function createEvent(prevState: CreateEventState, formData: FormData): Promise<CreateEventState> {
@@ -967,6 +996,9 @@ export async function updateEvent(id: number, data: Partial<any>) {
             }
         }
 
+        const previousBannerImage = typeof beforeData?.banner_image === 'string' ? beforeData.banner_image.trim() : ''
+        const bannerFieldWasProvided = Object.prototype.hasOwnProperty.call(sanitizedData, 'banner_image')
+
         const { data: updatedEvent, error } = await supabase
             .from('Event')
             .update(sanitizedData)
@@ -978,6 +1010,13 @@ export async function updateEvent(id: number, data: Partial<any>) {
         if (error) {
             console.error('Error updating event:', error)
             return { success: false, error: error.message }
+        }
+
+        if (bannerFieldWasProvided) {
+            const nextBannerImage = typeof updatedEvent?.banner_image === 'string' ? updatedEvent.banner_image.trim() : ''
+            if (previousBannerImage && previousBannerImage !== nextBannerImage) {
+                await removeEventsObjectByPublicUrl(previousBannerImage)
+            }
         }
 
         let ticketWindowAdjustments: { adjustedTickets: number } | null = null
