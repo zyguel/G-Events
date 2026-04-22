@@ -143,9 +143,12 @@ export async function GET(
                 const v = parseFloat(a.answer);
                 if (!isNaN(v)) commentMap[key].rating = v;
             } else if (String(a.answer || '').trim()) {
+                const question = a.FeedbackQuestion?.question_text || 'Comment';
+                const answer = String(a.answer).trim();
+                const entry = `${question}: ${answer}`;
                 commentMap[key].text = commentMap[key].text
-                    ? `${commentMap[key].text}\n${String(a.answer).trim()}`
-                    : String(a.answer).trim();
+                    ? `${commentMap[key].text}\n${entry}`
+                    : entry;
             }
         });
 

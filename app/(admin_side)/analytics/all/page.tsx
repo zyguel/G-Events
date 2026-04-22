@@ -9,7 +9,9 @@ import PermissionGate from '@/components/admin/PermissionGate';
 
 export default async function AggregatedAnalyticsPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
     const resolvedParams = await searchParams;
-    const yearParam = resolvedParams.year ? parseInt(resolvedParams.year, 10) : undefined;
+    const yearParam = resolvedParams.year 
+        ? (resolvedParams.year === 'all' ? undefined : parseInt(resolvedParams.year, 10)) 
+        : 2026;
 
     // Fetch real data in parallel
     const [analytics, allEventsRaw] = await Promise.all([
@@ -41,7 +43,7 @@ export default async function AggregatedAnalyticsPage({ searchParams }: { search
     const data = {
         id: 'all',
         name: 'Analytics Overview',
-        date: new Date().getFullYear().toString(),
+        date: (yearParam || 'All Years').toString(),
         status: 'Ongoing' as const,
         stats: {
             totalEvents: analytics.stats.totalEvents,

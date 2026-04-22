@@ -449,15 +449,34 @@ export default function DashboardTabs({
                                                     {comment.eventName && (
                                                         <span 
                                                             className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded font-medium cursor-default"
-                                                            title={comment.eventName.length > 30 ? comment.eventName : undefined}
+                                                            title={comment.eventName.length > 50 ? comment.eventName : undefined}
                                                         >
-                                                            {comment.eventName.length > 30 ? `${comment.eventName.substring(0, 30)}...` : comment.eventName}
+                                                            {comment.eventName.length > 50 ? `${comment.eventName.substring(0, 50)}...` : comment.eventName}
                                                         </span>
                                                     )}
                                                 </div>
                                                 <span className="text-xs text-gray-400 dark:text-gray-500">{comment.time}</span>
                                             </div>
-                                            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">"{comment.text}"</p>
+                                            <div className="mt-1 space-y-1">
+                                                {comment.text.split("\n").map((line, lineIdx) => {
+                                                    const parts = line.split(": ");
+                                                    if (parts.length > 1) {
+                                                        const question = parts[0];
+                                                        const answer = parts.slice(1).join(": ");
+                                                        return (
+                                                            <div key={lineIdx} className="text-sm leading-relaxed">
+                                                                <span className="text-gray-500 dark:text-gray-400">{question}: </span>
+                                                                <span className="font-bold text-gray-900 dark:text-white">{answer}</span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <p key={lineIdx} className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                                                            {line}
+                                                        </p>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     ))
                                 )}

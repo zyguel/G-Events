@@ -241,15 +241,11 @@ function QuestionCard({
                     Max Stars
                   </label>
                   <div className="flex items-center gap-3">
-                    {[3, 5, 7, 10].map((n) => (
+                    {[5].map((n) => (
                       <button
                         key={n}
                         onClick={() => updateField("maxRating", n)}
-                        className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all ${
-                          q.maxRating === n
-                            ? "bg-[#3D518C] text-white shadow-sm"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                        }`}
+                        className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all bg-[#3D518C] text-white shadow-sm cursor-default`}
                       >
                         {n}
                       </button>

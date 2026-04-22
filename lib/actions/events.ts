@@ -1367,7 +1367,7 @@ export async function getEventAnalytics(eventId: number) {
             // Fetch all answers for this form (works for both old & new rows)
             const { data: allAnswers } = await supabase
                 .from('FeedbackAnswer')
-                .select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format)')
+                .select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format, question_text)')
                 .in('feedback_form_id', formIds)
                 .limit(200);
 
@@ -1426,9 +1426,12 @@ export async function getEventAnalytics(eventId: number) {
                     const v = parseFloat(a.answer);
                     if (!isNaN(v)) commentMap[key].rating = v;
                 } else if (String(a.answer || '').trim()) {
+                    const question = a.FeedbackQuestion?.question_text || 'Comment';
+                    const answer = String(a.answer).trim();
+                    const entry = `${question}: ${answer}`;
                     commentMap[key].text = commentMap[key].text
-                        ? `${commentMap[key].text}\n${String(a.answer).trim()}`
-                        : String(a.answer).trim();
+                        ? `${commentMap[key].text}\n${entry}`
+                        : entry;
                 }
             });
 
@@ -1813,7 +1816,7 @@ export async function getGeneralAnalytics(year?: number) {
         let comments: { user: string; rating: number; text: string; time: string; eventName?: string }[] = [];
         try {
             // Fetch all FeedbackAnswer rows with question type + form/event name
-            let ansQ = supabase.from('FeedbackAnswer').select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format), FeedbackForm(Event(title))');
+            let ansQ = supabase.from('FeedbackAnswer').select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format, question_text), FeedbackForm(Event(title))');
             if (year) {
                 ansQ = ansQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
             }
@@ -1866,9 +1869,12 @@ export async function getGeneralAnalytics(year?: number) {
                     const v = parseFloat(a.answer);
                     if (!isNaN(v)) commentMap[key].rating = v;
                 } else if (String(a.answer || '').trim()) {
+                    const question = a.FeedbackQuestion?.question_text || 'Comment';
+                    const answer = String(a.answer).trim();
+                    const entry = `${question}: ${answer}`;
                     commentMap[key].text = commentMap[key].text
-                        ? `${commentMap[key].text}\n${String(a.answer).trim()}`
-                        : String(a.answer).trim();
+                        ? `${commentMap[key].text}\n${entry}`
+                        : entry;
                 }
             });
 
