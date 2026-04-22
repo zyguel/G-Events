@@ -56,3 +56,4 @@ rlsenablednopolicy.json
 
 .agents/*
 AGENTS.md
+scripts/apply-addon-claim-migration.js
