@@ -1,7 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "crypto";
 import { getAdminSupabaseForEventOr404 } from "@/lib/apiEventAccess";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 import { validateCertificateBackgroundDataUrl } from "@/lib/certificateImageValidation";
+
+function decodeCertificateDataUrl(dataUrl: string): { bytes: Buffer; extension: string; contentType: string } {
+  const match = dataUrl.match(/^data:(image\/(?:png|jpeg|jpg));base64,(.+)$/i);
+  if (!match) {
+    throw new Error("Certificate background must be a PNG or JPEG data URL");
+  }
+
+  const rawType = match[1].toLowerCase();
+  const contentType = rawType === "image/jpg" ? "image/jpeg" : rawType;
+  const extension = contentType === "image/png" ? "png" : "jpg";
+  const bytes = Buffer.from(match[2], "base64");
+
+  if (bytes.byteLength === 0) {
+    throw new Error("Certificate background image data is empty");
+  }
+
+  return { bytes, extension, contentType };
+}
 
 export async function GET(
   _request: NextRequest,
@@ -78,13 +97,34 @@ export async function POST(
     const access = await getAdminSupabaseForEventOr404(id);
     if (!access.ok) return access.response;
 
+    const { bytes, extension, contentType } = decodeCertificateDataUrl(backgroundImage);
+    const objectPath = `certificates/${id}/template-${Date.now()}-${randomUUID()}.${extension}`;
+    const { error: uploadError } = await access.supabase.storage
+      .from("events")
+      .upload(objectPath, bytes, {
+        cacheControl: "3600",
+        contentType,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      return NextResponse.json(
+        { success: false, error: `Failed to store certificate background: ${uploadError.message}` },
+        { status: 500 }
+      );
+    }
+
+    const {
+      data: { publicUrl },
+    } = access.supabase.storage.from("events").getPublicUrl(objectPath);
+
     const { data, error } = await access.supabase
       .from("CertificateTemplate")
       .insert([
         {
           event_id: id,
           name,
-          background_image: backgroundImage,
+          background_image: publicUrl,
           name_x: Number.isNaN(nameX) ? 150 : nameX,
           name_y: Number.isNaN(nameY) ? 150 : nameY,
           font_size: Number.isNaN(fontSize) ? 28 : fontSize,

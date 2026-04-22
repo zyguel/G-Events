@@ -229,10 +229,10 @@ const SessionModal = ({
         const title = String(formData.title || '').trim();
         const date = String(formData.date || '').trim();
         const time = String(formData.time || '').trim();
+        const currentAttendees = Number(formData.currentAttendees || 0);
         const maxCapacity = Number(formData.maxCapacity);
-        const locationOrJoinLink = formData.type === 'Online'
-            ? String(formData.joinLink || '').trim()
-            : String(formData.location || '').trim();
+        const joinLink = String(formData.joinLink || '').trim();
+        const location = String(formData.location || '').trim();
 
         if (!title) {
             nextErrors.title = 'Title is required.';
@@ -243,13 +243,16 @@ const SessionModal = ({
         if (!time) {
             nextErrors.time = 'Time is required.';
         }
-        if (!locationOrJoinLink) {
+        if (!joinLink && !location) {
             nextErrors.locationOrJoinLink = formData.type === 'Online'
                 ? 'Join link is required for online sessions.'
                 : 'Location is required for in-person sessions.';
         }
         if (!Number.isFinite(maxCapacity) || maxCapacity <= 0) {
             nextErrors.maxCapacity = 'Maximum capacity must be greater than 0.';
+        }
+        if (Number.isFinite(currentAttendees) && Number.isFinite(maxCapacity) && currentAttendees > maxCapacity) {
+            nextErrors.maxCapacity = 'Maximum capacity cannot be less than current attendees.';
         }
 
         if (Object.keys(nextErrors).length > 0) {

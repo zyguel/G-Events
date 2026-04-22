@@ -28,7 +28,6 @@ function validateSessionPayload(session: SessionPayload): string | null {
     const date = String(session.date || '').trim();
     const time = String(session.time || '').trim();
     const maxCapacity = Number(session.maxCapacity);
-    const type: UiType = session.type === 'In-Person' ? 'In-Person' : 'Online';
     const location = String(session.location || '').trim();
     const joinLink = String(session.joinLink || '').trim();
 
@@ -39,12 +38,10 @@ function validateSessionPayload(session: SessionPayload): string | null {
         return 'Session max capacity must be greater than 0.';
     }
 
-    if (type === 'Online' && !joinLink) {
-        return 'Join link is required for online sessions.';
-    }
-
-    if (type === 'In-Person' && !location) {
-        return 'Location is required for in-person sessions.';
+    if (!joinLink && !location) {
+        return session.type === 'Online'
+            ? 'Join link is required for online sessions.'
+            : 'Location is required for in-person sessions.';
     }
 
     return null;
@@ -84,7 +81,13 @@ const mapRowToSession = (row: any) => {
               .filter((s: SpeakerPayload) => s.name.length > 0)
         : [];
 
-    const type: UiType = meta.type === "In-Person" ? "In-Person" : "Online";
+    const inferredType: UiType = meta.type === "In-Person"
+        ? "In-Person"
+        : meta.type === "Online"
+            ? "Online"
+            : row.room_name
+                ? "In-Person"
+                : "Online";
     const status: UiStatus =
         meta.status === "Ongoing" ||
         meta.status === "Completed" ||
@@ -95,7 +98,7 @@ const mapRowToSession = (row: any) => {
     return {
         id: row.id.toString(),
         title: row.name || "",
-        type,
+        type: inferredType,
         status,
         date: meta.date || "",
         time: meta.time || "",

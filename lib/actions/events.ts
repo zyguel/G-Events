@@ -398,8 +398,8 @@ export async function getEvents() {
 }
 
 /**
- * Fetch all published events for the client/attendee side.
- * This does NOT require organization membership ΓÇö any authenticated user can see published events.
+ * Fetch all client-visible events for the attendee side.
+ * This does NOT require organization membership — any authenticated user can see visible events.
  */
 export async function getPublishedEvents() {
     try {
@@ -420,7 +420,6 @@ export async function getPublishedEvents() {
                 theme,
                 registration_open_at
             `)
-            .eq('is_published', true)
             .eq('is_visible', true)
             .gte('event_end_at', new Date().toISOString())
             .order('event_start_at', { ascending: true })
@@ -441,7 +440,7 @@ export async function getPublishedEvents() {
 }
 
 /**
- * Fetch a specific published event for the client/attendee side by ID.
+ * Fetch a specific client-visible event for the client/attendee side by ID.
  * This does NOT require organization membership.
  */
 export async function getPublishedEventById(id: number) {
@@ -463,7 +462,6 @@ export async function getPublishedEventById(id: number) {
                 )
             `)
             .eq('id', id)
-            .eq('is_published', true)
             .eq('is_visible', true)
             .single()
 
@@ -515,10 +513,18 @@ export async function getPublicBreakoutSessions(eventId: number) {
                 ? String(row.speaker_name).split(',').map((n: string) => n.trim()).filter(Boolean)
                 : []
 
+            const inferredType: 'Online' | 'In-Person' = meta.type === 'In-Person'
+                ? 'In-Person'
+                : meta.type === 'Online'
+                    ? 'Online'
+                    : row.room_name
+                        ? 'In-Person'
+                        : 'Online'
+
             return {
                 id: row.id.toString(),
                 name: row.name || '',
-                type: (meta.type === 'In-Person' ? 'In-Person' : 'Online') as 'Online' | 'In-Person',
+                type: inferredType,
                 status: (['Ongoing', 'Completed', 'Cancelled'].includes(meta.status) ? meta.status : 'Not Started') as 'Not Started' | 'Ongoing' | 'Completed' | 'Cancelled',
                 date: meta.date || '',
                 time: meta.time || '',

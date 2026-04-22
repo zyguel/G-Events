@@ -395,6 +395,17 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     }
   };
 
+  const handleSelectTemplate = (cert: CertificateTemplate) => {
+    setSelectedCert(cert);
+    setTemplateName(cert.name);
+    setBackgroundImage(cert.backgroundImage);
+    setNameX(cert.nameX);
+    setNameY(cert.nameY);
+    setFontSize(cert.fontSize);
+    setFontColor(cert.fontColor);
+    showToast("Template loaded into preview sample.");
+  };
+
   const eventDateLabel = event.date
     ? (() => {
         try {
@@ -766,11 +777,11 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                   key={cert.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedCert(cert)}
+                  onClick={() => handleSelectTemplate(cert)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setSelectedCert(cert);
+                      handleSelectTemplate(cert);
                     }
                   }}
                   className={`rounded-xl border-2 p-4 text-left transition ${

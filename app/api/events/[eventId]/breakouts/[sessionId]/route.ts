@@ -29,7 +29,6 @@ function validateSessionPayload(session: SessionPayload): string | null {
     const date = String(session.date || '').trim();
     const time = String(session.time || '').trim();
     const maxCapacity = Number(session.maxCapacity);
-    const type: UiType = session.type === 'In-Person' ? 'In-Person' : 'Online';
     const location = String(session.location || '').trim();
     const joinLink = String(session.joinLink || '').trim();
 
@@ -40,12 +39,10 @@ function validateSessionPayload(session: SessionPayload): string | null {
         return 'Session max capacity must be greater than 0.';
     }
 
-    if (type === 'Online' && !joinLink) {
-        return 'Join link is required for online sessions.';
-    }
-
-    if (type === 'In-Person' && !location) {
-        return 'Location is required for in-person sessions.';
+    if (!joinLink && !location) {
+        return session.type === 'Online'
+            ? 'Join link is required for online sessions.'
+            : 'Location is required for in-person sessions.';
     }
 
     return null;
@@ -85,7 +82,13 @@ const mapRowToSession = (row: any) => {
               .filter((s: SpeakerPayload) => s.name.length > 0)
         : [];
 
-    const type: UiType = meta.type === "In-Person" ? "In-Person" : "Online";
+    const inferredType: UiType = meta.type === "In-Person"
+        ? "In-Person"
+        : meta.type === "Online"
+            ? "Online"
+            : row.room_name
+                ? "In-Person"
+                : "Online";
     const status: UiStatus =
         meta.status === "Ongoing" ||
         meta.status === "Completed" ||
@@ -96,7 +99,7 @@ const mapRowToSession = (row: any) => {
     return {
         id: row.id.toString(),
         title: row.name || "",
-        type,
+        type: inferredType,
         status,
         date: meta.date || "",
         time: meta.time || "",
@@ -145,10 +148,58 @@ export async function PATCH(
             );
         }
 
+        const requestedCapacity = Number(session.maxCapacity);
+        const supabase = await createClient();
+
+        const { data: existingSession, error: existingSessionError } = await supabase
+            .from("BreakoutSession")
+            .select("room_capacity")
+            .eq("id", breakoutId)
+            .eq("event_id", eventNumericId)
+            .maybeSingle();
+
+        if (existingSessionError) {
+            return NextResponse.json(
+                { success: false, error: existingSessionError.message },
+                { status: 500 }
+            );
+        }
+
+        if (!existingSession) {
+            return NextResponse.json(
+                { success: false, error: "Breakout session not found" },
+                { status: 404 }
+            );
+        }
+
+        const existingCapacity = Number(existingSession.room_capacity || 0);
+
+        const { count: attendeeCount, error: attendeeCountError } = await supabase
+            .from("BreakoutSessionRegistration")
+            .select("id", { count: "exact", head: true })
+            .eq("breakout_session_id", breakoutId);
+
+        if (attendeeCountError) {
+            return NextResponse.json(
+                { success: false, error: attendeeCountError.message },
+                { status: 500 }
+            );
+        }
+
+        if (
+            Number.isFinite(requestedCapacity)
+            && requestedCapacity > 0
+            && (attendeeCount || 0) > requestedCapacity
+            && requestedCapacity !== existingCapacity
+        ) {
+            return NextResponse.json(
+                { success: false, error: "Maximum capacity cannot be lower than current attendees." },
+                { status: 400 }
+            );
+        }
+
         const description = buildDescription(session);
         const speakerName = session.speakers.map(s => s.name.trim()).join(", ");
-
-        const supabase = await createClient();
         const { data, error } = await supabase
             .from("BreakoutSession")
             .update({
