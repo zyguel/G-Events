@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createAdminClient, createClient } from '@/lib/supabase-server'
 import { badRequest, internalServerError, ok, unauthorized } from '@/lib/utils/apiResponse'
+import { validateUploadedImageFile } from '@/lib/uploadedImageValidation'
 
 const PROFILE_IMAGE_BUCKET = 'ProfileIMG'
 const MAX_UPLOAD_SIZE_BYTES = 5 * 1024 * 1024
@@ -167,16 +168,13 @@ export async function POST(request: NextRequest) {
       return badRequest('Image file is required.')
     }
 
-    if (!image.type.startsWith('image/') || !ALLOWED_IMAGE_TYPES.has(image.type)) {
-      return badRequest(`Unsupported image format. Allowed formats: ${ALLOWED_IMAGE_FORMAT_LABEL}.`)
-    }
-
-    if (image.size <= 0) {
-      return badRequest('Image file is empty.')
-    }
-
-    if (image.size > MAX_UPLOAD_SIZE_BYTES) {
-      return badRequest('Image file is too large.')
+    const imageValidationError = await validateUploadedImageFile(image, {
+      allowedMimeTypes: ALLOWED_IMAGE_TYPES,
+      allowedFormatsLabel: ALLOWED_IMAGE_FORMAT_LABEL,
+      maxBytes: MAX_UPLOAD_SIZE_BYTES,
+    })
+    if (imageValidationError) {
+      return badRequest(imageValidationError)
     }
 
     const extension = getFileExtension(image)

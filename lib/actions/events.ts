@@ -17,6 +17,19 @@ import {
     getCurrentUserActiveOrganization,
     parseOrganizationId,
 } from '@/lib/auth/sessionRole'
+import { validateUploadedImageFile } from '@/lib/uploadedImageValidation'
+
+const MAX_EVENT_BANNER_SIZE_BYTES = 20 * 1024 * 1024
+const ALLOWED_EVENT_BANNER_MIME_TYPES = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+    'image/svg+xml',
+])
+const ALLOWED_EVENT_BANNER_FORMAT_LABEL = 'JPEG, PNG, WebP, GIF, AVIF, SVG'
 
 export interface CreateEventState {
     success?: boolean
@@ -182,12 +195,22 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
     const supabase = await createClient();
 
     // Handle Banner Upload
-    const bannerFile = formData.get('bannerFile') as File;
-    if (bannerFile && bannerFile.size > 0) {
+    const bannerFileValue = formData.get('bannerFile')
+    if (bannerFileValue instanceof File && bannerFileValue.size > 0) {
+        const imageValidationError = await validateUploadedImageFile(bannerFileValue, {
+            allowedMimeTypes: ALLOWED_EVENT_BANNER_MIME_TYPES,
+            allowedFormatsLabel: ALLOWED_EVENT_BANNER_FORMAT_LABEL,
+            maxBytes: MAX_EVENT_BANNER_SIZE_BYTES,
+        })
+
+        if (imageValidationError) {
+            return { error: imageValidationError, success: false }
+        }
+
         try {
             console.log('Uploading banner for new event...');
             const adminSupabase = await getStorageClient();
-            bannerUrl = await uploadFileToStorage(adminSupabase, bannerFile);
+            bannerUrl = await uploadFileToStorage(adminSupabase, bannerFileValue);
         } catch (e) {
             console.error('Failed to upload banner during create:', e);
             // We continue creating the event even if banner fails, or we could return error.
@@ -1011,6 +1034,15 @@ export async function uploadEventBanner(formData: FormData) {
         const file = formData.get('file') as File
         if (!file) {
             return { success: false, error: 'No file provided' }
+        }
+
+        const imageValidationError = await validateUploadedImageFile(file, {
+            allowedMimeTypes: ALLOWED_EVENT_BANNER_MIME_TYPES,
+            allowedFormatsLabel: ALLOWED_EVENT_BANNER_FORMAT_LABEL,
+            maxBytes: MAX_EVENT_BANNER_SIZE_BYTES,
+        })
+        if (imageValidationError) {
+            return { success: false, error: imageValidationError }
         }
 
         const eventIdStr = formData.get('event_id') as string | null

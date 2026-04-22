@@ -235,7 +235,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   const compressImage = (file: File, maxWidth = 1920, quality = 0.85): Promise<File> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       // Skip compression for small files (< 500KB) or non-raster formats
       if (file.size < 512_000 || !file.type.startsWith('image/') || file.type === 'image/svg+xml') {
         return resolve(file);
@@ -286,10 +286,29 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        resolve(file); // Fall back to original on any error
+        reject(new Error('Unable to process the selected image.'));
       };
 
       img.src = url;
+    });
+  };
+
+  const ensureImageCanRender = (file: File): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const image = new Image();
+
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve();
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Image file appears to be invalid or corrupted.'));
+      };
+
+      image.src = objectUrl;
     });
   };
 
@@ -315,14 +334,23 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       return;
     }
 
-    const compressed = await compressImage(file);
-    setFormData({ ...formData, imageFile: compressed });
-    setImagePreview(URL.createObjectURL(compressed));
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.image;
-      return next;
-    });
+    try {
+      await ensureImageCanRender(file);
+      const compressed = await compressImage(file);
+
+      setFormData({ ...formData, imageFile: compressed });
+      setImagePreview(URL.createObjectURL(compressed));
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.image;
+        return next;
+      });
+    } catch {
+      setErrors((prev) => ({
+        ...prev,
+        image: 'Image file appears to be invalid or corrupted.',
+      }));
+    }
   };
 
   const handleAddVariant = () => {

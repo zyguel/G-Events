@@ -3,6 +3,7 @@ import { getAddOns, createAddOn } from '@/lib/db';
 import { createClient } from '@/lib/supabase-server';
 import { requireUser } from '@/lib/apiAuth';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { validateUploadedImageFile } from '@/lib/uploadedImageValidation';
 
 const ADD_ON_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
 const ALLOWED_ADD_ON_IMAGE_TYPES = new Set([
@@ -89,20 +90,12 @@ async function uploadAddOnImage(file: File, eventId: number): Promise<string> {
     return publicUrl;
 }
 
-function validateAddOnImage(file: File): string | null {
-    if (file.size <= 0) {
-        return 'Image file is empty.';
-    }
-
-    if (!ALLOWED_ADD_ON_IMAGE_TYPES.has(file.type)) {
-        return `Unsupported image format. Allowed formats: ${ALLOWED_ADD_ON_IMAGE_LABEL}.`;
-    }
-
-    if (file.size > ADD_ON_MAX_IMAGE_SIZE_BYTES) {
-        return 'Image file is too large. Maximum allowed size is 20MB.';
-    }
-
-    return null;
+async function validateAddOnImage(file: File): Promise<string | null> {
+    return validateUploadedImageFile(file, {
+        allowedMimeTypes: ALLOWED_ADD_ON_IMAGE_TYPES,
+        allowedFormatsLabel: ALLOWED_ADD_ON_IMAGE_LABEL,
+        maxBytes: ADD_ON_MAX_IMAGE_SIZE_BYTES,
+    });
 }
 
 function parseVariantsPayload(variantsJson: string): AddOnVariantPayload[] {
@@ -259,7 +252,7 @@ export async function POST(
 
         let image_path: string | undefined;
         if (imageFile && imageFile.size > 0) {
-            const imageError = validateAddOnImage(imageFile);
+            const imageError = await validateAddOnImage(imageFile);
             if (imageError) {
                 return NextResponse.json(
                     { success: false, error: imageError },
