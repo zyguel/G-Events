@@ -1661,13 +1661,25 @@ export async function updateAddOn(
             const requestedId = Number(variant.id);
             const idFromCode = variantCode ? existingVariantIdByCode.get(variantCode) : undefined;
             const idFromLabel = variantLabel ? existingVariantIdByLabel.get(variantLabel) : undefined;
+            const matchedIdFromCode =
+                typeof idFromCode === 'number' &&
+                Number.isInteger(idFromCode) &&
+                existingVariantIds.has(idFromCode)
+                    ? idFromCode
+                    : undefined;
+            const matchedIdFromLabel =
+                typeof idFromLabel === 'number' &&
+                Number.isInteger(idFromLabel) &&
+                existingVariantIds.has(idFromLabel)
+                    ? idFromLabel
+                    : undefined;
             const maybeExistingId =
                 Number.isInteger(requestedId) && existingVariantIds.has(requestedId)
                     ? requestedId
-                    : Number.isInteger(idFromCode) && existingVariantIds.has(idFromCode)
-                        ? idFromCode
-                        : Number.isInteger(idFromLabel) && existingVariantIds.has(idFromLabel)
-                            ? idFromLabel
+                    : typeof matchedIdFromCode === 'number'
+                        ? matchedIdFromCode
+                        : typeof matchedIdFromLabel === 'number'
+                            ? matchedIdFromLabel
                             : NaN;
             const hasExistingId = Number.isInteger(maybeExistingId) && existingVariantIds.has(maybeExistingId);
 
