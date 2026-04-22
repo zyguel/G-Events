@@ -49,6 +49,21 @@ type EntitlementRow = {
     AddOnVariant?: AddOnVariantRelation;
 };
 
+type RegistrationScopeRow = {
+    id: number;
+    event_id: number | null;
+    ticket_id: number | null;
+    status: string | null;
+};
+
+type AddOnScopeRow = {
+    id: number;
+    event_id: number | null;
+    name: string | null;
+    AddOnVariant?: Array<{ id: number | null; label: string | null }> | null;
+    AddOnTicket?: Array<{ ticket_id: number | null }> | null;
+};
+
 const toSafeNumber = (value: unknown): number => {
     const n = Number(value ?? 0);
     if (!Number.isFinite(n)) return 0;
@@ -84,6 +99,194 @@ function mapClaimableEntitlement(row: EntitlementRow): ClaimableAddOn | null {
     };
 }
 
+async function ensureMissingAddOnEntitlements(
+    admin: SupabaseClient,
+    registrationIds: number[],
+    existingEntitlements: EntitlementRow[]
+): Promise<EntitlementRow[]> {
+    if (registrationIds.length === 0) return [];
+
+    const { data: registrationRows, error: registrationError } = await admin
+        .from('Registration')
+        .select('id, event_id, ticket_id, status')
+        .in('id', registrationIds);
+
+    if (registrationError) {
+        throw new Error(registrationError.message);
+    }
+
+    const registrations = ((registrationRows as RegistrationScopeRow[] | null) || []).filter((row) => {
+        const id = Number(row.id);
+        const eventId = Number(row.event_id);
+        const status = String(row.status || '').toLowerCase();
+        return (
+            Number.isInteger(id) &&
+            id > 0 &&
+            Number.isInteger(eventId) &&
+            eventId > 0 &&
+            status === 'confirmed'
+        );
+    });
+
+    if (registrations.length === 0) return [];
+
+    const eventIds = Array.from(
+        new Set(registrations.map((row) => Number(row.event_id)).filter((id) => Number.isInteger(id) && id > 0))
+    );
+    if (eventIds.length === 0) return [];
+
+    const { data: addOnRows, error: addOnError } = await admin
+        .from('AddOn')
+        .select('id, event_id, name, AddOnVariant(id, label), AddOnTicket(ticket_id)')
+        .in('event_id', eventIds);
+
+    if (addOnError) {
+        throw new Error(addOnError.message);
+    }
+
+    const addOnsByEvent = new Map<number, AddOnScopeRow[]>();
+    for (const rawAddOn of (addOnRows as AddOnScopeRow[] | null) || []) {
+        const eventId = Number(rawAddOn.event_id);
+        if (!Number.isInteger(eventId) || eventId <= 0) continue;
+        const current = addOnsByEvent.get(eventId) || [];
+        current.push(rawAddOn);
+        addOnsByEvent.set(eventId, current);
+    }
+
+    if (addOnsByEvent.size === 0) return [];
+
+    const existingPairSet = new Set<string>();
+    for (const row of existingEntitlements) {
+        const registrationId = Number(row.registration_id);
+        const variantId = Number(row.add_on_variant_id);
+        if (!Number.isInteger(registrationId) || !Number.isInteger(variantId)) continue;
+        existingPairSet.add(`${registrationId}:${variantId}`);
+    }
+
+    const missingRows: Array<{
+        registration_id: number;
+        add_on_variant_id: number;
+        qty_total: number;
+        qty_reserved: number;
+        qty_redeemed: number;
+    }> = [];
+    const eligiblePairSet = new Set<string>();
+
+    for (const registration of registrations) {
+        const registrationId = Number(registration.id);
+        const eventId = Number(registration.event_id);
+        const ticketId = Number(registration.ticket_id);
+        const addOns = addOnsByEvent.get(eventId) || [];
+
+        for (const addOn of addOns) {
+            const scopedTickets = ((addOn.AddOnTicket || []) as Array<{ ticket_id: number | null }>)
+                .map((row) => Number(row.ticket_id))
+                .filter((id) => Number.isInteger(id) && id > 0);
+            const appliesToAllTickets = scopedTickets.length === 0;
+            const appliesToRegistrationTicket = Number.isInteger(ticketId) && scopedTickets.includes(ticketId);
+            if (!appliesToAllTickets && !appliesToRegistrationTicket) {
+                continue;
+            }
+
+            for (const variant of (addOn.AddOnVariant || []) as Array<{ id: number | null; label: string | null }>) {
+                const variantId = Number(variant.id);
+                if (!Number.isInteger(variantId) || variantId <= 0) continue;
+
+                const key = `${registrationId}:${variantId}`;
+                eligiblePairSet.add(key);
+
+                if (existingPairSet.has(key)) continue;
+                existingPairSet.add(key);
+
+                missingRows.push({
+                    registration_id: registrationId,
+                    add_on_variant_id: variantId,
+                    qty_total: 1,
+                    qty_reserved: 1,
+                    qty_redeemed: 0,
+                });
+            }
+        }
+    }
+
+    // Aggressive scope reconciliation:
+    // If an entitlement no longer matches current AddOnTicket scope, remove it (if unredeemed)
+    // or neutralize remaining claimable qty (if partially/fully redeemed) so check-in never
+    // shows stale "to claim" rows after add-on reassignment.
+    const staleEntitlementIdsToDelete: number[] = [];
+    const staleEntitlementIdsToNeutralize: number[] = [];
+    for (const entitlement of existingEntitlements) {
+        const entitlementId = Number(entitlement.id);
+        const registrationId = Number(entitlement.registration_id);
+        const variantId = Number(entitlement.add_on_variant_id);
+        if (!Number.isInteger(entitlementId) || !Number.isInteger(registrationId) || !Number.isInteger(variantId)) {
+            continue;
+        }
+
+        const key = `${registrationId}:${variantId}`;
+        if (eligiblePairSet.has(key)) continue;
+
+        const redeemedQty = toSafeNumber(entitlement.qty_redeemed);
+        if (redeemedQty <= 0) {
+            staleEntitlementIdsToDelete.push(entitlementId);
+        } else {
+            staleEntitlementIdsToNeutralize.push(entitlementId);
+        }
+    }
+
+    if (staleEntitlementIdsToDelete.length > 0) {
+        const { error: staleDeleteError } = await admin
+            .from('AttendeeEntitlement')
+            .delete()
+            .in('id', staleEntitlementIdsToDelete);
+        if (staleDeleteError) {
+            throw new Error(staleDeleteError.message);
+        }
+    }
+
+    if (staleEntitlementIdsToNeutralize.length > 0) {
+        // qty_total == qty_redeemed ensures no remaining claimable quantity.
+        // qty_reserved is reset to 0 because this entitlement is no longer eligible.
+        const { data: neutralizeRows, error: neutralizeReadError } = await admin
+            .from('AttendeeEntitlement')
+            .select('id, qty_redeemed')
+            .in('id', staleEntitlementIdsToNeutralize);
+        if (neutralizeReadError) {
+            throw new Error(neutralizeReadError.message);
+        }
+
+        for (const row of neutralizeRows || []) {
+            const rowId = Number((row as { id?: unknown }).id);
+            const redeemedQty = toSafeNumber((row as { qty_redeemed?: unknown }).qty_redeemed);
+            if (!Number.isInteger(rowId) || rowId <= 0) continue;
+
+            const { error: neutralizeUpdateError } = await admin
+                .from('AttendeeEntitlement')
+                .update({
+                    qty_total: redeemedQty,
+                    qty_reserved: 0,
+                })
+                .eq('id', rowId);
+            if (neutralizeUpdateError) {
+                throw new Error(neutralizeUpdateError.message);
+            }
+        }
+    }
+
+    if (missingRows.length === 0) return [];
+
+    const { data: insertedRows, error: insertError } = await admin
+        .from('AttendeeEntitlement')
+        .insert(missingRows)
+        .select('id, registration_id, add_on_variant_id, qty_total, qty_reserved, qty_redeemed, AddOnVariant(id, label, AddOn(name))');
+
+    if (insertError) {
+        throw new Error(insertError.message);
+    }
+
+    return (insertedRows as EntitlementRow[] | null) || [];
+}
+
 export async function getClaimableAddOnsByRegistrationIds(
     admin: SupabaseClient,
     registrationIds: number[]
@@ -117,7 +320,11 @@ export async function getAddOnClaimSummariesByRegistrationIds(
         throw new Error(error.message);
     }
 
-    for (const rawRow of (data as EntitlementRow[] | null) || []) {
+    const fetchedEntitlements = (data as EntitlementRow[] | null) || [];
+    const insertedEntitlements = await ensureMissingAddOnEntitlements(admin, uniqueIds, fetchedEntitlements);
+    const entitlementRows = fetchedEntitlements.concat(insertedEntitlements);
+
+    for (const rawRow of entitlementRows) {
         const registrationId = Number(rawRow.registration_id);
         if (!Number.isInteger(registrationId)) continue;
 

@@ -248,6 +248,7 @@ function addOnVariantsToDb(variants: AddOnVariant[], stock?: number) {
       seenCodes.add(code);
 
       return {
+        id: Number.isInteger(Number(v.id)) && Number(v.id) > 0 ? Number(v.id) : undefined,
         code,
         label: v.label,
         stock_total: v.stock,

@@ -21,6 +21,7 @@ const ADD_ON_DESCRIPTION_MAX_LENGTH = 256;
 const EVENTS_PUBLIC_URL_MARKER = '/storage/v1/object/public/events/';
 
 type AddOnVariantPayload = {
+    id?: number;
     code: string;
     label: string;
     stock_total: number;
@@ -145,8 +146,16 @@ function parseVariantsPayload(variantsJson: string): AddOnVariantPayload[] {
         const code = typeof (variant as { code?: unknown }).code === 'string'
             ? (variant as { code: string }).code.trim()
             : label;
+        const parsedIdRaw = (variant as { id?: unknown }).id;
+        const parsedId =
+            typeof parsedIdRaw === 'number'
+                ? parsedIdRaw
+                : typeof parsedIdRaw === 'string' && parsedIdRaw.trim()
+                    ? Number(parsedIdRaw)
+                    : undefined;
 
         return {
+            id: Number.isInteger(parsedId) && Number(parsedId) > 0 ? Number(parsedId) : undefined,
             code,
             label,
             stock_total: stockTotal,

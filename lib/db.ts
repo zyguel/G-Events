@@ -1619,32 +1619,112 @@ export async function updateAddOn(
       console.warn('AddOn audit log failed:', e);
     }
 
-    // If variants are provided, replace them
+    // If variants are provided, update them in place when possible.
+    // Replacing (delete + insert) can fail for in-use variants that are referenced
+    // by entitlement/redemption rows, and can also surface duplicate-key conflicts.
     if (normalizedVariants !== undefined) {
-        // Delete existing variants
-        await supabase
+        const { data: existingVariantRows, error: existingVariantError } = await supabase
             .from('AddOnVariant')
-            .delete()
+            .select('id, code, label')
             .eq('add_on_id', addOnId);
 
-        // Insert new variants
-        if (normalizedVariants.length > 0) {
-            const variantRows = normalizedVariants.map((v) => ({
-                add_on_id: addOnId,
-                code: v.code,
-                label: v.label,
-                stock_total: v.stock_total,
-            }));
+        if (existingVariantError) throw existingVariantError;
 
-            const { error: varError } = await supabase
-                .from('AddOnVariant')
-                .insert(variantRows);
+        const existingVariantIds = new Set(
+            ((existingVariantRows as Array<{ id: number | null; code?: string | null; label?: string | null }> | null) || [])
+                .map((row) => Number(row.id))
+                .filter((id) => Number.isInteger(id) && id > 0)
+        );
+        const existingVariantIdByCode = new Map<string, number>();
+        const existingVariantIdByLabel = new Map<string, number>();
+        for (const row of ((existingVariantRows as Array<{ id: number | null; code?: string | null; label?: string | null }> | null) || [])) {
+            const rowId = Number(row.id);
+            if (!Number.isInteger(rowId) || rowId <= 0) continue;
 
-            if (varError) {
-                if ((varError as { code?: string }).code === '23505') {
+            const normalizedCode = normalizeVariantCode(row.code);
+            if (normalizedCode) {
+                existingVariantIdByCode.set(normalizedCode, rowId);
+            }
+
+            const normalizedLabel = normalizeComparableText(row.label);
+            if (normalizedLabel) {
+                existingVariantIdByLabel.set(normalizedLabel, rowId);
+            }
+        }
+
+        const seenIncomingVariantIds = new Set<number>();
+
+        for (const variant of normalizedVariants) {
+            const variantCode = normalizeVariantCode(variant.code);
+            const variantLabel = normalizeComparableText(variant.label);
+
+            const requestedId = Number(variant.id);
+            const idFromCode = variantCode ? existingVariantIdByCode.get(variantCode) : undefined;
+            const idFromLabel = variantLabel ? existingVariantIdByLabel.get(variantLabel) : undefined;
+            const maybeExistingId =
+                Number.isInteger(requestedId) && existingVariantIds.has(requestedId)
+                    ? requestedId
+                    : Number.isInteger(idFromCode) && existingVariantIds.has(idFromCode)
+                        ? idFromCode
+                        : Number.isInteger(idFromLabel) && existingVariantIds.has(idFromLabel)
+                            ? idFromLabel
+                            : NaN;
+            const hasExistingId = Number.isInteger(maybeExistingId) && existingVariantIds.has(maybeExistingId);
+
+            if (hasExistingId) {
+                if (seenIncomingVariantIds.has(maybeExistingId)) {
                     throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
                 }
-                throw varError;
+                seenIncomingVariantIds.add(maybeExistingId);
+
+                const { error: variantUpdateError } = await supabase
+                    .from('AddOnVariant')
+                    .update({
+                        code: variant.code,
+                        label: variant.label,
+                        stock_total: variant.stock_total,
+                    })
+                    .eq('id', maybeExistingId)
+                    .eq('add_on_id', addOnId);
+
+                if (variantUpdateError) {
+                    if ((variantUpdateError as { code?: string }).code === '23505') {
+                        throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
+                    }
+                    throw variantUpdateError;
+                }
+                continue;
+            }
+
+            const { error: variantInsertError } = await supabase
+                .from('AddOnVariant')
+                .insert({
+                    add_on_id: addOnId,
+                    code: variant.code,
+                    label: variant.label,
+                    stock_total: variant.stock_total,
+                });
+
+            if (variantInsertError) {
+                if ((variantInsertError as { code?: string }).code === '23505') {
+                    throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
+                }
+                throw variantInsertError;
+            }
+        }
+
+        const removableVariantIds = Array.from(existingVariantIds).filter(
+            (id) => !seenIncomingVariantIds.has(id)
+        );
+        if (removableVariantIds.length > 0) {
+            const { error: variantDeleteError } = await supabase
+                .from('AddOnVariant')
+                .delete()
+                .eq('add_on_id', addOnId)
+                .in('id', removableVariantIds);
+
+            if (variantDeleteError) {
+                throw variantDeleteError;
             }
         }
     }
