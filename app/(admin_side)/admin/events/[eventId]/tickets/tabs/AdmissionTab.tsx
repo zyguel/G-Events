@@ -595,9 +595,17 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
         <div className="space-y-4">
           {/* Basic Fields */}
           <div>
-            <label className="block text-sm font-medium mb-2">Ticket Name *</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-sm font-medium">Ticket Name *</label>
+              <span className={`text-[10px] font-medium tabular-nums ${
+                formData.name.length >= 30 ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'
+              }`}>
+                {formData.name.length}/30
+              </span>
+            </div>
             <ModalInput
               type="text"
+              maxLength={30}
               value={formData.name}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
               className={errors.name ? "border-red-500" : ""}
@@ -640,7 +648,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                 placeholder="0"
                 value={formData.quantity || ""}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 0 })}
-                className={errors.quantity ? "border-red-500" : ""}
+                onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                className={`${errors.quantity ? "border-red-500" : ""} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
               />
               {errors.quantity && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.quantity}</p>}
             </div>
@@ -660,7 +669,8 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
                   placeholder="0.00"
                   value={formData.price || ""}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
-                  className={`pl-8 ${errors.price ? "border-red-500" : ""}`}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                  className={`pl-8 ${errors.price ? "border-red-500" : ""} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                 />
               </div>
               {errors.price && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.price}</p>}

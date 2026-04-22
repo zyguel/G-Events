@@ -94,13 +94,21 @@ export default function ForgotPasswordPage() {
     };
 
     return (
-        <div className="h-screen w-full flex flex-col md:flex-row bg-[#020617] font-sans overflow-hidden relative">
+        <div className="min-h-svh w-full flex flex-col md:flex-row bg-[#020617] font-sans overflow-hidden relative">
             {/* Animated Background Blobs */}
             <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[120px] animate-pulse" />
             <div className="absolute bottom-[-20%] right-[40%] w-[500px] h-[500px] bg-blue-600/20 rounded-full blur-[120px] animate-pulse delay-1000" />
             <div className="absolute top-[30%] left-[20%] w-[400px] h-[400px] bg-indigo-600/20 rounded-full blur-[100px] animate-pulse delay-700" />
 
-            {/* Left Side - Branding */}
+            {/* Mobile Logo Bar — only shown on small screens */}
+            <div className="flex md:hidden items-center gap-3 px-5 pt-6 pb-2 z-10 relative">
+                <div className="relative bg-slate-900/80 p-2 rounded-xl border border-white/10">
+                    <Image src="/icons/company-logo.svg" alt="G Events Logo" width={28} height={28} className="w-7 h-7 invert brightness-0" />
+                </div>
+                <span className="text-xl font-bold text-white tracking-wide">G Events</span>
+            </div>
+
+            {/* Left Side - Branding (desktop only) */}
             <div className="hidden md:flex w-full md:w-[50%] relative flex-col justify-center items-start z-10 p-12 lg:p-20">
                 <div className="relative z-10 w-full">
                     <div className="flex items-center gap-4 mb-8">
@@ -144,44 +152,40 @@ export default function ForgotPasswordPage() {
                 </div>
             </div>
 
+            {/* Wave Separator — at root level so overflow-y-auto cannot clip it */}
+            <div className="absolute top-0 bottom-0 left-[50%] -translate-x-[100%] z-30 hidden w-24 pointer-events-none text-white md:block">
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full fill-current">
+                    <path d="M100 0 C 50 0 50 100 100 100 Z" />
+                </svg>
+            </div>
+
             {/* Right Side - Form */}
-            <div className="w-full md:w-[50%] bg-white relative z-20 flex flex-col justify-center pt-0 p-6 md:p-10 lg:p-16 items-center transition-all duration-500 ease-in-out shadow-[-50px_0_100px_rgba(0,0,0,0.5)]">
+            <div className="flex-1 w-full md:w-[50%] bg-white relative z-20 flex flex-col justify-start overflow-y-auto py-8 px-5 sm:px-8 md:px-10 lg:px-16 items-center transition-all duration-500 ease-in-out md:shadow-[-50px_0_100px_rgba(0,0,0,0.5)] rounded-t-3xl md:rounded-none">
 
                 {/* Back Arrow — only on email step */}
                 {step === 'email' && (
                     <button
                         onClick={stepBack}
-                        className="absolute top-10 left-10 text-slate-400 hover:text-slate-600 transition-colors p-2 z-50"
+                        className="absolute top-4 left-4 md:top-10 md:left-10 text-slate-400 hover:text-slate-600 transition-colors p-2 z-50"
                         aria-label="Go back"
                     >
-                        <ArrowLeft size={28} />
+                        <ArrowLeft size={24} />
                     </button>
                 )}
 
-                {/* Wave Separator */}
-                <div className="absolute top-0 bottom-0 left-0 -translate-x-[99%] w-24 hidden md:block z-30 pointer-events-none text-white overflow-hidden">
-                    <svg
-                        viewBox="0 0 100 100"
-                        preserveAspectRatio="none"
-                        className="w-full h-full fill-current"
-                    >
-                        <path d="M100 0 C 50 0 50 100 100 100 Z" />
-                    </svg>
-                </div>
-
-                <div className="w-full max-w-md mx-auto relative z-10">
+                <div className="w-full max-w-md mx-auto relative z-10 my-auto pt-6 md:pt-0">
 
                     {/* ── STEP 1: Email ── */}
                     {step === 'email' && (
                         <>
                             {/* Icon */}
-                            <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-5 shadow-sm ring-4 ring-white">
-                                <Lock size={24} className="text-blue-500" strokeWidth={1.5} />
+                            <div className="w-12 h-12 sm:w-14 sm:h-14 bg-blue-50 rounded-full flex items-center justify-center mb-4 shadow-sm ring-4 ring-white">
+                                <Lock size={22} className="text-blue-500" strokeWidth={1.5} />
                             </div>
 
-                            <div className="mb-5 text-left">
-                                <h2 className="text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">Forgot Password?</h2>
-                                <p className="text-slate-500 font-medium text-base">Enter your email and we&apos;ll send you a reset link</p>
+                            <div className="mb-4 text-left">
+                                <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mb-1 tracking-tight">Forgot Password?</h2>
+                                <p className="text-slate-500 font-medium text-sm sm:text-base">Enter your email and we&apos;ll send you a reset link</p>
                             </div>
 
                             {error && (
