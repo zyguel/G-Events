@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { isMobile, isTablet } from "react-device-detect";
 import { AdminCompactModeContext } from "@/contexts/AdminCompactModeContext";
 import {
-  ADMIN_COMPACT_MEDIA_QUERY,
   compactAdminRedirectTarget,
   isAllowedCompactAdminPath,
 } from "@/lib/adminMobileAccess";
@@ -19,12 +19,9 @@ export default function AdminCompactShell({
   const router = useRouter();
   const prevPathnameRef = useRef<string | null>(null);
 
-  useLayoutEffect(() => {
-    const mq = window.matchMedia(ADMIN_COMPACT_MEDIA_QUERY);
-    setIsCompactAdmin(mq.matches);
-    const onChange = () => setIsCompactAdmin(mq.matches);
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
+  useEffect(() => {
+    // Device type should be stable for the session; do not react to viewport resize.
+    setIsCompactAdmin(isMobile || isTablet);
   }, []);
 
   useEffect(() => {

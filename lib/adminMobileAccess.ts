@@ -1,9 +1,3 @@
-/**
- * Viewports with max-width below Tailwind `lg` (1024px) use compact admin:
- * only event list + per-event check-in (see AdminCompactShell).
- */
-export const ADMIN_COMPACT_MEDIA_QUERY = "(max-width: 1023px)";
-
 const AUTH_PATH_PREFIXES = [
   "/login",
   "/register",
