@@ -467,7 +467,18 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
 
         const json = await response.json().catch(() => ({}));
         if (!response.ok || !json?.success || !json?.data?.url) {
-            throw new Error(json?.error || `Failed to upload image (${response.status})`);
+            const serverError = String(json?.error || '').trim();
+            const normalized = serverError.toLowerCase();
+            if (
+                normalized.includes('invalid')
+                || normalized.includes('corrupted')
+                || normalized.includes('cannot open')
+                || normalized.includes('can\'t open')
+            ) {
+                throw new Error('Cannot open file. Try another image.');
+            }
+
+            throw new Error(serverError || `Failed to upload image (${response.status})`);
         }
 
         return String(json.data.url);

@@ -119,6 +119,18 @@ function hasExpectedImageStructure(bytes: Uint8Array, mimeType: string): boolean
   return false;
 }
 
+export function validateUploadedImageBytes(bytes: Uint8Array, mimeType: string): string | null {
+  if (!mimeType.startsWith('image/')) {
+    return 'Only image files are allowed.';
+  }
+
+  if (!hasExpectedImageStructure(bytes, mimeType)) {
+    return 'Image file appears to be invalid or corrupted.';
+  }
+
+  return null;
+}
+
 export async function validateUploadedImageFile(
   file: File,
   options: ImageValidationOptions,
@@ -140,9 +152,8 @@ export async function validateUploadedImageFile(
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
-  if (!hasExpectedImageStructure(bytes, file.type)) {
-    return 'Image file appears to be invalid or corrupted.';
-  }
+  const bytesValidationError = validateUploadedImageBytes(bytes, file.type);
+  if (bytesValidationError) return bytesValidationError;
 
   return null;
 }

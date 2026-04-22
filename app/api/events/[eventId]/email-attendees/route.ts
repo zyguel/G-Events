@@ -10,12 +10,22 @@ import {
 } from "@/lib/emailCampaigns";
 import { sendEmail } from "@/lib/emailProvider";
 import { escapeHtml } from "@/lib/security";
+import { validateUploadedImageBytes } from "@/lib/uploadedImageValidation";
 
 type CampaignAction = "draft" | "send" | "estimate";
 type SendOption = "preview" | "attendees";
 type ScheduleOption = "immediately" | "later";
 
 const INLINE_IMAGE_REGEX = /<img\b[^>]*\bsrc=("|')(data:image\/[a-zA-Z0-9.+-]+;base64,[^"']+)\1/gi;
+const INLINE_ALLOWED_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "image/svg+xml",
+]);
 
 function decodeInlineImage(dataUrl: string): { bytes: Buffer; extension: string; contentType: string } {
   const match = dataUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/);
@@ -24,6 +34,10 @@ function decodeInlineImage(dataUrl: string): { bytes: Buffer; extension: string;
   }
 
   const contentType = match[1].toLowerCase();
+  if (!INLINE_ALLOWED_IMAGE_TYPES.has(contentType)) {
+    throw new Error("Unsupported inline image format");
+  }
+
   const base64 = match[2];
   const bytes = Buffer.from(base64, "base64");
 
@@ -33,6 +47,11 @@ function decodeInlineImage(dataUrl: string): { bytes: Buffer; extension: string;
 
   if (bytes.length > 8 * 1024 * 1024) {
     throw new Error("Inline image must be 8MB or smaller");
+  }
+
+  const inlineImageValidationError = validateUploadedImageBytes(bytes, contentType);
+  if (inlineImageValidationError) {
+    throw new Error(inlineImageValidationError);
   }
 
   const extension = contentType === "image/png"
