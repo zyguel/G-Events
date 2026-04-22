@@ -253,12 +253,19 @@ export async function POST(
         // Load event + ticket context
         const { data: eventRow, error: eventError } = await supabase
             .from('Event')
-            .select('id, title, capacity, allow_waitlist, allow_breakout_sessions, event_start_at, event_end_at')
+            .select('id, title, capacity, allow_waitlist, allow_breakout_sessions, event_start_at, event_end_at, is_published, is_visible')
             .eq('id', numericEventId)
             .single();
 
         if (eventError || !eventRow) {
             return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+        }
+
+        if (!eventRow.is_visible || !eventRow.is_published) {
+            return NextResponse.json(
+                { error: 'Event is not available for registration' },
+                { status: 403 }
+            );
         }
 
         const { data: ticketRows, error: ticketError } = await supabase

@@ -40,6 +40,7 @@ interface AgendaSlot {
 interface EventDetail {
     id: number;
     title: string;
+    is_published?: boolean;
     description?: string;
     location?: string;
     banner_image?: string;
@@ -157,6 +158,7 @@ export default function ClientEventDetailPage() {
 
     const isEventEnded = event.event_end_at ? new Date() > new Date(event.event_end_at) : false;
     const isRegistered = registrationState === 'confirmed';
+    const isEventPublished = Boolean(event.is_published);
 
     return (
         <div className="flex flex-col min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
@@ -488,6 +490,18 @@ export default function ClientEventDetailPage() {
                                 </div>
                                 <div className="w-full md:w-auto rounded-2xl bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white/95 border border-white/20">
                                     We&apos;ll notify you once your slot is approved.
+                                </div>
+                            </>
+                        ) : !isEventPublished ? (
+                            <>
+                                <div className="min-w-0 space-y-3 text-center md:text-left">
+                                    <h3 className="text-xl font-extrabold text-white sm:text-2xl">Registration not yet open</h3>
+                                    <p className="text-sm text-blue-100/90">
+                                        This event page is visible to the public, but registration will open once the organizer publishes the event.
+                                    </p>
+                                </div>
+                                <div className="w-full md:w-auto rounded-2xl bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white/95 border border-white/20">
+                                    Check back soon for registration access.
                                 </div>
                             </>
                         ) : (

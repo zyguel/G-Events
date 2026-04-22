@@ -418,7 +418,8 @@ export async function getPublishedEvents() {
                 banner_image,
                 objectives,
                 theme,
-                registration_open_at
+                registration_open_at,
+                registration_close_at
             `)
             .eq('is_visible', true)
             .gte('event_end_at', new Date().toISOString())
