@@ -119,16 +119,16 @@ function CheckInPassCard({ pass }: { pass: CheckInPass }) {
 
     return (
         <div className="bg-white dark:bg-gray-800/70 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-                <div>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                     <p className="text-xs uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Check-In Pass</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{pass.email}</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1 break-all">{pass.email}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Registration #{pass.registrationId}</p>
                 </div>
                 <button
                     type="button"
                     onClick={handleCopy}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <Copy size={13} />
                     {copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy Failed' : 'Copy QR Data'}
@@ -1226,11 +1226,15 @@ function OrderFormStep({
                     </div>
                 )}
                 {checkInPasses.length > 0 && (
-                    <div className="mt-6 max-w-3xl mx-auto text-left">
+                    <div className="mt-6 w-full text-left">
                         <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 text-center">
                             Save your check-in QR pass{checkInPasses.length > 1 ? 'es' : ''}
                         </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className={`grid gap-4 ${
+                            checkInPasses.length === 1
+                                ? 'grid-cols-1 max-w-sm mx-auto'
+                                : 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto'
+                        }`}>
                             {checkInPasses.map((pass) => (
                                 <CheckInPassCard
                                     key={`${pass.registrationId}-${pass.email}`}
