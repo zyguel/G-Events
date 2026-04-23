@@ -6,6 +6,7 @@ import { EventData } from "@/lib/types";
 import PublishEventContent from "@/components/admin/PublishEventContent";
 import { getEventById } from "@/lib/actions/events";
 import { getTickets } from "@/lib/eventManagement";
+import AdminLoading from "@/components/admin/AdminLoading";
 
 export default function PublishEventPage() {
     const params = useParams();
@@ -16,7 +17,7 @@ export default function PublishEventPage() {
     // Use any here to allow flexibility since we are mixing API types with mapped local types
     const [eventData, setEventData] = useState<any | null>(null);
     const [tickets, setTickets] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
 
     useEffect(() => {
         const loadEvent = async () => {
@@ -81,7 +82,7 @@ export default function PublishEventPage() {
 
                         setEventData(reconstructedEvent);
                         setTickets(ticketsData || []);
-                        setLoading(false);
+                        setIsLoading(false);
                         return;
                     }
                 }
@@ -106,7 +107,7 @@ export default function PublishEventPage() {
                         parsed.bannerImage = parsed.bannerUrl;
                     }
                     setEventData(parsed);
-                    setLoading(false);
+                    setIsLoading(false);
                     return;
                 }
 
@@ -146,7 +147,7 @@ export default function PublishEventPage() {
                     };
 
                     setEventData(reconstructedEvent);
-                    setLoading(false);
+                    setIsLoading(false);
                     return;
                 }
             } catch (e) {
@@ -155,18 +156,14 @@ export default function PublishEventPage() {
 
             // If we get here, truly not found
             setEventData(null);
-            setLoading(false);
+            setIsLoading(false);
         };
 
         loadEvent();
     }, [eventId]);
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center p-12 bg-gray-50 dark:bg-gray-900">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#3D518C]"></div>
-            </div>
-        );
+    if (isLoading) {
+        return <AdminLoading message="Loading Publish Page..." />;
     }
 
     if (!eventData) {

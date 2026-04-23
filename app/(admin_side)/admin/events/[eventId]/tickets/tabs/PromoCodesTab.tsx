@@ -9,6 +9,7 @@ import TimeInput from "@/components/admin/TimeInput";
 import TablePaginationControls from "@/components/admin/TablePaginationControls";
 import { getPromoCodes, createPromoCode, updatePromoCode, deletePromoCode, PromoCode, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
+import AdminLoading from "@/components/admin/AdminLoading";
 
 interface PromoCodesTabProps {
   event: EventSummary;
@@ -267,11 +268,7 @@ export default function PromoCodesTab({ event }: PromoCodesTabProps) {
   }, [filteredPromoCodes.length, currentPage, rowsPerPage]);
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
-      </div>
-    );
+    return <AdminLoading message="Loading promo codes..." />;
   }
 
   return (

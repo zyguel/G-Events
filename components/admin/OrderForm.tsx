@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2, Plus, Copy, Eye, EyeOff, ClipboardList, Upload, Grid3X3, Save, Loader, Check, GripVertical } from "lucide-react";
 import { Reorder, AnimatePresence, useDragControls } from "framer-motion";
+import AdminLoading from "@/components/admin/AdminLoading";
 
 type InputType = "short_answer" | "paragraph" | "multiple_choice" | "checkboxes" | "dropdown" | "file_upload" | "multiple_choice_grid" | "checkbox_grid" | "date" | "time";
 
@@ -118,7 +119,7 @@ const DraggableInputItem = ({
         >
             <div className="relative group/item">
                 {/* Drag Handle - Absolutely positioned to the left */}
-                <div 
+                <div
                     className="absolute -left-6 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-gray-300 dark:text-gray-600 opacity-0 group-hover/item:opacity-100 transition-opacity p-1"
                     onPointerDown={(e) => dragControls.start(e)}
                 >
@@ -428,7 +429,7 @@ export default function OrderForm({
         // Validation check
         let isFormValid = true;
         if (!formTitle.trim()) isFormValid = false;
-        
+
         for (const section of data.sections) {
             if (!section.title.trim()) isFormValid = false;
             for (const input of section.inputs) {
@@ -842,13 +843,9 @@ export default function OrderForm({
                     </div>
                 )}
             </div>
-
             {/* Sections */}
             {isLoading ? (
-                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-12 text-center">
-                    <Loader className="w-8 h-8 animate-spin mx-auto mb-3 text-[#3D518C]" />
-                    <p className="text-gray-600 dark:text-gray-400">Loading form...</p>
-                </div>
+                <AdminLoading message="Loading Form..." />
             ) : (
                 <div className="space-y-6">
                     {data.sections.map((section, sectionIndex) => (
@@ -865,11 +862,10 @@ export default function OrderForm({
                                             <label className="text-xs font-semibold text-[#3D518C] dark:text-indigo-300 uppercase tracking-wide">
                                                 Section Title
                                             </label>
-                                            <span className={`text-[10px] font-medium tabular-nums ${
-                                                section.title.length >= 50
+                                            <span className={`text-[10px] font-medium tabular-nums ${section.title.length >= 50
                                                     ? 'text-red-500'
                                                     : 'text-gray-400 dark:text-gray-500'
-                                            }`}>
+                                                }`}>
                                                 {section.title.length}/50
                                             </span>
                                         </div>
@@ -892,11 +888,10 @@ export default function OrderForm({
                                             <label className="text-xs font-semibold text-[#3D518C] dark:text-indigo-300 uppercase tracking-wide">
                                                 Section Description <span className="font-normal normal-case text-gray-400">(optional)</span>
                                             </label>
-                                            <span className={`text-[10px] font-medium tabular-nums ${
-                                                section.description.length >= 250
+                                            <span className={`text-[10px] font-medium tabular-nums ${section.description.length >= 250
                                                     ? 'text-red-500'
                                                     : 'text-gray-400 dark:text-gray-500'
-                                            }`}>
+                                                }`}>
                                                 {section.description.length}/250
                                             </span>
                                         </div>

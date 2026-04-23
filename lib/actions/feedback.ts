@@ -106,8 +106,8 @@ export async function getEventFeedbackAnalytics(eventId: number): Promise<Feedba
         const avgRating =
             ratingValues.length > 0
                 ? parseFloat(
-                      (ratingValues.reduce((s, v) => s + v, 0) / ratingValues.length).toFixed(1)
-                  )
+                    (ratingValues.reduce((s, v) => s + v, 0) / ratingValues.length).toFixed(1)
+                )
                 : 0
 
         // 5. Rating distribution
@@ -147,8 +147,8 @@ export async function getEventFeedbackAnalytics(eventId: number): Promise<Feedba
             const key = a.feedback_submission_id
                 ? `sub_${a.feedback_submission_id}`
                 : a.registration_id
-                ? `reg_${a.registration_id}`
-                : null
+                    ? `reg_${a.registration_id}`
+                    : null
             if (!key || !commentMap[key]) return
 
             if (a.FeedbackQuestion?.input_format === 'rating') {

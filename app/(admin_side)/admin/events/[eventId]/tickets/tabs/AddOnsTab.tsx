@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
+import AdminLoading from "@/components/admin/AdminLoading";
 
 interface AddOnsTabProps {
   event: EventSummary;
@@ -445,11 +446,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
-      </div>
-    );
+    return <AdminLoading message="Loading add-ons..." />;
   }
 
   return (

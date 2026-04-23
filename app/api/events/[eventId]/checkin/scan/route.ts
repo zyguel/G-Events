@@ -4,6 +4,21 @@ import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 import { extractTicketTokenFromScan } from '@/lib/checkinScan';
 import { resolveBreakoutTicketForEventCheckin } from '@/lib/breakoutCheckinScan';
 import { getAddOnClaimSummariesByRegistrationIds } from '@/lib/checkinAddOnClaims';
+import { extractCheckInToken, verifyCheckInToken } from '@/lib/checkinQr';
+
+type CheckInRegistrationRow = {
+  id: number;
+  status?: string | null;
+  has_checked_in: boolean | null;
+  checked_in_at?: string | null;
+  User?: {
+    name?: string | null;
+    email?: string | null;
+  } | null;
+  Ticket?: {
+    name?: string | null;
+  } | null;
+};
 
 function registrationNotConfirmed(status: unknown): boolean {
   const s = String(status || '').toLowerCase();
@@ -34,8 +49,8 @@ export async function POST(
     const raw =
       (typeof body?.raw === 'string' ? body.raw : '') ||
       (typeof body?.qrData === 'string' ? body.qrData : '');
-    const token = extractTicketTokenFromScan(raw);
-    if (!token) {
+    const rawToken = extractTicketTokenFromScan(raw);
+    if (!rawToken) {
       return NextResponse.json(
         { success: false, error: 'Could not read a ticket from that scan' },
         { status: 400 }
@@ -44,7 +59,77 @@ export async function POST(
 
     const admin = await createAdminClient();
 
-    const breakout = await resolveBreakoutTicketForEventCheckin(admin, token, parsedEventId);
+    // 1. Try to resolve as a signed check-in pass (used in in-app QRs)
+    let registrationId: number | null = null;
+    let isSignedPass = false;
+
+    const checkInToken = extractCheckInToken(rawToken);
+    if (checkInToken) {
+      const verification = verifyCheckInToken(checkInToken);
+      if (verification.valid && verification.claims) {
+        if (verification.claims.eid !== parsedEventId) {
+          return NextResponse.json(
+            { success: false, error: 'This ticket is for a different event' },
+            { status: 400 }
+          );
+        }
+        registrationId = verification.claims.rid;
+        isSignedPass = true;
+      }
+    }
+
+    // 2. If it's a signed pass, fetch by registration ID directly
+    if (isSignedPass && registrationId) {
+      const { data: rawReg } = await admin
+        .from('Registration')
+        .select('id, status, has_checked_in, user_id, User(name, email), Ticket(name)')
+        .eq('id', registrationId)
+        .eq('event_id', parsedEventId)
+        .maybeSingle();
+
+      const reg = rawReg as CheckInRegistrationRow | null;
+
+      if (!reg) {
+        return NextResponse.json(
+          { success: false, error: 'Unknown or invalid ticket' },
+          { status: 404 }
+        );
+      }
+
+      if (registrationNotConfirmed(reg.status)) {
+        return NextResponse.json(
+          { success: false, error: 'This registration is not confirmed' },
+          { status: 400 }
+        );
+      }
+
+      const addOnSummary = (await getAddOnClaimSummariesByRegistrationIds(admin, [Number(reg.id)])).get(Number(reg.id));
+      const claimableAddOns = addOnSummary?.claimableAddOns || [];
+      const claimableAddOnQty = Number(addOnSummary?.claimableAddOnQty || 0);
+      const totalAddOnQty = Number(addOnSummary?.totalAddOnQty || 0);
+
+      return NextResponse.json({
+        success: true,
+        token: rawToken,
+        kind: 'main' as const,
+        participant: {
+          name: reg.User?.name || 'Unknown',
+          email: reg.User?.email || '',
+          registrationId: String(reg.id),
+        },
+        ticketType: reg.Ticket?.name || 'General Admission',
+        registrationStatus: String(reg.status || 'pending'),
+        mainEventCheckedIn: !!reg.has_checked_in,
+        mainEventStatus: reg.has_checked_in ? 'Checked-In' : 'Not Yet Checked-In',
+        totalAddOnQty,
+        claimableAddOnQty,
+        claimableAddOns,
+        breakout: null,
+      });
+    }
+
+    // 3. Fallback: Try to resolve as a breakout ticket token or legacy main ticket token
+    const breakout = await resolveBreakoutTicketForEventCheckin(admin, rawToken, parsedEventId);
 
     if (breakout.kind === 'error') {
       return NextResponse.json(
@@ -64,7 +149,7 @@ export async function POST(
 
       return NextResponse.json({
         success: true,
-        token,
+        token: rawToken,
         kind: 'breakout' as const,
         participant: {
           name: reg.User?.name || 'Unknown',
@@ -91,14 +176,16 @@ export async function POST(
       });
     }
 
-    const { data: reg } = await admin
+    const { data: rawRegFallback } = await admin
       .from('Registration')
       .select(
-        'id, event_id, status, has_checked_in, user_id, User(name, email), Ticket(name)'
+        'id, status, has_checked_in, user_id, User(name, email), Ticket(name)'
       )
-      .eq('ticket_token', token)
+      .eq('ticket_token', rawToken)
       .eq('event_id', parsedEventId)
       .maybeSingle();
+
+    const reg = rawRegFallback as CheckInRegistrationRow | null;
 
     if (!reg) {
       return NextResponse.json(
@@ -121,14 +208,14 @@ export async function POST(
 
     return NextResponse.json({
       success: true,
-      token,
+      token: rawToken,
       kind: 'main' as const,
       participant: {
-        name: (reg as { User?: { name?: string } }).User?.name || 'Unknown',
-        email: (reg as { User?: { email?: string } }).User?.email || '',
+        name: reg.User?.name || 'Unknown',
+        email: reg.User?.email || '',
         registrationId: String(reg.id),
       },
-      ticketType: (reg as { Ticket?: { name?: string } }).Ticket?.name || 'General Admission',
+      ticketType: reg.Ticket?.name || 'General Admission',
       registrationStatus: String(reg.status || 'pending'),
       mainEventCheckedIn: !!reg.has_checked_in,
       mainEventStatus: reg.has_checked_in ? 'Checked-In' : 'Not Yet Checked-In',

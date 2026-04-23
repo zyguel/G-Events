@@ -8,6 +8,7 @@ import TimeInput from "@/components/admin/TimeInput";
 import { getTickets, createTicket, updateTicket, deleteTicket, restoreTicket, Ticket } from "@/lib/eventManagement";
 import { motion, AnimatePresence } from "framer-motion";
 import { EventSummary } from "@/lib/types";
+import AdminLoading from "@/components/admin/AdminLoading";
 
 interface AdmissionTabProps {
   event: EventSummary;
@@ -348,11 +349,7 @@ export default function AdmissionTab({ event }: AdmissionTabProps) {
   const onSaleTickets = tickets.filter((ticket) => isTicketOnSale(ticket)).length;
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
-      </div>
-    );
+    return <AdminLoading message="Loading tickets..." />;
   }
 
   return (

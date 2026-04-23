@@ -24,6 +24,7 @@ import { EventSummary } from "@/lib/types";
 import { useLocale } from "@/contexts/LocaleContext";
 import Modal, { ModalFooter } from "@/components/admin/Modal";
 import TablePaginationControls from "@/components/admin/TablePaginationControls";
+import AdminLoading from "@/components/admin/AdminLoading";
 
 // Type for orders coming from the backend
 export interface Order {
@@ -572,10 +573,10 @@ function EditOrderModal({
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{order?.email}</p>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${order?.status === "Confirmed"
-                                ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
-                                : order?.status === "Rejected"
-                                    ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
-                                    : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                            ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
+                            : order?.status === "Rejected"
+                                ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
+                                : "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
                             }`}>
                             {order?.status}
                         </span>
@@ -664,15 +665,16 @@ interface ManageOrdersClientProps {
 
 
     event: EventSummary;
+    initialOrders?: Order[];
 }
 
-export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
+export default function ManageOrdersClient({ event, initialOrders }: ManageOrdersClientProps) {
     const { t } = useLocale();
     const [activeTab, setActiveTab] = useState<"all" | "review">("all");
-    const [orders, setOrders] = useState<Order[]>([]);
+    const [orders, setOrders] = useState<Order[]>(initialOrders || []);
     const [searchQuery, setSearchQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(!initialOrders);
     const [error, setError] = useState<string | null>(null);
     const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
     const [availableTickets, setAvailableTickets] = useState<any[]>([]);
@@ -709,7 +711,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
 
         const loadOrders = async () => {
             try {
-                setIsLoading(true);
+                if (orders.length === 0) setIsLoading(true);
                 setError(null);
                 const res = await fetch(`/api/events/${event.id}/orders`, {
                     signal: controller.signal,
@@ -1187,9 +1189,7 @@ export default function ManageOrdersClient({ event }: ManageOrdersClientProps) {
                             {/* Orders Table */}
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
                                 {isLoading ? (
-                                    <div className="p-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                                        {t('Loading orders...')}
-                                    </div>
+                                    <AdminLoading message="Loading Orders..." className="border-none shadow-none" />
                                 ) : (
                                     <>
                                         <div className="overflow-x-auto">

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { CheckCircle, Mail, Check, X } from "lucide-react";
+import AdminLoading from "@/components/admin/AdminLoading";
 import { getOrderConfirmationSettings, saveOrderConfirmationSettings } from "@/lib/actions/orderConfirmation";
 import type { OrderConfirmationData } from "@/lib/orderConfirmationSettings";
 
@@ -115,11 +116,7 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
     };
 
     if (isLoading) {
-        return (
-            <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans flex items-center justify-center min-h-[50vh]">
-                <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
-            </div>
-        )
+        return <AdminLoading message="Loading Order Confirmation..." />;
     }
 
     return (
