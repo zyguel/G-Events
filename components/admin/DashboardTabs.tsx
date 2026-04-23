@@ -102,6 +102,8 @@ export default function DashboardTabs({
     const [activeTab, setActiveTab] = useState("registrations");
     const [transactionsPage, setTransactionsPage] = useState(1);
     const [transactionsRowsPerPage, setTransactionsRowsPerPage] = useState(10);
+    const [feedbackPage, setFeedbackPage] = useState(1);
+    const [feedbackRowsPerPage, setFeedbackRowsPerPage] = useState(10);
     const attendanceTotal =
         data.trends.attendance.checkedIn +
         data.trends.attendance.waitlisted +
@@ -120,15 +122,24 @@ export default function DashboardTabs({
         transactionsPage * transactionsRowsPerPage
     );
 
+    const paginatedFeedback = data.comments.slice(
+        (feedbackPage - 1) * feedbackRowsPerPage,
+        feedbackPage * feedbackRowsPerPage
+    );
+
     useEffect(() => {
-        if (activeTab !== "revenue") {
-            return;
+        if (activeTab === "revenue") {
+            const totalPages = Math.max(1, Math.ceil(data.recentTransactions.length / transactionsRowsPerPage));
+            if (transactionsPage > totalPages) {
+                setTransactionsPage(totalPages);
+            }
+        } else if (activeTab === "feedback") {
+            const totalPages = Math.max(1, Math.ceil(data.comments.length / feedbackRowsPerPage));
+            if (feedbackPage > totalPages) {
+                setFeedbackPage(totalPages);
+            }
         }
-        const totalPages = Math.max(1, Math.ceil(data.recentTransactions.length / transactionsRowsPerPage));
-        if (transactionsPage > totalPages) {
-            setTransactionsPage(totalPages);
-        }
-    }, [activeTab, data.recentTransactions.length, transactionsPage, transactionsRowsPerPage]);
+    }, [activeTab, data.recentTransactions.length, data.comments.length, transactionsPage, transactionsRowsPerPage, feedbackPage, feedbackRowsPerPage]);
 
     return (
         <div className="space-y-6">
@@ -331,7 +342,6 @@ export default function DashboardTabs({
                             <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="font-semibold text-gray-900 dark:text-white">Recent Transactions</h3>
-                                    <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium">View All</button>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -438,7 +448,7 @@ export default function DashboardTabs({
                                         No feedback comments yet.
                                     </div>
                                 ) : (
-                                    data.comments.map((comment, i) => (
+                                    paginatedFeedback.map((comment, i) => (
                                         <div key={i} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
                                             <div className="flex justify-between items-start mb-1">
                                                 <div className="flex items-center gap-2">
@@ -480,6 +490,19 @@ export default function DashboardTabs({
                                         </div>
                                     ))
                                 )}
+                            </div>
+
+                            <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
+                                <TablePaginationControls
+                                    totalItems={data.comments.length}
+                                    currentPage={feedbackPage}
+                                    rowsPerPage={feedbackRowsPerPage}
+                                    onPageChange={setFeedbackPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setFeedbackRowsPerPage(rows);
+                                        setFeedbackPage(1);
+                                    }}
+                                />
                             </div>
                         </div>
                     </div>
