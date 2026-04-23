@@ -3,6 +3,10 @@ import { getEventById } from "@/lib/actions/events";
 import BreakoutsClient from "./BreakoutsClient";
 import PermissionGate from "@/components/admin/PermissionGate";
 
+export const metadata = {
+    title: 'Breakout Sessions',
+};
+
 export default async function BreakoutsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 

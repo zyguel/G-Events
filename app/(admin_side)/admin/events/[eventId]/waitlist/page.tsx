@@ -3,6 +3,10 @@ import { getEventById } from "@/lib/actions/events";
 import WaitlistClient from "./WaitlistClient";
 import PermissionGate from "@/components/admin/PermissionGate";
 
+export const metadata = {
+    title: 'Waitlist',
+};
+
 export default async function WaitlistPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 

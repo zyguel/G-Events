@@ -3,6 +3,10 @@ import Sidebar from "@/components/admin/Sidebar";
 import EventsSidebar from "@/components/admin/EventsSidebar";
 import EventOverview from "@/components/admin/EventOverview";
 
+export const metadata = {
+    title: 'New Event',
+};
+
 export default function NewEventOverviewPage() {
     // Empty state data for a new event
     const newEventData = {

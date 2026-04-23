@@ -25,6 +25,10 @@ function deriveStatus(
     return 'Upcoming';
 }
 
+export const metadata = {
+    title: 'Events',
+};
+
 export default async function EventsPage() {
     const data = await getEvents();
     const nowMs = new Date().getTime();

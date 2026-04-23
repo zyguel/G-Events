@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import ManageOrdersClient from "./ManageOrdersClient";
 
+export const metadata = {
+    title: 'Orders',
+};
+
 export default async function ManageOrdersPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 

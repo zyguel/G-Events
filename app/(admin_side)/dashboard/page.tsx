@@ -58,6 +58,10 @@ function formatRelativeDate(value: string | null, nowMs: number): string {
     });
 }
 
+export const metadata = {
+    title: 'Dashboard',
+};
+
 export default async function DashboardPage() {
     const events = await getEvents();
     const nowMs = new Date().getTime();
@@ -124,7 +128,7 @@ export default async function DashboardPage() {
     if (mappedEvents.length > 0) {
         const eventIds = mappedEvents.map(e => e.id);
         const supabase = await createClient();
-        
+
         // Fetch recent audit logs for the organization's events
         const { data: auditLogs } = await supabase
             .from('AuditLog')
@@ -133,7 +137,7 @@ export default async function DashboardPage() {
             .in('entity_id', eventIds)
             .order('created_at', { ascending: false })
             .limit(10);
-            
+
         if (auditLogs) {
             activities = auditLogs.slice(0, 4).map((log, index) => {
                 const event = mappedEvents.find(e => e.id === log.entity_id);

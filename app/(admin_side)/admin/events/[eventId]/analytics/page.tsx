@@ -7,6 +7,10 @@ import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
 import { getEventById, getEvents, getEventAnalytics, getEventDemographics, getEventTickets } from "@/lib/actions/events";
 
 
+export const metadata = {
+    title: 'Analytics',
+};
+
 export default async function EventAnalyticsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 

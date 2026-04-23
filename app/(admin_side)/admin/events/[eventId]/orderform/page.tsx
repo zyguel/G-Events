@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import OrderForm from "@/components/admin/OrderForm";
 
+export const metadata = {
+    title: 'Order Form',
+};
+
 export default async function OrderFormPage({ 
     params,
     searchParams

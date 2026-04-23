@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import TicketsPageClient from "./TicketsPageClient";
 
+export const metadata = {
+    title: 'Tickets',
+};
+
 export default async function TicketsPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
 
