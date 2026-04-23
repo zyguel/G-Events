@@ -1415,7 +1415,15 @@ export async function getAddOns(eventId: number) {
         .from('AddOn')
         .select(`
             *,
-            AddOnVariant (*),
+            AddOnVariant (
+                *,
+                entitlements:AttendeeEntitlement (
+                    id,
+                    qty_total,
+                    qty_reserved,
+                    qty_redeemed
+                )
+            ),
             AddOnTicket (
                 ticket_id
             )

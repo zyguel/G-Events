@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag, ChevronDown, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag, ChevronDown, Check, History, PackageOpen, Users } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
@@ -48,6 +48,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+  const [isRedemptionLogOpen, setIsRedemptionLogOpen] = useState(false);
+  const [modalView, setModalView] = useState<'redemptions' | 'reserved'>('redemptions');
+  const [redemptionData, setRedemptionData] = useState<any[]>([]);
+  const [reservedData, setReservedData] = useState<any[]>([]);
+  const [isLoadingRedemptions, setIsLoadingRedemptions] = useState(false);
+  const [isLoadingReserved, setIsLoadingReserved] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [selectedAddOn, setSelectedAddOn] = useState<AddOn | null>(null);
   const [editingAddOnId, setEditingAddOnId] = useState<string | null>(null);
@@ -73,6 +79,48 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       console.error("Failed to load data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadRedemptionData = async (addOnId: string) => {
+    setIsLoadingRedemptions(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}/addons/${addOnId}/redemptions`);
+      if (!res.ok) {
+        throw new Error(`Failed to load redemption data (${res.status})`);
+      }
+      const json = await res.json();
+      if (json?.success && Array.isArray(json.data)) {
+        setRedemptionData(json.data);
+      } else {
+        setRedemptionData([]);
+      }
+    } catch (error) {
+      console.error("Failed to load redemption data:", error);
+      setRedemptionData([]);
+    } finally {
+      setIsLoadingRedemptions(false);
+    }
+  };
+
+  const loadReservedData = async (addOnId: string) => {
+    setIsLoadingReserved(true);
+    try {
+      const res = await fetch(`/api/events/${event.id}/addons/${addOnId}/reserved`);
+      if (!res.ok) {
+        throw new Error(`Failed to load reserved data (${res.status})`);
+      }
+      const json = await res.json();
+      if (json?.success && Array.isArray(json.data)) {
+        setReservedData(json.data);
+      } else {
+        setReservedData([]);
+      }
+    } catch (error) {
+      console.error("Failed to load reserved data:", error);
+      setReservedData([]);
+    } finally {
+      setIsLoadingReserved(false);
     }
   };
 
@@ -131,8 +179,9 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             break;
           }
 
-          if (!Number.isInteger(variant.stock) || variant.stock <= 0 || variant.stock > VARIANT_STOCK_MAX) {
-            newErrors.variants = `Variant quantity must be between 1 and ${VARIANT_STOCK_MAX.toLocaleString()}`;
+          const reservedRedeemed = (variant.stock_reserved || 0) + (variant.stock_redeemed || 0);
+          if (!Number.isInteger(variant.stock) || variant.stock < reservedRedeemed || variant.stock > VARIANT_STOCK_MAX) {
+            newErrors.variants = `Variant quantity must be between ${reservedRedeemed} (already reserved/redeemed) and ${VARIANT_STOCK_MAX.toLocaleString()}`;
             break;
           }
 
@@ -146,8 +195,13 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         }
       }
     } else {
-      if (!Number.isFinite(formData.stock) || formData.stock <= 0) {
-        newErrors.stock = "Stock must be greater than 0";
+      // For non-variant addons, check if there are existing entitlements
+      const currentAddOn = addOns.find(a => a.id === editingAddOnId);
+      const reservedRedeemed = currentAddOn ? 
+        (currentAddOn.variants?.reduce((sum, v) => sum + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0) : 0;
+      
+      if (!Number.isFinite(formData.stock) || formData.stock < reservedRedeemed) {
+        newErrors.stock = `Stock must be at least ${reservedRedeemed} (already reserved/redeemed)`;
       }
     }
 
@@ -385,7 +439,13 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
     setFormData({
       ...formData,
-      variants: [...formData.variants, { id: variantId, label: newVariantLabel.trim(), stock: parsedStock }],
+      variants: [...formData.variants, { 
+        id: variantId, 
+        label: newVariantLabel.trim(), 
+        stock: parsedStock,
+        stock_reserved: 0,
+        stock_redeemed: 0,
+      }],
     });
     setNewVariantLabel("");
     setNewVariantStock("");
@@ -415,7 +475,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
         const parsedStock = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
         const nextStock = Number.isFinite(parsedStock) ? Math.min(parsedStock, VARIANT_STOCK_MAX) : 0;
-        return { ...variant, stock: nextStock };
+        return { 
+          ...variant, 
+          stock: nextStock,
+          stock_reserved: variant.stock_reserved || 0,
+          stock_redeemed: variant.stock_redeemed || 0,
+        };
       }),
     }));
 
@@ -474,8 +539,13 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
           <AnimatePresence>
             {addOns.map((addOn) => {
               const totalStock = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + v.stock, 0) || 0) : (addOn.stock || 0);
+              const totalReserved = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + (v.stock_reserved || 0), 0) || 0) : 0;
+              const totalRedeemed = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + (v.stock_redeemed || 0), 0) || 0) : 0;
               const isLowStock = totalStock > 0 && totalStock <= 10;
               const isOutStock = totalStock <= 0;
+              const needsUpdate = totalReserved + totalRedeemed > 0 && (addOn.hasVariants ? 
+                addOn.variants?.some(v => v.stock < (v.stock_reserved || 0) + (v.stock_redeemed || 0)) : 
+                addOn.stock < totalReserved + totalRedeemed);
 
               return (
                 <motion.div
@@ -514,6 +584,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         {isOutStock ? <AlertCircle size={10} /> : isLowStock ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />}
                         {isOutStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
                       </div>
+                      {needsUpdate && (
+                        <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md bg-orange-500/90 text-white shadow-orange-200 dark:shadow-none">
+                          <AlertCircle size={10} />
+                          Needs Update
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -535,8 +611,37 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                           Standard Item
                         </div>
                       )}
-                      <div className="text-[11px] font-bold text-gray-400 dark:text-gray-500">
-                        TOTAL QTY: {totalStock}
+                      <div className="flex items-center gap-2 mt-3">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-semibold">
+                          <PackageOpen size={12} />
+                          <span>{totalStock}</span>
+                        </div>
+                        <button 
+                          onClick={() => {
+                            setSelectedAddOn(addOn);
+                            setModalView('reserved');
+                            setIsRedemptionLogOpen(true);
+                            loadReservedData(addOn.id);
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-[11px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
+                          title="View reserved users"
+                        >
+                          <Users size={12} />
+                          <span>{totalReserved}</span>
+                        </button>
+                        <button 
+                          onClick={() => {
+                            setSelectedAddOn(addOn);
+                            setModalView('redemptions');
+                            setIsRedemptionLogOpen(true);
+                            loadRedemptionData(addOn.id);
+                          }}
+                          className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg text-[11px] font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors cursor-pointer"
+                          title="View redemption log"
+                        >
+                          <History size={12} />
+                          <span>{totalRedeemed}</span>
+                        </button>
                       </div>
                     </div>
 
@@ -879,18 +984,37 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               <p className="text-gray-600 dark:text-gray-400 text-sm whitespace-pre-wrap">{selectedAddOn.description}</p>
             </div>
             <div>
-              <h4 className="font-medium text-sm mb-2">Variants</h4>
+              <h4 className="font-medium text-sm mb-2">Stock Information</h4>
               {selectedAddOn.hasVariants && selectedAddOn.variants && selectedAddOn.variants.length > 0 ? (
                 <ul className="space-y-2">
                   {selectedAddOn.variants.map((variant) => (
-                    <li key={variant.id} className="text-sm bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                      <span className="font-medium">{variant.label}</span>
-                      <span className="text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 shadow-sm">Stock: {variant.stock}</span>
+                    <li key={variant.id} className="text-sm bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium">{variant.label}</span>
+                        <span className="text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 shadow-sm">
+                          Available: {variant.stock}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 grid grid-cols-2 gap-2">
+                        <div>Reserved: {variant.stock_reserved || 0}</div>
+                        <div>Redeemed: {variant.stock_redeemed || 0}</div>
+                      </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400 italic">Standard Add-on (Stock: {selectedAddOn.stock || 0})</p>
+                <div className="text-sm bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium">Standard Add-on</span>
+                    <span className="text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 shadow-sm">
+                      Available: {selectedAddOn.stock || 0}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 grid grid-cols-2 gap-2">
+                    <div>Total Reserved: {selectedAddOn.variants?.reduce((sum, v) => sum + (v.stock_reserved || 0), 0) || 0}</div>
+                    <div>Total Redeemed: {selectedAddOn.variants?.reduce((sum, v) => sum + (v.stock_redeemed || 0), 0) || 0}</div>
+                  </div>
+                </div>
               )}
             </div>
             <button
@@ -923,6 +1047,166 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             isSubmitting={isDeletingAddOn}
           />
         </div>
+      </Modal>
+
+      {/* Redemption/Reserved Log Modal */}
+      <Modal
+        isOpen={isRedemptionLogOpen}
+        onClose={() => setIsRedemptionLogOpen(false)}
+        title={modalView === 'redemptions' ? 'Add-on Redemption Log' : 'Reserved Users'}
+      >
+        {selectedAddOn && (
+          <div className="space-y-4">
+            <div>
+              <h3 className="font-semibold text-lg">{selectedAddOn.name}</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                {modalView === 'redemptions' ? 'View who has claimed this add-on' : 'View users who have reserved but not claimed this add-on'}
+              </p>
+            </div>
+
+            {/* View Toggle */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  setModalView('redemptions');
+                  loadRedemptionData(selectedAddOn.id);
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  modalView === 'redemptions'
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                <History size={14} className="inline mr-2" />
+                Redeemed
+              </button>
+              <button
+                onClick={() => {
+                  setModalView('reserved');
+                  loadReservedData(selectedAddOn.id);
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  modalView === 'reserved'
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`}
+              >
+                <Users size={14} className="inline mr-2" />
+                Reserved
+              </button>
+            </div>
+            
+            {modalView === 'redemptions' ? (
+              <>
+                {isLoadingRedemptions ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
+                  </div>
+                ) : redemptionData.length === 0 ? (
+                  <div className="text-center py-8">
+                    <History size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400">No redemptions yet</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {redemptionData.map((redemption) => (
+                      <div key={redemption.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/50">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-sm text-gray-900 dark:text-white">
+                                {redemption.userName}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                ({redemption.userEmail})
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Variant: {redemption.variantLabel}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
+                              Qty: {redemption.qty}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <div>
+                            {new Date(redemption.redeemedAt).toLocaleString()}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {redemption.station && (
+                              <span>Station: {redemption.station}</span>
+                            )}
+                            {redemption.scannedBy && (
+                              <span>• Scanned by: {redemption.scannedBy}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {isLoadingReserved ? (
+                  <div className="flex justify-center items-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
+                  </div>
+                ) : reservedData.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Users size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                    <p className="text-gray-500 dark:text-gray-400">No reserved users</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {reservedData.map((user) => (
+                      <div key={user.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/50">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="font-medium text-sm text-gray-900 dark:text-white">
+                                {user.userName}
+                              </span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                ({user.userEmail})
+                              </span>
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Variant: {user.variantLabel}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs font-medium text-amber-600 dark:text-amber-400">
+                              Qty: {user.qtyTotal}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <div>
+                            Reserved: {user.qtyReserved} | Redeemed: {user.qtyRedeemed}
+                          </div>
+                          <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                            Not yet claimed
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+
+            <button
+              onClick={() => setIsRedemptionLogOpen(false)}
+              className="w-full px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-lg font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
+            >
+              Close
+            </button>
+          </div>
+        )}
       </Modal>
     </div>
   );

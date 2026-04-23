@@ -30,6 +30,8 @@ export interface AddOnVariant {
   id: string;
   label: string;
   stock: number;
+  stock_reserved: number;
+  stock_redeemed: number;
 }
 
 export interface AddOn {
@@ -128,11 +130,19 @@ function mapDbAddOn(row: any): AddOn {
     if (variantById.has(id)) continue;
     const stockTotal = v.stock_total ?? 0;
     const stockRedeemed = v.stock_redeemed ?? 0;
-    const remainingStock = Math.max(0, stockTotal - stockRedeemed);
+    
+    // Calculate actual reserved count from entitlements
+    const entitlements: any[] = v.entitlements ?? [];
+    const actualReserved = entitlements.reduce((sum: number, e: any) => sum + (e.qty_reserved || 0), 0);
+    const actualRedeemed = entitlements.reduce((sum: number, e: any) => sum + (e.qty_redeemed || 0), 0);
+    
+    const remainingStock = Math.max(0, stockTotal - actualRedeemed);
     variantById.set(id, {
       id,
       label: v.label ?? v.code ?? '',
       stock: remainingStock,
+      stock_reserved: actualReserved,
+      stock_redeemed: actualRedeemed,
     });
   }
   const variants = Array.from(variantById.values());
