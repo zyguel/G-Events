@@ -48,7 +48,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-  const [isStockDetailsOpen, setIsStockDetailsOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [selectedAddOn, setSelectedAddOn] = useState<AddOn | null>(null);
   const [editingAddOnId, setEditingAddOnId] = useState<string | null>(null);
@@ -150,9 +149,9 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     } else {
       // For non-variant addons, check if there are existing entitlements
       const currentAddOn = addOns.find(a => a.id === editingAddOnId);
-      const reservedRedeemed = currentAddOn ? 
+      const reservedRedeemed = currentAddOn ?
         (currentAddOn.variants?.reduce((sum, v) => sum + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0) : 0;
-      
+
       if (!Number.isFinite(formData.stock) || formData.stock < reservedRedeemed) {
         newErrors.stock = `Stock must be at least ${reservedRedeemed} (already reserved/redeemed)`;
       }
@@ -392,9 +391,9 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
     setFormData({
       ...formData,
-      variants: [...formData.variants, { 
-        id: variantId, 
-        label: newVariantLabel.trim(), 
+      variants: [...formData.variants, {
+        id: variantId,
+        label: newVariantLabel.trim(),
         stock: parsedStock,
         stock_reserved: 0,
         stock_redeemed: 0,
@@ -428,8 +427,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
         const parsedStock = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
         const nextStock = Number.isFinite(parsedStock) ? Math.min(parsedStock, VARIANT_STOCK_MAX) : 0;
-        return { 
-          ...variant, 
+        return {
+          ...variant,
           stock: nextStock,
           stock_reserved: variant.stock_reserved || 0,
           stock_redeemed: variant.stock_redeemed || 0,
@@ -491,14 +490,15 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <AnimatePresence>
             {addOns.map((addOn) => {
-              const totalStock = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + v.stock, 0) || 0) : (addOn.stock || 0);
-              const totalReserved = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + (v.stock_reserved || 0), 0) || 0) : 0;
-              const totalRedeemed = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + (v.stock_redeemed || 0), 0) || 0) : 0;
-              const isLowStock = totalStock > 0 && totalStock <= 10;
-              const isOutStock = totalStock <= 0;
-              const needsUpdate = totalReserved + totalRedeemed > 0 && (addOn.hasVariants ? 
-                addOn.variants?.some(v => v.stock < (v.stock_reserved || 0) + (v.stock_redeemed || 0)) : 
-                addOn.stock < totalReserved + totalRedeemed);
+              const currentStock = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + v.stock, 0) || 0) : (addOn.stock || 0);
+              const totalRedeemed = addOn.variants?.reduce((s, v) => s + (v.stock_redeemed || 0), 0) || 0;
+              const totalCapacity = currentStock + totalRedeemed;
+              const isLowStock = currentStock > 0 && currentStock <= 10;
+              const isOutStock = currentStock <= 0;
+              const needsUpdate = (addOn.variants?.reduce((s, v) => s + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0) > 0 && 
+                (addOn.hasVariants ? 
+                  addOn.variants?.some(v => v.stock < (v.stock_reserved || 0) + (v.stock_redeemed || 0)) : 
+                  addOn.stock < (addOn.variants?.reduce((s, v) => s + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0));
 
               return (
                 <motion.div
@@ -565,21 +565,19 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => {
-                          setSelectedAddOn(addOn);
-                          setIsStockDetailsOpen(true);
-                        }}
-                        className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors cursor-pointer"
-                        title="View stock details"
-                      >
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[11px] font-bold w-fit">
+                        <Package size={12} />
+                        <span>Total Stock: {totalCapacity}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-bold w-fit">
                         <PackageOpen size={12} />
-                        <span>Stock: {totalStock}</span>
-                      </button>
+                        <span>Current Stock: {currentStock}</span>
+                      </div>
                     </div>
 
                     <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 min-h-[40px] leading-relaxed">
+                      <span className="font-bold text-gray-700 dark:text-gray-200">Description: </span>
                       {addOn.description}
                     </p>
 
@@ -836,8 +834,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         setIsApplyToOpen(false);
                       }}
                       className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${typeof formData.appliedTo === 'string'
-                          ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
-                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
                         }`}
                     >
                       <span>All Tickets</span>
@@ -859,8 +857,8 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                                 setIsApplyToOpen(false);
                               }}
                               className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${isSelected
-                                  ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
-                                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
                                 }`}
                             >
                               <span className="truncate">{ticket.name}</span>
@@ -981,66 +979,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         </div>
       </Modal>
 
-      {/* Stock Details Modal */}
-      <Modal
-        isOpen={isStockDetailsOpen}
-        onClose={() => setIsStockDetailsOpen(false)}
-        title="Stock Details"
-      >
-        {selectedAddOn && (
-          <div className="space-y-4">
-            <div>
-              <h3 className="font-semibold text-lg">{selectedAddOn.name}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">View stock information</p>
-            </div>
-            
-            <div className="space-y-3">
-              <div className="flex items-center justify-between p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <PackageOpen size={20} className="text-emerald-600 dark:text-emerald-400" />
-                  <span className="font-medium text-gray-900 dark:text-white">Total Current Available (Total stock across all variants - Total redeemed)</span>
-                </div>
-                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                  {selectedAddOn.stock}
-                </span>
-              </div>
-
-              {selectedAddOn.hasVariants && selectedAddOn.variants && selectedAddOn.variants.length > 0 ? (
-                <div className="space-y-2">
-                  <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">Variant Breakdown</h4>
-                  {selectedAddOn.variants.map((variant) => (
-                    <div key={variant.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                      <div>
-                        <div className="font-medium text-sm text-gray-900 dark:text-white">{variant.label}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                          Stock qty: {variant.stock + (variant.stock_redeemed || 0)} | Redeemed: {variant.stock_redeemed || 0}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-lg font-bold text-gray-900 dark:text-white">{variant.stock}</div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400">current available</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Standard add-on (no variants)
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => setIsStockDetailsOpen(false)}
-              className="w-full px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-lg font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
-            >
-              Close
-            </button>
-          </div>
-        )}
-      </Modal>
     </div>
   );
 }

@@ -300,7 +300,7 @@ export async function POST(
 
         console.log('[Registration] API Request Body - eventId:', eventId, 'ticketId:', ticketId, 'registrationId:', registrationId);
         console.log('[Registration] API Request Body - userEmail:', userEmail, 'groupEmails:', groupEmails);
-        
+
         const normalizedPrimaryEmail = resolvedEmail.trim().toLowerCase();
 
         let waitlistInviteEntry: {
@@ -570,17 +570,17 @@ export async function POST(
 
             if (promoData) {
                 const now = new Date();
-                const isValidTime = 
+                const isValidTime =
                     (!promoData.start_at || new Date(promoData.start_at) <= now) &&
                     (!promoData.end_at || new Date(promoData.end_at) >= now);
-                
+
                 const currentUses = Number(promoData.current_uses ?? 0);
                 const maxUses = Number(promoData.max_uses ?? 0);
                 const isUnderLimit = maxUses === 0 || (currentUses + totalRequested) <= maxUses;
 
                 const allowedTicketIds = ((promoData.PromotionTicket || []) as PromotionTicketLink[]).map((pt) => pt.ticket_id);
                 const isTicketAllowed = allowedTicketIds.length === 0 || allowedTicketIds.includes(selectedTicket.id);
-                
+
                 if (isValidTime && isUnderLimit && isTicketAllowed) {
                     const discountVal = Number(promoData.discount_value || 0);
                     if (promoData.discount_type === 'percentage') {
@@ -688,13 +688,13 @@ export async function POST(
             if (isGroupRegistration) {
                 const { data: groupData, error: groupErr } = await supabase
                     .from('RegistrationGroup')
-                    .insert([{ 
+                    .insert([{
                         event_id: numericEventId,
                         ticket_id: selectedTicket.id
                     }])
                     .select('id')
                     .single();
-                
+
                 if (groupErr) {
                     console.error('[Registration] Group creation failed:', groupErr);
                     return NextResponse.json({ error: 'Failed to initialize group: ' + groupErr.message }, { status: 500 });
@@ -1043,16 +1043,16 @@ export async function POST(
             ? registeredAttendees
                 .filter((attendee) => !attendee.profilePending)
                 .map((attendee) => ({
-                email: attendee.email,
-                registrationId: attendee.registrationId,
-                ...generateCheckInPass({
-                    eventId: numericEventId,
-                    registrationId: attendee.registrationId,
                     email: attendee.email,
-                    eventStartAt: eventRow.event_start_at || null,
-                    eventEndAt: eventRow.event_end_at || null,
-                }),
-            }))
+                    registrationId: attendee.registrationId,
+                    ...generateCheckInPass({
+                        eventId: numericEventId,
+                        registrationId: attendee.registrationId,
+                        email: attendee.email,
+                        eventStartAt: eventRow.event_start_at || null,
+                        eventEndAt: eventRow.event_end_at || null,
+                    }),
+                }))
             : [];
 
         if (validPromotionId && submissionMode === 'registered') {
