@@ -901,11 +901,10 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         setFormData({ ...formData, appliedTo: 'all' });
                         setIsApplyToOpen(false);
                       }}
-                      className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
-                        typeof formData.appliedTo === 'string'
+                      className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${typeof formData.appliedTo === 'string'
                           ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
                           : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
-                      }`}
+                        }`}
                     >
                       <span>All Tickets</span>
                       {typeof formData.appliedTo === 'string' && (
@@ -925,11 +924,10 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                                 setFormData({ ...formData, appliedTo: [ticket.id] });
                                 setIsApplyToOpen(false);
                               }}
-                              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${
-                                isSelected
+                              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${isSelected
                                   ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
                                   : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
-                              }`}
+                                }`}
                             >
                               <span className="truncate">{ticket.name}</span>
                               {isSelected && (

@@ -18,14 +18,7 @@ interface WaitlistEntryRow {
     inviteSentAt?: string | null;
 }
 
-const mockWaitlistEntries: WaitlistEntryRow[] = [
-    { id: '1', fullName: 'Karylle Bernate', email: 'karyllebernate8@gmail.com', ticketType: 'General Admission', queue: 1, status: 'Invited' },
-    { id: '2', fullName: 'Jan Carlo Juab', email: 'juab.jancarlo@gmail.com', ticketType: 'General Admission', queue: 2, status: 'Invited' },
-    { id: '3', fullName: 'Ray Emannuel John', email: 'rayemanismgmail.com', ticketType: 'General Admission', queue: 3, status: 'Waiting' },
-    { id: '4', fullName: 'Keith Lemuel', email: 'keithlemuel@gmail.com', ticketType: 'Premium Admission', queue: 1, status: 'Invited' },
-    { id: '5', fullName: 'Vinz Waldheim Villarin', email: 'vinzvillarin@gmail.com', ticketType: 'Premium Admission', queue: 2, status: 'Invited' },
-    { id: '6', fullName: 'John Carlo', email: 'johncarlo10gmail.com', ticketType: 'Premium Admission', queue: 3, status: 'Waiting' },
-];
+
 
 // Toast notification component
 const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
@@ -142,12 +135,10 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
 
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [isLoadingEntries, setIsLoadingEntries] = useState(false);
-    const [isSavingSettings, setIsSavingSettings] = useState(false);
     const [invitingEntryId, setInvitingEntryId] = useState<string | null>(null);
     const [rejectingEntryId, setRejectingEntryId] = useState<string | null>(null);
     const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
     const [resendCooldownByEntryId, setResendCooldownByEntryId] = useState<Record<string, number>>({});
-    const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Collapsed by default
     const [rejectModalEntryId, setRejectModalEntryId] = useState<string | null>(null);
     const [rejectReasonMode, setRejectReasonMode] = useState<'preset' | 'custom'>('preset');
     const [rejectReasonPreset, setRejectReasonPreset] = useState('No slots are currently available.');
@@ -160,13 +151,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
         'The registration request details were incomplete.',
     ];
 
-    // Waitlist settings state
-    const [expiryDays, setExpiryDays] = useState('7');
-    const [inviteType, setInviteType] = useState<'auto' | 'manual'>('auto');
-    const [showPosition, setShowPosition] = useState(false);
-
-    // Waitlist entries state
-    const [entries, setEntries] = useState<WaitlistEntryRow[]>(eventId.startsWith('evt-') ? mockWaitlistEntries : []);
+    const [entries, setEntries] = useState<WaitlistEntryRow[]>([]);
 
     // Load entries from backend for real events
     useEffect(() => {
@@ -188,15 +173,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                 const json = await res.json();
                 if (json?.success && Array.isArray(json.data)) {
                     setEntries(json.data);
-                    if (json.settings) {
-                        if (typeof json.settings.expiryDays === 'string') setExpiryDays(json.settings.expiryDays);
-                        if (json.settings.inviteType === 'auto' || json.settings.inviteType === 'manual') {
-                            setInviteType(json.settings.inviteType);
-                        }
-                        if (typeof json.settings.showPosition === 'boolean') {
-                            setShowPosition(json.settings.showPosition);
-                        }
-                    }
+
                 } else {
                     throw new Error(json?.error || 'Unexpected response format');
                 }
@@ -297,36 +274,6 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
 
 
 
-    const handleSaveSettings = async () => {
-        if (eventId.startsWith('evt-')) {
-            setToast({ message: 'Settings saved locally for draft event.', type: 'success' });
-            return;
-        }
-
-        try {
-            setIsSavingSettings(true);
-            const res = await fetch(`/api/events/${eventId}/waitlist`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    action: 'save_settings',
-                    expiryDays,
-                    inviteType,
-                    showPosition,
-                }),
-            });
-            const json = await res.json().catch(() => ({}));
-            if (!res.ok || !json?.success) {
-                throw new Error(json?.error || `Failed to save waitlist settings (${res.status})`);
-            }
-            setToast({ message: 'Waitlist settings saved successfully!', type: 'success' });
-        } catch (e) {
-            console.error('Failed to save waitlist settings:', e);
-            setToast({ message: e instanceof Error ? e.message : 'Failed to save settings.', type: 'error' });
-        } finally {
-            setIsSavingSettings(false);
-        }
-    };
 
     const handleInvite = async (entryId: string, action: 'invite' | 'resend_invite' = 'invite') => {
         if (eventId.startsWith('evt-')) {
@@ -502,7 +449,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
     };
 
     return (
-        <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-300">
+        <div className="min-h-full font-sans">
             {/* Toast Notification */}
             {toast && <Toast {...toast} onClose={() => setToast(null)} />}
 
@@ -611,10 +558,10 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                                    Manage <span className="dark:bg-[#3D518C] px-2 py-0.5 rounded">Waitlist</span>
+                                    Manage Waitlist
                                 </h1>
                                 <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                                    Configure waitlist settings and manage queue
+                                    Manage waitlist queue
                                 </p>
                             </div>
                         </div>
@@ -626,98 +573,7 @@ export default function ManageWaitlistPage({ event }: WaitlistClientProps) {
                         </div>
                     </div>
 
-                    {/* Waitlist Settings Section */}
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">
-                        <div className="p-6 border-b border-[#3D518C]/10 bg-gradient-to-r from-[#3D518C]/5 to-[#3D518C]/10 dark:from-[#3D518C]/20 dark:to-[#3D518C]/10 flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center">
-                                    <Settings className="w-5 h-5 text-white" />
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-semibold text-gray-900 dark:text-[#C7D5DC]">
-                                        Waitlist Settings
-                                    </h2>
-                                    <p className="text-xs text-gray-500 dark:text-[#C7D5DC]/70">Configure how your waitlist operates</p>
-                                </div>
-                            </div>
-                            <button
-                                onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                                className="p-2 hover:bg-white/50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
-                            >
-                                <ChevronDown
-                                    className={`w-5 h-5 text-gray-500 dark:text-gray-400 transition-transform duration-300 ${isSettingsOpen ? 'rotate-180' : ''}`}
-                                />
-                            </button>
-                        </div>
 
-                        {isSettingsOpen && (
-                            <div className="p-6 space-y-6 animate-slide-down">
-                                {/* Waitlist Expiry */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Waitlist Expiry (in Days)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={expiryDays}
-                                        onChange={(e) => setExpiryDays(e.target.value)}
-                                        min="1"
-                                        max="30"
-                                        className="w-32 px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C] focus:border-transparent transition-all duration-200"
-                                    />
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                        How many days the invite remains valid once a slot opens and invite is sent.
-                                    </p>
-                                </div>
-
-                                {/* Invite Type */}
-                                <div className="space-y-3">
-                                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                                        Invite Type
-                                    </label>
-                                    <div className="space-y-2">
-                                        <RadioButton
-                                            label="Auto-Invite Next User when Slot Available"
-                                            checked={inviteType === 'auto'}
-                                            onChange={() => setInviteType('auto')}
-                                        />
-                                        <RadioButton
-                                            label="Manual Invite Only"
-                                            checked={inviteType === 'manual'}
-                                            onChange={() => setInviteType('manual')}
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Show Position */}
-                                <div className="pt-2">
-                                    <Checkbox
-                                        label="Show users current position in the queue."
-                                        checked={showPosition}
-                                        onChange={() => setShowPosition(!showPosition)}
-                                    />
-                                </div>
-
-                                {/* Save Button */}
-                                <div className="pt-4">
-                                    <button
-                                        onClick={handleSaveSettings}
-                                        disabled={isSavingSettings}
-                                        className="px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg hover:scale-[1.02] transition-all duration-200 flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                                    >
-                                        {isSavingSettings ? (
-                                            <>
-                                                <RefreshCw size={16} className="animate-spin" />
-                                                Saving...
-                                            </>
-                                        ) : (
-                                            'Save Settings'
-                                        )}
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-                    </div>
 
                     {/* Waitlist Queue Management Section */}
                     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-md">

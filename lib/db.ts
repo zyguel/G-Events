@@ -594,9 +594,9 @@ export async function createEvent(
     if (error) throw error;
 
     try {
-      await logAuditEntry('Event', data.id, 'create', { before: null, after: data });
+        await logAuditEntry('Event', data.id, 'create', { before: null, after: data });
     } catch (e) {
-      console.warn('Event audit log failed:', e);
+        console.warn('Event audit log failed:', e);
     }
 
     return data;
@@ -728,23 +728,23 @@ export async function updateEvent(
         confirmation_page_message: string;
         confirmation_email_subject: string;
         confirmation_email_body: string;
-                objectives: unknown[];
-                theme: string;
-        }>,
-        organizationId?: number
+        objectives: unknown[];
+        theme: string;
+    }>,
+    organizationId?: number
 ) {
     const supabase = await getSupabase();
 
-        let beforeQuery = supabase
-            .from('Event')
-            .select('*')
-            .eq('id', eventId);
+    let beforeQuery = supabase
+        .from('Event')
+        .select('*')
+        .eq('id', eventId);
 
-        if (typeof organizationId === 'number') {
-            beforeQuery = beforeQuery.eq('organization_id', organizationId);
-        }
+    if (typeof organizationId === 'number') {
+        beforeQuery = beforeQuery.eq('organization_id', organizationId);
+    }
 
-        const { data: beforeData, error: beforeError } = await beforeQuery.single();
+    const { data: beforeData, error: beforeError } = await beforeQuery.single();
 
     if (beforeError) throw beforeError;
 
@@ -774,9 +774,9 @@ export async function updateEvent(
     });
 
     try {
-      await logAuditEntry('Event', eventId, 'update', { before: beforeData, after: fields });
+        await logAuditEntry('Event', eventId, 'update', { before: beforeData, after: fields });
     } catch (e) {
-      console.warn('Event audit log failed:', e);
+        console.warn('Event audit log failed:', e);
     }
 }
 
@@ -810,9 +810,9 @@ export async function deleteEvent(eventId: number, organizationId?: number) {
     if (error) throw error;
 
     try {
-      await logAuditEntry('Event', eventId, 'delete', { before: beforeData, after: null });
+        await logAuditEntry('Event', eventId, 'delete', { before: beforeData, after: null });
     } catch (e) {
-      console.warn('Event audit log failed:', e);
+        console.warn('Event audit log failed:', e);
     }
 }
 
@@ -1243,9 +1243,9 @@ export async function createTicket(
     }
 
     try {
-      await logAuditEntry('Ticket', data.id, 'create', { before: null, after: data });
+        await logAuditEntry('Ticket', data.id, 'create', { before: null, after: data });
     } catch (e) {
-      console.warn('Ticket audit log failed:', e);
+        console.warn('Ticket audit log failed:', e);
     }
 
     return data;
@@ -1327,9 +1327,9 @@ export async function updateTicket(
     }
 
     try {
-      await logAuditEntry('Ticket', ticketId, 'update', { before: beforeData, after: data });
+        await logAuditEntry('Ticket', ticketId, 'update', { before: beforeData, after: data });
     } catch (e) {
-      console.warn('Ticket audit log failed:', e);
+        console.warn('Ticket audit log failed:', e);
     }
 
     return data;
@@ -1370,40 +1370,40 @@ export async function deleteTicket(ticketId: number, eventId?: number) {
     if (error) throw error;
 
     try {
-      await logAuditEntry('Ticket', ticketId, 'delete', { before: beforeData, after: null });
+        await logAuditEntry('Ticket', ticketId, 'delete', { before: beforeData, after: null });
     } catch (e) {
-      console.warn('Ticket audit log failed:', e);
+        console.warn('Ticket audit log failed:', e);
     }
 }
 
 export async function restoreTicket(ticketId: number, eventId?: number) {
-        const supabase = await getSupabase();
+    const supabase = await getSupabase();
 
-        let restoreQuery = supabase
-                .from('Ticket')
-                .update({
-                        is_deleted: false,
-                        deleted_at: null,
-                })
-                .eq('id', ticketId);
+    let restoreQuery = supabase
+        .from('Ticket')
+        .update({
+            is_deleted: false,
+            deleted_at: null,
+        })
+        .eq('id', ticketId);
 
-        if (typeof eventId === 'number' && !Number.isNaN(eventId)) {
-                restoreQuery = restoreQuery.eq('event_id', eventId);
-        }
+    if (typeof eventId === 'number' && !Number.isNaN(eventId)) {
+        restoreQuery = restoreQuery.eq('event_id', eventId);
+    }
 
-        const { data, error } = await restoreQuery
-                .select()
-                .single();
+    const { data, error } = await restoreQuery
+        .select()
+        .single();
 
-        if (error) throw error;
+    if (error) throw error;
 
-        try {
-            await logAuditEntry('Ticket', ticketId, 'update', { before: null, after: data });
-        } catch (e) {
-            console.warn('Ticket audit log failed:', e);
-        }
+    try {
+        await logAuditEntry('Ticket', ticketId, 'update', { before: null, after: data });
+    } catch (e) {
+        console.warn('Ticket audit log failed:', e);
+    }
 
-        return data;
+    return data;
 }
 
 // ─── Add-Ons ──────────────────────────────────────────────────────────────────
@@ -1511,9 +1511,9 @@ export async function createAddOn(
     }
 
     try {
-      await logAuditEntry('AddOn', addOn.id, 'create', { before: null, after: addOn });
+        await logAuditEntry('AddOn', addOn.id, 'create', { before: null, after: addOn });
     } catch (e) {
-      console.warn('AddOn audit log failed:', e);
+        console.warn('AddOn audit log failed:', e);
     }
 
     if (normalizedVariants && normalizedVariants.length > 0) {
@@ -1622,9 +1622,9 @@ export async function updateAddOn(
 
     const updatedAddOn = await getAddOn(addOnId);
     try {
-      await logAuditEntry('AddOn', addOnId, 'update', { before: beforeData, after: updatedAddOn });
+        await logAuditEntry('AddOn', addOnId, 'update', { before: beforeData, after: updatedAddOn });
     } catch (e) {
-      console.warn('AddOn audit log failed:', e);
+        console.warn('AddOn audit log failed:', e);
     }
 
     // If variants are provided, update them in place when possible.
@@ -1671,14 +1671,14 @@ export async function updateAddOn(
             const idFromLabel = variantLabel ? existingVariantIdByLabel.get(variantLabel) : undefined;
             const matchedIdFromCode =
                 typeof idFromCode === 'number' &&
-                Number.isInteger(idFromCode) &&
-                existingVariantIds.has(idFromCode)
+                    Number.isInteger(idFromCode) &&
+                    existingVariantIds.has(idFromCode)
                     ? idFromCode
                     : undefined;
             const matchedIdFromLabel =
                 typeof idFromLabel === 'number' &&
-                Number.isInteger(idFromLabel) &&
-                existingVariantIds.has(idFromLabel)
+                    Number.isInteger(idFromLabel) &&
+                    existingVariantIds.has(idFromLabel)
                     ? idFromLabel
                     : undefined;
             const maybeExistingId =
@@ -1749,6 +1749,13 @@ export async function updateAddOn(
             );
 
             const safeToDelete = removableVariantIds.filter((id) => !referencedIds.has(id));
+
+            if (safeToDelete.length < removableVariantIds.length) {
+                throw new AddOnValidationError(
+                    'Cannot delete variants that have already been claimed by attendees. Please keep them to preserve attendee records.',
+                    409
+                );
+            }
 
             if (safeToDelete.length > 0) {
                 const { error: variantDeleteError } = await supabase
@@ -1828,9 +1835,9 @@ export async function deleteAddOn(addOnId: number) {
     if (error) throw error;
 
     try {
-      await logAuditEntry('AddOn', addOnId, 'delete', { before: beforeData, after: null });
+        await logAuditEntry('AddOn', addOnId, 'delete', { before: beforeData, after: null });
     } catch (e) {
-      console.warn('AddOn audit log failed:', e);
+        console.warn('AddOn audit log failed:', e);
     }
 }
 
@@ -1996,9 +2003,9 @@ export async function createPromotion(
     }
 
     try {
-      await logAuditEntry('Promotion', promo.id, 'create', { before: null, after: promo });
+        await logAuditEntry('Promotion', promo.id, 'create', { before: null, after: promo });
     } catch (e) {
-      console.warn('Promotion audit log failed:', e);
+        console.warn('Promotion audit log failed:', e);
     }
 
     return getPromotion(promo.id);
@@ -2216,9 +2223,9 @@ export async function updatePromotion(
     const updatedPromotion = await getPromotion(promotionId);
 
     try {
-      await logAuditEntry('Promotion', promotionId, 'update', { before: beforePromotion, after: updatedPromotion });
+        await logAuditEntry('Promotion', promotionId, 'update', { before: beforePromotion, after: updatedPromotion });
     } catch (e) {
-      console.warn('Promotion audit log failed:', e);
+        console.warn('Promotion audit log failed:', e);
     }
 
     return updatedPromotion;
@@ -2243,9 +2250,9 @@ export async function deletePromotion(promotionId: number) {
     if (error) throw error;
 
     try {
-      await logAuditEntry('Promotion', promotionId, 'delete', { before: beforePromotion, after: null });
+        await logAuditEntry('Promotion', promotionId, 'delete', { before: beforePromotion, after: null });
     } catch (e) {
-      console.warn('Promotion audit log failed:', e);
+        console.warn('Promotion audit log failed:', e);
     }
 }
 

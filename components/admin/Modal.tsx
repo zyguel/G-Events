@@ -1,7 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
-import React, { useEffect, useState } from "react";
+import { X, ChevronDown } from "lucide-react";
+import React, { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 
 interface ModalProps {
@@ -166,6 +166,68 @@ export function ModalFooter({
                     saveText
                 )}
             </button>
+        </div>
+    );
+}
+
+interface ModalSelectProps {
+    value: string;
+    onChange: (value: string) => void;
+    options: { value: string; label: string }[];
+    className?: string;
+}
+
+export function ModalSelect({ value, onChange, options, className = "" }: ModalSelectProps) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        };
+
+        if (isOpen) {
+            document.addEventListener("mousedown", handleClickOutside);
+        }
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, [isOpen]);
+
+    const selectedOption = options.find(o => o.value === value);
+
+    return (
+        <div ref={containerRef} className="relative w-full">
+            <button
+                type="button"
+                onClick={() => setIsOpen(!isOpen)}
+                className={`w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 shadow-sm font-sans text-sm text-left flex items-center justify-between ${className}`}
+            >
+                <span className="text-gray-900 dark:text-white">
+                    {selectedOption ? selectedOption.label : "Select..."}
+                </span>
+                <ChevronDown size={16} className={`text-gray-500 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {isOpen && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
+                    <div className="max-h-60 overflow-y-auto">
+                        {options.map((option) => (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => {
+                                    onChange(option.value);
+                                    setIsOpen(false);
+                                }}
+                                className={`w-full px-4 py-2.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${value === option.value ? "bg-slate-50 dark:bg-slate-700/50 font-medium text-[#3D518C] dark:text-[#ABD2FA]" : "text-gray-700 dark:text-gray-300"}`}
+                            >
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
