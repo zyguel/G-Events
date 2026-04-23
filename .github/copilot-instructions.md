@@ -1,7 +1,7 @@
 # G-Events Copilot Instructions
 
 ## Project Overview
-G-Events is a comprehensive event management dashboard built with Next.js 16, React 19, and TypeScript. It enables event organizers to manage event creation, attendee registration, check-ins, communications, analytics, and certificate distribution through an admin dashboard with full dark/light mode support.
+G-Events is a comprehensive event management dashboard built with Next.js (latest), React 19.2.3, and TypeScript. It enables event organizers to manage event creation, attendee registration, check-ins, communications, analytics, feedback collection, and certificate distribution through an admin dashboard with full dark/light mode support.
 
 ## Architecture & Key Patterns
 
@@ -10,10 +10,12 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **`dashboard/`** - Main overview with stats and recent events (client component, `"use client"`)
 - **`events/`** - Event list page and event-specific subroutes
   - **`[eventId]/layout.tsx`** - Async server layout that parses slug routes (e.g., `event-name-123`) and fetches event data via `getEventById()`
-  - **`[eventId]/overview/`**, **`analytics/`**, **`checkin/`**, **`email-attendees/`**, **`reports/`**, **`publish/`**, **`tickets/`**, **`breakouts/`**, **`certificates/`**, **`orders/`**, **`orderform/`**, **`orderconfirmation/`**, **`waitlist/`** - Feature-specific pages (most marked `"use client"`)
+  - **`[eventId]/feedback/`** - Attendee feedback collection and analysis
+  - **`[eventId]/reports/`** - Event reports and analytics
+  - **`[eventId]/overview/`**, **`analytics/`**, **`checkin/`**, **`email-attendees/`**, **`publish/`**, **`tickets/`**, **`breakouts/`**, **`certificates/`**, **`orders/`**, **`orderform/`**, **`orderconfirmation/`**, **`waitlist/`** - Feature-specific pages (most marked `"use client"`)
 - **`analytics/all/`** - All-events overview analytics
 - **`management/`**, **`profile/`**, **`settings/`** - Admin configuration pages
-- **`login/`** - Authentication entry point
+- **`forgot-password/`**, **`register/`**, **`reset-password/`** - Authentication flow pages
 - **`auth/`** - OAuth callback and auth-related routes
   - **`auth/session-role/`** - Post-auth mode selection (attendee vs organizer)
   - **`auth/session-role/organization/`** - Organizer organization selector for multi-org users
@@ -32,7 +34,7 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
   - `lib/actions/events.ts` — Event CRUD, analytics, reports, and related business logic
   - `lib/actions/permissions.ts` — User role + permission lookup (`getCurrentUserPermissions(email)`)
   - `lib/actions/orderForm.ts` — Order form builder, entries, exports, and form submissions
-  - `lib/actions/orderConfirmation.ts` — Email templates for order confirmation workflows
+  - `lib/actions/feedback.ts` — Feedback collection, analysis, and reporting logic
 - **Session mode + organization context**:
   - `lib/auth/sessionRole.ts` — Membership lookup and active organization resolution (`getCurrentUserActiveOrganization`, `parseOrganizationId`)
   - `lib/constants.ts` — Session/org cookies: `SESSION_ROLE_COOKIE_NAME`, `ACTIVE_ORGANIZATION_COOKIE_NAME`, `SESSION_ROLE`
@@ -47,7 +49,7 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **Security helpers**:
   - `lib/security.ts` — safe secret comparison (`safeCompareSecrets`), trusted origin resolution, and HTML escaping helpers.
 - **Client helper layer**: [lib/eventManagement.ts](../lib/eventManagement.ts) and [lib/hooks/useOrderFormSubmit.ts](../lib/hooks/useOrderFormSubmit.ts) provide client-side APIs for tickets, add-ons, promo codes, settings, and order form submission flows.
-- **API routes** ([app/api/](../app/api/)): REST endpoints for analytics, events, management, notifications, and order forms (e.g., `/api/events`, `/api/management/users`, `/api/orderform`, `/api/orderform/[id]`)
+- **API routes** ([app/api/](../app/api/)): REST endpoints for analytics, events, management, notifications, feedback, and order forms (e.g., `/api/events`, `/api/management/users`, `/api/orderform`, `/api/orderform/[id]`, `/api/feedback/[eventId]`, `/api/feedback/form/[eventId]`)
 - **Database utilities** ([lib/db.ts](../lib/db.ts)): Low-level Supabase queries (user management, roles, permissions)
 - **Shared backend primitives**:
   - [lib/constants.ts](../lib/constants.ts) — Shared app constants (e.g., `DEFAULT_ORG_ID`, `HTTP_STATUS`) to avoid repeated env parsing and magic status codes.
@@ -66,8 +68,9 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
 - **Global providers**: `LocaleProvider`, `NotificationProvider`, and `PermissionProvider` are composed in `app/layout.tsx`.
 
 **Event-specific client components** (`app/(admin_side)/events/[eventId]/*/`):
-- Pages like `TicketsClient.tsx`, `CheckInClient.tsx`, `EmailAttendeesClient.tsx` handle user interactions
+- Pages like `TicketsClient.tsx`, `CheckInClient.tsx`, `EmailAttendeesClient.tsx`, `FeedbackPage.tsx`, `ReportsClient.tsx` handle user interactions
 - Typically fetch data via server actions, manage local state with `useState`, validate forms
+- **Feedback system**: Dedicated feedback collection and analysis pages with rating systems and comment management
 
 ### Data Models & Types
 - **[lib/types.ts](../lib/types.ts)**: Core types
@@ -92,18 +95,21 @@ G-Events is a comprehensive event management dashboard built with Next.js 16, Re
   - Buttons: Tailwind classes with `transition-all duration-300` for smooth interactions
   - Active states: Blue background (sidebar items) or border indicators
   - Responsive: Mobile-first with `lg:` breakpoints for layouts
+  - Dev tunnel support: Ngrok, Cloudflare tunnels, etc. configured in `next.config.ts`
 
 ### Key Dependencies & Patterns
-- **Rich text editor**: TipTap v3.17+ (StarterKit, Underline, Link, Image, TextAlign, Color, FontFamily extensions)
+- **Rich text editor**: TipTap v3.17+ (StarterKit, Underline, Link, Image, TextAlign, Color, FontFamily, TextStyle, Placeholder extensions)
   - Usage: Import `useEditor`, `EditorContent`, configure extensions, render toolbar with formatting buttons
 - **Export utilities** ([lib/exportUtils.ts](../lib/exportUtils.ts)): 
   - `exportToCSV()`, `exportToXLSX()`, `exportToPDF()` - Client-side export functions
   - Format data with stats sections, tables, timestamps
-- **Date/time handling**: date-fns v4, react-datepicker, react-time-picker
-- **Icons**: Lucide-react (Bell, Calendar, ChevronRight, Edit, Trash, etc.)
-- **Animations**: Framer Motion v12 for transitions
-- **PDF generation**: jsPDF + jspdf-autotable
+- **Date/time handling**: date-fns v4.1.0, react-datepicker v9.1.0, react-time-picker v8.0.2
+- **Icons**: Lucide-react v0.562.0
+- **Animations**: Framer Motion v12.29.2 for transitions
+- **PDF generation**: jsPDF v4.2.1 + jspdf-autotable v5.0.7
 - **Excel generation**: ExcelJS v4.4.0 (sole Excel library; the `xlsx`/SheetJS package was removed due to unresolved security vulnerabilities — do NOT re-add it)
+- **QR Code**: qrcode v1.5.4, jsqr v1.4.0, html5-qrcode v2.3.8 for check-in scanning
+- **Maps**: Leaflet v1.9.4, react-leaflet v5.0.0 for location features
 - **Global state**: `NotificationContext.tsx` - Provides `addNotification()`, `dismissNotification()` for toast-like alerts
 - **Notifications in organizer mode**: `app/api/notifications/route.ts` scopes notification queries to the active organization cookie context.
 - **Audit data model**: `AuditLog` and `CertificateLedger` tables are maintained via migrations in `database/` and consumed by server actions/routes.
@@ -145,12 +151,18 @@ For multi-org users:
 - **Start dev**: `npm run dev` → http://localhost:3000
 - **Build**: `npm run build`
 - **Production**: `npm run start`
-- **Linting**: `npm run lint` (ESLint + Next.js config)
+- **Linting**: `npm run lint` (ESLint 9 + Next.js config)
+- **Testing**: `npm run test` (Vitest), `npm run test:unit`, `npm run test:integration`, `npm run test:auth-api`
+- **Security**: `npm run audit:deps`, `npm run sast:owasp` (Semgrep)
+- **Performance**: `npm run perf:smoke`
+- **CI Pipeline**: `npm run ci:baseline` (runs lint, build, test, audit, SAST, performance)
 - **Environment**: Supabase URL and anon key in `.env.local` as `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - **Default org**: `NEXT_PUBLIC_DEFAULT_ORG_ID` (defaults to 1 if not set)
 - **Utility scripts**:
   - Debug scripts live under `scripts/debug/` and are exposed via npm scripts (`debug:supabase`, `check:event-schema`, `check:objectives`, `check:theme`, `debug:login-layout-diff`).
-  - Maintenance scripts live under `scripts/maintenance/` (`translations:split-static`).
+  - Maintenance scripts live under `scripts/maintenance/` (`translations:split-static`, `backfill:addon-entitlements`).
+  - Performance testing: `scripts/perf/smoke-auth-api.mjs`
+  - Security scanning: Semgrep rules in `semgrep/rules/auth-api.yml`
 
 ## Code Conventions
 - **Path alias**: Always use `@/` for imports (e.g., `@/lib/api`, `@/components/admin/Header`)
@@ -181,6 +193,7 @@ For multi-org users:
 - `app/(admin_side)/events/[eventId]/layout.tsx` - Server-side event data fetching, status derivation
 - [lib/actions/events.ts](../lib/actions/events.ts) - Server actions for CRUD, file uploads, data transformations
 - [lib/actions/orderForm.ts](../lib/actions/orderForm.ts) - Order form creation and persistence actions
+- [lib/actions/feedback.ts](../lib/actions/feedback.ts) - Feedback collection and analysis server actions
 - [lib/actions/orderConfirmation.ts](../lib/actions/orderConfirmation.ts) - Confirmation page actions
 - [lib/actions/audit.ts](../lib/actions/audit.ts) - Hash-chained audit log writer/reader
 - [lib/supabase.ts](../lib/supabase.ts) - Supabase client init, database schema types
