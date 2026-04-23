@@ -1415,15 +1415,7 @@ export async function getAddOns(eventId: number) {
         .from('AddOn')
         .select(`
             *,
-            AddOnVariant (
-                *,
-                entitlements:AttendeeEntitlement (
-                    id,
-                    qty_total,
-                    qty_reserved,
-                    qty_redeemed
-                )
-            ),
+            AddOnVariant (*),
             AddOnTicket (
                 ticket_id
             )
@@ -1432,6 +1424,41 @@ export async function getAddOns(eventId: number) {
         .order('id', { ascending: true });
 
     if (error) throw error;
+
+    // Fetch actual redemption counts for all variants
+    const variantIds = (data || []).flatMap((a: any) => a.AddOnVariant?.map((v: any) => v.id) || []);
+    
+    if (variantIds.length > 0) {
+        const { data: redemptions, error: redemptionError } = await supabase
+            .from('AddOnRedemption')
+            .select('add_on_variant_id, qty')
+            .in('add_on_variant_id', variantIds);
+
+        if (redemptionError) {
+            console.warn('Failed to fetch redemption counts:', redemptionError);
+        } else {
+            // Calculate actual redeemed counts per variant
+            const redeemedCounts = new Map<number, number>();
+            if (redemptions) {
+                for (const r of redemptions) {
+                    const current = redeemedCounts.get(r.add_on_variant_id) || 0;
+                    redeemedCounts.set(r.add_on_variant_id, current + (r.qty || 0));
+                }
+            }
+
+            // Attach actual redeemed counts to variants
+            if (data) {
+                for (const addOn of data) {
+                    if (addOn.AddOnVariant) {
+                        for (const variant of addOn.AddOnVariant) {
+                            variant.actual_redeemed = redeemedCounts.get(variant.id) || 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return data || [];
 }
 

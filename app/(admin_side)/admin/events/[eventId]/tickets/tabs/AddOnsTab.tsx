@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag, ChevronDown, Check, History, PackageOpen, Users } from "lucide-react";
+import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag, ChevronDown, Check, PackageOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
 import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
@@ -48,12 +48,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-  const [isRedemptionLogOpen, setIsRedemptionLogOpen] = useState(false);
-  const [modalView, setModalView] = useState<'redemptions' | 'reserved'>('redemptions');
-  const [redemptionData, setRedemptionData] = useState<any[]>([]);
-  const [reservedData, setReservedData] = useState<any[]>([]);
-  const [isLoadingRedemptions, setIsLoadingRedemptions] = useState(false);
-  const [isLoadingReserved, setIsLoadingReserved] = useState(false);
+  const [isStockDetailsOpen, setIsStockDetailsOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [selectedAddOn, setSelectedAddOn] = useState<AddOn | null>(null);
   const [editingAddOnId, setEditingAddOnId] = useState<string | null>(null);
@@ -79,48 +74,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       console.error("Failed to load data:", error);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadRedemptionData = async (addOnId: string) => {
-    setIsLoadingRedemptions(true);
-    try {
-      const res = await fetch(`/api/events/${event.id}/addons/${addOnId}/redemptions`);
-      if (!res.ok) {
-        throw new Error(`Failed to load redemption data (${res.status})`);
-      }
-      const json = await res.json();
-      if (json?.success && Array.isArray(json.data)) {
-        setRedemptionData(json.data);
-      } else {
-        setRedemptionData([]);
-      }
-    } catch (error) {
-      console.error("Failed to load redemption data:", error);
-      setRedemptionData([]);
-    } finally {
-      setIsLoadingRedemptions(false);
-    }
-  };
-
-  const loadReservedData = async (addOnId: string) => {
-    setIsLoadingReserved(true);
-    try {
-      const res = await fetch(`/api/events/${event.id}/addons/${addOnId}/reserved`);
-      if (!res.ok) {
-        throw new Error(`Failed to load reserved data (${res.status})`);
-      }
-      const json = await res.json();
-      if (json?.success && Array.isArray(json.data)) {
-        setReservedData(json.data);
-      } else {
-        setReservedData([]);
-      }
-    } catch (error) {
-      console.error("Failed to load reserved data:", error);
-      setReservedData([]);
-    } finally {
-      setIsLoadingReserved(false);
     }
   };
 
@@ -611,38 +564,19 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                           Standard Item
                         </div>
                       )}
-                      <div className="flex items-center gap-2 mt-3">
-                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-semibold">
-                          <PackageOpen size={12} />
-                          <span>{totalStock}</span>
-                        </div>
-                        <button 
-                          onClick={() => {
-                            setSelectedAddOn(addOn);
-                            setModalView('reserved');
-                            setIsRedemptionLogOpen(true);
-                            loadReservedData(addOn.id);
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-[11px] font-semibold hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors cursor-pointer"
-                          title="View reserved users"
-                        >
-                          <Users size={12} />
-                          <span>{totalReserved}</span>
-                        </button>
-                        <button 
-                          onClick={() => {
-                            setSelectedAddOn(addOn);
-                            setModalView('redemptions');
-                            setIsRedemptionLogOpen(true);
-                            loadRedemptionData(addOn.id);
-                          }}
-                          className="flex items-center gap-1.5 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-lg text-[11px] font-semibold hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors cursor-pointer"
-                          title="View redemption log"
-                        >
-                          <History size={12} />
-                          <span>{totalRedeemed}</span>
-                        </button>
-                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => {
+                          setSelectedAddOn(addOn);
+                          setIsStockDetailsOpen(true);
+                        }}
+                        className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-semibold hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors cursor-pointer"
+                        title="View stock details"
+                      >
+                        <PackageOpen size={12} />
+                        <span>Stock: {totalStock}</span>
+                      </button>
                     </div>
 
                     <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 min-h-[40px] leading-relaxed">
@@ -1047,158 +981,59 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         </div>
       </Modal>
 
-      {/* Redemption/Reserved Log Modal */}
+      {/* Stock Details Modal */}
       <Modal
-        isOpen={isRedemptionLogOpen}
-        onClose={() => setIsRedemptionLogOpen(false)}
-        title={modalView === 'redemptions' ? 'Add-on Redemption Log' : 'Reserved Users'}
+        isOpen={isStockDetailsOpen}
+        onClose={() => setIsStockDetailsOpen(false)}
+        title="Stock Details"
       >
         {selectedAddOn && (
           <div className="space-y-4">
             <div>
               <h3 className="font-semibold text-lg">{selectedAddOn.name}</h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {modalView === 'redemptions' ? 'View who has claimed this add-on' : 'View users who have reserved but not claimed this add-on'}
-              </p>
-            </div>
-
-            {/* View Toggle */}
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  setModalView('redemptions');
-                  loadRedemptionData(selectedAddOn.id);
-                }}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  modalView === 'redemptions'
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-              >
-                <History size={14} className="inline mr-2" />
-                Redeemed
-              </button>
-              <button
-                onClick={() => {
-                  setModalView('reserved');
-                  loadReservedData(selectedAddOn.id);
-                }}
-                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  modalView === 'reserved'
-                    ? 'bg-amber-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                }`}
-              >
-                <Users size={14} className="inline mr-2" />
-                Reserved
-              </button>
+              <p className="text-sm text-gray-500 dark:text-gray-400">View stock information</p>
             </div>
             
-            {modalView === 'redemptions' ? (
-              <>
-                {isLoadingRedemptions ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
-                  </div>
-                ) : redemptionData.length === 0 ? (
-                  <div className="text-center py-8">
-                    <History size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400">No redemptions yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {redemptionData.map((redemption) => (
-                      <div key={redemption.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/50">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm text-gray-900 dark:text-white">
-                                {redemption.userName}
-                              </span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                ({redemption.userEmail})
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              Variant: {redemption.variantLabel}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs font-medium text-indigo-600 dark:text-indigo-400">
-                              Qty: {redemption.qty}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-200 dark:border-gray-700">
-                          <div>
-                            {new Date(redemption.redeemedAt).toLocaleString()}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {redemption.station && (
-                              <span>Station: {redemption.station}</span>
-                            )}
-                            {redemption.scannedBy && (
-                              <span>• Scanned by: {redemption.scannedBy}</span>
-                            )}
-                          </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-lg">
+                <div className="flex items-center gap-2">
+                  <PackageOpen size={20} className="text-emerald-600 dark:text-emerald-400" />
+                  <span className="font-medium text-gray-900 dark:text-white">Total Current Available (Total stock across all variants - Total redeemed)</span>
+                </div>
+                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+                  {selectedAddOn.stock}
+                </span>
+              </div>
+
+              {selectedAddOn.hasVariants && selectedAddOn.variants && selectedAddOn.variants.length > 0 ? (
+                <div className="space-y-2">
+                  <h4 className="font-medium text-sm text-gray-700 dark:text-gray-300">Variant Breakdown</h4>
+                  {selectedAddOn.variants.map((variant) => (
+                    <div key={variant.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div>
+                        <div className="font-medium text-sm text-gray-900 dark:text-white">{variant.label}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Stock qty: {variant.stock + (variant.stock_redeemed || 0)} | Redeemed: {variant.stock_redeemed || 0}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </>
-            ) : (
-              <>
-                {isLoadingReserved ? (
-                  <div className="flex justify-center items-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
-                  </div>
-                ) : reservedData.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Users size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-                    <p className="text-gray-500 dark:text-gray-400">No reserved users</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {reservedData.map((user) => (
-                      <div key={user.id} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-900/50">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium text-sm text-gray-900 dark:text-white">
-                                {user.userName}
-                              </span>
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                ({user.userEmail})
-                              </span>
-                            </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              Variant: {user.variantLabel}
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-xs font-medium text-amber-600 dark:text-amber-400">
-                              Qty: {user.qtyTotal}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex justify-between items-center text-xs text-gray-400 dark:text-gray-500 pt-2 border-t border-gray-200 dark:border-gray-700">
-                          <div>
-                            Reserved: {user.qtyReserved} | Redeemed: {user.qtyRedeemed}
-                          </div>
-                          <div className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                            Not yet claimed
-                          </div>
-                        </div>
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-gray-900 dark:text-white">{variant.stock}</div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">current available</div>
                       </div>
-                    ))}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    Standard add-on (no variants)
                   </div>
-                )}
-              </>
-            )}
+                </div>
+              )}
+            </div>
 
             <button
-              onClick={() => setIsRedemptionLogOpen(false)}
+              onClick={() => setIsStockDetailsOpen(false)}
               className="w-full px-6 py-2.5 bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white rounded-lg font-semibold hover:shadow-xl hover:scale-[1.02] active:scale-98 transition-all text-sm"
             >
               Close

@@ -125,26 +125,27 @@ function mapDbAddOn(row: any): AddOn {
   const dbVariants: any[] = row.AddOnVariant ?? [];
   const ticketLinks: any[] = row.AddOnTicket ?? [];
   const variantById = new Map<string, AddOnVariant>();
+  
   for (const v of dbVariants) {
     const id = String(v.id);
     if (variantById.has(id)) continue;
     const stockTotal = v.stock_total ?? 0;
-    const stockRedeemed = v.stock_redeemed ?? 0;
+    const stockReserved = v.stock_reserved ?? 0;
+    // Use actual_redeemed from AddOnRedemption table if available, otherwise fall back to stock_redeemed
+    const actualRedeemed = v.actual_redeemed ?? v.stock_redeemed ?? 0;
     
-    // Calculate actual reserved count from entitlements
-    const entitlements: any[] = v.entitlements ?? [];
-    const actualReserved = entitlements.reduce((sum: number, e: any) => sum + (e.qty_reserved || 0), 0);
-    const actualRedeemed = entitlements.reduce((sum: number, e: any) => sum + (e.qty_redeemed || 0), 0);
+    // Calculate current available for this variant (stock qty - redeemed of that variant)
+    const currentAvailable = Math.max(0, stockTotal - actualRedeemed);
     
-    const remainingStock = Math.max(0, stockTotal - actualRedeemed);
     variantById.set(id, {
       id,
       label: v.label ?? v.code ?? '',
-      stock: remainingStock,
-      stock_reserved: actualReserved,
+      stock: currentAvailable,
+      stock_reserved: stockReserved,
       stock_redeemed: actualRedeemed,
     });
   }
+  
   const variants = Array.from(variantById.values());
   const ticketIds = new Set<string>();
   for (const link of ticketLinks) {
@@ -153,6 +154,8 @@ function mapDbAddOn(row: any): AddOn {
   }
   const appliedTo: 'all' | string[] =
     ticketIds.size > 0 ? Array.from(ticketIds) : 'all';
+  
+  // Calculate total current available (Total stock across all variants - Total redeemed across all variants)
   const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
 
   return {
