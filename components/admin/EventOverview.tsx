@@ -128,6 +128,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isCreatingEvent, setIsCreatingEvent] = useState(false);
     const [isSavingAgenda, setIsSavingAgenda] = useState(false);
+    const [deleteConfirmation, setDeleteConfirmation] = useState('');
 
     // Form States
     const [newAgenda, setNewAgenda] = useState<Partial<AgendaItem>>({});
@@ -211,6 +212,8 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             setTempTitle(event.name || '');
             setTempDescription(event.description || '');
             setTempTheme(event.theme || '');
+        } else if (activeModal === 'deleteEvent') {
+            setDeleteConfirmation('');
         }
     }, [activeModal, event.date, event.startTime, event.endTime, event.location, event.name, event.description, event.theme]);
 
@@ -760,6 +763,11 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
     const handleDeleteEvent = async () => {
         if (event.id === 'new') return;
+
+        if (deleteConfirmation !== 'DELETE') {
+            setToast({ message: 'Please type DELETE to confirm', type: 'error' });
+            return;
+        }
 
         setIsDeleting(true);
         setToast({ message: 'Deleting event and all associated data...', type: 'info' });
@@ -1594,17 +1602,17 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                     <ModalInput
                         type="text"
                         placeholder="Type DELETE to confirm"
-                        onChange={(e) => {
-                            // We could add local verification here if we wanted
-                        }}
+                        value={deleteConfirmation}
+                        onChange={(e) => setDeleteConfirmation(e.target.value)}
                     />
-                    <ModalFooter 
+                    <ModalFooter
                         onCancel={() => setActiveModal(null)}
                         onSave={handleDeleteEvent}
                         saveText="Delete Event"
                         isDanger={true}
                         isSubmitting={isDeleting}
                         submitType="button"
+                        disableSave={deleteConfirmation !== 'DELETE'}
                     />
                 </div>
             </Modal>

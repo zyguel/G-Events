@@ -2607,8 +2607,11 @@ export async function deleteEvent(id: number) {
         failIfError('Registration (detach group)', registrationDetachResult.error);
         failIfError('RegistrationGroup (detach payer)', registrationGroupDetachResult.error);
 
-        const [registrationDeleteResult, registrationGroupDeleteResult, ticketDeleteResult, addOnDeleteResult, agendaDeleteResult, feedbackFormDeleteResult, orderFormDeleteResult, eventWaitlistDeleteResult, orderConfirmationDeleteResult, certificateTemplateDeleteResult, certificateSettingDeleteResult] = await Promise.all([
-            supabase.from('Registration').delete().eq('event_id', id),
+        // Delete Registration first (before Ticket due to FK constraint)
+        const { error: registrationDeleteError } = await supabase.from('Registration').delete().eq('event_id', id);
+        failIfError('Registration', registrationDeleteError);
+
+        const [registrationGroupDeleteResult, ticketDeleteResult, addOnDeleteResult, agendaDeleteResult, feedbackFormDeleteResult, orderFormDeleteResult, eventWaitlistDeleteResult, orderConfirmationDeleteResult, certificateTemplateDeleteResult, certificateSettingDeleteResult] = await Promise.all([
             supabase.from('RegistrationGroup').delete().eq('event_id', id),
             supabase.from('Ticket').delete().eq('event_id', id),
             supabase.from('AddOn').delete().eq('event_id', id),
@@ -2621,7 +2624,6 @@ export async function deleteEvent(id: number) {
             supabase.from('CertificateSetting').delete().eq('event_id', id),
         ]);
 
-        failIfError('Registration', registrationDeleteResult.error);
         failIfError('RegistrationGroup', registrationGroupDeleteResult.error);
         failIfError('Ticket', ticketDeleteResult.error);
         failIfError('AddOn', addOnDeleteResult.error);
