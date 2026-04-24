@@ -94,6 +94,8 @@ CREATE TABLE public.BreakoutSession (
   speaker_name character varying,
   room_name character varying,
   room_capacity integer,
+  session_date date,
+  status character varying NOT NULL DEFAULT 'Not Started'::character varying CHECK (status::text = ANY (ARRAY['Not Started'::character varying, 'Ongoing'::character varying, 'Completed'::character varying, 'Cancelled'::character varying]::text[])),
   CONSTRAINT BreakoutSession_pkey PRIMARY KEY (id),
   CONSTRAINT BreakoutSession_event_id_fkey FOREIGN KEY (event_id) REFERENCES public.Event(id)
 );

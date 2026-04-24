@@ -58,3 +58,4 @@ rlsenablednopolicy.json
 AGENTS.md
 scripts/apply-addon-claim-migration.js
 .windsurf/workflows/break.md
+/database/stats
