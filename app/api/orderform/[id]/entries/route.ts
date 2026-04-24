@@ -114,6 +114,25 @@ async function adjustTicketReservation(
     return { success: true };
 }
 
+async function countActiveRegistrationsForUser(
+    supabase: SupabaseClient,
+    eventId: number,
+    userId: number
+): Promise<{ count: number; error: string | null }> {
+    const { count, error } = await supabase
+        .from('Registration')
+        .select('id', { count: 'exact', head: true })
+        .eq('event_id', eventId)
+        .eq('user_id', userId)
+        .not('status', 'in', '(cancelled,rejected)');
+
+    if (error) {
+        return { count: 0, error: error.message };
+    }
+
+    return { count: count ?? 0, error: null };
+}
+
 /**
  * POST /api/orderform/[id]/entries
  * Submit a form entry — supports both Individual and Group registrations.
@@ -234,12 +253,19 @@ export async function POST(
         // Load event + ticket context
         const { data: eventRow, error: eventError } = await supabase
             .from('Event')
-            .select('id, title, capacity, allow_waitlist, allow_breakout_sessions, event_start_at, event_end_at')
+            .select('id, title, capacity, allow_waitlist, allow_breakout_sessions, event_start_at, event_end_at, is_published, is_visible')
             .eq('id', numericEventId)
             .single();
 
         if (eventError || !eventRow) {
             return NextResponse.json({ error: 'Event not found' }, { status: 404 });
+        }
+
+        if (!eventRow.is_visible || !eventRow.is_published) {
+            return NextResponse.json(
+                { error: 'Event is not available for registration' },
+                { status: 403 }
+            );
         }
 
         const { data: ticketRows, error: ticketError } = await supabase
@@ -274,7 +300,7 @@ export async function POST(
 
         console.log('[Registration] API Request Body - eventId:', eventId, 'ticketId:', ticketId, 'registrationId:', registrationId);
         console.log('[Registration] API Request Body - userEmail:', userEmail, 'groupEmails:', groupEmails);
-        
+
         const normalizedPrimaryEmail = resolvedEmail.trim().toLowerCase();
 
         let waitlistInviteEntry: {
@@ -355,6 +381,13 @@ export async function POST(
             ? groupEmails.map((e: string) => e?.trim().toLowerCase()).filter(Boolean)
             : [];
 
+        if (groupEmailsList.some((e) => e === normalizedPrimaryEmail)) {
+            return NextResponse.json(
+                { error: 'Group member emails cannot include the primary registrant email.' },
+                { status: 400 }
+            );
+        }
+
         if (waitlistInviteEntry && groupEmailsList.length > 0) {
             return NextResponse.json({ error: 'Waitlist invite registrations must be individual only' }, { status: 400 });
         }
@@ -396,10 +429,11 @@ export async function POST(
                 0
             );
 
-            // If this request redeems an invite, treat that reserved slot as consumed by this submission.
-            const reserveAdjustment = waitlistInviteEntry ? 1 : 0;
-            const activeReservedSeats = Math.max(0, reservedFromTickets - reserveAdjustment);
-            const effectiveCapacity = Math.max(0, eventCapacity - activeReservedSeats);
+            // When redeeming a waitlist invite, one reserved slot is being consumed by this request.
+            // Keep capacity validation aligned with the temporary +1 ticket allocation used by invites.
+            const redeemingInviteSeat = waitlistInviteEntry ? 1 : 0;
+            const activeReservedSeats = Math.max(0, reservedFromTickets - redeemingInviteSeat);
+            const effectiveCapacity = Math.max(0, eventCapacity - activeReservedSeats + redeemingInviteSeat);
 
             const nextTotal = Number(activeRegistrationCount || 0) + totalRequested;
             if (nextTotal > effectiveCapacity) {
@@ -536,17 +570,17 @@ export async function POST(
 
             if (promoData) {
                 const now = new Date();
-                const isValidTime = 
+                const isValidTime =
                     (!promoData.start_at || new Date(promoData.start_at) <= now) &&
                     (!promoData.end_at || new Date(promoData.end_at) >= now);
-                
+
                 const currentUses = Number(promoData.current_uses ?? 0);
                 const maxUses = Number(promoData.max_uses ?? 0);
                 const isUnderLimit = maxUses === 0 || (currentUses + totalRequested) <= maxUses;
 
                 const allowedTicketIds = ((promoData.PromotionTicket || []) as PromotionTicketLink[]).map((pt) => pt.ticket_id);
                 const isTicketAllowed = allowedTicketIds.length === 0 || allowedTicketIds.includes(selectedTicket.id);
-                
+
                 if (isValidTime && isUnderLimit && isTicketAllowed) {
                     const discountVal = Number(promoData.discount_value || 0);
                     if (promoData.discount_type === 'percentage') {
@@ -654,13 +688,13 @@ export async function POST(
             if (isGroupRegistration) {
                 const { data: groupData, error: groupErr } = await supabase
                     .from('RegistrationGroup')
-                    .insert([{ 
+                    .insert([{
                         event_id: numericEventId,
                         ticket_id: selectedTicket.id
                     }])
                     .select('id')
                     .single();
-                
+
                 if (groupErr) {
                     console.error('[Registration] Group creation failed:', groupErr);
                     return NextResponse.json({ error: 'Failed to initialize group: ' + groupErr.message }, { status: 500 });
@@ -677,6 +711,21 @@ export async function POST(
                 .limit(1);
 
             const primaryUserId = pUserRows![0].id;
+
+            const primaryActive = await countActiveRegistrationsForUser(supabase, numericEventId, primaryUserId);
+            if (primaryActive.error) {
+                console.error('[Registration] Pre-insert duplicate check failed (primary):', primaryActive.error);
+                return NextResponse.json(
+                    { error: 'Failed to verify registration status. Please try again.' },
+                    { status: 500 }
+                );
+            }
+            if (primaryActive.count > 0) {
+                return NextResponse.json(
+                    { error: 'This account already has an active registration for this event.' },
+                    { status: 409 }
+                );
+            }
 
             primaryTicketToken = newTicketToken();
 
@@ -723,6 +772,24 @@ export async function POST(
                 }
 
                 const memberUserId = memberUserRows[0].id;
+
+                const memberActive = await countActiveRegistrationsForUser(supabase, numericEventId, memberUserId);
+                if (memberActive.error) {
+                    console.error('[Registration] Pre-insert duplicate check failed (member):', memberActive.error);
+                    return NextResponse.json(
+                        { error: 'Failed to verify registration status. Please try again.' },
+                        { status: 500 }
+                    );
+                }
+                if (memberActive.count > 0) {
+                    return NextResponse.json(
+                        {
+                            error: `The following email(s) are already registered for this event: ${memberEmail}`,
+                            duplicateEmails: [memberEmail],
+                        },
+                        { status: 409 }
+                    );
+                }
 
                 const { data: memberReg, error: memberErr } = await supabase
                     .from('Registration')
@@ -891,8 +958,8 @@ export async function POST(
 
                 const submissionFallback = {
                     subject: shouldSendQrImmediately
-                        ? `Registration submitted (confirmed) — ${eventRow.title}`
-                        : `Registration submitted — ${eventRow.title}`,
+                        ? `Registration submitted (confirmed) - ${eventRow.title}`
+                        : `Registration submitted - ${eventRow.title}`,
                     body: shouldSendQrImmediately
                         ? `<p>Hi ${resolvedName}, your registration for <strong>${eventRow.title}</strong> is confirmed.</p>`
                         : `<p>Hi ${resolvedName}, your registration for <strong>${eventRow.title}</strong> was received and is pending organizer review.</p>`,
@@ -944,7 +1011,7 @@ export async function POST(
 
                     await sendEmail({
                         to: resolvedEmail,
-                        subject: `Breakout ticket — ${breakoutSessionTitle || eventRow.title}`,
+                        subject: `Breakout ticket - ${breakoutSessionTitle || eventRow.title}`,
                         html: buildBreakoutTicketEmailHtml({
                             attendeeName: resolvedName,
                             eventTitle: eventRow.title,
@@ -960,7 +1027,7 @@ export async function POST(
                     const completeUrl = buildGroupCompleteUrl(baseUrl, slug, inv.token);
                     await sendEmail({
                         to: inv.email,
-                        subject: `Complete your registration — ${eventRow.title}`,
+                        subject: `Complete your registration - ${eventRow.title}`,
                         html: buildGroupMemberInviteEmailHtml({
                             eventTitle: eventRow.title,
                             completeUrl,
@@ -976,16 +1043,16 @@ export async function POST(
             ? registeredAttendees
                 .filter((attendee) => !attendee.profilePending)
                 .map((attendee) => ({
-                email: attendee.email,
-                registrationId: attendee.registrationId,
-                ...generateCheckInPass({
-                    eventId: numericEventId,
-                    registrationId: attendee.registrationId,
                     email: attendee.email,
-                    eventStartAt: eventRow.event_start_at || null,
-                    eventEndAt: eventRow.event_end_at || null,
-                }),
-            }))
+                    registrationId: attendee.registrationId,
+                    ...generateCheckInPass({
+                        eventId: numericEventId,
+                        registrationId: attendee.registrationId,
+                        email: attendee.email,
+                        eventStartAt: eventRow.event_start_at || null,
+                        eventEndAt: eventRow.event_end_at || null,
+                    }),
+                }))
             : [];
 
         if (validPromotionId && submissionMode === 'registered') {

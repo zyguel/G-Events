@@ -19,6 +19,16 @@ const MAX_RAW_PROFILE_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
 const TARGET_PROFILE_IMAGE_SIZE_BYTES = 900 * 1024;
 const PREVIEW_CROP_SIZE = 280;
 const OUTPUT_CROP_SIZE = 512;
+const ALLOWED_PROFILE_IMAGE_TYPES = new Set([
+    'image/jpeg',
+    'image/jpg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/avif',
+]);
+const PROFILE_IMAGE_ACCEPT = 'image/jpeg,image/jpg,image/png,image/webp,image/gif,image/avif';
+const PROFILE_IMAGE_ALLOWED_LABEL = 'JPEG, PNG, WebP, GIF, AVIF';
 
 export default function ClientSettingsPage() {
     const { locale, saveLocale, t, availableLanguages } = useLocale();
@@ -216,8 +226,8 @@ export default function ClientSettingsPage() {
         const file = event.target.files?.[0];
         if (!file) return;
 
-        if (!file.type.startsWith('image/')) {
-            setAvatarError('Please choose an image file.');
+        if (!ALLOWED_PROFILE_IMAGE_TYPES.has(file.type)) {
+            setAvatarError(`Unsupported image format. Allowed formats: ${PROFILE_IMAGE_ALLOWED_LABEL}.`);
             event.target.value = '';
             return;
         }
@@ -503,11 +513,15 @@ export default function ClientSettingsPage() {
                                         <input
                                             id="client-profile-avatar-input"
                                             type="file"
-                                            accept="image/*"
+                                            accept={PROFILE_IMAGE_ACCEPT}
                                             className="hidden"
                                             onChange={handleAvatarUpload}
                                         />
                                     </div>
+
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {t('Supported image formats')}: {PROFILE_IMAGE_ALLOWED_LABEL}. {t('Maximum upload size')}: 20MB.
+                                    </p>
 
                                     {(profileMessage || avatarError || isUploadingAvatar) ? (
                                         <div className="space-y-1">

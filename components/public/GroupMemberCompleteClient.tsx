@@ -8,17 +8,16 @@ import type { OrderFormData } from '@/lib/types';
 import { PublicOrderForm, type PublicFormAnswers } from '@/components/public/PublicOrderForm';
 
 type LoadState = 'idle' | 'loading' | 'ready' | 'error' | 'done';
+type InviteMode = 'group' | 'individual';
 
 export function GroupMemberCompleteClient({
   token,
   eventId,
   eventSlug,
-  loginNextPath,
 }: {
   token: string;
   eventId: number;
   eventSlug: string;
-  loginNextPath: string;
 }) {
   const router = useRouter();
   const [loadState, setLoadState] = useState<LoadState>('idle');
@@ -26,6 +25,9 @@ export function GroupMemberCompleteClient({
   const [formData, setFormData] = useState<OrderFormData | null>(null);
   const [orderFormId, setOrderFormId] = useState<number | null>(null);
   const [eventTitle, setEventTitle] = useState('');
+  const [submitAsName, setSubmitAsName] = useState<string | null>(null);
+  const [submitAsEmail, setSubmitAsEmail] = useState<string | null>(null);
+  const [inviteMode, setInviteMode] = useState<InviteMode>('group');
 
   const [answers, setAnswers] = useState<PublicFormAnswers>({});
   const [touched, setTouched] = useState<Set<string>>(new Set());
@@ -33,6 +35,7 @@ export function GroupMemberCompleteClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [hasPendingUploads, setHasPendingUploads] = useState(false);
+  const [registrationStatusAfterSubmit, setRegistrationStatusAfterSubmit] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,11 +49,6 @@ export function GroupMemberCompleteClient({
         );
         const data = await res.json().catch(() => ({}));
         if (cancelled) return;
-        if (res.status === 401) {
-          setLoadState('error');
-          setLoadError('sign_in_required');
-          return;
-        }
         if (!res.ok) {
           setLoadState('error');
           setLoadError(data?.error || 'Could not load invitation');
@@ -59,6 +57,9 @@ export function GroupMemberCompleteClient({
         setFormData(data.formData);
         setOrderFormId(data.orderFormId);
         setEventTitle(data.eventTitle || '');
+        setSubmitAsName(typeof data.submitAsName === 'string' ? data.submitAsName : null);
+        setSubmitAsEmail(typeof data.submitAsEmail === 'string' ? data.submitAsEmail : null);
+        setInviteMode(data.inviteMode === 'individual' ? 'individual' : 'group');
         setLoadState('ready');
       } catch {
         if (!cancelled) {
@@ -137,6 +138,11 @@ export function GroupMemberCompleteClient({
           setSubmitError(data?.error || 'Submission failed');
           return;
         }
+        const st =
+          typeof data.registrationStatus === 'string'
+            ? data.registrationStatus.toLowerCase()
+            : '';
+        setRegistrationStatusAfterSubmit(st || 'pending');
         setLoadState('done');
       } catch {
         setSubmitError('An unexpected error occurred');
@@ -146,27 +152,6 @@ export function GroupMemberCompleteClient({
     },
     [formData, orderFormId, answers, token, eventId, hasPendingUploads]
   );
-
-  if (loadState === 'error' && loadError === 'sign_in_required') {
-    return (
-      <div className="text-center py-10 animate-fade-in px-1">
-        <div className="w-16 h-16 bg-amber-50 dark:bg-amber-900/20 rounded-2xl flex items-center justify-center mx-auto mb-5">
-          <AlertCircle size={30} className="text-amber-500" />
-        </div>
-        <h2 className="text-xl font-extrabold text-gray-900 dark:text-white mb-2">Sign in to continue</h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto mb-6">
-          This link is tied to your account. Please sign in, then return here to complete your registration details.
-        </p>
-        <Link
-          href={`/login?next=${encodeURIComponent(loginNextPath)}`}
-          className="inline-flex min-h-[48px] items-center justify-center gap-2 px-8 py-3 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white font-bold rounded-2xl shadow-lg"
-        >
-          Sign in
-          <ArrowRight size={16} />
-        </Link>
-      </div>
-    );
-  }
 
   if (loadState === 'error') {
     return (
@@ -194,6 +179,8 @@ export function GroupMemberCompleteClient({
   }
 
   if (loadState === 'done') {
+    const canShowEticket = registrationStatusAfterSubmit === 'confirmed';
+
     return (
       <div className="text-center py-10 animate-fade-in px-1">
         <div className="w-20 h-20 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-xl shadow-green-200 dark:shadow-green-900/30">
@@ -203,13 +190,21 @@ export function GroupMemberCompleteClient({
         <p className="text-gray-500 dark:text-gray-400 text-sm max-w-sm mx-auto mb-6">
           Thanks for completing your details for {eventTitle}.
         </p>
+        {!canShowEticket && (
+          <p className="text-sm text-gray-600 dark:text-gray-300 max-w-md mx-auto mb-6 leading-relaxed">
+            Your registration is waiting for the organizer to confirm the order. You will receive your e-ticket by email
+            once it is confirmed.
+          </p>
+        )}
         <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch max-w-sm mx-auto">
-          <Link
-            href={`/events/${eventSlug}/e-ticket?token=${encodeURIComponent(token)}`}
-            className="inline-flex min-h-[48px] items-center justify-center px-6 py-3 border-2 border-[#3D518C] dark:border-blue-500 text-[#3D518C] dark:text-blue-400 font-bold rounded-2xl"
-          >
-            View e-ticket (QR)
-          </Link>
+          {canShowEticket ? (
+            <Link
+              href={`/events/${eventSlug}/e-ticket?token=${encodeURIComponent(token)}`}
+              className="inline-flex min-h-[48px] items-center justify-center px-6 py-3 border-2 border-[#3D518C] dark:border-blue-500 text-[#3D518C] dark:text-blue-400 font-bold rounded-2xl"
+            >
+              View e-ticket (QR)
+            </Link>
+          ) : null}
           <button
             type="button"
             onClick={() => router.push(`/events/${eventSlug}`)}
@@ -228,9 +223,26 @@ export function GroupMemberCompleteClient({
 
   return (
     <div className="animate-fade-in">
+      {(submitAsEmail || submitAsName) && (
+        <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-900 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-100">
+          <p className="font-semibold">Secure invite link</p>
+          <p className="mt-1 leading-relaxed">
+            Submitting details as{' '}
+            <strong>
+              {submitAsName?.trim()
+                ? `${submitAsName.trim()}${submitAsEmail ? ` (${submitAsEmail})` : ''}`
+                : (submitAsEmail || 'Invited attendee')}
+            </strong>
+            .
+          </p>
+        </div>
+      )}
+
       <div className="mb-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/40 bg-indigo-50/80 dark:bg-indigo-900/20 px-4 py-3">
         <p className="text-sm text-indigo-900 dark:text-indigo-100 leading-relaxed">
-          You&apos;re completing the attendee form as a <strong>group member</strong>. Proof of payment and payment reference are not required here.
+          {inviteMode === 'group'
+            ? <>You&apos;re completing the attendee form as a <strong>group member</strong>. Proof of payment and payment reference are not required here.</>
+            : <>You&apos;re completing your attendee form for this registration invite.</>}
         </p>
       </div>
 

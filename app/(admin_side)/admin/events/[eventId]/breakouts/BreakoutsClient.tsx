@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useLocale } from '@/contexts/LocaleContext';
 import TablePaginationControls from '@/components/admin/TablePaginationControls';
+import Modal, { ModalInput, ModalFooter, ModalSelect } from '@/components/admin/Modal';
 
 // Types
 import { EventSummary } from '@/lib/types';
@@ -22,8 +23,12 @@ interface BreakoutSession {
     title: string;
     type: 'Online' | 'In-Person';
     status: 'Not Started' | 'Ongoing' | 'Completed' | 'Cancelled';
-    date: string;
-    time: string;
+    rawStatus?: string; // The actual DB status (for admin editing)
+    date: string; // Formatted date for display
+    sessionDate?: string; // YYYY-MM-DD for date input
+    startTime?: string; // HH:MM format
+    endTime?: string; // HH:MM format
+    time: string; // Formatted time display (e.g., "2:00 PM – 3:30 PM")
     location?: string;
     joinLink?: string;
     currentAttendees: number;
@@ -170,38 +175,50 @@ const SessionModal = ({
     onSave: (session: BreakoutSession) => void;
 }) => {
     const isEdit = !!session;
-    const [formData, setFormData] = useState<Partial<BreakoutSession>>(session || {
+    const [formData, setFormData] = useState<Partial<BreakoutSession>>({
         title: '',
         type: 'In-Person',
         status: 'Not Started',
         date: '',
+        sessionDate: '',
+        startTime: '',
+        endTime: '',
         time: '',
         joinLink: '',
         location: '',
-        currentAttendees: 0,
-        maxCapacity: 30,
+        maxCapacity: undefined,
         speakers: [],
     });
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
     const [newSpeakerName, setNewSpeakerName] = useState('');
     const [newSpeakerImage, setNewSpeakerImage] = useState('');
 
     React.useEffect(() => {
         if (session) {
-            setFormData(session);
+            setFormData({
+                ...session,
+                // Ensure we have the raw values for editing
+                sessionDate: session.sessionDate || '',
+                startTime: session.startTime || '',
+                endTime: session.endTime || '',
+            });
         } else {
             setFormData({
                 title: '',
                 type: 'In-Person',
                 status: 'Not Started',
                 date: '',
+                sessionDate: '',
+                startTime: '',
+                endTime: '',
                 time: '',
                 joinLink: '',
                 location: '',
-                currentAttendees: 0,
-                maxCapacity: 30,
+                maxCapacity: undefined,
                 speakers: [],
             });
         }
+        setValidationErrors({});
     }, [session, isOpen]);
 
     const handleAddSpeaker = () => {
@@ -223,17 +240,56 @@ const SessionModal = ({
     };
 
     const handleSave = () => {
+        const nextErrors: Record<string, string> = {};
+        const title = String(formData.title || '').trim();
+        const sessionDate = String(formData.sessionDate || '').trim();
+        const startTime = String(formData.startTime || '').trim();
+        const endTime = String(formData.endTime || '').trim();
+        const maxCapacity = Number(formData.maxCapacity);
+        const joinLink = String(formData.joinLink || '').trim();
+        const location = String(formData.location || '').trim();
+
+        if (!title) {
+            nextErrors.title = 'Title is required.';
+        }
+        if (!sessionDate) {
+            nextErrors.sessionDate = 'Date is required.';
+        }
+        if (!startTime) {
+            nextErrors.startTime = 'Start time is required.';
+        }
+        if (!endTime) {
+            nextErrors.endTime = 'End time is required.';
+        }
+        if (!joinLink && !location) {
+            nextErrors.locationOrJoinLink = formData.type === 'Online'
+                ? 'Join link is required for online sessions.'
+                : 'Location is required for in-person sessions.';
+        }
+        if (!Number.isFinite(maxCapacity) || maxCapacity <= 0) {
+            nextErrors.maxCapacity = 'Maximum capacity must be greater than 0.';
+        }
+
+        if (Object.keys(nextErrors).length > 0) {
+            setValidationErrors(nextErrors);
+            return;
+        }
+
+        setValidationErrors({});
         onSave({
             id: session?.id || Date.now().toString(),
-            title: formData.title || '',
+            title,
             type: formData.type || 'In-Person',
             status: formData.status || 'Not Started',
-            date: formData.date || '',
-            time: formData.time || '',
+            date: sessionDate ? new Date(sessionDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '',
+            sessionDate,
+            startTime,
+            endTime,
+            time: '', // Will be computed by API
             joinLink: formData.joinLink,
             location: formData.location,
-            currentAttendees: formData.currentAttendees || 0,
-            maxCapacity: formData.maxCapacity || 30,
+            currentAttendees: session?.currentAttendees || 0, // Keep existing or default to 0 (auto-calculated from registrations)
+            maxCapacity,
             speakers: formData.speakers || [],
         });
         onClose();
@@ -242,214 +298,279 @@ const SessionModal = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-                    <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-                        {isEdit ? 'Edit Session' : 'Create New Session'}
-                    </h2>
-                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-                        <X size={20} className="text-gray-500" />
-                    </button>
-                </div>
+        <Modal
+            isOpen={isOpen}
+            onClose={onClose}
+            title={isEdit ? 'Edit Session' : 'Create New Session'}
+            size="xl"
+        >
+            <div className="space-y-6">
+                {/* Session Information */}
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-[#3D518C] dark:text-[#ABD2FA]">
+                        <Calendar size={18} />
+                        <h3 className="font-semibold">Session Information</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+                        {isEdit ? 'Update information about the breakout session.' : 'Basic information about the breakout session.'}
+                    </p>
 
-                {/* Form */}
-                <div className="p-6 space-y-6">
-                    {/* Session Information */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-2 text-[#3D518C] dark:text-[#ABD2FA]">
-                            <Calendar size={18} />
-                            <h3 className="font-semibold">Session Information</h3>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
-                            {isEdit ? 'Update information about the breakout session.' : 'Basic information about the breakout session.'}
-                        </p>
+                    {/* Title */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
+                        <ModalInput
+                            type="text"
+                            value={formData.title}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                setFormData({ ...formData, title: e.target.value });
+                                if (validationErrors.title) {
+                                    setValidationErrors((prev) => ({ ...prev, title: '' }));
+                                }
+                            }}
+                            placeholder="Enter session title"
+                            className={validationErrors.title ? "border-red-500" : ""}
+                        />
+                        {validationErrors.title && (
+                            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.title}</p>
+                        )}
+                    </div>
 
-                        {/* Title */}
+                    {/* Type & Status */}
+                    <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Title</label>
-                            <input
-                                type="text"
-                                value={formData.title}
-                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                placeholder="Enter session title"
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
+                            <ModalSelect
+                                value={formData.type || 'In-Person'}
+                                onChange={(value) => setFormData({ ...formData, type: value as 'Online' | 'In-Person' })}
+                                options={[
+                                    { value: "Online", label: "Online" },
+                                    { value: "In-Person", label: "In-Person" }
+                                ]}
                             />
                         </div>
-
-                        {/* Type & Status */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Type</label>
-                                <select
-                                    value={formData.type}
-                                    onChange={(e) => setFormData({ ...formData, type: e.target.value as 'Online' | 'In-Person' })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                >
-                                    <option value="Online">Online</option>
-                                    <option value="In-Person">In-Person</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
-                                <select
-                                    value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value as BreakoutSession['status'] })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                >
-                                    <option value="Not Started">Not Started</option>
-                                    <option value="Ongoing">Ongoing</option>
-                                    <option value="Completed">Completed</option>
-                                    <option value="Cancelled">Cancelled</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Date & Time */}
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-                                <input
-                                    type="date"
-                                    value={formData.date}
-                                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time</label>
-                                <input
-                                    type="text"
-                                    value={formData.time}
-                                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                                    placeholder="e.g. 2:00 PM – 3:30 PM"
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Join Link / Location */}
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                                {formData.type === 'Online' ? 'Join Link' : 'Location'}
+                                Status
+                                <span className="ml-1 text-xs text-gray-400">(Auto-computed except Cancelled)</span>
                             </label>
-                            <input
-                                type="text"
-                                value={formData.type === 'Online' ? formData.joinLink : formData.location}
-                                onChange={(e) => setFormData({
-                                    ...formData,
-                                    [formData.type === 'Online' ? 'joinLink' : 'location']: e.target.value
-                                })}
-                                placeholder={formData.type === 'Online' ? 'https://meet.example.com/session' : 'Room A, Main Hall'}
-                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                            <ModalSelect
+                                value={formData.status || 'Not Started'}
+                                onChange={(value) => setFormData({ ...formData, status: value as BreakoutSession['status'] })}
+                                options={[
+                                    { value: "Not Started", label: "Auto (Not Started / Ongoing / Completed)" },
+                                    { value: "Cancelled", label: "Cancelled (Manual Override)" }
+                                ]}
                             />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Status is automatically calculated based on date and time. Only select Cancelled to manually override.
+                            </p>
                         </div>
+                    </div>
 
-                        {/* Capacity */}
+                    {/* Date & Time */}
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
+                            <ModalInput
+                                type="date"
+                                value={formData.sessionDate || ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    setFormData({ ...formData, sessionDate: e.target.value });
+                                    if (validationErrors.sessionDate) {
+                                        setValidationErrors((prev) => ({ ...prev, sessionDate: '' }));
+                                    }
+                                }}
+                                onClick={(e: React.MouseEvent<HTMLInputElement>) => {
+                                    try {
+                                        (e.currentTarget as HTMLInputElement).showPicker?.();
+                                    } catch {
+                                        // Fallback: focus will naturally open picker on most browsers
+                                        e.currentTarget.focus();
+                                    }
+                                }}
+                                className={validationErrors.sessionDate ? "border-red-500" : ""}
+                            />
+                            {validationErrors.sessionDate && (
+                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.sessionDate}</p>
+                            )}
+                        </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current Attendees</label>
-                                <input
-                                    type="number"
-                                    value={formData.currentAttendees}
-                                    onChange={(e) => setFormData({ ...formData, currentAttendees: parseInt(e.target.value) || 0 })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
+                                <ModalInput
+                                    type="time"
+                                    value={formData.startTime || ''}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setFormData({ ...formData, startTime: e.target.value });
+                                        if (validationErrors.startTime) {
+                                            setValidationErrors((prev) => ({ ...prev, startTime: '' }));
+                                        }
+                                    }}
+                                    onClick={(e: React.MouseEvent<HTMLInputElement>) => {
+                                        try {
+                                            (e.currentTarget as HTMLInputElement).showPicker?.();
+                                        } catch {
+                                            e.currentTarget.focus();
+                                        }
+                                    }}
+                                    className={validationErrors.startTime ? "border-red-500" : ""}
                                 />
+                                {validationErrors.startTime && (
+                                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.startTime}</p>
+                                )}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Maximum Capacity</label>
-                                <input
-                                    type="number"
-                                    value={formData.maxCapacity}
-                                    onChange={(e) => setFormData({ ...formData, maxCapacity: parseInt(e.target.value) || 30 })}
-                                    className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
+                                <ModalInput
+                                    type="time"
+                                    value={formData.endTime || ''}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setFormData({ ...formData, endTime: e.target.value });
+                                        if (validationErrors.endTime) {
+                                            setValidationErrors((prev) => ({ ...prev, endTime: '' }));
+                                        }
+                                    }}
+                                    onClick={(e: React.MouseEvent<HTMLInputElement>) => {
+                                        try {
+                                            (e.currentTarget as HTMLInputElement).showPicker?.();
+                                        } catch {
+                                            e.currentTarget.focus();
+                                        }
+                                    }}
+                                    className={validationErrors.endTime ? "border-red-500" : ""}
                                 />
+                                {validationErrors.endTime && (
+                                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.endTime}</p>
+                                )}
                             </div>
                         </div>
                     </div>
 
-                    {/* Speakers Section */}
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
-                        <div className="flex items-center gap-2 text-[#3D518C] dark:text-[#ABD2FA]">
-                            <Users size={18} />
-                            <h3 className="font-semibold">Speakers</h3>
-                        </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
-                            {isEdit ? 'Manage speakers for this session.' : 'Add speakers for this session.'}
-                        </p>
+                    {/* Join Link / Location */}
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            {formData.type === 'Online' ? 'Join Link' : 'Location'}
+                        </label>
+                        <ModalInput
+                            type="text"
+                            value={formData.type === 'Online' ? formData.joinLink : formData.location}
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                setFormData({
+                                    ...formData,
+                                    [formData.type === 'Online' ? 'joinLink' : 'location']: e.target.value
+                                });
+                                if (validationErrors.locationOrJoinLink) {
+                                    setValidationErrors((prev) => ({ ...prev, locationOrJoinLink: '' }));
+                                }
+                            }}
+                            placeholder={formData.type === 'Online' ? 'https://meet.example.com/session' : 'Room A, Main Hall'}
+                            className={validationErrors.locationOrJoinLink ? "border-red-500" : ""}
+                        />
+                        {validationErrors.locationOrJoinLink && (
+                            <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.locationOrJoinLink}</p>
+                        )}
+                    </div>
 
-                        {/* Add Speaker Form */}
-                        <div className="flex gap-2">
-                            <input
-                                type="text"
-                                value={newSpeakerName}
-                                onChange={(e) => setNewSpeakerName(e.target.value)}
-                                placeholder="Speaker Name"
-                                className="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                    {/* Capacity */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Maximum Capacity</label>
+                            <ModalInput
+                                type="number"
+                                min={1}
+                                value={formData.maxCapacity ?? ''}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                    const nextValue = e.target.value.trim();
+                                    setFormData({
+                                        ...formData,
+                                        maxCapacity: nextValue === '' ? undefined : Number(nextValue),
+                                    });
+                                    if (validationErrors.maxCapacity) {
+                                        setValidationErrors((prev) => ({ ...prev, maxCapacity: '' }));
+                                    }
+                                }}
+                                className={validationErrors.maxCapacity ? "border-red-500" : ""}
                             />
-                            <input
-                                type="text"
-                                value={newSpeakerImage}
-                                onChange={(e) => setNewSpeakerImage(e.target.value)}
-                                placeholder="Image URL (Optional)"
-                                className="flex-1 px-4 py-2.5 bg-gray-50 dark:bg-gray-700/50 border border-gray-200 dark:border-gray-600 rounded-xl text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
-                            />
-                            <button
-                                onClick={handleAddSpeaker}
-                                className="px-4 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all flex items-center gap-1"
-                            >
-                                <Plus size={16} /> Add
-                            </button>
-                        </div>
-
-                        {/* Current Speakers */}
-                        <div className="space-y-2">
-                            <p className="text-xs text-gray-500 dark:text-gray-400">Current Speakers</p>
-                            {(formData.speakers?.length || 0) === 0 ? (
-                                <div className="flex items-center justify-center gap-2 py-6 text-gray-400 dark:text-gray-500">
-                                    <User size={16} />
-                                    <span className="text-sm">No speakers added yet</span>
-                                </div>
-                            ) : (
-                                <div className="space-y-2">
-                                    {formData.speakers?.map((speaker, index) => (
-                                        <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                                            <div className="flex items-center gap-3">
-                                                <SpeakerAvatar speaker={speaker} size="md" />
-                                                <span className="text-sm font-medium text-gray-900 dark:text-white">{speaker.name}</span>
-                                            </div>
-                                            <button
-                                                onClick={() => handleRemoveSpeaker(index)}
-                                                className="text-red-500 hover:text-red-700 transition-colors"
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
+                            {validationErrors.maxCapacity && (
+                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.maxCapacity}</p>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Footer */}
-                <div className="flex items-center justify-end gap-3 p-6 border-t border-gray-200 dark:border-gray-700">
-                    <button
-                        onClick={onClose}
-                        className="px-5 py-2.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        onClick={handleSave}
-                        className="px-5 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all"
-                    >
-                        {isEdit ? 'Save Changes' : 'Create Session'}
-                    </button>
+                {/* Speakers Section */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700 space-y-4">
+                    <div className="flex items-center gap-2 text-[#3D518C] dark:text-[#ABD2FA]">
+                        <Users size={18} />
+                        <h3 className="font-semibold">Speakers</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+                        {isEdit ? 'Manage speakers for this session.' : 'Add speakers for this session.'}
+                    </p>
+
+                    {/* Add Speaker Form */}
+                    <div className="flex gap-2">
+                        <div className="flex-1">
+                            <ModalInput
+                                type="text"
+                                value={newSpeakerName}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSpeakerName(e.target.value)}
+                                placeholder="Speaker Name"
+                            />
+                        </div>
+                        <div className="flex-1">
+                            <ModalInput
+                                type="text"
+                                value={newSpeakerImage}
+                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSpeakerImage(e.target.value)}
+                                placeholder="Image URL (Optional)"
+                            />
+                        </div>
+                        <button
+                            onClick={handleAddSpeaker}
+                            className="px-4 py-2.5 bg-gradient-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-medium rounded-xl hover:shadow-lg transition-all flex items-center gap-1"
+                        >
+                            <Plus size={16} /> Add
+                        </button>
+                    </div>
+
+                    {/* Current Speakers */}
+                    <div className="space-y-2">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Current Speakers</p>
+                        {(formData.speakers?.length || 0) === 0 ? (
+                            <div className="flex items-center justify-center gap-2 py-6 text-gray-400 dark:text-gray-500">
+                                <User size={16} />
+                                <span className="text-sm">No speakers added yet</span>
+                            </div>
+                        ) : (
+                            <div className="space-y-2">
+                                {formData.speakers?.map((speaker, index) => (
+                                    <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
+                                        <div className="flex items-center gap-3">
+                                            <SpeakerAvatar speaker={speaker} size="md" />
+                                            <span className="text-sm font-medium text-gray-900 dark:text-white">{speaker.name}</span>
+                                        </div>
+                                        <button
+                                            onClick={() => handleRemoveSpeaker(index)}
+                                            className="text-red-500 hover:text-red-700 transition-colors"
+                                        >
+                                            <X size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
-        </div>
+
+            <ModalFooter
+                onCancel={onClose}
+                onSave={handleSave}
+                saveText={isEdit ? 'Save Changes' : 'Create Session'}
+                submitType="button"
+            />
+        </Modal>
     );
 };
 
@@ -602,6 +723,17 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                 : `/api/events/${eventId}/breakouts`;
             const method = isEdit ? 'PATCH' : 'POST';
 
+            // Ensure date is in YYYY-MM-DD format - sessionDate should always be YYYY-MM-DD
+            // If sessionDate is missing, try to parse from the display date as fallback
+            let apiDate = session.sessionDate;
+            if (!apiDate && session.date) {
+                // Try to parse formatted date like "January 15, 2024"
+                const parsed = new Date(session.date);
+                if (!isNaN(parsed.getTime())) {
+                    apiDate = parsed.toISOString().split('T')[0];
+                }
+            }
+
             const res = await fetch(endpoint, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
@@ -611,8 +743,9 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                         title: session.title,
                         type: session.type,
                         status: session.status,
-                        date: session.date,
-                        time: session.time,
+                        date: apiDate, // Always YYYY-MM-DD format
+                        startTime: session.startTime,
+                        endTime: session.endTime,
                         location: session.location,
                         joinLink: session.joinLink,
                         maxCapacity: session.maxCapacity,

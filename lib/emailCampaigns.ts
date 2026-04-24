@@ -4,6 +4,7 @@ import { sendEmail } from "@/lib/emailProvider";
 export interface EmailAudienceFilters {
   ticketTypes?: {
     selectAll?: boolean;
+    selectedTicketIds?: number[];
     generalAdmission?: boolean;
     premiumAdmission?: boolean;
   };
@@ -39,6 +40,11 @@ function normalizeFilters(filters: EmailAudienceFilters | null | undefined): Req
   return {
     ticketTypes: {
       selectAll: !!filters?.ticketTypes?.selectAll,
+      selectedTicketIds: Array.isArray(filters?.ticketTypes?.selectedTicketIds)
+        ? filters!.ticketTypes!.selectedTicketIds!
+          .map((value) => Number(value))
+          .filter((value) => Number.isFinite(value) && value > 0)
+        : [],
       generalAdmission: !!filters?.ticketTypes?.generalAdmission,
       premiumAdmission: !!filters?.ticketTypes?.premiumAdmission,
     },
@@ -88,10 +94,15 @@ export async function resolveEventRecipients(
   rawFilters: EmailAudienceFilters
 ): Promise<CampaignRecipient[]> {
   const filters = normalizeFilters(rawFilters);
+  const selectedTicketIds = filters.ticketTypes.selectedTicketIds ?? [];
 
   const shouldFilterTicket =
     !filters.ticketTypes.selectAll &&
-    (filters.ticketTypes.generalAdmission || filters.ticketTypes.premiumAdmission);
+    (
+      selectedTicketIds.length > 0 ||
+      filters.ticketTypes.generalAdmission ||
+      filters.ticketTypes.premiumAdmission
+    );
 
   const shouldFilterStatus =
     !filters.statuses.selectAll &&
@@ -112,7 +123,7 @@ export async function resolveEventRecipients(
 
   const { data: regRows, error: regError } = await supabase
     .from("Registration")
-    .select("id, status, has_checked_in, is_waitlisted, User(email), Ticket(name)")
+    .select("id, status, has_checked_in, is_waitlisted, ticket_id, User(email), Ticket(name)")
     .eq("event_id", eventId);
 
   if (regError) {
@@ -135,9 +146,16 @@ export async function resolveEventRecipients(
 
     const ticketName = String(row.Ticket?.name || "General Admission");
     if (shouldFilterTicket) {
-      const premium = isPremiumTicket(ticketName);
-      if (filters.ticketTypes.generalAdmission && !filters.ticketTypes.premiumAdmission && premium) continue;
-      if (filters.ticketTypes.premiumAdmission && !filters.ticketTypes.generalAdmission && !premium) continue;
+      if (selectedTicketIds.length > 0) {
+        const ticketId = Number(row.ticket_id);
+        if (!Number.isFinite(ticketId) || !selectedTicketIds.includes(ticketId)) {
+          continue;
+        }
+      } else {
+        const premium = isPremiumTicket(ticketName);
+        if (filters.ticketTypes.generalAdmission && !filters.ticketTypes.premiumAdmission && premium) continue;
+        if (filters.ticketTypes.premiumAdmission && !filters.ticketTypes.generalAdmission && !premium) continue;
+      }
     }
 
     if (shouldFilterStatus) {

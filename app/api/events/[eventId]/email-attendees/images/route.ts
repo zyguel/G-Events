@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 import { createClient, createAdminClient } from "@/lib/supabase-server";
+import { validateUploadedImageFile } from "@/lib/uploadedImageValidation";
+
+const ALLOWED_EMAIL_IMAGE_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "image/svg+xml",
+]);
+const ALLOWED_EMAIL_IMAGE_LABEL = "JPEG, PNG, WebP, GIF, AVIF, SVG";
+const MAX_EMAIL_IMAGE_SIZE_BYTES = 8 * 1024 * 1024;
 
 function getSafeImageExtension(file: File): string {
   const mime = (file.type || "").toLowerCase();
@@ -37,16 +50,14 @@ export async function POST(
       );
     }
 
-    if (!image.type.startsWith("image/")) {
+    const imageValidationError = await validateUploadedImageFile(image, {
+      allowedMimeTypes: ALLOWED_EMAIL_IMAGE_MIME_TYPES,
+      allowedFormatsLabel: ALLOWED_EMAIL_IMAGE_LABEL,
+      maxBytes: MAX_EMAIL_IMAGE_SIZE_BYTES,
+    });
+    if (imageValidationError) {
       return NextResponse.json(
-        { success: false, error: "Only image files are allowed" },
-        { status: 400 }
-      );
-    }
-
-    if (image.size > 8 * 1024 * 1024) {
-      return NextResponse.json(
-        { success: false, error: "Image file must be 8MB or smaller" },
+        { success: false, error: imageValidationError },
         { status: 400 }
       );
     }

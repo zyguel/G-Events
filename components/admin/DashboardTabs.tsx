@@ -46,14 +46,15 @@ function groupAgeRanges(distribution: { value: string; count: number }[]) {
 interface DashboardData {
     trends: {
         registrations: {
-            // Weekly format for individual events
             weekly?: number[];
             weekLabels?: string[];
             registrationOpenDate?: string;
             eventDate?: string;
-            // Monthly format for all events overview
             monthly?: number[];
             monthLabels?: string[];
+            // All-Years mode
+            yearly?: number[];
+            yearLabels?: string[];
         };
         attendance: {
             checkedIn: number;
@@ -75,6 +76,8 @@ interface DashboardData {
         eventName?: string;
     }[];
     revenueBreakdown: { name: string; value: number; percentage: number }[];
+    revenueByYear?: { year: string; amount: number }[];
+    satisfactionByYear?: { year: string; score: number }[];
     recentTransactions: { id: string; user: string; type: string; amount: number; date: string; status: string }[];
     topEvents?: { id: string; name: string; registrations: number; revenue: number; satisfaction: number; attendance: number }[];
 }
@@ -85,18 +88,22 @@ export default function DashboardTabs({
     tickets = [],
     eventId,
     hideDemographics = false,
+    activeYear,
 }: {
     data: DashboardData;
     demographics?: DemographicsData;
     tickets?: { id: number; name: string }[];
     eventId?: number;
     hideDemographics?: boolean;
+    activeYear?: number | null;
 }) {
 
 
     const [activeTab, setActiveTab] = useState("registrations");
     const [transactionsPage, setTransactionsPage] = useState(1);
     const [transactionsRowsPerPage, setTransactionsRowsPerPage] = useState(10);
+    const [feedbackPage, setFeedbackPage] = useState(1);
+    const [feedbackRowsPerPage, setFeedbackRowsPerPage] = useState(10);
     const attendanceTotal =
         data.trends.attendance.checkedIn +
         data.trends.attendance.waitlisted +
@@ -115,15 +122,24 @@ export default function DashboardTabs({
         transactionsPage * transactionsRowsPerPage
     );
 
+    const paginatedFeedback = data.comments.slice(
+        (feedbackPage - 1) * feedbackRowsPerPage,
+        feedbackPage * feedbackRowsPerPage
+    );
+
     useEffect(() => {
-        if (activeTab !== "revenue") {
-            return;
+        if (activeTab === "revenue") {
+            const totalPages = Math.max(1, Math.ceil(data.recentTransactions.length / transactionsRowsPerPage));
+            if (transactionsPage > totalPages) {
+                setTransactionsPage(totalPages);
+            }
+        } else if (activeTab === "feedback") {
+            const totalPages = Math.max(1, Math.ceil(data.comments.length / feedbackRowsPerPage));
+            if (feedbackPage > totalPages) {
+                setFeedbackPage(totalPages);
+            }
         }
-        const totalPages = Math.max(1, Math.ceil(data.recentTransactions.length / transactionsRowsPerPage));
-        if (transactionsPage > totalPages) {
-            setTransactionsPage(totalPages);
-        }
-    }, [activeTab, data.recentTransactions.length, transactionsPage, transactionsRowsPerPage]);
+    }, [activeTab, data.recentTransactions.length, data.comments.length, transactionsPage, transactionsRowsPerPage, feedbackPage, feedbackRowsPerPage]);
 
     return (
         <div className="space-y-6">
@@ -182,6 +198,7 @@ export default function DashboardTabs({
                                 data={data.trends.registrations} 
                                 tickets={tickets}
                                 eventId={eventId}
+                                activeYear={activeYear}
                             />
 
 
@@ -245,31 +262,69 @@ export default function DashboardTabs({
                 {activeTab === "revenue" && (
                     <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
 
-                        {/* 1. Financial Summary Cards */}
+                        {/* 1. Financial Summary */}
                         <div className="grid grid-cols-1 gap-4">
-                            {/* Gross Revenue */}
                             <div className="p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm mb-2">
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Gross Revenue</p>
+                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                                    {!activeYear ? 'Cumulative Revenue' : 'Gross Revenue'}
+                                </p>
                                 <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
                                     ${data.stats.revenue.toLocaleString()}
                                 </h3>
                                 <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400">
-                                    Based on confirmed registrations
+                                    {!activeYear ? 'Across all years — confirmed registrations' : 'Based on confirmed registrations'}
                                 </span>
                             </div>
                         </div>
 
+                        {/* Revenue by Year bar chart — All Years mode only */}
+                        {!activeYear && data.revenueByYear && data.revenueByYear.length > 0 && (() => {
+                            const maxRev = Math.max(...data.revenueByYear!.map(r => r.amount), 1);
+                            return (
+                                <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+                                    <h3 className="font-semibold text-gray-900 dark:text-white">Revenue by Year</h3>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 mb-5">All events • All Years</p>
+                                    <div className="h-40 flex items-end justify-between gap-2 px-2 border-b border-l border-gray-200 dark:border-gray-600">
+                                        {data.revenueByYear!.map((item, i) => (
+                                            <div
+                                                key={i}
+                                                className="w-full bg-emerald-500 dark:bg-emerald-400 hover:bg-emerald-600 dark:hover:bg-emerald-300 rounded-t-sm transition-all duration-500 relative group"
+                                                style={{ height: `${(item.amount / maxRev) * 100}%`, minHeight: item.amount > 0 ? '4px' : '0' }}
+                                            >
+                                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
+                                                    ${Math.round(item.amount).toLocaleString()}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex justify-between text-xs text-gray-400 dark:text-gray-500 mt-2 px-1">
+                                        {data.revenueByYear!.map((item, i) => (
+                                            <span key={i}>{item.year}</span>
+                                        ))}
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {/* 2. Breakdown & Transactions Grid */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                            {/* Revenue Breakdown */}
+                            {/* Revenue Sources */}
                             <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
-                                <h3 className="font-semibold text-gray-900 dark:text-white mb-6">Revenue Sources</h3>
+                                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Revenue Sources</h3>
+                                <p className="text-xs text-gray-400 dark:text-gray-500 mb-5">
+                                    {!activeYear ? 'By ticket type • All Years' : 'By ticket type'}
+                                </p>
                                 <div className="space-y-6">
                                     {data.revenueBreakdown.map((item, i) => (
                                         <div key={i}>
                                             <div className="flex justify-between items-center text-sm mb-1">
-                                                <span className="text-gray-600 dark:text-gray-300 font-medium">{item.name}</span>
+                                                <span 
+                                                    className="text-gray-600 dark:text-gray-300 font-medium cursor-default"
+                                                    title={item.name.length > 30 ? item.name : undefined}
+                                                >
+                                                    {item.name.length > 30 ? `${item.name.substring(0, 30)}...` : item.name}
+                                                </span>
                                                 <span className="text-gray-900 dark:text-white font-bold">${item.value.toLocaleString()}</span>
                                             </div>
                                             <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2.5">
@@ -287,7 +342,6 @@ export default function DashboardTabs({
                             <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
                                 <div className="flex justify-between items-center mb-6">
                                     <h3 className="font-semibold text-gray-900 dark:text-white">Recent Transactions</h3>
-                                    <button className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 font-medium">View All</button>
                                 </div>
 
                                 <div className="overflow-x-auto">
@@ -360,7 +414,29 @@ export default function DashboardTabs({
                                     style={{ width: `${(data.stats.satisfaction / 5) * 100}%` }}
                                 ></div>
                             </div>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Based on post-event surveys</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                                {!activeYear ? 'Average across all years' : 'Based on post-event surveys'}
+                            </p>
+
+                            {/* Satisfaction by Year — All Years mode */}
+                            {!activeYear && data.satisfactionByYear && data.satisfactionByYear.length > 0 && (
+                                <div className="mt-4 space-y-3 border-t border-gray-100 dark:border-gray-700 pt-4">
+                                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">By Year</p>
+                                    {data.satisfactionByYear.map((item, i) => (
+                                        <div key={i} className="flex items-center gap-2">
+                                            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 w-10 shrink-0">{item.year}</span>
+                                            <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                                                <div
+                                                    className="bg-green-500 dark:bg-green-400 h-2 rounded-full transition-all duration-500"
+                                                    style={{ width: `${(item.score / 5) * 100}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs font-bold text-gray-900 dark:text-white w-6 shrink-0 text-right">{item.score}</span>
+                                            <span className="text-[10px] text-yellow-500 shrink-0">{'★'.repeat(Math.round(item.score))}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Recent Comments Feed */}
@@ -372,7 +448,7 @@ export default function DashboardTabs({
                                         No feedback comments yet.
                                     </div>
                                 ) : (
-                                    data.comments.map((comment, i) => (
+                                    paginatedFeedback.map((comment, i) => (
                                         <div key={i} className="p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-100 dark:border-gray-600">
                                             <div className="flex justify-between items-start mb-1">
                                                 <div className="flex items-center gap-2">
@@ -381,17 +457,52 @@ export default function DashboardTabs({
                                                         <span className="text-xs text-yellow-500">{"★".repeat(comment.rating)}</span>
                                                     )}
                                                     {comment.eventName && (
-                                                        <span className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded font-medium">
-                                                            {comment.eventName}
+                                                        <span 
+                                                            className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded font-medium cursor-default"
+                                                            title={comment.eventName.length > 50 ? comment.eventName : undefined}
+                                                        >
+                                                            {comment.eventName.length > 50 ? `${comment.eventName.substring(0, 50)}...` : comment.eventName}
                                                         </span>
                                                     )}
                                                 </div>
                                                 <span className="text-xs text-gray-400 dark:text-gray-500">{comment.time}</span>
                                             </div>
-                                            <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">"{comment.text}"</p>
+                                            <div className="mt-1 space-y-1">
+                                                {comment.text.split("\n").map((line, lineIdx) => {
+                                                    const parts = line.split(": ");
+                                                    if (parts.length > 1) {
+                                                        const question = parts[0];
+                                                        const answer = parts.slice(1).join(": ");
+                                                        return (
+                                                            <div key={lineIdx} className="text-sm leading-relaxed">
+                                                                <span className="text-gray-500 dark:text-gray-400">{question}: </span>
+                                                                <span className="font-bold text-gray-900 dark:text-white">{answer}</span>
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <p key={lineIdx} className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed">
+                                                            {line}
+                                                        </p>
+                                                    );
+                                                })}
+                                            </div>
                                         </div>
                                     ))
                                 )}
+                            </div>
+
+                            <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
+                                <TablePaginationControls
+                                    totalItems={data.comments.length}
+                                    currentPage={feedbackPage}
+                                    rowsPerPage={feedbackRowsPerPage}
+                                    onPageChange={setFeedbackPage}
+                                    onRowsPerPageChange={(rows) => {
+                                        setFeedbackRowsPerPage(rows);
+                                        setFeedbackPage(1);
+                                    }}
+                                />
                             </div>
                         </div>
                     </div>

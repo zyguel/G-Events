@@ -3,6 +3,10 @@ import CertificatesClient from './CertificatesClient';
 import { getEventById } from "@/lib/actions/events";
 import PermissionGate from "@/components/admin/PermissionGate";
 
+export const metadata = {
+    title: 'Certificates',
+};
+
 interface PageProps {
     params: Promise<{
         eventId: string;

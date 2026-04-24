@@ -36,6 +36,7 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const DISMISSED_KEY = 'g_events_dismissed_notifications';
 const PREFS_KEY = 'g_events_notification_prefs';
+const READ_KEY = 'g_events_read_notifications';
 const ADMIN_ROOTS = ['/dashboard', '/admin/events', '/management', '/profile', '/settings'];
 
 function isAdminAppRoute(pathname: string) {
@@ -54,6 +55,21 @@ const saveDismissedId = (id: string) => {
         const existing = getDismissedIds();
         existing.add(id);
         localStorage.setItem(DISMISSED_KEY, JSON.stringify([...existing]));
+    } catch { /* ignore */ }
+};
+
+const getReadIds = (): Set<string> => {
+    try {
+        const raw = localStorage.getItem(READ_KEY);
+        return new Set(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+};
+
+const saveReadId = (id: string) => {
+    try {
+        const existing = getReadIds();
+        existing.add(id);
+        localStorage.setItem(READ_KEY, JSON.stringify([...existing]));
     } catch { /* ignore */ }
 };
 
@@ -115,11 +131,13 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                     const data = body?.data;
                     if (Array.isArray(data)) {
                         const dismissed = getDismissedIds();
+                        const readIds = getReadIds();
                         const parsed: Notification[] = data
                             .filter((n: any) => !dismissed.has(n.id))
                             .map((n: any) => ({
                                 ...n,
                                 timestamp: new Date(n.timestamp),
+                                read: readIds.has(n.id) || n.read,
                             }));
                         setNotifications(parsed);
                         hadFetchErrorRef.current = false;
@@ -229,14 +247,21 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
     }, []);
 
     const markAsRead = useCallback((id: string) => {
+        saveReadId(id);
         setNotifications(prev =>
             prev.map(n => (n.id === id ? { ...n, read: true } : n))
         );
     }, []);
 
     const markAllAsRead = useCallback(() => {
+        const existing = getReadIds();
+        notifications.forEach(n => existing.add(n.id));
+        try {
+            localStorage.setItem(READ_KEY, JSON.stringify([...existing]));
+        } catch { /* ignore */ }
+        
         setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-    }, []);
+    }, [notifications]);
 
     const clearAllNotifications = useCallback(() => {
         // Persist all current notification IDs as dismissed so they don't reappear on reload

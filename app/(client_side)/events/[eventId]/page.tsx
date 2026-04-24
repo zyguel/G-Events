@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import ClientHeader from '@/components/client/ClientHeader';
 import { getPublishedEventById, getPublicBreakoutSessions } from '@/lib/actions/events';
-import { getTickets, Ticket as TicketType } from '@/lib/eventManagement';
+import { getTickets, Ticket as TicketType, getAddOns, AddOn } from '@/lib/eventManagement';
 import { createClient } from '@/lib/supabase-browser';
 
 interface BreakoutSessionItem {
@@ -40,6 +40,7 @@ interface AgendaSlot {
 interface EventDetail {
     id: number;
     title: string;
+    is_published?: boolean;
     description?: string;
     location?: string;
     banner_image?: string;
@@ -71,6 +72,7 @@ export default function ClientEventDetailPage() {
 
     const [event, setEvent] = useState<EventDetail | null>(null);
     const [tickets, setTickets] = useState<TicketType[]>([]);
+    const [addOns, setAddOns] = useState<AddOn[]>([]);
     const [breakoutSessions, setBreakoutSessions] = useState<BreakoutSessionItem[]>([]);
     const [loading, setLoading] = useState(() => !isNaN(eventId));
     const [registrationState, setRegistrationState] = useState<RegistrationState>('none');
@@ -81,9 +83,16 @@ export default function ClientEventDetailPage() {
             getPublishedEventById(eventId),
             getTickets(String(eventId)).catch(() => []),
             getPublicBreakoutSessions(eventId).catch(() => []),
-        ]).then(([eventData, ticketData, breakoutData]) => {
+            getAddOns(String(eventId)).catch(() => []),
+        ]).then(([eventData, ticketData, breakoutData, addOnData]) => {
             setEvent(eventData ?? null);
-            setTickets(ticketData.filter(t => t.visibility === 'visible'));
+            const visible = ticketData.filter((t) => t.visibility === "visible");
+            const byId = new Map<string, (typeof visible)[0]>();
+            for (const t of visible) {
+                if (!byId.has(t.id)) byId.set(t.id, t);
+            }
+            setTickets(Array.from(byId.values()));
+            setAddOns(addOnData as AddOn[]);
             setBreakoutSessions(eventData?.allow_breakout_sessions ? (breakoutData as BreakoutSessionItem[]) : []);
             setLoading(false);
         }).catch(() => setLoading(false));
@@ -152,6 +161,7 @@ export default function ClientEventDetailPage() {
 
     const isEventEnded = event.event_end_at ? new Date() > new Date(event.event_end_at) : false;
     const isRegistered = registrationState === 'confirmed';
+    const isEventPublished = Boolean(event.is_published);
 
     return (
         <div className="flex flex-col min-h-screen bg-[#F4F7FC] dark:bg-[#0f111a] text-gray-900 dark:text-gray-100 font-sans">
@@ -428,10 +438,10 @@ export default function ClientEventDetailPage() {
                                                 </span>
                                             </div>
 
-                                            {/* Inclusions */}
+                                            {/* Ticket Description */}
                                             {inclusions.length > 0 && (
                                                 <div>
-                                                    <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">What&apos;s included</p>
+                                                    <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Ticket Description</p>
                                                     <ul className="space-y-1.5">
                                                         {inclusions.map((line, i) => (
                                                             <li key={i} className="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300">
@@ -444,6 +454,32 @@ export default function ClientEventDetailPage() {
                                                     </ul>
                                                 </div>
                                             )}
+
+                                            {/* Add-ons */}
+                                            {(() => {
+                                                const ticketAddOns = addOns.filter((a) =>
+                                                    a.appliedTo === 'all' ||
+                                                    (Array.isArray(a.appliedTo) && a.appliedTo.includes(ticket.id))
+                                                );
+                                                if (ticketAddOns.length === 0) return null;
+                                                return (
+                                                    <div>
+                                                        <p className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Included Add-ons</p>
+                                                        <ul className="space-y-2">
+                                                            {ticketAddOns.map((addOn) => (
+                                                                <li key={addOn.id} className="text-sm text-gray-600 dark:text-gray-300">
+                                                                    <span className="font-medium text-gray-800 dark:text-gray-100">{addOn.name}</span>
+                                                                    {addOn.hasVariants && addOn.variants.length > 0 && (
+                                                                        <span className="ml-1.5 text-gray-400 dark:text-gray-500">
+                                                                            ({addOn.variants.map((v) => v.label).join(', ')})
+                                                                        </span>
+                                                                    )}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
                                     );
                                 })}
@@ -483,6 +519,18 @@ export default function ClientEventDetailPage() {
                                 </div>
                                 <div className="w-full md:w-auto rounded-2xl bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white/95 border border-white/20">
                                     We&apos;ll notify you once your slot is approved.
+                                </div>
+                            </>
+                        ) : !isEventPublished ? (
+                            <>
+                                <div className="min-w-0 space-y-3 text-center md:text-left">
+                                    <h3 className="text-xl font-extrabold text-white sm:text-2xl">Registration not yet open</h3>
+                                    <p className="text-sm text-blue-100/90">
+                                        This event page is visible to the public, but registration will open once the organizer publishes the event.
+                                    </p>
+                                </div>
+                                <div className="w-full md:w-auto rounded-2xl bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white/95 border border-white/20">
+                                    Check back soon for registration access.
                                 </div>
                             </>
                         ) : (

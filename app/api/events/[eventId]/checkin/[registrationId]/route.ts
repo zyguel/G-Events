@@ -71,7 +71,15 @@ export async function PATCH(
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      checkedIn: body.checkedIn,
+      checkedInAt: checkedInAt,
+      checkInTime:
+        body.checkedIn && checkedInAt
+          ? new Date(checkedInAt).toLocaleString()
+          : null,
+    });
   } catch (e: unknown) {
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;

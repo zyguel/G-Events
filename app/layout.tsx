@@ -14,8 +14,11 @@ const figtree = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: "G Events Dashboard",
+  title: "G Events",
   description: "Event management dashboard",
+  icons: {
+    icon: "/icons/company-logo.svg",
+  },
 };
 
 export default function RootLayout({

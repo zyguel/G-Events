@@ -6,6 +6,24 @@ import CompactEventMobileBar from "@/components/admin/CompactEventMobileBar";
 import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import { EventDataProvider } from "./EventDataContext";
+import { Metadata } from "next";
+
+export async function generateMetadata({ params }: { params: Promise<{ eventId: string }> }): Promise<Metadata> {
+    const { eventId } = await params;
+    const idPart = eventId.split("-").pop() ?? "";
+    const numericId = parseInt(idPart, 10);
+    if (isNaN(numericId)) return { title: "Event" };
+
+    const data = await getEventById(numericId);
+    if (!data) return { title: "Event Not Found" };
+
+    return {
+        title: {
+            template: `%s | ${data.title}`,
+            default: data.title,
+        }
+    };
+}
 
 export default async function EventLayout({
     children,

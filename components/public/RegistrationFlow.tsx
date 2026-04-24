@@ -54,6 +54,7 @@ interface RegistrationFlowProps {
     waitlistInviteToken?: string;
     waitlistInviteTicketId?: number | null;
     waitlistInviteEmail?: string;
+    waitlistInviteName?: string;
 }
 
 type CheckInPass = {
@@ -118,16 +119,16 @@ function CheckInPassCard({ pass }: { pass: CheckInPass }) {
 
     return (
         <div className="bg-white dark:bg-gray-800/70 rounded-2xl border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-                <div>
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
                     <p className="text-xs uppercase tracking-wider font-bold text-gray-500 dark:text-gray-400">Check-In Pass</p>
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">{pass.email}</p>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1 break-all">{pass.email}</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Registration #{pass.registrationId}</p>
                 </div>
                 <button
                     type="button"
                     onClick={handleCopy}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                     <Copy size={13} />
                     {copyStatus === 'copied' ? 'Copied' : copyStatus === 'failed' ? 'Copy Failed' : 'Copy QR Data'}
@@ -593,9 +594,9 @@ function ChooseTicketStep({
                             relative group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 rounded-2xl border-2 transition-all duration-300 text-left w-full min-h-[52px]
                             ${ticket.is_sold_out 
                                 ? 'opacity-60 grayscale border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40 cursor-not-allowed' 
-                                : hovered === ticket.id
+                                : `cursor-pointer ${hovered === ticket.id
                                     ? 'border-[#3D518C] bg-gradient-to-r from-[#3D518C]/5 to-[#5C6BC0]/5 shadow-lg shadow-blue-100 dark:shadow-blue-900/20 scale-[1.01]'
-                                    : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/60 hover:shadow-md'}
+                                    : 'border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-800/60 hover:shadow-md'}`}
                         `}
                     >
                         <div className="flex items-center gap-4">
@@ -835,10 +836,13 @@ function ChooseTypeStep({
 
 function GroupMembersStep({
     initialEmails,
+    leadEmail,
     onBack,
     onContinue,
 }: {
     initialEmails: string[];
+    /** Primary registrant — cannot appear again in the member list */
+    leadEmail?: string;
     onBack: () => void;
     onContinue: (emails: string[]) => void;
 }) {
@@ -941,6 +945,15 @@ function GroupMembersStep({
             seen.add(e.toLowerCase());
         });
 
+        const leadNorm = leadEmail?.trim().toLowerCase();
+        if (leadNorm) {
+            emails.forEach((e, i) => {
+                if (e.trim().toLowerCase() === leadNorm) {
+                    newErrors[i] = 'Cannot use the same email as the group lead';
+                }
+            });
+        }
+
         setErrors(newErrors);
         
         // Final verification check
@@ -958,9 +971,9 @@ function GroupMembersStep({
             return;
         }
 
-        if (newErrors.some(e => e !== '')) return;
+        if (newErrors.some((e) => e !== '')) return;
 
-        onContinue(emails.map(e => e.trim()));
+        onContinue(emails.map((e) => e.trim()));
     };
 
     return (
@@ -1150,7 +1163,7 @@ function OrderFormStep({
         }
 
         const requestedSeats = registrationType === 'group' ? groupEmails.length + 1 : 1;
-        if (ticketId && requestedSeats > 0) {
+        if (ticketId && requestedSeats > 0 && !waitlistInviteToken) {
             const selectedTicket = tickets.find((t) => t.id === ticketId) || null;
             if (selectedTicket && selectedTicket.available_quantity > 0) {
                 const remaining = Math.max(0, selectedTicket.available_quantity - selectedTicket.used_quantity);
@@ -1200,7 +1213,7 @@ function OrderFormStep({
                     <div className="mt-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-4 text-left max-w-sm mx-auto border border-indigo-100 dark:border-indigo-800/40">
                         <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-2">Group members</p>
                         <p className="text-xs text-indigo-800/90 dark:text-indigo-200/90 mb-3 leading-relaxed">
-                            Each person below will get an email with a link to complete their details. They must sign in before submitting (payment fields are not required for them).
+                            Each person below will get an email with a secure link to complete their details (payment fields are not required for them).
                         </p>
                         <ul className="space-y-1">
                             {groupEmails.map((email, i) => (
@@ -1213,11 +1226,15 @@ function OrderFormStep({
                     </div>
                 )}
                 {checkInPasses.length > 0 && (
-                    <div className="mt-6 max-w-3xl mx-auto text-left">
+                    <div className="mt-6 w-full text-left">
                         <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3 text-center">
                             Save your check-in QR pass{checkInPasses.length > 1 ? 'es' : ''}
                         </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className={`grid gap-4 ${
+                            checkInPasses.length === 1
+                                ? 'grid-cols-1 max-w-sm mx-auto'
+                                : 'grid-cols-1 md:grid-cols-2 max-w-3xl mx-auto'
+                        }`}>
                             {checkInPasses.map((pass) => (
                                 <CheckInPassCard
                                     key={`${pass.registrationId}-${pass.email}`}
@@ -1379,6 +1396,7 @@ export default function RegistrationFlow({
     waitlistInviteToken,
     waitlistInviteTicketId = null,
     waitlistInviteEmail,
+    waitlistInviteName,
 }: RegistrationFlowProps) {
     const router = useRouter();
     const [userEmail, setUserEmail] = useState<string | undefined>(waitlistInviteEmail || initialUserEmail);
@@ -1522,6 +1540,21 @@ export default function RegistrationFlow({
                     </h1>
                 </div>
 
+                {waitlistInviteToken && (waitlistInviteEmail || userEmail) && (
+                    <div className="mb-6 rounded-2xl border border-emerald-200 bg-emerald-50/90 px-4 py-3 text-sm text-emerald-900 shadow-sm dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-100">
+                        <p className="font-semibold">Exclusive waitlist invite</p>
+                        <p className="mt-1 leading-relaxed">
+                            Submitting registration as{' '}
+                            <strong>
+                                {waitlistInviteName?.trim()
+                                    ? `${waitlistInviteName.trim()} (${waitlistInviteEmail || userEmail})`
+                                    : (waitlistInviteEmail || userEmail)}
+                            </strong>
+                            .
+                        </p>
+                    </div>
+                )}
+
                 {/* Step indicator */}
                 <StepIndicator currentStep={step} type={registrationType} userEmail={userEmail} allowGroupRegistration={allowGroupRegistration} />
 
@@ -1554,6 +1587,7 @@ export default function RegistrationFlow({
                     {step === 'group-members' && (
                         <GroupMembersStep
                             initialEmails={groupEmails}
+                            leadEmail={userEmail}
                             onBack={handleBack}
                             onContinue={handleGroupContinue}
                         />

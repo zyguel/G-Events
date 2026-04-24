@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { CheckCircle, Mail, Check, X } from "lucide-react";
+import AdminLoading from "@/components/admin/AdminLoading";
 import { getOrderConfirmationSettings, saveOrderConfirmationSettings } from "@/lib/actions/orderConfirmation";
 import type { OrderConfirmationData } from "@/lib/orderConfirmationSettings";
 
@@ -38,6 +39,12 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
     });
 
     const [isLoading, setIsLoading] = useState(true);
+    const [initialData, setInitialData] = useState<OrderConfirmationData | null>(null);
+    const [noChangeStates, setNoChangeStates] = useState({
+        submissionEmail: false,
+        confirmationEmail: false,
+        rejectionEmail: false,
+    });
 
     // Fetch initial data
     useEffect(() => {
@@ -48,6 +55,15 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                 // If data exists, populate the form
                 if (fetchedData) {
                     setData(fetchedData);
+                    setInitialData(fetchedData);
+                } else {
+                    setInitialData({
+                        submissionMessage: "",
+                        submissionEmail: { subject: "", body: "" },
+                        confirmationEmail: { subject: "", body: "" },
+                        rejectionEmail: { subject: "", body: "" },
+                        freeTicketApprovalMode: "manual",
+                    });
                 }
             } catch (error) {
                 console.error("Failed to load settings:", error);
@@ -61,9 +77,36 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
         }
     }, [eventId]);
 
+    const hasSectionChanged = (type: 'submission' | 'confirmation' | 'rejection') => {
+        if (!initialData) {
+            return false;
+        }
+
+        if (type === 'submission') {
+            return data.submissionEmail.subject !== initialData.submissionEmail.subject
+                || data.submissionEmail.body !== initialData.submissionEmail.body;
+        }
+
+        if (type === 'confirmation') {
+            return data.confirmationEmail.subject !== initialData.confirmationEmail.subject
+                || data.confirmationEmail.body !== initialData.confirmationEmail.body;
+        }
+
+        return data.rejectionEmail.subject !== initialData.rejectionEmail.subject
+            || data.rejectionEmail.body !== initialData.rejectionEmail.body;
+    };
+
     const handleSaveEmail = async (type: 'submission' | 'confirmation' | 'rejection') => {
+        if (!hasSectionChanged(type)) {
+            const key = `${type}Email` as keyof typeof noChangeStates;
+            setNoChangeStates((prev) => ({ ...prev, [key]: true }));
+            setTimeout(() => setNoChangeStates((prev) => ({ ...prev, [key]: false })), 3000);
+            return;
+        }
+
         try {
             await saveOrderConfirmationSettings(parseInt(eventId, 10), data);
+            setInitialData(data);
             const key = `${type}Email` as keyof typeof savedStates;
             setSavedStates((prev) => ({ ...prev, [key]: true }));
             setTimeout(() => setSavedStates((prev) => ({ ...prev, [key]: false })), 3000);
@@ -73,11 +116,7 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
     };
 
     if (isLoading) {
-        return (
-            <div className="max-w-5xl mx-auto p-8 space-y-6 pb-20 font-sans flex items-center justify-center min-h-[50vh]">
-                <div className="w-8 h-8 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></div>
-            </div>
-        )
+        return <AdminLoading message="Loading Order Confirmation..." />;
     }
 
     return (
@@ -134,6 +173,11 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         />
                     </div>
                     <div className="flex items-center justify-end gap-3">
+                        {noChangeStates.submissionEmail && (
+                            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                                No changes to save.
+                            </span>
+                        )}
                         {savedStates.submissionEmail && (
                             <span className="text-sm text-green-600 dark:text-green-400 font-medium">
                                 ✓ Changes saved
@@ -186,6 +230,11 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         />
                     </div>
                     <div className="flex items-center justify-end gap-3">
+                        {noChangeStates.confirmationEmail && (
+                            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                                No changes to save.
+                            </span>
+                        )}
                         {savedStates.confirmationEmail && (
                             <span className="text-sm text-green-600 dark:text-green-400 font-medium">
                                 ✓ Changes saved
@@ -238,6 +287,11 @@ export default function OrderConfirmation({ eventId }: { eventId: string }) {
                         />
                     </div>
                     <div className="flex items-center justify-end gap-3">
+                        {noChangeStates.rejectionEmail && (
+                            <span className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                                No changes to save.
+                            </span>
+                        )}
                         {savedStates.rejectionEmail && (
                             <span className="text-sm text-green-600 dark:text-green-400 font-medium">
                                 ✓ Changes saved

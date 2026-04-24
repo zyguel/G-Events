@@ -417,6 +417,18 @@ export async function deleteRole(roleId: number, organizationId?: number): Promi
     const { data: roleData, error: roleLookupError } = await orgScopedRoleIdsQuery.limit(1).single();
     if (roleLookupError || !roleData) throw roleLookupError ?? new Error('Role not found');
 
+    // Check if any users are assigned to this role
+    const { count, error: userCountError } = await supabase
+        .from('OrganizationUserRole')
+        .select('id', { count: 'exact', head: true })
+        .eq('organization_role_id', roleId);
+
+    if (userCountError) throw userCountError;
+
+    if (count && count > 0) {
+        throw new Error(`Cannot delete this role because it is currently assigned to ${count} team member(s). Please reassign them before deleting.`);
+    }
+
     // Delete role permissions first
     await supabase
         .from('OrganizationRolePermission')
@@ -582,9 +594,9 @@ export async function createEvent(
     if (error) throw error;
 
     try {
-      await logAuditEntry('Event', data.id, 'create', { before: null, after: data });
+        await logAuditEntry('Event', data.id, 'create', { before: null, after: data });
     } catch (e) {
-      console.warn('Event audit log failed:', e);
+        console.warn('Event audit log failed:', e);
     }
 
     return data;
@@ -716,23 +728,23 @@ export async function updateEvent(
         confirmation_page_message: string;
         confirmation_email_subject: string;
         confirmation_email_body: string;
-                objectives: unknown[];
-                theme: string;
-        }>,
-        organizationId?: number
+        objectives: unknown[];
+        theme: string;
+    }>,
+    organizationId?: number
 ) {
     const supabase = await getSupabase();
 
-        let beforeQuery = supabase
-            .from('Event')
-            .select('*')
-            .eq('id', eventId);
+    let beforeQuery = supabase
+        .from('Event')
+        .select('*')
+        .eq('id', eventId);
 
-        if (typeof organizationId === 'number') {
-            beforeQuery = beforeQuery.eq('organization_id', organizationId);
-        }
+    if (typeof organizationId === 'number') {
+        beforeQuery = beforeQuery.eq('organization_id', organizationId);
+    }
 
-        const { data: beforeData, error: beforeError } = await beforeQuery.single();
+    const { data: beforeData, error: beforeError } = await beforeQuery.single();
 
     if (beforeError) throw beforeError;
 
@@ -762,9 +774,9 @@ export async function updateEvent(
     });
 
     try {
-      await logAuditEntry('Event', eventId, 'update', { before: beforeData, after: fields });
+        await logAuditEntry('Event', eventId, 'update', { before: beforeData, after: fields });
     } catch (e) {
-      console.warn('Event audit log failed:', e);
+        console.warn('Event audit log failed:', e);
     }
 }
 
@@ -798,9 +810,9 @@ export async function deleteEvent(eventId: number, organizationId?: number) {
     if (error) throw error;
 
     try {
-      await logAuditEntry('Event', eventId, 'delete', { before: beforeData, after: null });
+        await logAuditEntry('Event', eventId, 'delete', { before: beforeData, after: null });
     } catch (e) {
-      console.warn('Event audit log failed:', e);
+        console.warn('Event audit log failed:', e);
     }
 }
 
@@ -871,11 +883,260 @@ export async function getTicket(ticketId: number) {
 class TicketValidationError extends Error {
     statusCode: number;
 
-    constructor(message: string) {
+    constructor(message: string, statusCode = 400) {
         super(message);
         this.name = 'TicketValidationError';
-        this.statusCode = 400;
+        this.statusCode = statusCode;
     }
+}
+
+class AddOnValidationError extends Error {
+    statusCode: number;
+
+    constructor(message: string, statusCode = 400) {
+        super(message);
+        this.name = 'AddOnValidationError';
+        this.statusCode = statusCode;
+    }
+}
+
+class PromotionValidationError extends Error {
+    statusCode: number;
+
+    constructor(message: string, statusCode = 400) {
+        super(message);
+        this.name = 'PromotionValidationError';
+        this.statusCode = statusCode;
+    }
+}
+
+const PROMOTION_CODE_PATTERN = /^[A-Z0-9_-]+$/;
+const PROMOTION_DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const ADD_ON_NAME_MAX_LENGTH = 23;
+const ADD_ON_DESCRIPTION_MAX_LENGTH = 256;
+const ADD_ON_VARIANT_LABEL_MAX_LENGTH = 30;
+const ADD_ON_VARIANT_STOCK_MAX = 1_000_000;
+const ADD_ON_VARIANT_LABEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,'&()_/-]*$/;
+
+function normalizePromotionCode(value: unknown): string {
+    return String(value || '').trim().toUpperCase();
+}
+
+function normalizePromotionDateTime(value: unknown, fieldLabel: string): string | null | undefined {
+    if (value === undefined) return undefined;
+    if (value === null) return null;
+    if (typeof value !== 'string') {
+        throw new PromotionValidationError(`Invalid ${fieldLabel}.`);
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const normalized = PROMOTION_DATE_ONLY_PATTERN.test(trimmed)
+        ? `${trimmed}T00:00`
+        : trimmed;
+
+    const parsed = parseTicketDateTime(normalized);
+    if (!parsed) {
+        throw new PromotionValidationError(`Invalid ${fieldLabel}.`);
+    }
+
+    return normalized;
+}
+
+function normalizePromotionTicketIds(ticketIds?: number[]): number[] | undefined {
+    if (ticketIds === undefined) return undefined;
+    if (!Array.isArray(ticketIds)) {
+        throw new PromotionValidationError('Invalid ticket selection.');
+    }
+
+    const normalized = ticketIds.map((id) => Number(id));
+    const hasInvalid = normalized.some((id) => !Number.isInteger(id) || id <= 0);
+    if (hasInvalid) {
+        throw new PromotionValidationError('Invalid ticket selection.');
+    }
+
+    return Array.from(new Set(normalized));
+}
+
+function normalizeAddOnTicketIds(ticketIds?: number[]): number[] | undefined {
+    if (ticketIds === undefined) return undefined;
+    if (!Array.isArray(ticketIds)) {
+        throw new AddOnValidationError('Invalid ticket selection.');
+    }
+
+    const normalized = ticketIds.map((id) => Number(id));
+    const hasInvalid = normalized.some((id) => !Number.isInteger(id) || id <= 0);
+    if (hasInvalid) {
+        throw new AddOnValidationError('Invalid ticket selection.');
+    }
+
+    return Array.from(new Set(normalized));
+}
+
+function isPermissionOrRlsError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+
+    const code = String((error as { code?: unknown }).code ?? '').toUpperCase();
+    if (code === '42501') {
+        return true;
+    }
+
+    const message = String((error as { message?: unknown }).message ?? '').toLowerCase();
+    return message.includes('row-level security') || message.includes('permission denied');
+}
+
+async function getAddOnTicketMutationClient(fallbackClient: SupabaseClient): Promise<SupabaseClient> {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        return fallbackClient;
+    }
+
+    return await createAdminClient();
+}
+
+function throwAddOnTicketScopeWriteError(error: unknown): never {
+    if (isPermissionOrRlsError(error)) {
+        throw new AddOnValidationError(
+            'Failed to update add-on ticket scope due database permissions. Run the AddOnTicket grants/policies migration.',
+            500,
+        );
+    }
+
+    throw error;
+}
+
+function normalizeComparableText(value: unknown): string {
+    if (typeof value !== 'string') return '';
+    return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function normalizeVariantCode(value: unknown): string {
+    if (typeof value !== 'string') return '';
+    return value
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+}
+
+async function ensureUniqueTicketName(
+    supabase: SupabaseClient,
+    eventId: number,
+    ticketName: string,
+    excludeTicketId?: number,
+): Promise<void> {
+    const normalizedCandidate = normalizeComparableText(ticketName);
+    if (!normalizedCandidate) {
+        throw new TicketValidationError('Ticket name is required.');
+    }
+
+    const { data, error } = await supabase
+        .from('Ticket')
+        .select('id, name, is_deleted')
+        .eq('event_id', eventId);
+
+    if (error) throw error;
+
+    const conflictingTicket = (data || []).find((row: { id: number | string; name: string | null; is_deleted: boolean | null }) => {
+        const rowId = Number(row.id);
+        if (Number.isFinite(excludeTicketId) && rowId === excludeTicketId) {
+            return false;
+        }
+
+        if (row.is_deleted === true) {
+            return false;
+        }
+
+        return normalizeComparableText(row.name) === normalizedCandidate;
+    });
+
+    if (conflictingTicket) {
+        throw new TicketValidationError('A ticket with this name already exists for this event.', 409);
+    }
+}
+
+async function ensureUniqueAddOnName(
+    supabase: SupabaseClient,
+    eventId: number,
+    addOnName: string,
+    excludeAddOnId?: number,
+): Promise<void> {
+    const normalizedCandidate = normalizeComparableText(addOnName);
+    if (!normalizedCandidate) {
+        throw new AddOnValidationError('Add-on name is required.');
+    }
+
+    const { data, error } = await supabase
+        .from('AddOn')
+        .select('id, name')
+        .eq('event_id', eventId);
+
+    if (error) throw error;
+
+    const conflictingAddOn = (data || []).find((row: { id: number | string; name: string | null }) => {
+        const rowId = Number(row.id);
+        if (Number.isFinite(excludeAddOnId) && rowId === excludeAddOnId) {
+            return false;
+        }
+
+        return normalizeComparableText(row.name) === normalizedCandidate;
+    });
+
+    if (conflictingAddOn) {
+        throw new AddOnValidationError('An add-on with this name already exists for this event.', 409);
+    }
+}
+
+function normalizeAndValidateAddOnVariants(
+    variants?: { id?: number; code: string; label: string; stock_total: number }[]
+) {
+    if (variants === undefined) return undefined;
+
+    const seenLabels = new Set<string>();
+    const seenCodes = new Set<string>();
+
+    return variants.map((variant, index) => {
+        const label = typeof variant.label === 'string' ? variant.label.trim() : '';
+        const stockTotal = Number(variant.stock_total);
+
+        if (!label) {
+            throw new AddOnValidationError('Add-on variant label is required.');
+        }
+
+        if (label.length > ADD_ON_VARIANT_LABEL_MAX_LENGTH) {
+            throw new AddOnValidationError(`Add-on variant label must be at most ${ADD_ON_VARIANT_LABEL_MAX_LENGTH} characters.`);
+        }
+
+        if (!ADD_ON_VARIANT_LABEL_PATTERN.test(label)) {
+            throw new AddOnValidationError("Add-on variant label contains unsupported characters.");
+        }
+
+        if (!Number.isInteger(stockTotal) || stockTotal <= 0 || stockTotal > ADD_ON_VARIANT_STOCK_MAX) {
+            throw new AddOnValidationError(`Add-on variant stock must be between 1 and ${ADD_ON_VARIANT_STOCK_MAX.toLocaleString()}.`);
+        }
+
+        const normalizedLabel = normalizeComparableText(label);
+        if (seenLabels.has(normalizedLabel)) {
+            throw new AddOnValidationError('Add-on variant labels must be unique.', 409);
+        }
+        seenLabels.add(normalizedLabel);
+
+        const fallbackCode = `variant_${index + 1}`;
+        const inputCode = variant.code && String(variant.code).trim().length > 0 ? variant.code : label;
+        const normalizedCode = normalizeVariantCode(inputCode) || fallbackCode;
+
+        if (seenCodes.has(normalizedCode)) {
+            throw new AddOnValidationError('Add-on variants must have unique codes.', 409);
+        }
+        seenCodes.add(normalizedCode);
+
+        return {
+            ...variant,
+            label,
+            code: normalizedCode,
+            stock_total: stockTotal,
+        };
+    });
 }
 
 function parseTicketDateTime(value: string | null | undefined): Date | null {
@@ -945,6 +1206,9 @@ export async function createTicket(
 ) {
     const supabase = await getSupabase();
 
+    const ticketName = String(fields.name || '').trim();
+    await ensureUniqueTicketName(supabase, eventId, ticketName);
+
     await validateTicketSellingWindow(
         supabase,
         eventId,
@@ -961,6 +1225,7 @@ export async function createTicket(
 
     const insertFields = {
         ...fields,
+        name: ticketName,
         free_ticket_approval_mode: normalizedFreeTicketApprovalMode,
     };
 
@@ -970,12 +1235,17 @@ export async function createTicket(
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        if ((error as { code?: string }).code === '23505') {
+            throw new TicketValidationError('A ticket with this name already exists for this event.', 409);
+        }
+        throw error;
+    }
 
     try {
-      await logAuditEntry('Ticket', data.id, 'create', { before: null, after: data });
+        await logAuditEntry('Ticket', data.id, 'create', { before: null, after: data });
     } catch (e) {
-      console.warn('Ticket audit log failed:', e);
+        console.warn('Ticket audit log failed:', e);
     }
 
     return data;
@@ -1022,12 +1292,18 @@ export async function updateTicket(
         Object.prototype.hasOwnProperty.call(normalizedFields, 'selling_start_at')
         || Object.prototype.hasOwnProperty.call(normalizedFields, 'selling_end_at');
 
-    if (shouldValidateSellingWindow) {
-        const eventId = Number(beforeData.event_id);
-        if (!Number.isFinite(eventId)) {
-            throw new TicketValidationError('Ticket is not linked to a valid event.');
-        }
+    const eventId = Number(beforeData.event_id);
+    if (!Number.isFinite(eventId)) {
+        throw new TicketValidationError('Ticket is not linked to a valid event.');
+    }
 
+    if (typeof normalizedFields.name === 'string') {
+        const nextName = normalizedFields.name.trim();
+        await ensureUniqueTicketName(supabase, eventId, nextName, ticketId);
+        normalizedFields.name = nextName;
+    }
+
+    if (shouldValidateSellingWindow) {
         await validateTicketSellingWindow(
             supabase,
             eventId,
@@ -1043,12 +1319,17 @@ export async function updateTicket(
         .select()
         .single();
 
-    if (error) throw error;
+    if (error) {
+        if ((error as { code?: string }).code === '23505') {
+            throw new TicketValidationError('A ticket with this name already exists for this event.', 409);
+        }
+        throw error;
+    }
 
     try {
-      await logAuditEntry('Ticket', ticketId, 'update', { before: beforeData, after: data });
+        await logAuditEntry('Ticket', ticketId, 'update', { before: beforeData, after: data });
     } catch (e) {
-      console.warn('Ticket audit log failed:', e);
+        console.warn('Ticket audit log failed:', e);
     }
 
     return data;
@@ -1089,40 +1370,40 @@ export async function deleteTicket(ticketId: number, eventId?: number) {
     if (error) throw error;
 
     try {
-      await logAuditEntry('Ticket', ticketId, 'delete', { before: beforeData, after: null });
+        await logAuditEntry('Ticket', ticketId, 'delete', { before: beforeData, after: null });
     } catch (e) {
-      console.warn('Ticket audit log failed:', e);
+        console.warn('Ticket audit log failed:', e);
     }
 }
 
 export async function restoreTicket(ticketId: number, eventId?: number) {
-        const supabase = await getSupabase();
+    const supabase = await getSupabase();
 
-        let restoreQuery = supabase
-                .from('Ticket')
-                .update({
-                        is_deleted: false,
-                        deleted_at: null,
-                })
-                .eq('id', ticketId);
+    let restoreQuery = supabase
+        .from('Ticket')
+        .update({
+            is_deleted: false,
+            deleted_at: null,
+        })
+        .eq('id', ticketId);
 
-        if (typeof eventId === 'number' && !Number.isNaN(eventId)) {
-                restoreQuery = restoreQuery.eq('event_id', eventId);
-        }
+    if (typeof eventId === 'number' && !Number.isNaN(eventId)) {
+        restoreQuery = restoreQuery.eq('event_id', eventId);
+    }
 
-        const { data, error } = await restoreQuery
-                .select()
-                .single();
+    const { data, error } = await restoreQuery
+        .select()
+        .single();
 
-        if (error) throw error;
+    if (error) throw error;
 
-        try {
-            await logAuditEntry('Ticket', ticketId, 'update', { before: null, after: data });
-        } catch (e) {
-            console.warn('Ticket audit log failed:', e);
-        }
+    try {
+        await logAuditEntry('Ticket', ticketId, 'update', { before: null, after: data });
+    } catch (e) {
+        console.warn('Ticket audit log failed:', e);
+    }
 
-        return data;
+    return data;
 }
 
 // ─── Add-Ons ──────────────────────────────────────────────────────────────────
@@ -1134,12 +1415,50 @@ export async function getAddOns(eventId: number) {
         .from('AddOn')
         .select(`
             *,
-            AddOnVariant (*)
+            AddOnVariant (*),
+            AddOnTicket (
+                ticket_id
+            )
         `)
         .eq('event_id', eventId)
         .order('id', { ascending: true });
 
     if (error) throw error;
+
+    // Fetch actual redemption counts for all variants
+    const variantIds = (data || []).flatMap((a: any) => a.AddOnVariant?.map((v: any) => v.id) || []);
+    
+    if (variantIds.length > 0) {
+        const { data: redemptions, error: redemptionError } = await supabase
+            .from('AddOnRedemption')
+            .select('add_on_variant_id, qty')
+            .in('add_on_variant_id', variantIds);
+
+        if (redemptionError) {
+            console.warn('Failed to fetch redemption counts:', redemptionError);
+        } else {
+            // Calculate actual redeemed counts per variant
+            const redeemedCounts = new Map<number, number>();
+            if (redemptions) {
+                for (const r of redemptions) {
+                    const current = redeemedCounts.get(r.add_on_variant_id) || 0;
+                    redeemedCounts.set(r.add_on_variant_id, current + (r.qty || 0));
+                }
+            }
+
+            // Attach actual redeemed counts to variants
+            if (data) {
+                for (const addOn of data) {
+                    if (addOn.AddOnVariant) {
+                        for (const variant of addOn.AddOnVariant) {
+                            variant.actual_redeemed = redeemedCounts.get(variant.id) || 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     return data || [];
 }
 
@@ -1150,7 +1469,10 @@ export async function getAddOn(addOnId: number) {
         .from('AddOn')
         .select(`
             *,
-            AddOnVariant (*)
+            AddOnVariant (*),
+            AddOnTicket (
+                ticket_id
+            )
         `)
         .eq('id', addOnId)
         .single();
@@ -1167,26 +1489,62 @@ export async function createAddOn(
         image_path?: string;
         has_variants?: boolean;
     },
-    variants?: { code: string; label: string; stock_total: number }[]
+    variants?: { code: string; label: string; stock_total: number }[],
+    ticketIds?: number[]
 ) {
     const supabase = await getSupabase();
+    const addOnTicketClient = await getAddOnTicketMutationClient(supabase);
+
+    const normalizedName = String(fields.name || '').trim();
+    if (!normalizedName) {
+        throw new AddOnValidationError('Add-on name is required.');
+    }
+    if (normalizedName.length > ADD_ON_NAME_MAX_LENGTH) {
+        throw new AddOnValidationError(`Add-on name must be at most ${ADD_ON_NAME_MAX_LENGTH} characters.`);
+    }
+
+    const normalizedDescription = typeof fields.description === 'string' ? fields.description.trim() : '';
+    if (!normalizedDescription) {
+        throw new AddOnValidationError('Add-on description is required.');
+    }
+    if (normalizedDescription.length > ADD_ON_DESCRIPTION_MAX_LENGTH) {
+        throw new AddOnValidationError(`Add-on description must be at most ${ADD_ON_DESCRIPTION_MAX_LENGTH} characters.`);
+    }
+
+    const normalizedVariants = normalizeAndValidateAddOnVariants(variants);
+    const normalizedTicketIds = normalizeAddOnTicketIds(ticketIds);
+    if (!normalizedVariants || normalizedVariants.length === 0) {
+        throw new AddOnValidationError('Add-on quantity must be greater than 0.');
+    }
+    await ensureUniqueAddOnName(supabase, eventId, normalizedName);
+
+    const normalizedFields = {
+        ...fields,
+        name: normalizedName,
+        description: normalizedDescription,
+    };
 
     const { data: addOn, error: addOnError } = await supabase
         .from('AddOn')
-        .insert([{ event_id: eventId, ...fields }])
+        .insert([{ event_id: eventId, ...normalizedFields }])
         .select()
         .single();
 
-    if (addOnError) throw addOnError;
-
-    try {
-      await logAuditEntry('AddOn', addOn.id, 'create', { before: null, after: addOn });
-    } catch (e) {
-      console.warn('AddOn audit log failed:', e);
+    if (addOnError) {
+        if ((addOnError as { code?: string }).code === '23505') {
+            throw new AddOnValidationError('An add-on with this name already exists for this event.', 409);
+        }
+        throw addOnError;
     }
 
-    if (variants && variants.length > 0) {
-        const variantRows = variants.map((v) => ({
+    try {
+        await logAuditEntry('AddOn', addOn.id, 'create', { before: null, after: addOn });
+    } catch (e) {
+        console.warn('AddOn audit log failed:', e);
+    }
+
+    if (normalizedVariants && normalizedVariants.length > 0) {
+        const variantRows = normalizedVariants.map((v) => ({
             add_on_id: addOn.id,
             code: v.code,
             label: v.label,
@@ -1197,7 +1555,27 @@ export async function createAddOn(
             .from('AddOnVariant')
             .insert(variantRows);
 
-        if (varError) throw varError;
+        if (varError) {
+            if ((varError as { code?: string }).code === '23505') {
+                throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
+            }
+            throw varError;
+        }
+    }
+
+    if (normalizedTicketIds && normalizedTicketIds.length > 0) {
+        const ticketRows = normalizedTicketIds.map((ticketId) => ({
+            add_on_id: addOn.id,
+            ticket_id: ticketId,
+        }));
+
+        const { error: addOnTicketError } = await addOnTicketClient
+            .from('AddOnTicket')
+            .insert(ticketRows);
+
+        if (addOnTicketError) {
+            throwAddOnTicketScopeWriteError(addOnTicketError);
+        }
     }
 
     // Re-fetch with variants
@@ -1212,9 +1590,11 @@ export async function updateAddOn(
         image_path: string;
         has_variants: boolean;
     }>,
-    variants?: { id?: number; code: string; label: string; stock_total: number }[]
+    variants?: { id?: number; code: string; label: string; stock_total: number }[],
+    ticketIds?: number[]
 ) {
     const supabase = await getSupabase();
+    const addOnTicketClient = await getAddOnTicketMutationClient(supabase);
 
     const { data: beforeData, error: beforeError } = await supabase
         .from('AddOn')
@@ -1223,42 +1603,224 @@ export async function updateAddOn(
         .single();
     if (beforeError) throw beforeError;
 
+    const eventId = Number(beforeData.event_id);
+    if (!Number.isFinite(eventId)) {
+        throw new AddOnValidationError('Add-on is not linked to a valid event.');
+    }
+
+    const normalizedFields = { ...fields };
+    if (typeof normalizedFields.name === 'string') {
+        const nextName = normalizedFields.name.trim();
+        if (nextName.length > ADD_ON_NAME_MAX_LENGTH) {
+            throw new AddOnValidationError(`Add-on name must be at most ${ADD_ON_NAME_MAX_LENGTH} characters.`);
+        }
+        await ensureUniqueAddOnName(supabase, eventId, nextName, addOnId);
+        normalizedFields.name = nextName;
+    }
+
+    if (typeof normalizedFields.description === 'string') {
+        const nextDescription = normalizedFields.description.trim();
+        if (!nextDescription) {
+            throw new AddOnValidationError('Add-on description is required.');
+        }
+        if (nextDescription.length > ADD_ON_DESCRIPTION_MAX_LENGTH) {
+            throw new AddOnValidationError(`Add-on description must be at most ${ADD_ON_DESCRIPTION_MAX_LENGTH} characters.`);
+        }
+        normalizedFields.description = nextDescription;
+    }
+
+    const normalizedVariants = normalizeAndValidateAddOnVariants(variants);
+    const normalizedTicketIds = normalizeAddOnTicketIds(ticketIds);
+    if (normalizedVariants !== undefined && normalizedVariants.length === 0) {
+        throw new AddOnValidationError('Add-on quantity must be greater than 0.');
+    }
+
     const { error: addOnError } = await supabase
         .from('AddOn')
-        .update(fields)
+        .update(normalizedFields)
         .eq('id', addOnId);
 
-    if (addOnError) throw addOnError;
+    if (addOnError) {
+        if ((addOnError as { code?: string }).code === '23505') {
+            throw new AddOnValidationError('An add-on with this name already exists for this event.', 409);
+        }
+        throw addOnError;
+    }
 
     const updatedAddOn = await getAddOn(addOnId);
     try {
-      await logAuditEntry('AddOn', addOnId, 'update', { before: beforeData, after: updatedAddOn });
+        await logAuditEntry('AddOn', addOnId, 'update', { before: beforeData, after: updatedAddOn });
     } catch (e) {
-      console.warn('AddOn audit log failed:', e);
+        console.warn('AddOn audit log failed:', e);
     }
 
-    // If variants are provided, replace them
-    if (variants !== undefined) {
-        // Delete existing variants
-        await supabase
+    // If variants are provided, update them in place when possible.
+    // Replacing (delete + insert) can fail for in-use variants that are referenced
+    // by entitlement/redemption rows, and can also surface duplicate-key conflicts.
+    if (normalizedVariants !== undefined) {
+        const { data: existingVariantRows, error: existingVariantError } = await supabase
             .from('AddOnVariant')
+            .select('id, code, label')
+            .eq('add_on_id', addOnId);
+
+        if (existingVariantError) throw existingVariantError;
+
+        const existingVariantIds = new Set(
+            ((existingVariantRows as Array<{ id: number | null; code?: string | null; label?: string | null }> | null) || [])
+                .map((row) => Number(row.id))
+                .filter((id) => Number.isInteger(id) && id > 0)
+        );
+        const existingVariantIdByCode = new Map<string, number>();
+        const existingVariantIdByLabel = new Map<string, number>();
+        for (const row of ((existingVariantRows as Array<{ id: number | null; code?: string | null; label?: string | null }> | null) || [])) {
+            const rowId = Number(row.id);
+            if (!Number.isInteger(rowId) || rowId <= 0) continue;
+
+            const normalizedCode = normalizeVariantCode(row.code);
+            if (normalizedCode) {
+                existingVariantIdByCode.set(normalizedCode, rowId);
+            }
+
+            const normalizedLabel = normalizeComparableText(row.label);
+            if (normalizedLabel) {
+                existingVariantIdByLabel.set(normalizedLabel, rowId);
+            }
+        }
+
+        const seenIncomingVariantIds = new Set<number>();
+
+        for (const variant of normalizedVariants) {
+            const variantCode = normalizeVariantCode(variant.code);
+            const variantLabel = normalizeComparableText(variant.label);
+
+            const requestedId = Number(variant.id);
+            const idFromCode = variantCode ? existingVariantIdByCode.get(variantCode) : undefined;
+            const idFromLabel = variantLabel ? existingVariantIdByLabel.get(variantLabel) : undefined;
+            const matchedIdFromCode =
+                typeof idFromCode === 'number' &&
+                    Number.isInteger(idFromCode) &&
+                    existingVariantIds.has(idFromCode)
+                    ? idFromCode
+                    : undefined;
+            const matchedIdFromLabel =
+                typeof idFromLabel === 'number' &&
+                    Number.isInteger(idFromLabel) &&
+                    existingVariantIds.has(idFromLabel)
+                    ? idFromLabel
+                    : undefined;
+            const maybeExistingId =
+                Number.isInteger(requestedId) && existingVariantIds.has(requestedId)
+                    ? requestedId
+                    : typeof matchedIdFromCode === 'number'
+                        ? matchedIdFromCode
+                        : typeof matchedIdFromLabel === 'number'
+                            ? matchedIdFromLabel
+                            : NaN;
+            const hasExistingId = Number.isInteger(maybeExistingId) && existingVariantIds.has(maybeExistingId);
+
+            if (hasExistingId) {
+                if (seenIncomingVariantIds.has(maybeExistingId)) {
+                    throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
+                }
+                seenIncomingVariantIds.add(maybeExistingId);
+
+                const { error: variantUpdateError } = await supabase
+                    .from('AddOnVariant')
+                    .update({
+                        code: variant.code,
+                        label: variant.label,
+                        stock_total: variant.stock_total,
+                    })
+                    .eq('id', maybeExistingId)
+                    .eq('add_on_id', addOnId);
+
+                if (variantUpdateError) {
+                    if ((variantUpdateError as { code?: string }).code === '23505') {
+                        throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
+                    }
+                    throw variantUpdateError;
+                }
+                continue;
+            }
+
+            const { error: variantInsertError } = await supabase
+                .from('AddOnVariant')
+                .insert({
+                    add_on_id: addOnId,
+                    code: variant.code,
+                    label: variant.label,
+                    stock_total: variant.stock_total,
+                });
+
+            if (variantInsertError) {
+                if ((variantInsertError as { code?: string }).code === '23505') {
+                    throw new AddOnValidationError('Add-on variants must be unique. Please use different variant labels.', 409);
+                }
+                throw variantInsertError;
+            }
+        }
+
+        const removableVariantIds = Array.from(existingVariantIds).filter(
+            (id) => !seenIncomingVariantIds.has(id)
+        );
+        if (removableVariantIds.length > 0) {
+            // Check which of these variants are still referenced by entitlements.
+            // We must not hard-delete them or the FK constraint will fire.
+            const { data: entitlementRefs } = await supabase
+                .from('AttendeeEntitlement')
+                .select('add_on_variant_id')
+                .in('add_on_variant_id', removableVariantIds);
+
+            const referencedIds = new Set(
+                (entitlementRefs ?? []).map((row: { add_on_variant_id: number }) => row.add_on_variant_id)
+            );
+
+            const safeToDelete = removableVariantIds.filter((id) => !referencedIds.has(id));
+
+            if (safeToDelete.length < removableVariantIds.length) {
+                throw new AddOnValidationError(
+                    'Cannot delete variants that have already been claimed by attendees. Please keep them to preserve attendee records.',
+                    409
+                );
+            }
+
+            if (safeToDelete.length > 0) {
+                const { error: variantDeleteError } = await supabase
+                    .from('AddOnVariant')
+                    .delete()
+                    .eq('add_on_id', addOnId)
+                    .in('id', safeToDelete);
+
+                if (variantDeleteError) {
+                    throw variantDeleteError;
+                }
+            }
+        }
+    }
+
+    if (normalizedTicketIds !== undefined) {
+        const { error: addOnTicketDeleteError } = await addOnTicketClient
+            .from('AddOnTicket')
             .delete()
             .eq('add_on_id', addOnId);
 
-        // Insert new variants
-        if (variants.length > 0) {
-            const variantRows = variants.map((v) => ({
+        if (addOnTicketDeleteError) {
+            throwAddOnTicketScopeWriteError(addOnTicketDeleteError);
+        }
+
+        if (normalizedTicketIds.length > 0) {
+            const ticketRows = normalizedTicketIds.map((ticketId) => ({
                 add_on_id: addOnId,
-                code: v.code,
-                label: v.label,
-                stock_total: v.stock_total,
+                ticket_id: ticketId,
             }));
 
-            const { error: varError } = await supabase
-                .from('AddOnVariant')
-                .insert(variantRows);
+            const { error: addOnTicketError } = await addOnTicketClient
+                .from('AddOnTicket')
+                .insert(ticketRows);
 
-            if (varError) throw varError;
+            if (addOnTicketError) {
+                throwAddOnTicketScopeWriteError(addOnTicketError);
+            }
         }
     }
 
@@ -1267,6 +1829,7 @@ export async function updateAddOn(
 
 export async function deleteAddOn(addOnId: number) {
     const supabase = await getSupabase();
+    const addOnTicketClient = await getAddOnTicketMutationClient(supabase);
 
     const { data: beforeData, error: beforeError } = await supabase
         .from('AddOn')
@@ -1274,6 +1837,16 @@ export async function deleteAddOn(addOnId: number) {
         .eq('id', addOnId)
         .single();
     if (beforeError) throw beforeError;
+
+    // Delete ticket associations first (FK constraint)
+    const { error: addOnTicketDeleteError } = await addOnTicketClient
+        .from('AddOnTicket')
+        .delete()
+        .eq('add_on_id', addOnId);
+
+    if (addOnTicketDeleteError) {
+        throwAddOnTicketScopeWriteError(addOnTicketDeleteError);
+    }
 
     // Delete variants first (FK constraint)
     await supabase
@@ -1289,9 +1862,9 @@ export async function deleteAddOn(addOnId: number) {
     if (error) throw error;
 
     try {
-      await logAuditEntry('AddOn', addOnId, 'delete', { before: beforeData, after: null });
+        await logAuditEntry('AddOn', addOnId, 'delete', { before: beforeData, after: null });
     } catch (e) {
-      console.warn('AddOn audit log failed:', e);
+        console.warn('AddOn audit log failed:', e);
     }
 }
 
@@ -1342,24 +1915,109 @@ export async function createPromotion(
         discount_value: number;
         max_uses?: number;
         current_uses?: number;
-        start_at?: string;
-        end_at?: string;
+        start_at?: string | null;
+        end_at?: string | null;
         is_automatic?: boolean;
+        status?: 'active' | 'inactive';
     },
     ticketIds?: number[]
 ) {
     const supabase = await getSupabase();
 
+    const code = normalizePromotionCode(fields.code);
+    if (!code) {
+        throw new PromotionValidationError('Promotion code is required.');
+    }
+    if (!PROMOTION_CODE_PATTERN.test(code)) {
+        throw new PromotionValidationError('Promotion code must only contain letters, numbers, hyphens, or underscores.');
+    }
+
+    const discountType = fields.discount_type === 'fixed' || fields.discount_type === 'percentage'
+        ? fields.discount_type
+        : null;
+    if (!discountType) {
+        throw new PromotionValidationError('Discount type must be either fixed or percentage.');
+    }
+
+    const discountValue = Number(fields.discount_value);
+    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+        throw new PromotionValidationError('Discount value must be greater than 0.');
+    }
+    if (discountType === 'percentage' && discountValue > 100) {
+        throw new PromotionValidationError('Percentage discount cannot be greater than 100.');
+    }
+
+    const maxUses = fields.max_uses !== undefined ? Number(fields.max_uses) : undefined;
+    if (maxUses !== undefined && (!Number.isInteger(maxUses) || maxUses < 0)) {
+        throw new PromotionValidationError('Usage limit must be 0 or greater.');
+    }
+
+    const currentUses = fields.current_uses !== undefined ? Number(fields.current_uses) : 0;
+    if (!Number.isInteger(currentUses) || currentUses < 0) {
+        throw new PromotionValidationError('Current usage must be 0 or greater.');
+    }
+
+    const startAt = normalizePromotionDateTime(fields.start_at, 'promotion start date/time');
+    const endAt = normalizePromotionDateTime(fields.end_at, 'promotion end date/time');
+    const now = new Date();
+
+    let effectiveStartAt = startAt;
+    let effectiveEndAt = endAt;
+
+    if (fields.status === 'inactive') {
+        effectiveEndAt = now.toISOString();
+        if (effectiveStartAt === undefined || effectiveStartAt === null) {
+            effectiveStartAt = new Date(now.getTime() - 60_000).toISOString();
+        }
+    } else if (fields.status === 'active') {
+        const parsedStartAt = parseTicketDateTime(effectiveStartAt ?? undefined);
+        const parsedEndAt = parseTicketDateTime(effectiveEndAt ?? undefined);
+
+        if (parsedStartAt && parsedStartAt > now) {
+            effectiveStartAt = now.toISOString();
+        }
+
+        if (parsedEndAt && parsedEndAt <= now) {
+            effectiveEndAt = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+        }
+    }
+
+    const effectiveStartAtDate = parseTicketDateTime(effectiveStartAt ?? undefined);
+    const effectiveEndAtDate = parseTicketDateTime(effectiveEndAt ?? undefined);
+
+    if (effectiveStartAtDate && effectiveEndAtDate && effectiveStartAtDate >= effectiveEndAtDate) {
+        throw new PromotionValidationError('Promotion end date/time must be after the start date/time.');
+    }
+
+    if (maxUses !== undefined && maxUses > 0 && currentUses > maxUses) {
+        throw new PromotionValidationError('Current usage cannot exceed usage limit.');
+    }
+
+    const normalizedTicketIds = normalizePromotionTicketIds(ticketIds);
+
+    const promotionPayload = {
+        event_id: eventId,
+        name: fields.name?.trim() || code,
+        code,
+        discount_type: discountType,
+        discount_value: discountValue,
+        max_uses: maxUses,
+        current_uses: currentUses,
+        start_at: effectiveStartAt === undefined ? null : effectiveStartAt,
+        end_at: effectiveEndAt === undefined ? null : effectiveEndAt,
+        is_automatic: fields.is_automatic ?? false,
+    };
+
     const { data: promo, error: promoError } = await supabase
         .from('Promotion')
-        .insert([{ event_id: eventId, ...fields }])
+        .insert([promotionPayload])
         .select()
         .single();
 
     if (promoError) throw promoError;
 
-    if (ticketIds && ticketIds.length > 0) {
-        const rows = ticketIds.map((tid) => ({
+    if (normalizedTicketIds && normalizedTicketIds.length > 0) {
+        const rows = normalizedTicketIds.map((tid) => ({
             promotion_id: promo.id,
             ticket_id: tid,
         }));
@@ -1372,9 +2030,9 @@ export async function createPromotion(
     }
 
     try {
-      await logAuditEntry('Promotion', promo.id, 'create', { before: null, after: promo });
+        await logAuditEntry('Promotion', promo.id, 'create', { before: null, after: promo });
     } catch (e) {
-      console.warn('Promotion audit log failed:', e);
+        console.warn('Promotion audit log failed:', e);
     }
 
     return getPromotion(promo.id);
@@ -1389,24 +2047,185 @@ export async function updatePromotion(
         discount_value: number;
         max_uses: number;
         current_uses: number;
-        start_at: string;
-        end_at: string;
+        start_at: string | null;
+        end_at: string | null;
         is_automatic: boolean;
+        status: 'active' | 'inactive';
     }>,
     ticketIds?: number[]
 ) {
     const supabase = await getSupabase();
 
-    const { error: promoError } = await supabase
-        .from('Promotion')
-        .update(fields)
-        .eq('id', promotionId);
-
-    if (promoError) throw promoError;
-
     const beforePromotion = await getPromotion(promotionId);
 
-    if (ticketIds !== undefined) {
+    const normalizedFields: Partial<{
+        name: string;
+        code: string;
+        discount_type: 'fixed' | 'percentage';
+        discount_value: number;
+        max_uses: number;
+        current_uses: number;
+        start_at: string | null;
+        end_at: string | null;
+        is_automatic: boolean;
+        status: 'active' | 'inactive';
+    }> = {};
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'name')) {
+        normalizedFields.name = String(fields.name || '').trim();
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'code')) {
+        const normalizedCode = normalizePromotionCode(fields.code);
+        if (!normalizedCode) {
+            throw new PromotionValidationError('Promotion code is required.');
+        }
+        if (!PROMOTION_CODE_PATTERN.test(normalizedCode)) {
+            throw new PromotionValidationError('Promotion code must only contain letters, numbers, hyphens, or underscores.');
+        }
+        normalizedFields.code = normalizedCode;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'discount_type')) {
+        const discountType = fields.discount_type === 'fixed' || fields.discount_type === 'percentage'
+            ? fields.discount_type
+            : null;
+        if (!discountType) {
+            throw new PromotionValidationError('Discount type must be either fixed or percentage.');
+        }
+        normalizedFields.discount_type = discountType;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'discount_value')) {
+        const discountValue = Number(fields.discount_value);
+        if (!Number.isFinite(discountValue) || discountValue <= 0) {
+            throw new PromotionValidationError('Discount value must be greater than 0.');
+        }
+        normalizedFields.discount_value = discountValue;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'max_uses')) {
+        const maxUses = Number(fields.max_uses);
+        if (!Number.isInteger(maxUses) || maxUses < 0) {
+            throw new PromotionValidationError('Usage limit must be 0 or greater.');
+        }
+        normalizedFields.max_uses = maxUses;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'current_uses')) {
+        const currentUses = Number(fields.current_uses);
+        if (!Number.isInteger(currentUses) || currentUses < 0) {
+            throw new PromotionValidationError('Current usage must be 0 or greater.');
+        }
+        normalizedFields.current_uses = currentUses;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'start_at')) {
+        normalizedFields.start_at = normalizePromotionDateTime(fields.start_at, 'promotion start date/time') ?? null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'end_at')) {
+        normalizedFields.end_at = normalizePromotionDateTime(fields.end_at, 'promotion end date/time') ?? null;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'is_automatic')) {
+        normalizedFields.is_automatic = Boolean(fields.is_automatic);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(fields, 'status')) {
+        const nextStatus = fields.status;
+        if (nextStatus !== 'active' && nextStatus !== 'inactive') {
+            throw new PromotionValidationError('Promotion status must be active or inactive.');
+        }
+        normalizedFields.status = nextStatus;
+    }
+
+    const now = new Date();
+
+    if (normalizedFields.status === 'inactive') {
+        normalizedFields.end_at = now.toISOString();
+        const currentStartAt = normalizedFields.start_at ?? (beforePromotion.start_at as string | null);
+        if (!currentStartAt) {
+            normalizedFields.start_at = new Date(now.getTime() - 60_000).toISOString();
+        }
+    }
+
+    if (normalizedFields.status === 'active') {
+        const startCandidate = normalizedFields.start_at ?? (beforePromotion.start_at as string | null);
+        const endCandidate = normalizedFields.end_at ?? (beforePromotion.end_at as string | null);
+
+        const parsedStartCandidate = parseTicketDateTime(startCandidate ?? undefined);
+        const parsedEndCandidate = parseTicketDateTime(endCandidate ?? undefined);
+
+        if (parsedStartCandidate && parsedStartCandidate > now) {
+            normalizedFields.start_at = now.toISOString();
+        }
+
+        if (parsedEndCandidate && parsedEndCandidate <= now) {
+            normalizedFields.end_at = new Date(now.getTime() + 24 * 60 * 60 * 1000).toISOString();
+        }
+    }
+
+    const previousDiscountType: 'fixed' | 'percentage' =
+        beforePromotion.discount_type === 'fixed' ? 'fixed' : 'percentage';
+    const effectiveDiscountType: 'fixed' | 'percentage' = normalizedFields.discount_type ?? previousDiscountType;
+    const effectiveDiscountValue = normalizedFields.discount_value ?? Number(beforePromotion.discount_value ?? 0);
+    if (!Number.isFinite(effectiveDiscountValue) || effectiveDiscountValue <= 0) {
+        throw new PromotionValidationError('Discount value must be greater than 0.');
+    }
+    if (effectiveDiscountType === 'percentage' && effectiveDiscountValue > 100) {
+        throw new PromotionValidationError('Percentage discount cannot be greater than 100.');
+    }
+
+    const effectiveStartAt = normalizedFields.start_at ?? (beforePromotion.start_at as string | null);
+    const effectiveEndAt = normalizedFields.end_at ?? (beforePromotion.end_at as string | null);
+    const effectiveStartAtDate = parseTicketDateTime(effectiveStartAt ?? undefined);
+    const effectiveEndAtDate = parseTicketDateTime(effectiveEndAt ?? undefined);
+    if (effectiveStartAtDate && effectiveEndAtDate && effectiveStartAtDate >= effectiveEndAtDate) {
+        throw new PromotionValidationError('Promotion end date/time must be after the start date/time.');
+    }
+
+    const effectiveMaxUses = normalizedFields.max_uses ?? Number(beforePromotion.max_uses ?? 0);
+    const effectiveCurrentUses = normalizedFields.current_uses ?? Number(beforePromotion.current_uses ?? 0);
+    if (!Number.isInteger(effectiveMaxUses) || effectiveMaxUses < 0) {
+        throw new PromotionValidationError('Usage limit must be 0 or greater.');
+    }
+    if (!Number.isInteger(effectiveCurrentUses) || effectiveCurrentUses < 0) {
+        throw new PromotionValidationError('Current usage must be 0 or greater.');
+    }
+    if (effectiveMaxUses > 0 && effectiveCurrentUses > effectiveMaxUses) {
+        throw new PromotionValidationError('Current usage cannot exceed usage limit.');
+    }
+
+    const normalizedTicketIds = normalizePromotionTicketIds(ticketIds);
+
+    if (Object.keys(normalizedFields).length > 0) {
+        const promotionUpdateFields = {
+            ...normalizedFields,
+        } as Partial<{
+            name: string;
+            code: string;
+            discount_type: 'fixed' | 'percentage';
+            discount_value: number;
+            max_uses: number;
+            current_uses: number;
+            start_at: string | null;
+            end_at: string | null;
+            is_automatic: boolean;
+            status: 'active' | 'inactive';
+        }>;
+
+        delete promotionUpdateFields.status;
+
+        const { error: promoError } = await supabase
+            .from('Promotion')
+            .update(promotionUpdateFields)
+            .eq('id', promotionId);
+
+        if (promoError) throw promoError;
+    }
+
+    if (normalizedTicketIds !== undefined) {
         // Delete existing ticket associations
         await supabase
             .from('PromotionTicket')
@@ -1414,8 +2233,8 @@ export async function updatePromotion(
             .eq('promotion_id', promotionId);
 
         // Insert new associations
-        if (ticketIds.length > 0) {
-            const rows = ticketIds.map((tid) => ({
+        if (normalizedTicketIds.length > 0) {
+            const rows = normalizedTicketIds.map((tid) => ({
                 promotion_id: promotionId,
                 ticket_id: tid,
             }));
@@ -1431,9 +2250,9 @@ export async function updatePromotion(
     const updatedPromotion = await getPromotion(promotionId);
 
     try {
-      await logAuditEntry('Promotion', promotionId, 'update', { before: beforePromotion, after: updatedPromotion });
+        await logAuditEntry('Promotion', promotionId, 'update', { before: beforePromotion, after: updatedPromotion });
     } catch (e) {
-      console.warn('Promotion audit log failed:', e);
+        console.warn('Promotion audit log failed:', e);
     }
 
     return updatedPromotion;
@@ -1458,9 +2277,9 @@ export async function deletePromotion(promotionId: number) {
     if (error) throw error;
 
     try {
-      await logAuditEntry('Promotion', promotionId, 'delete', { before: beforePromotion, after: null });
+        await logAuditEntry('Promotion', promotionId, 'delete', { before: beforePromotion, after: null });
     } catch (e) {
-      console.warn('Promotion audit log failed:', e);
+        console.warn('Promotion audit log failed:', e);
     }
 }
 

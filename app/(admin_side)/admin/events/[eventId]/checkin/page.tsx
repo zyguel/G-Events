@@ -3,6 +3,10 @@ import { getEventById } from "@/lib/actions/events";
 import CheckInClient from "./CheckInClient";
 import PermissionGate from "@/components/admin/PermissionGate";
 
+export const metadata = {
+    title: 'Check-in',
+};
+
 export default async function CheckInPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 

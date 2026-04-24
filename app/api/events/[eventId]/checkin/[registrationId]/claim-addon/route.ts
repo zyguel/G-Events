@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createAdminClient } from '@/lib/supabase-server';
+import { createClient, createAdminClient } from '@/lib/supabase-server';
 import { getAuthErrorResponse, requireUser } from '@/lib/apiAuth';
 import {
     claimAddOnVariantForRegistration,
@@ -44,8 +44,17 @@ export async function POST(
                 { status: 400 }
             );
         }
-
-        const admin = await createAdminClient();
+        // Use admin client for privileged access. If the service role key is missing,
+        // fall back to a regular client which respects row-level security. This prevents
+        // a 404 ("Registration not found") when the admin client cannot be created.
+        let admin;
+        try {
+            admin = await createAdminClient();
+        } catch (e) {
+            // If creating the admin client fails (e.g., missing SUPABASE_SERVICE_ROLE_KEY),
+            // use the normal client which operates under the current user's session.
+            admin = await createClient();
+        }
         const { data: registration, error: registrationError } = await admin
             .from('Registration')
             .select('id, event_id, status')
@@ -121,3 +130,5 @@ export async function POST(
         );
     }
 }
+
+

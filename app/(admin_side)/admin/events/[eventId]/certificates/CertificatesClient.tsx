@@ -7,6 +7,7 @@ import {
   CERTIFICATE_CANVAS_HEIGHT,
   CERTIFICATE_CANVAS_WIDTH,
 } from "@/lib/certificateLayout";
+import { validateCertificateBackgroundDataUrl } from "@/lib/certificateImageValidation";
 
 interface CertificateTemplate {
   id: string;
@@ -74,12 +75,26 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+
+    const mime = (file.type || "").toLowerCase();
+    if (mime !== "image/png" && mime !== "image/jpeg") {
+      showToast("Please upload a single PNG or JPEG file only.");
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (ev) => {
       const result = ev.target?.result as string;
+      try {
+        validateCertificateBackgroundDataUrl(result);
+      } catch (err) {
+        showToast(err instanceof Error ? err.message : "Invalid image file");
+        return;
+      }
       setBackgroundImage(result);
-      showToast("Image uploaded — drag the name label to position (PDF coordinates).");
+      showToast("Image uploaded — drag the name label to position on the preview.");
     };
     reader.readAsDataURL(file);
   };
@@ -122,13 +137,31 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     };
   }, [isDragging]);
 
-  const loadData = async () => {
+  const mapApiTemplateRow = useCallback((row: Record<string, unknown>): CertificateTemplate => {
+    return {
+      id: String(row.id),
+      name: String(row.name ?? ""),
+      backgroundImage: String(row.background_image ?? ""),
+      nameX: Number(row.name_x ?? 150),
+      nameY: Number(row.name_y ?? 150),
+      fontSize: Number(row.font_size ?? 28),
+      fontColor: String(row.font_color ?? "#000000"),
+      createdAt: new Date(String(row.created_at ?? Date.now())),
+    };
+  }, []);
+
+  const loadData = async (opts?: { soft?: boolean }) => {
+    const soft = opts?.soft === true;
     if (event.id.startsWith("evt-")) {
       setIsInitialLoading(false);
       return;
     }
+    let toggledFullScreenLoader = false;
     try {
-      setIsInitialLoading(true);
+      if (!soft) {
+        setIsInitialLoading(true);
+        toggledFullScreenLoader = true;
+      }
       const [templatesRes, recipientsRes] = await Promise.all([
         fetch(`/api/events/${event.id}/certificates/templates`),
         fetch(`/api/events/${event.id}/certificates/recipients`),
@@ -144,24 +177,21 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
         throw new Error(recipientsJson?.error || `Failed loading recipients (${recipientsRes.status})`);
       }
 
-      const mappedTemplates: CertificateTemplate[] = (templatesJson.data || []).map((row: any) => ({
-        id: String(row.id),
-        name: row.name,
-        backgroundImage: row.background_image,
-        nameX: row.name_x,
-        nameY: row.name_y,
-        fontSize: row.font_size,
-        fontColor: row.font_color,
-        createdAt: new Date(row.created_at),
-      }));
+      const mappedTemplates: CertificateTemplate[] = (templatesJson.data || []).map((row: Record<string, unknown>) =>
+        mapApiTemplateRow(row)
+      );
 
       setCertificates(mappedTemplates);
       setRecipients(recipientsJson.data || []);
     } catch (err) {
       console.error("Failed loading certificate data:", err);
-      showToast(err instanceof Error ? err.message : "Failed loading certificate data");
+      if (!soft) {
+        showToast(err instanceof Error ? err.message : "Failed loading certificate data");
+      }
     } finally {
-      setIsInitialLoading(false);
+      if (toggledFullScreenLoader) {
+        setIsInitialLoading(false);
+      }
     }
   };
 
@@ -177,6 +207,12 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     }
     if (!backgroundImage) {
       showToast("Upload a background image");
+      return;
+    }
+    try {
+      validateCertificateBackgroundDataUrl(backgroundImage);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : "Invalid background image");
       return;
     }
 
@@ -202,30 +238,80 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
       return;
     }
 
+    const payload = JSON.stringify({
+      name: templateName,
+      backgroundImage,
+      nameX,
+      nameY,
+      fontSize,
+      fontColor,
+    });
+
     try {
       setIsLoading(true);
-      const res = await fetch(`/api/events/${event.id}/certificates/templates`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: templateName,
-          backgroundImage,
-          nameX,
-          nameY,
-          fontSize,
-          fontColor,
-        }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.success) {
-        throw new Error(json?.error || `Failed creating template (${res.status})`);
+      let lastError: Error | null = null;
+
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (attempt > 0) {
+          await new Promise((r) => setTimeout(r, 350 * attempt));
+        }
+        try {
+          const res = await fetch(`/api/events/${event.id}/certificates/templates`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: payload,
+          });
+          const json = await res.json().catch(() => ({}));
+
+          const retryable =
+            res.status === 408 ||
+            res.status === 429 ||
+            res.status === 502 ||
+            res.status === 503 ||
+            res.status === 504 ||
+            (res.status >= 500 && res.status < 600);
+
+          if (!res.ok || !json?.success) {
+            const msg = json?.error || `Failed creating template (${res.status})`;
+            if (retryable && attempt < 2) {
+              lastError = new Error(msg);
+              continue;
+            }
+            throw new Error(msg);
+          }
+
+          const row = json?.data as Record<string, unknown> | undefined;
+          if (row && typeof row.id !== "undefined") {
+            const mapped = mapApiTemplateRow(row);
+            setCertificates((prev) => {
+              if (prev.some((c) => c.id === mapped.id)) return prev;
+              return [mapped, ...prev];
+            });
+          }
+
+          setTemplateName("");
+          setBackgroundImage("");
+          setNameX(400);
+          setNameY(300);
+          showToast("Template created");
+          await loadData({ soft: true });
+          lastError = null;
+          break;
+        } catch (e) {
+          lastError = e instanceof Error ? e : new Error(String(e));
+          const isNetwork =
+            lastError.message.toLowerCase().includes("network") ||
+            lastError.message.toLowerCase().includes("failed to fetch");
+          if (isNetwork && attempt < 2) {
+            continue;
+          }
+          throw lastError;
+        }
       }
-      setTemplateName("");
-      setBackgroundImage("");
-      setNameX(400);
-      setNameY(300);
-      showToast("Template created");
-      await loadData();
+
+      if (lastError) {
+        throw lastError;
+      }
     } catch (err) {
       console.error("Create template error:", err);
       showToast(err instanceof Error ? err.message : "Error creating template");
@@ -309,6 +395,17 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     }
   };
 
+  const handleSelectTemplate = (cert: CertificateTemplate) => {
+    setSelectedCert(cert);
+    setTemplateName(cert.name);
+    setBackgroundImage(cert.backgroundImage);
+    setNameX(cert.nameX);
+    setNameY(cert.nameY);
+    setFontSize(cert.fontSize);
+    setFontColor(cert.fontColor);
+    showToast("Template loaded into preview sample.");
+  };
+
   const eventDateLabel = event.date
     ? (() => {
         try {
@@ -389,7 +486,13 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                 </span>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white">Background</h2>
               </div>
-              <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" id="image-upload" />
+              <input
+                type="file"
+                accept="image/png,image/jpeg,.png,.jpg,.jpeg"
+                onChange={handleImageUpload}
+                className="hidden"
+                id="image-upload"
+              />
               <label
                 htmlFor="image-upload"
                 className="flex min-h-[120px] cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 px-4 py-8 transition hover:border-[#3D518C] hover:bg-blue-50/50 dark:border-gray-600 dark:hover:border-blue-500 dark:hover:bg-blue-950/20"
@@ -444,9 +547,12 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                       type="range"
                       min={12}
                       max={96}
+                      step={1}
                       value={fontSize}
+                      onInput={(e) => setFontSize(Number((e.target as HTMLInputElement).value))}
                       onChange={(e) => setFontSize(Number(e.target.value))}
-                      className="h-2 w-full touch-manipulation appearance-none rounded-lg bg-gray-200 accent-[#3D518C] dark:bg-gray-700 dark:accent-blue-500"
+                      className="certificate-font-size-range relative z-10 touch-manipulation"
+                      aria-label="Name font size"
                     />
                   </div>
 
@@ -671,11 +777,11 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                   key={cert.id}
                   role="button"
                   tabIndex={0}
-                  onClick={() => setSelectedCert(cert)}
+                  onClick={() => handleSelectTemplate(cert)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();
-                      setSelectedCert(cert);
+                      handleSelectTemplate(cert);
                     }
                   }}
                   className={`rounded-xl border-2 p-4 text-left transition ${

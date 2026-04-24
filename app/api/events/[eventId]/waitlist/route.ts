@@ -220,11 +220,11 @@ export async function POST(
         }
 
         try {
-                        const organizationName = getOrganizationName(eventRow);
+            const organizationName = getOrganizationName(eventRow);
             await sendEmail({
                 to: email,
-                subject: `Waitlist confirmation — ${eventRow.title}`,
-                                html: `
+                subject: `Waitlist confirmation - ${eventRow.title}`,
+                html: `
                                     <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
                                         <p>Hi,</p>
                                         <p>You were added to the waitlist for <strong>${eventRow.title}</strong>.</p>
@@ -309,33 +309,7 @@ export async function GET(
             };
         });
 
-        const { data: settingsRow, error: settingsError } = await supabase
-            .from("EventWaitlistSettings")
-            .select("expiry_days, invite_type, show_position")
-            .eq("event_id", id)
-            .single();
-
-        if (settingsError && settingsError.code !== "PGRST116") {
-            console.error("ManageWaitlist GET: settings query failed", settingsError);
-            return NextResponse.json(
-                { success: false, error: settingsError.message },
-                { status: 500 }
-            );
-        }
-
-        const settings = settingsRow
-            ? {
-                  expiryDays: String(settingsRow.expiry_days ?? 7),
-                  inviteType: settingsRow.invite_type === "manual" ? "manual" : "auto",
-                  showPosition: !!settingsRow.show_position,
-              }
-            : {
-                  expiryDays: "7",
-                  inviteType: "auto",
-                  showPosition: false,
-              };
-
-        return NextResponse.json({ success: true, data: entries, settings });
+        return NextResponse.json({ success: true, data: entries });
     } catch (e: any) {
         const authError = getAuthErrorResponse(e);
         if (authError) return authError;
@@ -369,39 +343,7 @@ export async function PATCH(
         const entryId = parseInt(String(body?.entryId ?? ""), 10);
         const supabase = await createClient();
 
-        if (action === "save_settings") {
-            const expiryDays = parseInt(String(body?.expiryDays ?? ""), 10);
-            const inviteType = body?.inviteType === "manual" ? "manual" : "auto";
-            const showPosition = !!body?.showPosition;
 
-            if (isNaN(expiryDays) || expiryDays < 1 || expiryDays > 30) {
-                return NextResponse.json(
-                    { success: false, error: "expiryDays must be between 1 and 30" },
-                    { status: 400 }
-                );
-            }
-
-            const { error: settingsError } = await supabase
-                .from("EventWaitlistSettings")
-                .upsert(
-                    {
-                        event_id: id,
-                        expiry_days: expiryDays,
-                        invite_type: inviteType,
-                        show_position: showPosition,
-                    },
-                    { onConflict: "event_id" }
-                );
-
-            if (settingsError) {
-                return NextResponse.json(
-                    { success: false, error: settingsError.message },
-                    { status: 500 }
-                );
-            }
-
-            return NextResponse.json({ success: true, message: "Waitlist settings saved" });
-        }
 
         if (action !== "invite" && action !== "resend_invite" && action !== "reject" && action !== "delete") {
             return NextResponse.json(
@@ -556,7 +498,7 @@ export async function PATCH(
             try {
                 await sendEmail({
                     to: recipientEmail,
-                    subject: `Waitlist update — ${eventMeta.title}`,
+                    subject: `Waitlist update - ${eventMeta.title}`,
                     html: `
                       <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
                         <p>Hi,</p>
@@ -576,13 +518,7 @@ export async function PATCH(
             });
         }
 
-        const { data: settingsRow } = await supabase
-            .from("EventWaitlistSettings")
-            .select("expiry_days")
-            .eq("event_id", id)
-            .maybeSingle();
-
-        const expiryDays = Number(settingsRow?.expiry_days || 7);
+        const expiryDays = 3;
         const inviteSentAt = new Date();
         const inviteExpiresAt = new Date(inviteSentAt.getTime() + expiryDays * 24 * 60 * 60 * 1000);
         const baseUrl = getPublicAppBaseUrl(request);
@@ -599,7 +535,7 @@ export async function PATCH(
         try {
             await sendEmail({
                 to: recipientEmail,
-                subject: `${action === "resend_invite" ? "Waitlist invitation reminder" : "Waitlist invitation"} — ${eventMeta.title}`,
+                subject: `${action === "resend_invite" ? "Waitlist invitation reminder" : "Waitlist invitation"} - ${eventMeta.title}`,
                 html: `
                   <div style="font-family: Arial, sans-serif; color: #111827; line-height: 1.5;">
                     <p>Hi,</p>

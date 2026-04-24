@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase-server";
+import { createAdminClient } from "@/lib/supabase-server";
 import {
   buildCertificatePdfBuffer,
   CertificateTemplateRow,
@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: "Invalid token" }, { status: 400 });
     }
 
-    const supabase = await createClient();
+    const supabase = await createAdminClient();
     const { data: issue, error: issueError } = await supabase
       .from("CertificateIssue")
       .select("id, recipient_name, template_id")

@@ -18,6 +18,13 @@ interface UserProfile {
     bucketAvatarUrl: string | null;
 }
 
+function isRecoverableAuthSessionError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message.toLowerCase() : String(error || '').toLowerCase();
+    return message.includes('refresh_token_not_found')
+        || message.includes('invalid refresh token')
+        || message.includes('refresh token not found');
+}
+
 export type ClientHeaderVariant = 'default' | 'guest';
 
 interface ClientHeaderProps {
@@ -30,6 +37,8 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
     const { t } = useLocale();
 
     const [user, setUser] = useState<UserProfile | null>(null);
+    /** After first session resolution — avoids showing a fake “logged-in” shell while signed out */
+    const [authReady, setAuthReady] = useState(false);
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -102,8 +111,12 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
     };
 
     useEffect(() => {
-        if (variant === 'guest') return;
+        if (variant === 'guest') {
+            setAuthReady(true);
+            return;
+        }
 
+        setAuthReady(false);
         const supabase = createClient();
         let cancelled = false;
 
@@ -141,7 +154,11 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
             try {
                 const { data, error } = await supabase.auth.getSession();
                 if (error) {
-                    console.warn('ClientHeader: failed to read auth session', error);
+                    if (isRecoverableAuthSessionError(error)) {
+                        await supabase.auth.signOut().catch(() => undefined);
+                    } else {
+                        console.warn('ClientHeader: failed to read auth session', error);
+                    }
                     if (!cancelled) {
                         setUser(null);
                     }
@@ -161,9 +178,15 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
                     setUser(null);
                 }
             } catch (error) {
-                console.warn('ClientHeader: auth session bootstrap failed', error);
+                if (!isRecoverableAuthSessionError(error)) {
+                    console.warn('ClientHeader: auth session bootstrap failed', error);
+                }
                 if (!cancelled) {
                     setUser(null);
+                }
+            } finally {
+                if (!cancelled) {
+                    setAuthReady(true);
                 }
             }
         };
@@ -255,7 +278,33 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
                     <div className="hidden md:block">
                         <ThemeToggle />
                     </div>
-                    {variant === 'default' && (
+                    {variant === 'default' && !authReady && (
+                        <div
+                            className="flex h-9 min-w-[140px] items-center justify-end gap-2"
+                            aria-busy="true"
+                            aria-label={t('Loading...')}
+                        >
+                            <div className="h-8 w-8 shrink-0 rounded-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                            <div className="hidden h-8 w-24 rounded-lg bg-gray-200 dark:bg-gray-700 animate-pulse sm:block" />
+                        </div>
+                    )}
+                    {variant === 'default' && authReady && !user && (
+                        <div className="flex items-center gap-2 sm:gap-3">
+                            <Link
+                                href="/login"
+                                className="rounded-xl px-3 py-2 text-sm font-semibold text-[#3D518C] transition-colors hover:bg-[#3D518C]/10 dark:text-indigo-300 dark:hover:bg-indigo-900/30"
+                            >
+                                {t('Sign in')}
+                            </Link>
+                            <Link
+                                href="/register"
+                                className="rounded-xl bg-[#3D518C] px-3 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-[#324373] dark:bg-indigo-600 dark:hover:bg-indigo-500"
+                            >
+                                Sign up now
+                            </Link>
+                        </div>
+                    )}
+                    {variant === 'default' && authReady && user && (
                         <>
                             <NotificationDropdown />
 

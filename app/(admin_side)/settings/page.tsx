@@ -26,6 +26,7 @@ export default function SettingsPage() {
     const [regionSearch, setRegionSearch] = useState('');
     const [regionOptions, setRegionOptions] = useState<Array<{ code: string; label: string }>>([]);
     const [isSavingLocale, setIsSavingLocale] = useState(false);
+    const [isDeleteAccountModalOpen, setIsDeleteAccountModalOpen] = useState(false);
     const languageInputRef = useRef<HTMLInputElement | null>(null);
 
     const getRegionLabel = (code: string) => regionOptions.find((item) => item.code === code)?.label ?? code;
@@ -348,7 +349,10 @@ export default function SettingsPage() {
                                     <h4 className="font-medium text-gray-900 dark:text-white">{t('Delete Account')}</h4>
                                     <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{t('Permanently delete your account and all data')}</p>
                                 </div>
-                                <button className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors">
+                                <button
+                                    onClick={() => setIsDeleteAccountModalOpen(true)}
+                                    className="px-4 py-2 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 text-sm font-medium rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+                                >
                                     {t('Delete Account')}
                                 </button>
                             </div>
@@ -358,6 +362,32 @@ export default function SettingsPage() {
                 </main>
             </div>
             </div>
+
+            <Modal
+                isOpen={isDeleteAccountModalOpen}
+                onClose={() => setIsDeleteAccountModalOpen(false)}
+                title={t('Delete Account')}
+                subtitle={t('This action is irreversible.')}
+                size="sm"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {t('Deleting your account will permanently remove your profile and associated data. This cannot be undone.')}
+                    </p>
+                    <div className="rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/40 p-3 text-sm text-red-700 dark:text-red-300">
+                        {t('You are about to perform an irreversible action.')}
+                    </div>
+                </div>
+
+                <ModalFooter
+                    onCancel={() => setIsDeleteAccountModalOpen(false)}
+                    cancelText={t('Cancel')}
+                    onSave={() => setIsDeleteAccountModalOpen(false)}
+                    saveText={t('Delete Account')}
+                    submitType="button"
+                    isDanger
+                />
+            </Modal>
 
             <Modal
                 isOpen={isLocaleModalOpen}

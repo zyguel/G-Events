@@ -6,6 +6,9 @@ import Image from 'next/image';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 import { AuthFormHydrationGate } from '@/components/auth/AuthFormHydrationGate';
+import { REGISTER_LIMITS, normalizeRegisterInput, validateRegisterInput } from '@/lib/validation/register';
+
+const NAME_INPUT_SANITIZE_PATTERN = /[^A-Za-z0-9 ]+/g;
 
 function RegisterFormSkeleton() {
     return (
@@ -86,36 +89,94 @@ export default function RegisterPage() {
         setAuthError('');
         setAuthSuccess('');
 
-        if (!fullName.trim()) { setAuthError('Please provide your full name.'); return; }
-        if (!email) { setAuthError('Please provide your email.'); return; }
-        if (password.length < 8) { setAuthError('Password must be at least 8 characters.'); return; }
+        const normalizedInput = normalizeRegisterInput({
+            fullName,
+            email,
+            password,
+        });
+
+        const validationError = validateRegisterInput(normalizedInput);
+        if (validationError) { setAuthError(validationError); return; }
         if (password !== confirmPassword) { setAuthError('Passwords do not match.'); return; }
         if (!agreeTerms) { setAuthError('You must agree to the Terms & Conditions.'); return; }
 
         setIsSubmitting(true);
 
-        const redirectTo = typeof window !== 'undefined'
-            ? `${window.location.origin}/auth/callback?next=/dashboard`
-            : '/auth/callback?next=/dashboard';
+        try {
+            const registerValidationResponse = await fetch('/api/auth/register/validate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(normalizedInput),
+            });
 
-        const supabase = createClient();
-        const { error } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                emailRedirectTo: redirectTo,
-                data: { name: fullName },
-            },
-        });
+            if (!registerValidationResponse.ok) {
+                const validationErrorResponse = await registerValidationResponse.json().catch(() => ({}));
+                setAuthError(validationErrorResponse?.error || 'Registration input is invalid. Please review your details.');
+                return;
+            }
 
-        setIsSubmitting(false);
+            const registerValidationData = await registerValidationResponse.json().catch(() => ({}));
+            const normalizedEmail = typeof registerValidationData?.data?.email === 'string'
+                ? registerValidationData.data.email
+                : normalizedInput.email;
+            const normalizedFullName = typeof registerValidationData?.data?.fullName === 'string'
+                ? registerValidationData.data.fullName
+                : normalizedInput.fullName;
 
-        if (error) {
-            setAuthError(error.message);
-            return;
+            try {
+                const accountCheckResponse = await fetch('/api/users/check-accounts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ emails: [normalizedEmail] }),
+                });
+
+                if (accountCheckResponse.ok) {
+                    const accountCheckData = await accountCheckResponse.json().catch(() => ({}));
+                    if (accountCheckData?.data?.[normalizedEmail] === true) {
+                        setAuthError('Account exists already, please sign in or do a forgot password request.');
+                        return;
+                    }
+                }
+            } catch {
+                // Continue to sign-up attempt if account pre-check is unavailable.
+            }
+
+            const redirectTo = typeof window !== 'undefined'
+                ? `${window.location.origin}/auth/callback?next=/dashboard`
+                : '/auth/callback?next=/dashboard';
+
+            const supabase = createClient();
+            const { data, error } = await supabase.auth.signUp({
+                email: normalizedEmail,
+                password: normalizedInput.password,
+                options: {
+                    emailRedirectTo: redirectTo,
+                    data: { name: normalizedFullName },
+                },
+            });
+
+            if (error) {
+                const loweredMessage = error.message.toLowerCase();
+                if (loweredMessage.includes('already') || loweredMessage.includes('exists')) {
+                    setAuthError('Account exists already, please sign in or forgot password.');
+                    return;
+                }
+                setAuthError(error.message);
+                return;
+            }
+
+            const userIdentities = Array.isArray(data?.user?.identities) ? data.user.identities : [];
+            if (data?.user && userIdentities.length === 0) {
+                setAuthError('Account exists already, please sign in or forgot password.');
+                return;
+            }
+
+            setAuthSuccess('Account created! Please check your email to confirm your account before signing in.');
+        } catch {
+            setAuthError('Registration failed. Please try again.');
+        } finally {
+            setIsSubmitting(false);
         }
-
-        setAuthSuccess('Account created! Please check your email to confirm your account before signing in.');
     };
 
     const handleGoogleSignUp = async () => {
@@ -128,6 +189,7 @@ export default function RegisterPage() {
             provider: 'google',
             options: { redirectTo },
         });
+
         if (error) {
             setAuthError(error.message);
             return;
@@ -201,7 +263,7 @@ export default function RegisterPage() {
             </div>
 
             {/* Right Side - Form */}
-            <div className="w-full md:w-[50%] bg-white relative z-20 flex flex-col justify-center pt-0 p-6 md:p-10 lg:p-16 items-center transition-all duration-500 ease-in-out shadow-[-50px_0_100px_rgba(0,0,0,0.5)] overflow-hidden">
+            <div className="w-full md:w-[50%] bg-white relative z-20 flex flex-col justify-start overflow-y-auto py-8 px-6 md:px-10 lg:px-16 items-center transition-all duration-500 ease-in-out shadow-[-50px_0_100px_rgba(0,0,0,0.5)]">
 
                 <div className="relative z-10 mx-auto my-auto w-full max-w-md">
                     {/* Decoration */}
@@ -221,189 +283,213 @@ export default function RegisterPage() {
 
                     <form className="relative z-20 space-y-3" onSubmit={handleRegisterSubmit}>
                         <AuthFormHydrationGate skeleton={<RegisterFormSkeleton />}>
-                        {/* Full Name Input */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="fullName">
-                                Full Name
-                            </label>
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-                                <div className="relative bg-white rounded-2xl shadow-sm">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                        <User size={20} />
+                            {/* Full Name Input */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="fullName">
+                                    Full Name
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                    <div className="relative bg-white rounded-2xl shadow-sm">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                                            <User size={20} />
+                                        </div>
+                                        <input
+                                            type="text"
+                                            id="fullName"
+                                            name="name"
+                                            autoComplete="name"
+                                            value={fullName}
+                                            onChange={(e) => {
+                                                const nextValue = e.target.value
+                                                    .replace(NAME_INPUT_SANITIZE_PATTERN, '')
+                                                    .slice(0, REGISTER_LIMITS.FULL_NAME_MAX);
+                                                setFullName(nextValue);
+                                            }}
+                                            className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
+                                            placeholder="Dominic Matthew"
+                                            minLength={REGISTER_LIMITS.FULL_NAME_MIN}
+                                            maxLength={REGISTER_LIMITS.FULL_NAME_MAX}
+                                            pattern="[A-Za-z0-9 ]+"
+                                        />
                                     </div>
-                                    <input
-                                        type="text"
-                                        id="fullName"
-                                        name="name"
-                                        autoComplete="name"
-                                        value={fullName}
-                                        onChange={(e) => setFullName(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
-                                        placeholder="Dominic Matthew"
-                                    />
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Email Input */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="email">
-                                Email
-                            </label>
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-                                <div className="relative bg-white rounded-2xl shadow-sm">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                        <Mail size={20} />
+                            {/* Email Input */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="email">
+                                    Email
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                    <div className="relative bg-white rounded-2xl shadow-sm">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                                            <Mail size={20} />
+                                        </div>
+                                        <input
+                                            type="email"
+                                            id="email"
+                                            name="email"
+                                            autoComplete="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value.slice(0, REGISTER_LIMITS.EMAIL_MAX))}
+                                            className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
+                                            placeholder="domat@example.com"
+                                            minLength={REGISTER_LIMITS.EMAIL_MIN}
+                                            maxLength={REGISTER_LIMITS.EMAIL_MAX}
+                                        />
                                     </div>
-                                    <input
-                                        type="email"
-                                        id="email"
-                                        name="email"
-                                        autoComplete="email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
-                                        placeholder="domat@example.com"
-                                    />
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Password Input */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="password">
-                                Password
-                            </label>
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-                                <div className="relative bg-white rounded-2xl shadow-sm">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                        <Lock size={20} />
+                            {/* Password Input */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="password">
+                                    Password
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                    <div className="relative bg-white rounded-2xl shadow-sm">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                                            <Lock size={20} />
+                                        </div>
+                                        <input
+                                            type={showPassword ? "text" : "password"}
+                                            id="password"
+                                            name="new-password"
+                                            autoComplete="new-password"
+                                            value={password}
+                                            onChange={(e) => {
+                                                const nextValue = e.target.value.slice(0, REGISTER_LIMITS.PASSWORD_MAX);
+                                                setPassword(nextValue);
+                                            }}
+                                            className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
+                                            placeholder="Set your password"
+                                            minLength={REGISTER_LIMITS.PASSWORD_MIN}
+                                            maxLength={REGISTER_LIMITS.PASSWORD_MAX}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                                        >
+                                            {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
                                     </div>
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        id="password"
-                                        name="new-password"
-                                        autoComplete="new-password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
-                                        placeholder="Set your password"
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                                </div>
+                            </div>
+
+                            {/* Confirm Password Input */}
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="confirmPassword">
+                                    Confirm Password
+                                </label>
+                                <div className="relative group">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
+                                    <div className="relative bg-white rounded-2xl shadow-sm">
+                                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
+                                            <Lock size={20} />
+                                        </div>
+                                        <input
+                                            type={showConfirmPassword ? "text" : "password"}
+                                            id="confirmPassword"
+                                            name="confirm-password"
+                                            autoComplete="new-password"
+                                            value={confirmPassword}
+                                            onChange={(e) => {
+                                                const nextValue = e.target.value.slice(0, REGISTER_LIMITS.PASSWORD_MAX);
+                                                setConfirmPassword(nextValue);
+                                            }}
+                                            className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
+                                            placeholder="Confirm your password"
+                                            minLength={REGISTER_LIMITS.PASSWORD_MIN}
+                                            maxLength={REGISTER_LIMITS.PASSWORD_MAX}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+                                        >
+                                            {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <p className="text-xs text-gray-500 pl-1">
+                                Full name accepts letters, numbers, and spaces.
+                            </p>
+
+                            {/* Terms & Conditions */}
+                            <div className="flex items-start gap-2.5 pt-1 pb-1">
+                                <input
+                                    type="checkbox"
+                                    id="agree-terms"
+                                    checked={agreeTerms}
+                                    onChange={(e) => setAgreeTerms(e.target.checked)}
+                                    className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-2 border-gray-300 text-blue-600 accent-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+                                />
+                                <label htmlFor="agree-terms" className="cursor-pointer text-[15px] font-medium leading-snug text-gray-600 hover:text-gray-800">
+                                    I agree to{' '}
+                                    <Link
+                                        href="#"
+                                        className="font-semibold text-blue-600 hover:text-indigo-600 hover:underline"
+                                        onClick={(e) => e.preventDefault()}
                                     >
-                                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                    </button>
+                                        Terms & Conditions
+                                    </Link>
+                                </label>
+                            </div>
+
+                            {/* Sign Up Button */}
+                            <button
+                                type="submit"
+                                disabled={isSubmitting}
+                                className="w-full group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                            >
+                                <span className="relative z-10 flex items-center justify-center gap-2">
+                                    {isSubmitting ? 'Please wait...' : 'Sign Up'}
+                                </span>
+                                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition duration-300 transition-opacity"></div>
+                            </button>
+
+                            {/* Divider */}
+                            <div className="relative my-3">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-gray-100"></div>
+                                </div>
+                                <div className="relative flex justify-center text-xs tracking-wider font-semibold">
+                                    <span className="px-3 bg-white text-gray-400">or</span>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Confirm Password Input */}
-                        <div>
-                            <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1" htmlFor="confirmPassword">
-                                Confirm Password
-                            </label>
-                            <div className="relative group">
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl blur opacity-0 group-hover:opacity-20 transition duration-300"></div>
-                                <div className="relative bg-white rounded-2xl shadow-sm">
-                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-blue-500 transition-colors">
-                                        <Lock size={20} />
-                                    </div>
-                                    <input
-                                        type={showConfirmPassword ? "text" : "password"}
-                                        id="confirmPassword"
-                                        name="confirm-password"
-                                        autoComplete="new-password"
-                                        value={confirmPassword}
-                                        onChange={(e) => setConfirmPassword(e.target.value)}
-                                        className="w-full pl-12 pr-12 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-gray-900 text-sm placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 focus:bg-white transition-all duration-300"
-                                        placeholder="Confirm your password"
+                            {/* Social Login */}
+                            <button
+                                type="button"
+                                onClick={handleGoogleSignUp}
+                                className="w-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 group"
+                            >
+                                <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24">
+                                    <path
+                                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                                        fill="#4285F4"
                                     />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
-                                    >
-                                        {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Terms & Conditions */}
-                        <div className="flex items-start gap-2.5 pt-1 pb-1">
-                            <input
-                                type="checkbox"
-                                id="agree-terms"
-                                checked={agreeTerms}
-                                onChange={(e) => setAgreeTerms(e.target.checked)}
-                                className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-2 border-gray-300 text-blue-600 accent-blue-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
-                            />
-                            <label htmlFor="agree-terms" className="cursor-pointer text-[15px] font-medium leading-snug text-gray-600 hover:text-gray-800">
-                                I agree to{' '}
-                                <Link
-                                    href="#"
-                                    className="font-semibold text-blue-600 hover:text-indigo-600 hover:underline"
-                                    onClick={(e) => e.preventDefault()}
-                                >
-                                    Terms & Conditions
-                                </Link>
-                            </label>
-                        </div>
-
-                        {/* Sign Up Button */}
-                        <button
-                            type="submit"
-                            disabled={isSubmitting}
-                            className="w-full group relative overflow-hidden bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 hover:scale-[1.01] active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            <span className="relative z-10 flex items-center justify-center gap-2">
-                                {isSubmitting ? 'Please wait...' : 'Sign Up'}
-                            </span>
-                            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-blue-600 opacity-0 group-hover:opacity-100 transition duration-300 transition-opacity"></div>
-                        </button>
-
-                        {/* Divider */}
-                        <div className="relative my-3">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-gray-100"></div>
-                            </div>
-                            <div className="relative flex justify-center text-xs tracking-wider font-semibold">
-                                <span className="px-3 bg-white text-gray-400">or</span>
-                            </div>
-                        </div>
-
-                        {/* Social Login */}
-                        <button
-                            type="button"
-                            onClick={handleGoogleSignUp}
-                            className="w-full bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 font-semibold py-3 rounded-2xl transition-all duration-300 flex items-center justify-center gap-3 group"
-                        >
-                            <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24">
-                                <path
-                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                                    fill="#4285F4"
-                                />
-                                <path
-                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                                    fill="#34A853"
-                                />
-                                <path
-                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                                    fill="#FBBC05"
-                                />
-                                <path
-                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                                    fill="#EA4335"
-                                />
-                            </svg>
-                            Sign Up with Google
-                        </button>
+                                    <path
+                                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                                        fill="#34A853"
+                                    />
+                                    <path
+                                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                                        fill="#FBBC05"
+                                    />
+                                    <path
+                                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                                        fill="#EA4335"
+                                    />
+                                </svg>
+                                Sign Up with Google
+                            </button>
                         </AuthFormHydrationGate>
                     </form>
 

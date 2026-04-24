@@ -177,6 +177,12 @@ export default function CheckInClient({ event }: CheckInClientProps) {
         }
     }, [event.id, listTab, loadAttendees, loadBreakoutRoster]);
 
+    const handleWorkflowChange = useCallback((nextWorkflow: 'checkin' | 'addon_claims') => {
+        if (nextWorkflow === 'addon_claims') {
+            setListTab('addons');
+        }
+    }, []);
+
     useEffect(() => {
         void loadAttendees();
     }, [loadAttendees]);
@@ -220,6 +226,20 @@ export default function CheckInClient({ event }: CheckInClientProps) {
             const json = await res.json().catch(() => ({}));
             if (!res.ok || !json?.success) {
                 throw new Error(json?.error || `Failed to update check-in (${res.status})`);
+            }
+            if (nextStatus === 'Checked-In' && typeof json?.checkInTime === 'string' && json.checkInTime) {
+                setAttendees(prev => prev.map(att =>
+                    att.registrationId === registrationId
+                        ? { ...att, checkInTime: json.checkInTime }
+                        : att
+                ));
+            }
+            if (nextStatus === 'Not Yet Checked-In') {
+                setAttendees(prev => prev.map(att =>
+                    att.registrationId === registrationId
+                        ? { ...att, checkInTime: undefined }
+                        : att
+                ));
             }
         } catch (e) {
             console.error("Error updating check-in:", e);
@@ -415,6 +435,7 @@ export default function CheckInClient({ event }: CheckInClientProps) {
                             eventId={event.id}
                             onAttendanceChanged={refreshAttendance}
                             workflow={listTab === 'addons' ? 'addon_claims' : 'checkin'}
+                            onWorkflowChange={handleWorkflowChange}
                         />
                     )}
 

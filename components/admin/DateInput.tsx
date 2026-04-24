@@ -11,10 +11,19 @@ interface DateInputProps {
     placeholder?: string;
     className?: string;
     disabled?: boolean;
+    minDate?: Date;
+}
+
+interface CustomDateInputProps {
+    value?: string;
+    onClick?: () => void;
+    placeholder?: string;
+    className?: string;
+    disabled?: boolean;
 }
 
 // Custom input component to match DateTimeInput design
-const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeholder, className, disabled }, ref) => (
+const CustomInput = forwardRef<HTMLInputElement, CustomDateInputProps>(({ value, onClick, placeholder, className, disabled }, ref) => (
     <div className={`relative group w-full ${disabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`} onClick={!disabled ? onClick : undefined}>
         <Calendar
             className="absolute left-3 top-1/2 -translate-y-1/2 text-[#3D518C] z-10 pointer-events-none transition-colors"
@@ -33,7 +42,7 @@ const CustomInput = forwardRef<HTMLInputElement, any>(({ value, onClick, placeho
 
 CustomInput.displayName = "CustomInput";
 
-export default function DateInput({ value, onChange, placeholder, className, disabled }: DateInputProps) {
+export default function DateInput({ value, onChange, placeholder, className, disabled, minDate }: DateInputProps) {
     return (
         <div className="date-input-wrapper">
             <style jsx global>{`
@@ -150,6 +159,7 @@ export default function DateInput({ value, onChange, placeholder, className, dis
                 selected={value}
                 onChange={onChange}
                 disabled={disabled}
+                minDate={minDate}
                 dateFormat="MM/dd/yyyy"
                 placeholderText={placeholder || "Select date"}
                 customInput={<CustomInput className={className} disabled={disabled} />}

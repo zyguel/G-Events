@@ -7,10 +7,19 @@ import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
 import { getEvents, getGeneralAnalytics } from '@/lib/actions/events';
 import PermissionGate from '@/components/admin/PermissionGate';
 
-export default async function AggregatedAnalyticsPage() {
+export const metadata = {
+    title: 'Analytics',
+};
+
+export default async function AggregatedAnalyticsPage({ searchParams }: { searchParams: Promise<{ year?: string }> }) {
+    const resolvedParams = await searchParams;
+    const yearParam = resolvedParams.year 
+        ? (resolvedParams.year === 'all' ? undefined : parseInt(resolvedParams.year, 10)) 
+        : 2026;
+
     // Fetch real data in parallel
     const [analytics, allEventsRaw] = await Promise.all([
-        getGeneralAnalytics(),
+        getGeneralAnalytics(yearParam),
         getEvents(),
     ]);
 
@@ -38,9 +47,10 @@ export default async function AggregatedAnalyticsPage() {
     const data = {
         id: 'all',
         name: 'Analytics Overview',
-        date: new Date().getFullYear().toString(),
+        date: (yearParam || 'All Years').toString(),
         status: 'Ongoing' as const,
         stats: {
+            totalEvents: analytics.stats.totalEvents,
             registrations: analytics.stats.registrations,
             revenue: analytics.stats.revenue,
             expenses: 0,
@@ -49,6 +59,8 @@ export default async function AggregatedAnalyticsPage() {
         },
         trends: analytics.trends,
         revenueBreakdown: analytics.revenueBreakdown,
+        revenueByYear: analytics.revenueByYear,
+        satisfactionByYear: analytics.satisfactionByYear,
         recentTransactions: analytics.recentTransactions || [],
         comments: analytics.comments || [],
         topEvents: analytics.topEvents,
@@ -79,33 +91,33 @@ export default async function AggregatedAnalyticsPage() {
                                 <StatCard
                                     title="Total Events"
                                     value={formatNumber(analytics.stats.totalEvents)}
-                                    growth=""
-                                    trend="up"
+                                    // No trend arrow for Total Events — comparing event count to last year
+                                    // isn't meaningful without more context
                                 />
                                 <StatCard
                                     title="Registrations"
                                     value={formatNumber(analytics.stats.registrations)}
-                                    growth=""
-                                    trend="up"
+                                    growth={analytics.stats.growth.registrations ?? undefined}
+                                    trend={analytics.stats.growth.registrations?.startsWith('-') ? 'down' : 'up'}
                                 />
                                 <StatCard
                                     title="Total Revenue"
                                     value={formatCurrency(analytics.stats.revenue)}
-                                    growth=""
-                                    trend="up"
+                                    growth={analytics.stats.growth.revenue ?? undefined}
+                                    trend={analytics.stats.growth.revenue?.startsWith('-') ? 'down' : 'up'}
                                 />
                                 <StatCard
                                     title="Satisfaction"
                                     value={analytics.stats.satisfaction > 0
                                         ? `${analytics.stats.satisfaction}/5.0`
                                         : 'N/A'}
-                                    growth=""
-                                    trend="up"
+                                    // No trend arrow for Satisfaction — a single decimal change
+                                    // doesn't warrant a directional indicator at the overview level
                                 />
                             </div>
 
                             {/* Summary & Trends Section */}
-                            <DashboardTabs data={data} hideDemographics />
+                            <DashboardTabs data={data} hideDemographics activeYear={yearParam} />
                         </div>
                     </PermissionGate>
                 </main>

@@ -30,6 +30,8 @@ export interface AddOnVariant {
   id: string;
   label: string;
   stock: number;
+  stock_reserved: number;
+  stock_redeemed: number;
 }
 
 export interface AddOn {
@@ -121,11 +123,39 @@ function mapDbTicket(row: any): Ticket {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbAddOn(row: any): AddOn {
   const dbVariants: any[] = row.AddOnVariant ?? [];
-  const variants: AddOnVariant[] = dbVariants.map((v: any) => ({
-    id: String(v.id),
-    label: v.label ?? v.code ?? '',
-    stock: v.stock_total ?? 0,
-  }));
+  const ticketLinks: any[] = row.AddOnTicket ?? [];
+  const variantById = new Map<string, AddOnVariant>();
+  
+  for (const v of dbVariants) {
+    const id = String(v.id);
+    if (variantById.has(id)) continue;
+    const stockTotal = v.stock_total ?? 0;
+    const stockReserved = v.stock_reserved ?? 0;
+    // Use actual_redeemed from AddOnRedemption table if available, otherwise fall back to stock_redeemed
+    const actualRedeemed = v.actual_redeemed ?? v.stock_redeemed ?? 0;
+    
+    // Calculate current available for this variant (stock qty - redeemed of that variant)
+    const currentAvailable = Math.max(0, stockTotal - actualRedeemed);
+    
+    variantById.set(id, {
+      id,
+      label: v.label ?? v.code ?? '',
+      stock: currentAvailable,
+      stock_reserved: stockReserved,
+      stock_redeemed: actualRedeemed,
+    });
+  }
+  
+  const variants = Array.from(variantById.values());
+  const ticketIds = new Set<string>();
+  for (const link of ticketLinks) {
+    const tid = String(link.ticket_id ?? '').trim();
+    if (tid) ticketIds.add(tid);
+  }
+  const appliedTo: 'all' | string[] =
+    ticketIds.size > 0 ? Array.from(ticketIds) : 'all';
+  
+  // Calculate total current available (Total stock across all variants - Total redeemed across all variants)
   const totalStock = variants.reduce((sum, v) => sum + v.stock, 0);
 
   return {
@@ -136,7 +166,7 @@ function mapDbAddOn(row: any): AddOn {
     hasVariants: row.has_variants ?? false,
     variants,
     stock: totalStock,
-    appliedTo: 'all',
+    appliedTo,
     createdAt: row.created_at ?? new Date().toISOString(),
   };
 }
@@ -216,16 +246,58 @@ function addOnToDb(addOn: Partial<Omit<AddOn, 'id' | 'createdAt'>>) {
 
 function addOnVariantsToDb(variants: AddOnVariant[], stock?: number) {
   if (variants && variants.length > 0) {
-    return variants.map((v) => ({
-      code: v.label.toLowerCase().replace(/\s+/g, '_'),
-      label: v.label,
-      stock_total: v.stock,
-    }));
+    const seenCodes = new Set<string>();
+
+    return variants.map((v, index) => {
+      const normalizedBaseCode = v.label
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '') || `variant_${index + 1}`;
+
+      let code = normalizedBaseCode;
+      let suffix = 2;
+      while (seenCodes.has(code)) {
+        code = `${normalizedBaseCode}_${suffix}`;
+        suffix += 1;
+      }
+      seenCodes.add(code);
+
+      return {
+        id: Number.isInteger(Number(v.id)) && Number(v.id) > 0 ? Number(v.id) : undefined,
+        code,
+        label: v.label,
+        stock_total: v.stock,
+      };
+    });
   }
   // When there are no named variants but stock is provided, create a default variant
   if (stock !== undefined && stock > 0) {
     return [{ code: 'default', label: 'Default', stock_total: stock }];
   }
+  return undefined;
+}
+
+function resolveAddOnVariantsForPayload(addOn: Partial<Omit<AddOn, 'id' | 'createdAt'>>) {
+  if (addOn.hasVariants === false) {
+    return addOnVariantsToDb([], addOn.stock);
+  }
+
+  if (addOn.hasVariants === true) {
+    return addOnVariantsToDb(addOn.variants ?? [], addOn.stock);
+  }
+
+  if (addOn.variants !== undefined) {
+    const namedVariants = addOn.variants.filter((variant) => variant.label.trim().length > 0);
+    return namedVariants.length > 0
+      ? addOnVariantsToDb(namedVariants, addOn.stock)
+      : addOnVariantsToDb([], addOn.stock);
+  }
+
+  if (addOn.stock !== undefined) {
+    return addOnVariantsToDb([], addOn.stock);
+  }
+
   return undefined;
 }
 
@@ -243,6 +315,7 @@ function promoToDb(promo: Partial<Omit<PromoCode, 'id' | 'createdAt'>>) {
   if (promo.usageLimit !== undefined) fields.max_uses = promo.usageLimit;
   if (promo.usageCount !== undefined) fields.current_uses = promo.usageCount;
   if (promo.type !== undefined) fields.is_automatic = promo.type === 'discount';
+  if (promo.status !== undefined) fields.status = promo.status;
   return fields;
 }
 
@@ -250,6 +323,17 @@ function promoTicketIds(appliedTo: 'all' | string[] | undefined): number[] | und
   if (appliedTo === undefined) return undefined;
   if (appliedTo === 'all') return [];
   return appliedTo.map((id) => parseInt(id, 10)).filter((n) => !isNaN(n));
+}
+
+function addOnTicketIds(appliedTo: 'all' | string[] | undefined): number[] | undefined {
+  if (appliedTo === undefined) return undefined;
+  if (appliedTo === 'all') return [];
+
+  const normalized = appliedTo
+    .map((id) => parseInt(id, 10))
+    .filter((value) => Number.isInteger(value) && value > 0);
+
+  return Array.from(new Set(normalized));
 }
 
 // ============================================================================
@@ -323,12 +407,14 @@ function buildAddOnFormData(
   if (addOn.hasVariants !== undefined) fd.append('has_variants', String(addOn.hasVariants));
   if (addOn.imageFile) fd.append('image', addOn.imageFile);
   if (variants) fd.append('variants', JSON.stringify(variants));
+  const ticket_ids = addOnTicketIds(addOn.appliedTo);
+  if (ticket_ids !== undefined) fd.append('ticket_ids', JSON.stringify(ticket_ids));
   return fd;
 }
 
 export async function createAddOn(eventId: string, addOn: Omit<AddOn, 'id' | 'createdAt'>): Promise<AddOn> {
   const numId = resolveEventId(eventId);
-  const variants = addOnVariantsToDb(addOn.variants, addOn.stock);
+  const variants = resolveAddOnVariantsForPayload(addOn);
   const fd = buildAddOnFormData(addOn, variants);
   const row = await apiFetch<any>(`/api/events/${numId}/addons`, {
     method: 'POST',
@@ -339,9 +425,7 @@ export async function createAddOn(eventId: string, addOn: Omit<AddOn, 'id' | 'cr
 
 export async function updateAddOn(eventId: string, addOnId: string, updates: Partial<AddOn>): Promise<AddOn | null> {
   const numEventId = resolveEventId(eventId);
-  const variants = updates.variants !== undefined
-    ? addOnVariantsToDb(updates.variants, updates.stock)
-    : (updates.stock !== undefined ? addOnVariantsToDb([], updates.stock) : undefined);
+  const variants = resolveAddOnVariantsForPayload(updates);
   const fd = buildAddOnFormData(updates, variants);
   const row = await apiFetch<any>(`/api/events/${numEventId}/addons/${addOnId}`, {
     method: 'PATCH',

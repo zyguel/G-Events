@@ -2,6 +2,10 @@ import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
 import OrderConfirmation from "@/components/admin/OrderConfirmation";
 
+export const metadata = {
+    title: 'Order Confirmation',
+};
+
 export default async function OrderConfirmationPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 

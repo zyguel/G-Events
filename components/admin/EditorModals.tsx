@@ -79,19 +79,38 @@ export function ImageModal({ isOpen, onClose, onSubmit, onUploadImage }: ImageMo
     const [preview, setPreview] = useState<string>("");
     const [imageUrl, setImageUrl] = useState<string>("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string>("");
 
     if (!isOpen) return null;
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0];
-        if (selectedFile && selectedFile.type.startsWith('image/')) {
-            setFile(selectedFile);
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setPreview(reader.result as string);
-            };
-            reader.readAsDataURL(selectedFile);
+        setErrorMessage("");
+
+        if (!selectedFile) {
+            setFile(null);
+            setPreview("");
+            return;
         }
+
+        if (!selectedFile.type.startsWith('image/')) {
+            setFile(null);
+            setPreview("");
+            setErrorMessage('Please choose an image file.');
+            return;
+        }
+
+        setFile(selectedFile);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setPreview(reader.result as string);
+        };
+        reader.onerror = () => {
+            setFile(null);
+            setPreview("");
+            setErrorMessage('Cannot open file. Try another image.');
+        };
+        reader.readAsDataURL(selectedFile);
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -99,11 +118,13 @@ export function ImageModal({ isOpen, onClose, onSubmit, onUploadImage }: ImageMo
         const trimmedUrl = imageUrl.trim();
 
         if (!trimmedUrl && !file) {
+            setErrorMessage('Please enter an image URL or choose an image file.');
             return;
         }
 
         try {
             setIsSubmitting(true);
+            setErrorMessage("");
 
             if (trimmedUrl) {
                 await onSubmit(trimmedUrl);
@@ -122,6 +143,8 @@ export function ImageModal({ isOpen, onClose, onSubmit, onUploadImage }: ImageMo
                 await onSubmit(preview);
                 handleClose();
             }
+        } catch (error) {
+            setErrorMessage(error instanceof Error ? error.message : 'Failed to insert image. Please try another file.');
         } finally {
             setIsSubmitting(false);
         }
@@ -132,6 +155,7 @@ export function ImageModal({ isOpen, onClose, onSubmit, onUploadImage }: ImageMo
         setPreview("");
         setImageUrl("");
         setIsSubmitting(false);
+        setErrorMessage("");
         onClose();
     };
 
@@ -154,7 +178,10 @@ export function ImageModal({ isOpen, onClose, onSubmit, onUploadImage }: ImageMo
                     <input
                         type="url"
                         value={imageUrl}
-                        onChange={(e) => setImageUrl(e.target.value)}
+                        onChange={(e) => {
+                            setImageUrl(e.target.value);
+                            if (errorMessage) setErrorMessage("");
+                        }}
                         placeholder="https://example.com/image.jpg"
                         className="w-full px-4 py-2.5 rounded-lg border-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 focus:bg-white dark:focus:bg-gray-800 focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-500 outline-none transition-all text-gray-900 dark:text-gray-100"
                     />
@@ -172,6 +199,9 @@ export function ImageModal({ isOpen, onClose, onSubmit, onUploadImage }: ImageMo
                             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Preview:</p>
                             <img src={preview} alt="Preview" className="w-full h-auto max-h-64 object-contain rounded-lg border border-gray-200 dark:border-gray-700" />
                         </div>
+                    )}
+                    {errorMessage && (
+                        <p className="mt-3 text-sm text-red-600 dark:text-red-400">{errorMessage}</p>
                     )}
                     <div className="flex gap-3 mt-6">
                         <button

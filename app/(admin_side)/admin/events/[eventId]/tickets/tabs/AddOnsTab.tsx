@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Plus, Edit2, Trash2, Eye, X, Package, AlertCircle, CheckCircle2, ShoppingBag, ChevronDown, Check, PackageOpen } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal, { ModalInput, ModalTextarea, ModalFooter } from "@/components/admin/Modal";
-import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, AddOnVariant, getTickets, Ticket } from "@/lib/eventManagement";
+import { getAddOns, createAddOn, updateAddOn, deleteAddOn, AddOn, getTickets, Ticket } from "@/lib/eventManagement";
 import { EventSummary } from "@/lib/types";
+import AdminLoading from "@/components/admin/AdminLoading";
 
 interface AddOnsTabProps {
   event: EventSummary;
@@ -18,8 +19,26 @@ const initialAddOnForm: Omit<AddOn, "id" | "createdAt"> = {
   appliedTo: "all",
   hasVariants: false,
   variants: [],
-  stock: 0,
+  stock: 1,
 };
+
+const ADD_ON_ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+  "image/gif",
+  "image/avif",
+  "image/svg+xml",
+];
+const ADD_ON_ALLOWED_IMAGE_ACCEPT = "image/jpeg,image/jpg,image/png,image/webp,image/gif,image/avif,image/svg+xml";
+const ADD_ON_MAX_IMAGE_SIZE_BYTES = 20 * 1024 * 1024;
+const ADD_ON_ALLOWED_IMAGE_LABEL = "JPEG, PNG, WebP, GIF, AVIF, SVG";
+const ADD_ON_NAME_MAX_LENGTH = 23;
+const ADD_ON_DESCRIPTION_MAX_LENGTH = 256;
+const VARIANT_LABEL_MAX_LENGTH = 30;
+const VARIANT_STOCK_MAX = 1_000_000;
+const VARIANT_LABEL_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 .,'&()_/-]*$/;
 
 export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [addOns, setAddOns] = useState<AddOn[]>([]);
@@ -36,6 +55,10 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   const [formData, setFormData] = useState(initialAddOnForm);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isSavingAddOn, setIsSavingAddOn] = useState(false);
+  const [isDeletingAddOn, setIsDeletingAddOn] = useState(false);
+  const [isApplyToOpen, setIsApplyToOpen] = useState(false);
+  const applyToRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
@@ -54,21 +77,84 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
     }
   };
 
+  const validateVariantLabel = (rawLabel: string): string | null => {
+    const label = rawLabel.trim();
+
+    if (!label) {
+      return "Variant label is required";
+    }
+
+    if (label.length > VARIANT_LABEL_MAX_LENGTH) {
+      return `Variant label must be at most ${VARIANT_LABEL_MAX_LENGTH} characters`;
+    }
+
+    if (!VARIANT_LABEL_PATTERN.test(label)) {
+      return "Variant label can only use letters, numbers, spaces, and . , ' & ( ) _ / -";
+    }
+
+    return null;
+  };
+
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    if (!formData.name.trim()) newErrors.name = "Add-on name is required";
-    if (!formData.description.trim()) newErrors.description = "Description is required";
+    const normalizedName = formData.name.trim();
+    if (!normalizedName) {
+      newErrors.name = "Add-on name is required";
+    } else if (normalizedName.length > ADD_ON_NAME_MAX_LENGTH) {
+      newErrors.name = `Add-on name must be at most ${ADD_ON_NAME_MAX_LENGTH} characters`;
+    } else {
+      const hasDuplicateName = addOns.some((addOn) =>
+        addOn.id !== editingAddOnId
+        && addOn.name.trim().toLowerCase() === normalizedName.toLowerCase()
+      );
+      if (hasDuplicateName) {
+        newErrors.name = "Add-on name must be unique";
+      }
+    }
+
+    const normalizedDescription = formData.description.trim();
+    if (!normalizedDescription) {
+      newErrors.description = "Description is required";
+    } else if (normalizedDescription.length > ADD_ON_DESCRIPTION_MAX_LENGTH) {
+      newErrors.description = `Description must be at most ${ADD_ON_DESCRIPTION_MAX_LENGTH} characters`;
+    }
 
     if (formData.hasVariants) {
       if (formData.variants.length === 0) {
         newErrors.variants = "At least one variant is required when variants are enabled";
-      } else if (formData.variants.some((v) => !v.label.trim() || v.stock < 0)) {
-        newErrors.variants = "All variants must have a valid label and stock >= 0";
+      } else {
+        const seenLabels = new Set<string>();
+        for (const variant of formData.variants) {
+          const labelError = validateVariantLabel(variant.label);
+          if (labelError) {
+            newErrors.variants = labelError;
+            break;
+          }
+
+          const reservedRedeemed = (variant.stock_reserved || 0) + (variant.stock_redeemed || 0);
+          if (!Number.isInteger(variant.stock) || variant.stock < reservedRedeemed || variant.stock > VARIANT_STOCK_MAX) {
+            newErrors.variants = `Variant quantity must be between ${reservedRedeemed} (already reserved/redeemed) and ${VARIANT_STOCK_MAX.toLocaleString()}`;
+            break;
+          }
+
+          const normalizedLabel = variant.label.trim().toLowerCase();
+          if (!normalizedLabel) continue;
+          if (seenLabels.has(normalizedLabel)) {
+            newErrors.variants = "Variant labels must be unique";
+            break;
+          }
+          seenLabels.add(normalizedLabel);
+        }
       }
     } else {
-      if (formData.stock < 0) {
-        newErrors.stock = "Stock must be 0 or greater";
+      // For non-variant addons, check if there are existing entitlements
+      const currentAddOn = addOns.find(a => a.id === editingAddOnId);
+      const reservedRedeemed = currentAddOn ?
+        (currentAddOn.variants?.reduce((sum, v) => sum + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0) : 0;
+
+      if (!Number.isFinite(formData.stock) || formData.stock < reservedRedeemed) {
+        newErrors.stock = `Stock must be at least ${reservedRedeemed} (already reserved/redeemed)`;
       }
     }
 
@@ -78,7 +164,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
   const handleAddAddOn = () => {
     setEditingAddOnId(null);
-    setFormData(initialAddOnForm);
+    setFormData({ ...initialAddOnForm, appliedTo: "all" });
     setImagePreview(null);
     setErrors({});
     setIsModalOpen(true);
@@ -92,7 +178,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       image: addOn.image,
       appliedTo: addOn.appliedTo,
       hasVariants: addOn.hasVariants || false,
-      variants: addOn.variants || [],
+      variants: addOn.hasVariants ? (addOn.variants || []) : [],
       stock: addOn.stock || 0,
     });
     setImagePreview(addOn.image || null);
@@ -101,18 +187,38 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   const handleSaveAddOn = async () => {
+    if (isSavingAddOn) return;
     if (!validateForm()) return;
 
     try {
+      setIsSavingAddOn(true);
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.form;
+        return next;
+      });
+
+      const payload: Omit<AddOn, "id" | "createdAt"> = {
+        ...formData,
+        variants: formData.hasVariants ? formData.variants : [],
+        stock: formData.hasVariants ? 0 : formData.stock,
+      };
+
       if (editingAddOnId) {
-        await updateAddOn(event.id, editingAddOnId, formData);
+        await updateAddOn(event.id, editingAddOnId, payload);
       } else {
-        await createAddOn(event.id, formData);
+        await createAddOn(event.id, payload);
       }
       await loadData();
       setIsModalOpen(false);
     } catch (error) {
       console.error("Failed to save add-on:", error);
+      setErrors((prev) => ({
+        ...prev,
+        form: error instanceof Error ? error.message : "Failed to save add-on",
+      }));
+    } finally {
+      setIsSavingAddOn(false);
     }
   };
 
@@ -122,22 +228,25 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || isDeletingAddOn) return;
 
     try {
+      setIsDeletingAddOn(true);
       await deleteAddOn(event.id, deleteTarget);
       await loadData();
       setIsConfirmDeleteOpen(false);
       setDeleteTarget(null);
     } catch (error) {
       console.error("Failed to delete add-on:", error);
+    } finally {
+      setIsDeletingAddOn(false);
     }
   };
 
   const compressImage = (file: File, maxWidth = 1920, quality = 0.85): Promise<File> => {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       // Skip compression for small files (< 500KB) or non-raster formats
-      if (file.size < 512_000 || !file.type.startsWith('image/')) {
+      if (file.size < 512_000 || !file.type.startsWith('image/') || file.type === 'image/svg+xml') {
         return resolve(file);
       }
 
@@ -186,31 +295,118 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
       img.onerror = () => {
         URL.revokeObjectURL(url);
-        resolve(file); // Fall back to original on any error
+        reject(new Error('Unable to process the selected image.'));
       };
 
       img.src = url;
     });
   };
 
+  const ensureImageCanRender = (file: File): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      const objectUrl = URL.createObjectURL(file);
+      const image = new Image();
+
+      image.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve();
+      };
+
+      image.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error('Image file appears to be invalid or corrupted.'));
+      };
+
+      image.src = objectUrl;
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    if (!ADD_ON_ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      setErrors((prev) => ({
+        ...prev,
+        image: `Unsupported format. Allowed: ${ADD_ON_ALLOWED_IMAGE_LABEL}`,
+      }));
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > ADD_ON_MAX_IMAGE_SIZE_BYTES) {
+      setErrors((prev) => ({
+        ...prev,
+        image: "Image is too large. Maximum size is 20MB.",
+      }));
+      e.target.value = "";
+      return;
+    }
+
+    try {
+      await ensureImageCanRender(file);
       const compressed = await compressImage(file);
+
       setFormData({ ...formData, imageFile: compressed });
       setImagePreview(URL.createObjectURL(compressed));
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.image;
+        return next;
+      });
+    } catch {
+      setErrors((prev) => ({
+        ...prev,
+        image: 'Image file appears to be invalid or corrupted.',
+      }));
     }
   };
 
   const handleAddVariant = () => {
-    if (!newVariantLabel.trim() || !newVariantStock.trim() || parseInt(newVariantStock) < 0) return;
+    const parsedStock = Number.parseInt(newVariantStock, 10);
+
+    const labelError = validateVariantLabel(newVariantLabel);
+    if (labelError) {
+      setErrors((prev) => ({ ...prev, variants: labelError }));
+      return;
+    }
+
+    if (!newVariantStock.trim() || !Number.isFinite(parsedStock) || parsedStock <= 0 || parsedStock > VARIANT_STOCK_MAX) {
+      setErrors((prev) => ({
+        ...prev,
+        variants: `Variant quantity must be between 1 and ${VARIANT_STOCK_MAX.toLocaleString()}`,
+      }));
+      return;
+    }
+
+    const normalizedNewLabel = newVariantLabel.trim().toLowerCase();
+    const duplicateExists = formData.variants.some((variant) => variant.label.trim().toLowerCase() === normalizedNewLabel);
+    if (duplicateExists) {
+      setErrors((prev) => ({ ...prev, variants: "Variant labels must be unique" }));
+      return;
+    }
+
+    const variantId = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
     setFormData({
       ...formData,
-      variants: [...formData.variants, { id: Date.now().toString(), label: newVariantLabel, stock: parseInt(newVariantStock) }],
+      variants: [...formData.variants, {
+        id: variantId,
+        label: newVariantLabel.trim(),
+        stock: parsedStock,
+        stock_reserved: 0,
+        stock_redeemed: 0,
+      }],
     });
     setNewVariantLabel("");
     setNewVariantStock("");
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.variants;
+      return next;
+    });
   };
 
   const handleRemoveVariant = (id: string) => {
@@ -221,18 +417,36 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
   };
 
   const handleUpdateVariant = (id: string, field: 'label' | 'stock', value: string | number) => {
-    const newVariants = formData.variants.map((v) =>
-      v.id === id ? { ...v, [field]: value } : v
-    );
-    setFormData({ ...formData, variants: newVariants });
+    setFormData((prev) => ({
+      ...prev,
+      variants: prev.variants.map((variant) => {
+        if (variant.id !== id) return variant;
+
+        if (field === 'label') {
+          return { ...variant, label: String(value).slice(0, VARIANT_LABEL_MAX_LENGTH) };
+        }
+
+        const parsedStock = typeof value === 'number' ? value : Number.parseInt(String(value), 10);
+        const nextStock = Number.isFinite(parsedStock) ? Math.min(parsedStock, VARIANT_STOCK_MAX) : 0;
+        return {
+          ...variant,
+          stock: nextStock,
+          stock_reserved: variant.stock_reserved || 0,
+          stock_redeemed: variant.stock_redeemed || 0,
+        };
+      }),
+    }));
+
+    setErrors((prev) => {
+      if (!prev.variants) return prev;
+      const next = { ...prev };
+      delete next.variants;
+      return next;
+    });
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
-      </div>
-    );
+    return <AdminLoading message="Loading add-ons..." />;
   }
 
   return (
@@ -245,6 +459,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         </div>
         <button
           onClick={handleAddAddOn}
+          disabled={isSavingAddOn || isDeletingAddOn}
           className="px-5 py-2.5 text-sm bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 text-white font-bold rounded-xl flex items-center gap-2"
         >
           <Plus size={18} strokeWidth={3} />
@@ -262,6 +477,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 mb-6 text-center max-w-xs">Start by creating your first add-on to offer extra value to your attendees.</p>
           <button
             onClick={handleAddAddOn}
+            disabled={isSavingAddOn || isDeletingAddOn}
             className="px-6 py-2.5 text-sm border font-bold text-[#3D518C] dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-xl transition-all"
           >
             Add New Item
@@ -271,9 +487,15 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <AnimatePresence>
             {addOns.map((addOn) => {
-              const totalStock = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + v.stock, 0) || 0) : (addOn.stock || 0);
-              const isLowStock = totalStock > 0 && totalStock <= 10;
-              const isOutStock = totalStock <= 0;
+              const currentStock = addOn.hasVariants ? (addOn.variants?.reduce((s, v) => s + v.stock, 0) || 0) : (addOn.stock || 0);
+              const totalRedeemed = addOn.variants?.reduce((s, v) => s + (v.stock_redeemed || 0), 0) || 0;
+              const totalCapacity = currentStock + totalRedeemed;
+              const isLowStock = currentStock > 0 && currentStock <= 10;
+              const isOutStock = currentStock <= 0;
+              const needsUpdate = (addOn.variants?.reduce((s, v) => s + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0) > 0 && 
+                (addOn.hasVariants ? 
+                  addOn.variants?.some(v => v.stock < (v.stock_reserved || 0) + (v.stock_redeemed || 0)) : 
+                  addOn.stock < (addOn.variants?.reduce((s, v) => s + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0));
 
               return (
                 <motion.div
@@ -312,6 +534,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         {isOutStock ? <AlertCircle size={10} /> : isLowStock ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />}
                         {isOutStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
                       </div>
+                      {needsUpdate && (
+                        <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md bg-orange-500/90 text-white shadow-orange-200 dark:shadow-none">
+                          <AlertCircle size={10} />
+                          Needs Update
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -333,12 +561,24 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                           Standard Item
                         </div>
                       )}
-                      <div className="text-[11px] font-bold text-gray-400 dark:text-gray-500">
-                        TOTAL QTY: {totalStock}
+                    </div>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[11px] font-bold w-fit">
+                        <Package size={12} />
+                        <span>Total: {totalCapacity}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-[11px] font-bold w-fit">
+                        <Package size={12} />
+                        <span>Reserved: {addOn.variants?.reduce((sum, v) => sum + (v.stock_reserved || 0), 0) || 0}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-bold w-fit">
+                        <PackageOpen size={12} />
+                        <span>Available: {currentStock}</span>
                       </div>
                     </div>
 
                     <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 min-h-[40px] leading-relaxed">
+                      <span className="font-bold text-gray-700 dark:text-gray-200">Description: </span>
                       {addOn.description}
                     </p>
 
@@ -357,6 +597,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                       <div className="flex gap-1.5">
                         <button
                           onClick={() => handleEditAddOn(addOn)}
+                          disabled={isSavingAddOn || isDeletingAddOn}
                           className="w-11 h-11 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 rounded-2xl transition-all"
                           title="Edit"
                         >
@@ -364,6 +605,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         </button>
                         <button
                           onClick={() => handleDeleteClick(addOn.id)}
+                          disabled={isSavingAddOn || isDeletingAddOn}
                           className="w-11 h-11 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 dark:text-gray-400 hover:text-red-500 rounded-2xl transition-all"
                           title="Delete"
                         >
@@ -382,7 +624,10 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       {/* Add/Edit Modal */}
       <Modal
         isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        onClose={() => {
+          if (isSavingAddOn) return;
+          setIsModalOpen(false);
+        }}
         title={editingAddOnId ? "Edit Add-on" : "Create Add-on"}
       >
         <div className="space-y-4">
@@ -390,10 +635,14 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <label className="block text-sm font-medium mb-2">Add-on Image</label>
             <input
               type="file"
-              accept="image/*"
+              accept={ADD_ON_ALLOWED_IMAGE_ACCEPT}
               onChange={handleImageUpload}
               className="block w-full text-sm text-gray-500 dark:text-gray-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-l-xl file:border-0 file:text-sm file:font-semibold file:bg-[#3D518C] file:text-white hover:file:bg-indigo-700 border border-gray-200 dark:border-gray-700 rounded-xl bg-slate-50 dark:bg-slate-900/50 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]/20 transition-all cursor-pointer"
             />
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Supported formats: {ADD_ON_ALLOWED_IMAGE_LABEL}. Maximum file size: 20MB.
+            </p>
+            {errors.image && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.image}</p>}
             {formData.image && (
               <div className="mt-3">
                 <img src={imagePreview || formData.image} alt="Preview" className="w-full h-40 object-cover rounded-xl" />
@@ -411,9 +660,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <ModalInput
               type="text"
               value={formData.name}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, name: e.target.value.slice(0, ADD_ON_NAME_MAX_LENGTH) })}
               className={errors.name ? "border-red-500" : ""}
+              maxLength={ADD_ON_NAME_MAX_LENGTH}
             />
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Maximum {ADD_ON_NAME_MAX_LENGTH} characters.</p>
             {errors.name && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.name}</p>}
           </div>
 
@@ -421,10 +672,12 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             <label className="block text-sm font-medium mb-2">Description *</label>
             <ModalTextarea
               value={formData.description}
-              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFormData({ ...formData, description: e.target.value.slice(0, ADD_ON_DESCRIPTION_MAX_LENGTH) })}
               rows={3}
               className={errors.description ? "border-red-500" : ""}
+              maxLength={ADD_ON_DESCRIPTION_MAX_LENGTH}
             />
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">Maximum {ADD_ON_DESCRIPTION_MAX_LENGTH} characters.</p>
             {errors.description && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.description}</p>}
           </div>
 
@@ -440,7 +693,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               </button>
               <button
                 type="button"
-                onClick={() => setFormData({ ...formData, hasVariants: false })}
+                onClick={() => setFormData({ ...formData, hasVariants: false, variants: [] })}
                 className={`px-4 py-1.5 text-sm rounded-md transition-all ${!formData.hasVariants ? 'bg-white dark:bg-gray-700 shadow text-[#3D518C] dark:text-indigo-300 font-semibold cursor-default' : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'}`}
               >
                 No
@@ -453,11 +706,15 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               <label className="block text-sm font-medium mb-2">Stock/Quantity *</label>
               <ModalInput
                 type="number"
-                min="0"
+                min="1"
                 value={formData.stock.toString()}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, stock: parseInt(e.target.value) || 0 })}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                  const parsed = Number.parseInt(e.target.value, 10);
+                  setFormData({ ...formData, stock: Number.isFinite(parsed) ? parsed : 0 });
+                }}
+                onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 className={errors.stock ? "border-red-500" : ""}
-                placeholder="0"
+                placeholder="1"
               />
               {errors.stock && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.stock}</p>}
             </div>
@@ -468,16 +725,25 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               <label className="text-sm font-medium">Variants *</label>
 
               <div className="space-y-3">
-
-                {formData.variants.filter(v => v.label.trim()).map((variant) => (
+                {formData.variants.map((variant) => (
                   <div key={variant.id} className="flex gap-3 items-center bg-white dark:bg-gray-800 min-h-[42px] py-1.5 px-3 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
-                    <div className="flex-1 pl-1 text-gray-900 dark:text-gray-100 min-w-0 pr-2">
-                      <span className="text-sm font-medium break-words leading-tight">
-                        {variant.label}
-                        <span className="text-gray-400 mx-2 font-light">|</span>
-                        <span className="text-[11px] uppercase font-semibold text-gray-500 dark:text-gray-400">QTY: </span>
-                        <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{variant.stock}</span>
-                      </span>
+                    <div className="flex-1 grid grid-cols-[1fr_100px] gap-2 items-center min-w-0">
+                      <ModalInput
+                        type="text"
+                        value={variant.label}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'label', e.target.value)}
+                        placeholder="Label"
+                        maxLength={VARIANT_LABEL_MAX_LENGTH}
+                      />
+                      <ModalInput
+                        type="number"
+                        min="1"
+                        max={VARIANT_STOCK_MAX}
+                        value={variant.stock.toString()}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => handleUpdateVariant(variant.id, 'stock', e.target.value)}
+                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                        placeholder="Qty"
+                      />
                     </div>
                     <button
                       type="button"
@@ -497,26 +763,38 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                   <ModalInput
                     type="text"
                     value={newVariantLabel}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantLabel(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantLabel(e.target.value.slice(0, VARIANT_LABEL_MAX_LENGTH))}
                     placeholder="Label"
+                    maxLength={VARIANT_LABEL_MAX_LENGTH}
                   />
                   <ModalInput
                     type="number"
-                    min="0"
+                    min="1"
+                    max={VARIANT_STOCK_MAX}
                     value={newVariantStock}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewVariantStock(e.target.value)}
-                    placeholder="Stock"
+                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                    placeholder="Qty"
                   />
                 </div>
                 <button
                   type="button"
                   onClick={handleAddVariant}
-                  disabled={!newVariantLabel.trim() || !newVariantStock.trim()}
+                  disabled={
+                    !newVariantLabel.trim()
+                    || !newVariantStock.trim()
+                    || Number.parseInt(newVariantStock, 10) <= 0
+                    || Number.parseInt(newVariantStock, 10) > VARIANT_STOCK_MAX
+                  }
                   className="w-[42px] h-[42px] flex items-center justify-center bg-[#5C6BC0] text-white rounded-[10px] hover:bg-[#3D518C] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
                 >
                   <Plus size={20} />
                 </button>
               </div>
+
+              <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                Label max {VARIANT_LABEL_MAX_LENGTH} chars; allowed: letters, numbers, spaces, and . , &apos; &amp; ( ) _ / -. Quantity: 1 to {VARIANT_STOCK_MAX.toLocaleString()}.
+              </p>
 
               {errors.variants && <p className="text-red-600 text-[11px] leading-tight mt-1">{errors.variants}</p>}
             </div>
@@ -524,18 +802,84 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
 
           <div>
             <label className="block text-sm font-medium mb-2">Apply To</label>
-            <select
-              value={typeof formData.appliedTo === 'string' ? formData.appliedTo : formData.appliedTo[0] || 'all'}
-              onChange={(e) => setFormData({ ...formData, appliedTo: e.target.value === 'all' ? 'all' : [e.target.value] })}
-              className="w-full pl-3 pr-10 py-2.5 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 focus:bg-white dark:focus:bg-slate-800 text-gray-900 dark:text-white shadow-sm focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C] outline-none transition-all hover:border-gray-300 dark:hover:border-gray-600 border-gray-200 dark:border-gray-700 text-sm appearance-none bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E')] bg-[length:16px_16px] bg-[position:right_12px_center] bg-no-repeat"
-            >
-              <option value="all">All Tickets</option>
-              {tickets.map((ticket) => (
-                <option key={ticket.id} value={ticket.id}>
-                  {ticket.name}
-                </option>
-              ))}
-            </select>
+            <div className="relative" ref={applyToRef}>
+              <button
+                type="button"
+                onClick={() => setIsApplyToOpen((o) => !o)}
+                className="w-full flex items-center justify-between gap-2 py-2.5 px-3 min-h-[42px] border rounded-xl bg-slate-50 dark:bg-slate-900/50 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 text-sm text-gray-900 dark:text-white transition-all focus:outline-none focus:ring-2 focus:ring-[#3D518C]/20 focus:border-[#3D518C]"
+              >
+                <span className="truncate">
+                  {typeof formData.appliedTo === 'string'
+                    ? 'All Tickets'
+                    : tickets.find((t) => formData.appliedTo[0] === t.id)?.name ?? 'Select ticket'}
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`shrink-0 text-gray-400 transition-transform duration-200 ${isApplyToOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+
+              {isApplyToOpen && (
+                <>
+                  {/* click-outside overlay */}
+                  <div
+                    className="fixed inset-0 z-10"
+                    onClick={() => setIsApplyToOpen(false)}
+                  />
+                  <div className="absolute z-20 mt-1.5 w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
+                    {/* All Tickets option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFormData({ ...formData, appliedTo: 'all' });
+                        setIsApplyToOpen(false);
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${typeof formData.appliedTo === 'string'
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
+                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                        }`}
+                    >
+                      <span>All Tickets</span>
+                      {typeof formData.appliedTo === 'string' && (
+                        <Check size={14} className="shrink-0 text-[#3D518C] dark:text-indigo-400" />
+                      )}
+                    </button>
+
+                    {tickets.length > 0 && (
+                      <div className="border-t border-gray-100 dark:border-gray-700">
+                        {tickets.map((ticket) => {
+                          const isSelected = Array.isArray(formData.appliedTo) && formData.appliedTo[0] === ticket.id;
+                          return (
+                            <button
+                              key={ticket.id}
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, appliedTo: [ticket.id] });
+                                setIsApplyToOpen(false);
+                              }}
+                              className={`w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-left transition-colors ${isSelected
+                                ? 'bg-indigo-50 dark:bg-indigo-900/30 text-[#3D518C] dark:text-indigo-300 font-semibold'
+                                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/60'
+                                }`}
+                            >
+                              <span className="truncate">{ticket.name}</span>
+                              {isSelected && (
+                                <Check size={14} className="shrink-0 text-[#3D518C] dark:text-indigo-400" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              {typeof formData.appliedTo === 'string'
+                ? `Applies to all current and future tickets for this event (${tickets.length} ticket type${tickets.length === 1 ? '' : 's'}).`
+                : 'Applies only to the selected ticket type.'}
+            </p>
           </div>
 
           {/* Modal Footer */}
@@ -544,7 +888,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             onSave={handleSaveAddOn}
             saveText={editingAddOnId ? "Update Add-on" : "Create Add-on"}
             submitType="button"
+            isSubmitting={isSavingAddOn}
           />
+          {errors.form && (
+            <p className="text-sm text-red-600 dark:text-red-400">{errors.form}</p>
+          )}
         </div>
       </Modal>
 
@@ -567,18 +915,37 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               <p className="text-gray-600 dark:text-gray-400 text-sm whitespace-pre-wrap">{selectedAddOn.description}</p>
             </div>
             <div>
-              <h4 className="font-medium text-sm mb-2">Variants</h4>
+              <h4 className="font-medium text-sm mb-2">Stock Information</h4>
               {selectedAddOn.hasVariants && selectedAddOn.variants && selectedAddOn.variants.length > 0 ? (
                 <ul className="space-y-2">
                   {selectedAddOn.variants.map((variant) => (
-                    <li key={variant.id} className="text-sm bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                      <span className="font-medium">{variant.label}</span>
-                      <span className="text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 shadow-sm">Stock: {variant.stock}</span>
+                    <li key={variant.id} className="text-sm bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium">{variant.label}</span>
+                        <span className="text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 shadow-sm">
+                          Available: {variant.stock}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 grid grid-cols-2 gap-2">
+                        <div>Reserved: {variant.stock_reserved || 0}</div>
+                        <div>Redeemed: {variant.stock_redeemed || 0}</div>
+                      </div>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-gray-500 dark:text-gray-400 italic">Standard Add-on (Stock: {selectedAddOn.stock || 0})</p>
+                <div className="text-sm bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium">Standard Add-on</span>
+                    <span className="text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 px-2 py-1 rounded text-xs border border-gray-200 dark:border-gray-700 shadow-sm">
+                      Available: {selectedAddOn.stock || 0}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 grid grid-cols-2 gap-2">
+                    <div>Total Reserved: {selectedAddOn.variants?.reduce((sum, v) => sum + (v.stock_reserved || 0), 0) || 0}</div>
+                    <div>Total Redeemed: {selectedAddOn.variants?.reduce((sum, v) => sum + (v.stock_redeemed || 0), 0) || 0}</div>
+                  </div>
+                </div>
               )}
             </div>
             <button
@@ -594,7 +961,10 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
       {/* Delete Confirmation Modal */}
       <Modal
         isOpen={isConfirmDeleteOpen}
-        onClose={() => setIsConfirmDeleteOpen(false)}
+        onClose={() => {
+          if (isDeletingAddOn) return;
+          setIsConfirmDeleteOpen(false);
+        }}
         title="Delete Add-on"
       >
         <div className="space-y-4">
@@ -605,9 +975,11 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
             saveText="Delete"
             submitType="button"
             isDanger={true}
+            isSubmitting={isDeletingAddOn}
           />
         </div>
       </Modal>
+
     </div>
   );
 }

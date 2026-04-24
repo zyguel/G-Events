@@ -41,6 +41,7 @@ export default async function PublicEventRegistrationPage({
 
   const event = await getPublishedEventById(numericEventId);
   if (!event) return notFound();
+  const isEventPublished = Boolean(event.is_published);
 
   const waitlistInviteRaw = query?.waitlistInvite;
   const waitlistInviteToken = Array.isArray(waitlistInviteRaw)
@@ -56,6 +57,8 @@ export default async function PublicEventRegistrationPage({
       ? waitlistInviteVerification.claims
       : null;
 
+  let waitlistInviteName: string | undefined;
+
   const formsResult = await getOrderFormsByEventPublic(numericEventId);
   const form = formsResult?.data?.[0];
   const eventSlug = buildEventSlug(event.title, event.id);
@@ -68,6 +71,17 @@ export default async function PublicEventRegistrationPage({
   const userEmail = validWaitlistInviteClaims?.email || user?.email || undefined;
 
   const adminClient = await createAdminClient();
+  if (validWaitlistInviteClaims?.email) {
+    const { data: invitedUserRow } = await adminClient
+      .from("User")
+      .select("name")
+      .ilike("email", validWaitlistInviteClaims.email)
+      .limit(1)
+      .maybeSingle();
+
+    waitlistInviteName = typeof invitedUserRow?.name === 'string' ? invitedUserRow.name : undefined;
+  }
+
   const { data: ticketRows } = await adminClient
       .from("Ticket")
       .select("id, name, price, available_quantity, waitlist_reserved_quantity")
@@ -77,7 +91,12 @@ export default async function PublicEventRegistrationPage({
       .order("price", { ascending: true })
       .order("id", { ascending: true });
 
-  const eventTickets = (ticketRows || []) as EventTicketRow[];
+  const eventTicketsRaw = (ticketRows || []) as EventTicketRow[];
+  const eventTicketsById = new Map<number, EventTicketRow>();
+  for (const row of eventTicketsRaw) {
+    if (!eventTicketsById.has(row.id)) eventTicketsById.set(row.id, row);
+  }
+  const eventTickets = Array.from(eventTicketsById.values());
   const ticketIds = eventTickets.map((t) => t.id);
   const usageByTicket = new Map<number, number>();
 
@@ -192,7 +211,28 @@ export default async function PublicEventRegistrationPage({
         </Link>
       </div>
 
-      {!form ? (
+      {!isEventPublished ? (
+        <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+          <div className="bg-white dark:bg-gray-900/80 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl p-10">
+            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-5">
+              <ClipboardX size={28} className="text-gray-400" />
+            </div>
+            <h2 className="text-xl font-extrabold text-gray-900 dark:text-white mb-2">
+              Registration Not Yet Open
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto mb-6">
+              This event page is visible, but registration will open once the organizer publishes the event.
+            </p>
+            <Link
+              href={`/events/${eventSlug}`}
+              className="inline-flex items-center gap-2 px-6 py-2.5 bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-bold rounded-xl shadow-md hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all duration-200"
+            >
+              <ChevronLeft size={15} />
+              Back to Event
+            </Link>
+          </div>
+        </div>
+      ) : !form ? (
         /* No form published yet */
         <div className="max-w-2xl mx-auto px-4 py-16 text-center">
           <div className="bg-white dark:bg-gray-900/80 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl p-10">
@@ -233,6 +273,7 @@ export default async function PublicEventRegistrationPage({
           waitlistInviteToken={waitlistInviteToken || undefined}
           waitlistInviteTicketId={validWaitlistInviteClaims?.tid ?? null}
           waitlistInviteEmail={validWaitlistInviteClaims?.email || undefined}
+          waitlistInviteName={waitlistInviteName}
         />
       )}
     </div>

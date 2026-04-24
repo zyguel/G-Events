@@ -222,11 +222,10 @@ function QuestionCard({
                     <button
                       key={t.value}
                       onClick={() => onChange({ ...defaultQuestion(t.value, q.displayOrder), id: q.id, dbId: q.dbId, label: q.label, required: q.required })}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        q.type === t.value
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${q.type === t.value
                           ? "bg-[#3D518C] text-white shadow-sm"
                           : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                      }`}
+                        }`}
                     >
                       {t.icon}
                       {t.label}
@@ -241,15 +240,11 @@ function QuestionCard({
                     Max Stars
                   </label>
                   <div className="flex items-center gap-3">
-                    {[3, 5, 7, 10].map((n) => (
+                    {[5].map((n) => (
                       <button
                         key={n}
                         onClick={() => updateField("maxRating", n)}
-                        className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all ${
-                          q.maxRating === n
-                            ? "bg-[#3D518C] text-white shadow-sm"
-                            : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
-                        }`}
+                        className={`w-9 h-9 rounded-lg text-sm font-semibold transition-all bg-[#3D518C] text-white shadow-sm cursor-default`}
                       >
                         {n}
                       </button>
@@ -315,14 +310,12 @@ function QuestionCard({
                 <span className="text-xs font-medium text-gray-500 dark:text-gray-400">Required</span>
                 <button
                   onClick={() => updateField("required", !q.required)}
-                  className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${
-                    q.required ? "bg-[#3D518C]" : "bg-gray-200 dark:bg-gray-600"
-                  }`}
+                  className={`relative w-10 h-5 rounded-full transition-colors duration-200 ${q.required ? "bg-[#3D518C]" : "bg-gray-200 dark:bg-gray-600"
+                    }`}
                 >
                   <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
-                      q.required ? "translate-x-5" : "translate-x-0"
-                    }`}
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${q.required ? "translate-x-5" : "translate-x-0"
+                      }`}
                   />
                 </button>
               </div>
@@ -617,13 +610,12 @@ export default function FeedbackPage() {
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed ${
-                  saveStatus === "saved"
+                className={`flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed ${saveStatus === "saved"
                     ? "bg-green-500 text-white"
                     : saveStatus === "error"
-                    ? "bg-red-500 text-white"
-                    : "bg-[#3D518C] hover:bg-[#2d3d6b] text-white"
-                }`}
+                      ? "bg-red-500 text-white"
+                      : "bg-[#3D518C] hover:bg-[#2d3d6b] text-white"
+                  }`}
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : null}
                 {saving ? "Saving…" : saveStatus === "saved" ? "✓ Saved!" : saveStatus === "error" ? "Save Failed" : "Save Form"}
@@ -684,14 +676,12 @@ export default function FeedbackPage() {
               </div>
               <button
                 onClick={() => setIsEnabled(!isEnabled)}
-                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${
-                  isEnabled ? "bg-[#3D518C]" : "bg-gray-200 dark:bg-gray-600"
-                }`}
+                className={`relative w-11 h-6 rounded-full transition-colors duration-200 ${isEnabled ? "bg-[#3D518C]" : "bg-gray-200 dark:bg-gray-600"
+                  }`}
               >
                 <span
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
-                    isEnabled ? "translate-x-5" : "translate-x-0"
-                  }`}
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${isEnabled ? "translate-x-5" : "translate-x-0"
+                    }`}
                 />
               </button>
             </div>
@@ -700,11 +690,10 @@ export default function FeedbackPage() {
             <div className="flex items-center gap-2">
               <ToggleRight size={14} className={isEnabled ? "text-green-500" : "text-gray-400"} />
               <span
-                className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                  isEnabled
+                className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isEnabled
                     ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                     : "bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400"
-                }`}
+                  }`}
               >
                 {isEnabled ? "Active — will be shown post-event" : "Disabled — form won't be shown"}
               </span>
@@ -770,13 +759,12 @@ export default function FeedbackPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-semibold shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed ${
-                saveStatus === "saved"
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-2xl text-sm font-semibold shadow-md transition-all disabled:opacity-70 disabled:cursor-not-allowed ${saveStatus === "saved"
                   ? "bg-green-500 text-white"
                   : saveStatus === "error"
-                  ? "bg-red-500 text-white"
-                  : "bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
-              }`}
+                    ? "bg-red-500 text-white"
+                    : "bg-gradient-to-r from-[#3D518C] to-indigo-600 text-white hover:shadow-xl hover:scale-[1.02] active:scale-[0.98]"
+                }`}
             >
               {saving && <Loader2 size={14} className="animate-spin" />}
               {saving ? "Saving…" : saveStatus === "saved" ? "✓ Form Saved!" : saveStatus === "error" ? "Save Failed — Retry" : "Save Feedback Form"}

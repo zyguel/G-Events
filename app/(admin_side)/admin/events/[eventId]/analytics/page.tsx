@@ -7,6 +7,10 @@ import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
 import { getEventById, getEvents, getEventAnalytics, getEventDemographics, getEventTickets } from "@/lib/actions/events";
 
 
+export const metadata = {
+    title: 'Analytics',
+};
+
 export default async function EventAnalyticsPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 
@@ -123,26 +127,18 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
                     <StatCard
                         title="Registrations"
                         value={formatNumber(data.stats.registrations)}
-                        growth=""
-                        trend="up"
                     />
                     <StatCard
                         title="Revenue"
                         value={formatCurrency(data.stats.revenue)}
-                        growth=""
-                        trend="up"
                     />
                     <StatCard
                         title="Net Profit"
                         value={formatCurrency(data.stats.netProfit)}
-                        growth=""
-                        trend="up"
                     />
                     <StatCard
                         title="Satisfaction"
                         value={data.stats.satisfaction > 0 ? `${data.stats.satisfaction}/5.0` : 'N/A'}
-                        growth=""
-                        trend="up"
                     />
                 </div>
 

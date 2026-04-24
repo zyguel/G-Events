@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase-server";
-import { requireUser } from "@/lib/apiAuth";
+import { getAuthErrorResponse, requireUser } from "@/lib/apiAuth";
 
 export async function GET(request: NextRequest) {
     try {
@@ -11,19 +11,21 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url);
         const q = searchParams.get("q");
 
-        if (!q || q.length < 2) {
-            return NextResponse.json({ success: true, data: [] });
-        }
+        const normalizedQuery = String(q || '').trim();
 
         const supabase = await createAdminClient();
 
-        // 3. Search for users by email or name
-        // We use or with ILIKE for partial and case-insensitive matching
-        const { data: users, error: userErr } = await supabase
+        // 3. Search users by email/name when a query exists, otherwise return a starter list.
+        const queryBuilder = supabase
             .from("User")
             .select("id, name, email")
-            .or(`email.ilike.%${q}%,name.ilike.%${q}%`)
             .limit(10);
+
+        const finalQuery = normalizedQuery
+            ? queryBuilder.or(`email.ilike.%${normalizedQuery}%,name.ilike.%${normalizedQuery}%`)
+            : queryBuilder.order('name', { ascending: true });
+
+        const { data: users, error: userErr } = await finalQuery;
 
         if (userErr) {
             console.error("User Search API Error:", userErr);
@@ -31,10 +33,15 @@ export async function GET(request: NextRequest) {
         }
 
         return NextResponse.json({ success: true, data: users || [] });
-    } catch (e: any) {
-        console.error("User Search API Error:", e);
+    } catch (error: unknown) {
+        const authError = getAuthErrorResponse(error);
+        if (authError) {
+            return authError;
+        }
+
+        console.error("User Search API Error:", error);
         return NextResponse.json(
-            { success: false, error: e?.message || "Unexpected error" },
+            { success: false, error: error instanceof Error ? error.message : "Unexpected error" },
             { status: 500 }
         );
     }

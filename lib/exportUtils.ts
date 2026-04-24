@@ -4,7 +4,7 @@ import ExcelJS from 'exceljs';
 interface ExportData {
     name: string;
     stats: {
-        totalEvents: number;
+        totalEvents?: number;
         registrations: number;
         revenue: number;
         satisfaction: number;
@@ -21,6 +21,19 @@ interface ExportData {
             distribution: { value: string; count: number }[];
         }[];
     };
+    trends?: {
+        attendance?: {
+            checkedIn: number;
+            noShow: number;
+            waitlisted: number;
+        };
+    };
+    comments?: {
+        user: string;
+        rating: number;
+        text: string;
+        time: string;
+    }[];
 }
 
 // Helper to trigger file download
@@ -52,7 +65,9 @@ export function exportToCSV(data: ExportData) {
     // Stats Summary Section
     csv += 'STATS SUMMARY\n';
     csv += 'Metric,Value\n';
-    csv += `Total Events,${data.stats.totalEvents}\n`;
+    if (data.stats.totalEvents !== undefined) {
+        csv += `Total Events,${data.stats.totalEvents}\n`;
+    }
     csv += `Total Registrations,${data.stats.registrations}\n`;
     csv += `Revenue,$${data.stats.revenue.toLocaleString()}\n`;
     csv += `Expenses,$${data.stats.expenses.toLocaleString()}\n`;
@@ -74,6 +89,28 @@ export function exportToCSV(data: ExportData) {
     data.recentTransactions.forEach(tx => {
         csv += `${tx.id},${tx.user},${tx.type},$${tx.amount.toLocaleString()},${tx.date},${tx.status}\n`;
     });
+    csv += '\n';
+
+    // Attendance Section
+    if (data.trends?.attendance) {
+        csv += 'ATTENDANCE\n';
+        csv += 'Status,Count\n';
+        csv += `Checked In,${data.trends.attendance.checkedIn}\n`;
+        csv += `Waitlisted,${data.trends.attendance.waitlisted}\n`;
+        csv += `No Show,${data.trends.attendance.noShow}\n`;
+        csv += '\n';
+    }
+
+    // Feedback Section
+    if (data.comments && data.comments.length > 0) {
+        csv += 'FEEDBACK COMMENTS\n';
+        csv += 'User,Rating,Time,Comment\n';
+        data.comments.forEach(comment => {
+            const escapedText = comment.text.replace(/"/g, '""');
+            csv += `"${comment.user}",${comment.rating},"${comment.time}","${escapedText}"\n`;
+        });
+        csv += '\n';
+    }
 
     // Demographics Section
     if (data.demographics && data.demographics.totalResponses > 0) {
@@ -110,14 +147,17 @@ export async function exportToXLSX(data: ExportData) {
         { header: 'Value', key: 'value', width: 20 }
     ];
 
-    const statsData = [
-        { metric: 'Total Events', value: data.stats.totalEvents },
+    const statsData = [];
+    if (data.stats.totalEvents !== undefined) {
+        statsData.push({ metric: 'Total Events', value: data.stats.totalEvents });
+    }
+    statsData.push(
         { metric: 'Total Registrations', value: data.stats.registrations },
         { metric: 'Revenue', value: `$${data.stats.revenue.toLocaleString()}` },
         { metric: 'Expenses', value: `$${data.stats.expenses.toLocaleString()}` },
         { metric: 'Net Profit', value: `$${data.stats.netProfit.toLocaleString()}` },
-        { metric: 'Satisfaction', value: `${data.stats.satisfaction}/5` },
-    ];
+        { metric: 'Satisfaction', value: `${data.stats.satisfaction}/5` }
+    );
 
     statsSheet.addRows(statsData);
     statsSheet.getRow(1).font = { bold: true };
@@ -161,6 +201,35 @@ export async function exportToXLSX(data: ExportData) {
 
     txSheet.addRows(txData);
     txSheet.getRow(1).font = { bold: true };
+
+    // Attendance Sheet
+    if (data.trends?.attendance) {
+        const attSheet = workbook.addWorksheet('Attendance');
+        attSheet.columns = [
+            { header: 'Status', key: 'status', width: 20 },
+            { header: 'Count', key: 'count', width: 15 }
+        ];
+        attSheet.addRows([
+            { status: 'Checked In', count: data.trends.attendance.checkedIn },
+            { status: 'Waitlisted', count: data.trends.attendance.waitlisted },
+            { status: 'No Show', count: data.trends.attendance.noShow }
+        ]);
+        attSheet.getRow(1).font = { bold: true };
+    }
+
+    // Feedback Sheet
+    if (data.comments && data.comments.length > 0) {
+        const fbSheet = workbook.addWorksheet('Feedback');
+        fbSheet.columns = [
+            { header: 'User', key: 'user', width: 20 },
+            { header: 'Rating', key: 'rating', width: 10 },
+            { header: 'Time', key: 'time', width: 20 },
+            { header: 'Comment', key: 'text', width: 80 }
+        ];
+        fbSheet.addRows(data.comments);
+        fbSheet.getRow(1).font = { bold: true };
+        fbSheet.getColumn('text').alignment = { wrapText: true };
+    }
 
     // Demographics Sheets (one per field)
     if (data.demographics && data.demographics.totalResponses > 0) {
@@ -225,17 +294,22 @@ export async function exportToPDF(data: ExportData) {
     doc.text('Stats Summary', 14, yPosition);
     yPosition += 6;
 
+    const statsBody = [];
+    if (data.stats.totalEvents !== undefined) {
+        statsBody.push(['Total Events', data.stats.totalEvents.toString()]);
+    }
+    statsBody.push(
+        ['Total Registrations', data.stats.registrations.toLocaleString()],
+        ['Revenue', `$${data.stats.revenue.toLocaleString()}`],
+        ['Expenses', `$${data.stats.expenses.toLocaleString()}`],
+        ['Net Profit', `$${data.stats.netProfit.toLocaleString()}`],
+        ['Satisfaction', `${data.stats.satisfaction}/5`]
+    );
+
     autoTableFn(doc, {
         startY: yPosition,
         head: [['Metric', 'Value']],
-        body: [
-            ['Total Events', data.stats.totalEvents.toString()],
-            ['Total Registrations', data.stats.registrations.toLocaleString()],
-            ['Revenue', `$${data.stats.revenue.toLocaleString()}`],
-            ['Expenses', `$${data.stats.expenses.toLocaleString()}`],
-            ['Net Profit', `$${data.stats.netProfit.toLocaleString()}`],
-            ['Satisfaction', `${data.stats.satisfaction}/5`],
-        ],
+        body: statsBody,
         theme: 'striped',
         headStyles: { fillColor: [99, 102, 241] },
         margin: { left: 14, right: 14 },
@@ -297,6 +371,72 @@ export async function exportToPDF(data: ExportData) {
             4: { cellWidth: 25 },
         },
     });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    yPosition = (doc as any).lastAutoTable.finalY + 15;
+
+    // Attendance Section
+    if (data.trends?.attendance) {
+        if (yPosition > 230) {
+            doc.addPage();
+            yPosition = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.text('Attendance', 14, yPosition);
+        yPosition += 6;
+
+        autoTableFn(doc, {
+            startY: yPosition,
+            head: [['Status', 'Count']],
+            body: [
+                ['Checked In', data.trends.attendance.checkedIn.toString()],
+                ['Waitlisted', data.trends.attendance.waitlisted.toString()],
+                ['No Show', data.trends.attendance.noShow.toString()],
+            ],
+            theme: 'striped',
+            headStyles: { fillColor: [99, 102, 241] },
+            margin: { left: 14, right: 14 },
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        yPosition = (doc as any).lastAutoTable.finalY + 15;
+    }
+
+    // Feedback Section
+    if (data.comments && data.comments.length > 0) {
+        if (yPosition > 230) {
+            doc.addPage();
+            yPosition = 20;
+        }
+
+        doc.setFontSize(14);
+        doc.text('Feedback Comments', 14, yPosition);
+        yPosition += 6;
+
+        autoTableFn(doc, {
+            startY: yPosition,
+            head: [['User', 'Rating', 'Time', 'Comment']],
+            body: data.comments.map(c => [
+                c.user,
+                c.rating > 0 ? `${c.rating}/5` : '-',
+                c.time,
+                c.text
+            ]),
+            theme: 'striped',
+            headStyles: { fillColor: [99, 102, 241] },
+            margin: { left: 14, right: 14 },
+            columnStyles: {
+                0: { cellWidth: 35 },
+                1: { cellWidth: 20 },
+                2: { cellWidth: 35 },
+                3: { cellWidth: 90 },
+            },
+        });
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        yPosition = (doc as any).lastAutoTable.finalY + 15;
+    }
 
     // Demographics Section
     if (data.demographics && data.demographics.totalResponses > 0) {

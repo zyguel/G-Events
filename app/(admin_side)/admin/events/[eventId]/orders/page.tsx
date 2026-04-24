@@ -1,6 +1,11 @@
 import { notFound } from "next/navigation";
 import { getEventById } from "@/lib/actions/events";
+import { getOrdersByEventId } from "@/lib/actions/orders";
 import ManageOrdersClient from "./ManageOrdersClient";
+
+export const metadata = {
+    title: 'Orders',
+};
 
 export default async function ManageOrdersPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
@@ -40,5 +45,7 @@ export default async function ManageOrdersPage({ params }: { params: Promise<{ e
         status: status
     };
 
-    return <ManageOrdersClient event={event} />;
+    const initialOrders = await getOrdersByEventId(id);
+
+    return <ManageOrdersClient event={event} initialOrders={initialOrders as any} />;
 }

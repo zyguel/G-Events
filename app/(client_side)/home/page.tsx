@@ -36,6 +36,8 @@ export default function ClientDashboardPage() {
                     .map((e: any) => {
                         const startDate = e.event_start_at ? new Date(e.event_start_at) : null;
                         const endDate = e.event_end_at ? new Date(e.event_end_at) : null;
+                        const registrationOpenAt = e.registration_open_at ? new Date(e.registration_open_at) : null;
+                        const registrationCloseAt = e.registration_close_at ? new Date(e.registration_close_at) : null;
 
                         let statusText = "Upcoming";
                         let statusColor = "bg-gray-400";
@@ -46,7 +48,12 @@ export default function ClientDashboardPage() {
                         } else if (startDate && endDate && startDate <= now && endDate >= now) {
                             statusText = "Ongoing";
                             statusColor = "bg-[#00D05C]";
-                        } else if (e.registration_open_at && new Date(e.registration_open_at) <= now) {
+                        } else if (
+                            e.is_published
+                            && registrationOpenAt
+                            && registrationOpenAt <= now
+                            && (!registrationCloseAt || registrationCloseAt >= now)
+                        ) {
                             statusText = "Registration Open";
                             statusColor = "bg-[#00D05C]";
                         }

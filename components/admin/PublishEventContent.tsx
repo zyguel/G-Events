@@ -10,7 +10,6 @@ import SuccessModal from "./SuccessModal";
 import Modal, { ModalFooter } from "./Modal";
 
 import { EventData } from "@/lib/types";
-import { updateEvent } from "@/lib/actions/events";
 import { usePermissions } from "@/contexts/PermissionContext";
 
 interface TicketData {
@@ -32,6 +31,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
 
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [isPublishing, setIsPublishing] = useState(false);
+    const [isSavingSettings, setIsSavingSettings] = useState(false);
     const [isUnpublishModalOpen, setIsUnpublishModalOpen] = useState(false);
     const [localStatus, setLocalStatus] = useState(event.status);
     const isEventPublished = localStatus === 'Published' || localStatus === 'Ongoing' || localStatus === 'Completed';
@@ -67,6 +67,67 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
     // Toast State
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const toIsoDate = (value: Date) => {
+        const year = value.getFullYear();
+        const month = String(value.getMonth() + 1).padStart(2, '0');
+        const day = String(value.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const buildRegistrationTimestamp = (date: string, time: string, fallbackTime: string) => {
+        if (!date) return null;
+        const normalizedTime = time || fallbackTime;
+        const candidate = new Date(`${date}T${normalizedTime}:00`);
+        return Number.isNaN(candidate.getTime()) ? null : candidate;
+    };
+
+    const validateRegistrationWindow = () => {
+        const openDate = settings.registrationOpenDate;
+        const closeDate = settings.registrationCloseDate;
+
+        if (openDate && openDate < toIsoDate(startOfToday)) {
+            return 'Registration open date cannot be earlier than today.';
+        }
+
+        if (closeDate && closeDate < toIsoDate(startOfToday)) {
+            return 'Registration close date cannot be earlier than today.';
+        }
+
+        const openAt = buildRegistrationTimestamp(openDate, settings.registrationOpenTime, '00:00');
+        const closeAt = buildRegistrationTimestamp(closeDate, settings.registrationCloseTime, '23:59');
+
+        if (openDate && !openAt) {
+            return 'Registration open date/time is invalid.';
+        }
+
+        if (closeDate && !closeAt) {
+            return 'Registration close date/time is invalid.';
+        }
+
+        if (openAt && closeAt && closeAt.getTime() < openAt.getTime()) {
+            return 'Registration close date/time cannot be earlier than registration open date/time.';
+        }
+
+        return null;
+    };
+
+    const buildPublishSettingsPayload = () => {
+        const regStartDate = buildRegistrationTimestamp(settings.registrationOpenDate, settings.registrationOpenTime, '00:00');
+        const regEndDate = buildRegistrationTimestamp(settings.registrationCloseDate, settings.registrationCloseTime, '23:59');
+
+        return {
+            allow_group_registration: settings.allowGroupRegistration,
+            allow_waitlist: settings.allowWaitlist,
+            allow_breakout_sessions: settings.enableBreakoutSession,
+            is_visible: settings.isVisibleToPublic,
+            registration_open_at: regStartDate ? regStartDate.toISOString() : null,
+            registration_close_at: regEndDate ? regEndDate.toISOString() : null,
+        };
+    };
+
     // Toast Component
     const Toast = ({ message, type, onClose }: { message: string; type: 'success' | 'error' | 'info'; onClose: () => void }) => {
         useEffect(() => {
@@ -88,29 +149,26 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
 
     const handlePublish = async () => {
         if (isPublishing) return;
+
+        const validationError = validateRegistrationWindow();
+        if (validationError) {
+            setToast({ message: validationError, type: 'error' });
+            return;
+        }
+
         setIsPublishing(true);
         try {
             // 1. Update in Supabase
             const id = parseInt(event.id);
             if (!isNaN(id)) {
                 const { updateEvent } = await import('@/lib/actions/events');
-
-                // Construct timestamps
-                const regStart = settings.registrationOpenDate
-                    ? new Date(`${settings.registrationOpenDate}T${settings.registrationOpenTime || '00:00'}:00`).toISOString()
-                    : null;
-                const regEnd = settings.registrationCloseDate
-                    ? new Date(`${settings.registrationCloseDate}T${settings.registrationCloseTime || '23:59'}:00`).toISOString()
-                    : null;
+                const payload = buildPublishSettingsPayload();
 
                 const res = await updateEvent(id, {
+                    ...payload,
                     is_published: true,
-                    allow_group_registration: settings.allowGroupRegistration,
-                    allow_waitlist: settings.allowWaitlist,
-                    allow_breakout_sessions: settings.enableBreakoutSession,
-                    is_visible: settings.isVisibleToPublic,
-                    registration_open_at: regStart,
-                    registration_close_at: regEnd
+                    // Publishing always makes the public event page available.
+                    is_visible: true,
                 });
 
                 if (!res.success) {
@@ -143,6 +201,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
             }
 
             setLocalStatus('Published');
+            setSettings((prev) => ({ ...prev, isVisibleToPublic: true }));
             setShowSuccessModal(true);
 
         } catch (e) {
@@ -150,6 +209,46 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
             setToast({ message: "Failed to publish event. Please try again.", type: 'error' });
         } finally {
             setIsPublishing(false);
+        }
+    };
+
+    const handleSaveSettings = async () => {
+        if (isSavingSettings || isPublishing) return;
+
+        const validationError = validateRegistrationWindow();
+        if (validationError) {
+            setToast({ message: validationError, type: 'error' });
+            return;
+        }
+
+        setIsSavingSettings(true);
+        try {
+            const id = parseInt(event.id);
+            if (isNaN(id)) {
+                setToast({ message: 'Unable to save settings for this event.', type: 'error' });
+                return;
+            }
+
+            const { updateEvent } = await import('@/lib/actions/events');
+            const res = await updateEvent(id, buildPublishSettingsPayload());
+
+            if (!res.success) {
+                setToast({ message: `Failed to save settings: ${res.error}`, type: 'error' });
+                return;
+            }
+
+            if (!isEventPublished && settings.isVisibleToPublic) {
+                setToast({ message: 'Saved. Event page is now visible to the public.', type: 'success' });
+            } else {
+                setToast({ message: 'Publish settings saved.', type: 'success' });
+            }
+
+            router.refresh();
+        } catch (e) {
+            console.error('Failed to save publish settings', e);
+            setToast({ message: 'Failed to save publish settings.', type: 'error' });
+        } finally {
+            setIsSavingSettings(false);
         }
     };
 
@@ -166,7 +265,8 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                 const { updateEvent } = await import('@/lib/actions/events');
 
                 const res = await updateEvent(id, {
-                    is_published: false
+                    is_published: false,
+                    is_visible: false,
                 });
 
                 if (res.success) {
@@ -464,6 +564,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         onChange={(date) => setSettings({ ...settings, registrationOpenDate: date ? date.toISOString().split('T')[0] : '' })}
                                         placeholder="Select date"
                                         disabled={!canManageEventStatus}
+                                        minDate={startOfToday}
                                     />
                                 </div>
                                 <div>
@@ -489,6 +590,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                                         onChange={(date) => setSettings({ ...settings, registrationCloseDate: date ? date.toISOString().split('T')[0] : '' })}
                                         placeholder="Select date"
                                         disabled={!canManageEventStatus}
+                                        minDate={startOfToday}
                                     />
                                 </div>
                                 <div>
@@ -504,6 +606,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                         </div>
                     </div>
 
+                    {!isEventPublished && (
                     <div className="pt-8 border-t border-gray-100 dark:border-gray-700">
                         <label className={`
                             flex items-center gap-3 p-3 rounded-xl border-2 transition-all cursor-pointer
@@ -522,10 +625,11 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                             <input type="checkbox" className="hidden" checked={settings.isVisibleToPublic} onChange={() => handleCheckboxChange('isVisibleToPublic')} disabled={!canManageEventStatus} />
                             <div>
                                 <span className="text-sm font-semibold text-gray-900 dark:text-white block">Make Event Page Visible to Public</span>
-                                <span className="text-xs text-gray-500">Enable this to make the landing page accessible even if registration hasn't started.</span>
+                                <span className="text-xs text-gray-500">While the event is still unpublished, enable this to make the landing page accessible even if registration has not started or tickets are not on sale yet. Publishing the event always makes the public page available.</span>
                             </div>
                         </label>
                     </div>
+                    )}
                 </div>
             </section>
 
@@ -543,25 +647,48 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                     )}
 
                     <button
-                        onClick={handlePublish}
-                        disabled={isPublishing}
-                        className={`px-6 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md transition-all flex items-center gap-2 ${isPublishing
-                            ? 'bg-gray-400 cursor-not-allowed'
-                            : 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5'
+                        onClick={handleSaveSettings}
+                        disabled={isSavingSettings || isPublishing}
+                        className={`px-6 py-2.5 text-sm font-semibold rounded-xl shadow-sm transition-all flex items-center gap-2 border ${isSavingSettings || isPublishing
+                            ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed dark:bg-gray-800 dark:text-gray-500 dark:border-gray-700'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 dark:bg-gray-900 dark:text-gray-100 dark:border-gray-700 dark:hover:bg-gray-800'
                             }`}
                     >
-                        {isPublishing ? (
+                        {isSavingSettings ? (
                             <>
-                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                {isEventPublished ? 'Saving...' : 'Publishing...'}
+                                <div className="w-4 h-4 border-2 border-gray-400/40 border-t-gray-500 rounded-full animate-spin" />
+                                Saving...
                             </>
                         ) : (
                             <>
-                                <Send size={16} />
-                                {isEventPublished ? 'Save Changes' : 'Publish Event'}
+                                <CheckCircle size={16} />
+                                Save Changes
                             </>
                         )}
                     </button>
+
+                    {!isEventPublished && (
+                        <button
+                            onClick={handlePublish}
+                            disabled={isPublishing || isSavingSettings}
+                            className={`px-6 py-2.5 text-sm font-semibold text-white rounded-xl shadow-md transition-all flex items-center gap-2 ${isPublishing || isSavingSettings
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-[#3D518C] to-indigo-600 hover:shadow-lg hover:-translate-y-0.5'
+                                }`}
+                        >
+                            {isPublishing ? (
+                                <>
+                                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                                    Publishing...
+                                </>
+                            ) : (
+                                <>
+                                    <Send size={16} />
+                                    Publish Event
+                                </>
+                            )}
+                        </button>
+                    )}
                 </div>
             )}
 

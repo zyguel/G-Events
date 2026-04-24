@@ -3,6 +3,10 @@ import { getEventById } from "@/lib/actions/events";
 import EmailAttendeesClient from "./EmailAttendeesClient";
 import PermissionGate from "@/components/admin/PermissionGate";
 
+export const metadata = {
+    title: 'Email Attendees',
+};
+
 export default async function EmailAttendeesPage({ params }: { params: Promise<{ eventId: string }> }) {
     const { eventId } = await params;
 

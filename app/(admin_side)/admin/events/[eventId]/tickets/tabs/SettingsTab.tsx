@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock } from "lucide-react";
 import { getEventSettings, updateEventSettings, EventSettings } from "@/lib/eventManagement";
+import AdminLoading from "@/components/admin/AdminLoading";
 import { EventSummary } from "@/lib/types";
 
 interface SettingsTabProps {
@@ -73,11 +74,7 @@ export default function SettingsTab({ event }: SettingsTabProps) {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#3D518C]" />
-      </div>
-    );
+    return <AdminLoading message="Loading settings..." />;
   }
 
   if (!settings) {
