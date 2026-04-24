@@ -23,8 +23,12 @@ interface BreakoutSession {
     title: string;
     type: 'Online' | 'In-Person';
     status: 'Not Started' | 'Ongoing' | 'Completed' | 'Cancelled';
-    date: string;
-    time: string;
+    rawStatus?: string; // The actual DB status (for admin editing)
+    date: string; // Formatted date for display
+    sessionDate?: string; // YYYY-MM-DD for date input
+    startTime?: string; // HH:MM format
+    endTime?: string; // HH:MM format
+    time: string; // Formatted time display (e.g., "2:00 PM – 3:30 PM")
     location?: string;
     joinLink?: string;
     currentAttendees: number;
@@ -171,15 +175,17 @@ const SessionModal = ({
     onSave: (session: BreakoutSession) => void;
 }) => {
     const isEdit = !!session;
-    const [formData, setFormData] = useState<Partial<BreakoutSession>>(session || {
+    const [formData, setFormData] = useState<Partial<BreakoutSession>>({
         title: '',
         type: 'In-Person',
         status: 'Not Started',
         date: '',
+        sessionDate: '',
+        startTime: '',
+        endTime: '',
         time: '',
         joinLink: '',
         location: '',
-        currentAttendees: 0,
         maxCapacity: undefined,
         speakers: [],
     });
@@ -189,17 +195,25 @@ const SessionModal = ({
 
     React.useEffect(() => {
         if (session) {
-            setFormData(session);
+            setFormData({
+                ...session,
+                // Ensure we have the raw values for editing
+                sessionDate: session.sessionDate || '',
+                startTime: session.startTime || '',
+                endTime: session.endTime || '',
+            });
         } else {
             setFormData({
                 title: '',
                 type: 'In-Person',
                 status: 'Not Started',
                 date: '',
+                sessionDate: '',
+                startTime: '',
+                endTime: '',
                 time: '',
                 joinLink: '',
                 location: '',
-                currentAttendees: 0,
                 maxCapacity: undefined,
                 speakers: [],
             });
@@ -228,9 +242,9 @@ const SessionModal = ({
     const handleSave = () => {
         const nextErrors: Record<string, string> = {};
         const title = String(formData.title || '').trim();
-        const date = String(formData.date || '').trim();
-        const time = String(formData.time || '').trim();
-        const currentAttendees = Number(formData.currentAttendees || 0);
+        const sessionDate = String(formData.sessionDate || '').trim();
+        const startTime = String(formData.startTime || '').trim();
+        const endTime = String(formData.endTime || '').trim();
         const maxCapacity = Number(formData.maxCapacity);
         const joinLink = String(formData.joinLink || '').trim();
         const location = String(formData.location || '').trim();
@@ -238,11 +252,14 @@ const SessionModal = ({
         if (!title) {
             nextErrors.title = 'Title is required.';
         }
-        if (!date) {
-            nextErrors.date = 'Date is required.';
+        if (!sessionDate) {
+            nextErrors.sessionDate = 'Date is required.';
         }
-        if (!time) {
-            nextErrors.time = 'Time is required.';
+        if (!startTime) {
+            nextErrors.startTime = 'Start time is required.';
+        }
+        if (!endTime) {
+            nextErrors.endTime = 'End time is required.';
         }
         if (!joinLink && !location) {
             nextErrors.locationOrJoinLink = formData.type === 'Online'
@@ -251,9 +268,6 @@ const SessionModal = ({
         }
         if (!Number.isFinite(maxCapacity) || maxCapacity <= 0) {
             nextErrors.maxCapacity = 'Maximum capacity must be greater than 0.';
-        }
-        if (Number.isFinite(currentAttendees) && Number.isFinite(maxCapacity) && currentAttendees > maxCapacity) {
-            nextErrors.maxCapacity = 'Maximum capacity cannot be less than current attendees.';
         }
 
         if (Object.keys(nextErrors).length > 0) {
@@ -267,11 +281,14 @@ const SessionModal = ({
             title,
             type: formData.type || 'In-Person',
             status: formData.status || 'Not Started',
-            date,
-            time,
+            date: sessionDate ? new Date(sessionDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) : '',
+            sessionDate,
+            startTime,
+            endTime,
+            time: '', // Will be computed by API
             joinLink: formData.joinLink,
             location: formData.location,
-            currentAttendees: formData.currentAttendees || 0,
+            currentAttendees: session?.currentAttendees || 0, // Keep existing or default to 0 (auto-calculated from registrations)
             maxCapacity,
             speakers: formData.speakers || [],
         });
@@ -332,56 +349,100 @@ const SessionModal = ({
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Status</label>
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Status
+                                <span className="ml-1 text-xs text-gray-400">(Auto-computed except Cancelled)</span>
+                            </label>
                             <ModalSelect
                                 value={formData.status || 'Not Started'}
                                 onChange={(value) => setFormData({ ...formData, status: value as BreakoutSession['status'] })}
                                 options={[
-                                    { value: "Not Started", label: "Not Started" },
-                                    { value: "Ongoing", label: "Ongoing" },
-                                    { value: "Completed", label: "Completed" },
-                                    { value: "Cancelled", label: "Cancelled" }
+                                    { value: "Not Started", label: "Auto (Not Started / Ongoing / Completed)" },
+                                    { value: "Cancelled", label: "Cancelled (Manual Override)" }
                                 ]}
                             />
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                                Status is automatically calculated based on date and time. Only select Cancelled to manually override.
+                            </p>
                         </div>
                     </div>
 
                     {/* Date & Time */}
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
                             <ModalInput
                                 type="date"
-                                value={formData.date}
+                                value={formData.sessionDate || ''}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setFormData({ ...formData, date: e.target.value });
-                                    if (validationErrors.date) {
-                                        setValidationErrors((prev) => ({ ...prev, date: '' }));
+                                    setFormData({ ...formData, sessionDate: e.target.value });
+                                    if (validationErrors.sessionDate) {
+                                        setValidationErrors((prev) => ({ ...prev, sessionDate: '' }));
                                     }
                                 }}
-                                className={validationErrors.date ? "border-red-500" : ""}
+                                onClick={(e: React.MouseEvent<HTMLInputElement>) => {
+                                    try {
+                                        (e.currentTarget as HTMLInputElement).showPicker?.();
+                                    } catch {
+                                        // Fallback: focus will naturally open picker on most browsers
+                                        e.currentTarget.focus();
+                                    }
+                                }}
+                                className={validationErrors.sessionDate ? "border-red-500" : ""}
                             />
-                            {validationErrors.date && (
-                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.date}</p>
+                            {validationErrors.sessionDate && (
+                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.sessionDate}</p>
                             )}
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Time</label>
-                            <ModalInput
-                                type="text"
-                                value={formData.time}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setFormData({ ...formData, time: e.target.value });
-                                    if (validationErrors.time) {
-                                        setValidationErrors((prev) => ({ ...prev, time: '' }));
-                                    }
-                                }}
-                                placeholder="e.g. 2:00 PM – 3:30 PM"
-                                className={validationErrors.time ? "border-red-500" : ""}
-                            />
-                            {validationErrors.time && (
-                                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.time}</p>
-                            )}
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
+                                <ModalInput
+                                    type="time"
+                                    value={formData.startTime || ''}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setFormData({ ...formData, startTime: e.target.value });
+                                        if (validationErrors.startTime) {
+                                            setValidationErrors((prev) => ({ ...prev, startTime: '' }));
+                                        }
+                                    }}
+                                    onClick={(e: React.MouseEvent<HTMLInputElement>) => {
+                                        try {
+                                            (e.currentTarget as HTMLInputElement).showPicker?.();
+                                        } catch {
+                                            e.currentTarget.focus();
+                                        }
+                                    }}
+                                    className={validationErrors.startTime ? "border-red-500" : ""}
+                                />
+                                {validationErrors.startTime && (
+                                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.startTime}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
+                                <ModalInput
+                                    type="time"
+                                    value={formData.endTime || ''}
+                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                                        setFormData({ ...formData, endTime: e.target.value });
+                                        if (validationErrors.endTime) {
+                                            setValidationErrors((prev) => ({ ...prev, endTime: '' }));
+                                        }
+                                    }}
+                                    onClick={(e: React.MouseEvent<HTMLInputElement>) => {
+                                        try {
+                                            (e.currentTarget as HTMLInputElement).showPicker?.();
+                                        } catch {
+                                            e.currentTarget.focus();
+                                        }
+                                    }}
+                                    className={validationErrors.endTime ? "border-red-500" : ""}
+                                />
+                                {validationErrors.endTime && (
+                                    <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.endTime}</p>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -412,15 +473,7 @@ const SessionModal = ({
 
                     {/* Capacity */}
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Current Attendees</label>
-                            <ModalInput
-                                type="number"
-                                value={formData.currentAttendees}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData({ ...formData, currentAttendees: parseInt(e.target.value) || 0 })}
-                            />
-                        </div>
-                        <div>
+                        <div className="col-span-1">
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Maximum Capacity</label>
                             <ModalInput
                                 type="number"
@@ -670,6 +723,17 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                 : `/api/events/${eventId}/breakouts`;
             const method = isEdit ? 'PATCH' : 'POST';
 
+            // Ensure date is in YYYY-MM-DD format - sessionDate should always be YYYY-MM-DD
+            // If sessionDate is missing, try to parse from the display date as fallback
+            let apiDate = session.sessionDate;
+            if (!apiDate && session.date) {
+                // Try to parse formatted date like "January 15, 2024"
+                const parsed = new Date(session.date);
+                if (!isNaN(parsed.getTime())) {
+                    apiDate = parsed.toISOString().split('T')[0];
+                }
+            }
+
             const res = await fetch(endpoint, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
@@ -679,8 +743,9 @@ export default function ManageBreakoutsPage({ event }: BreakoutsClientProps) {
                         title: session.title,
                         type: session.type,
                         status: session.status,
-                        date: session.date,
-                        time: session.time,
+                        date: apiDate, // Always YYYY-MM-DD format
+                        startTime: session.startTime,
+                        endTime: session.endTime,
                         location: session.location,
                         joinLink: session.joinLink,
                         maxCapacity: session.maxCapacity,

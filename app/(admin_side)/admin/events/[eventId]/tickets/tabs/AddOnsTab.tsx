@@ -565,11 +565,15 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                     <div className="flex flex-wrap gap-2 mb-3">
                       <div className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[11px] font-bold w-fit">
                         <Package size={12} />
-                        <span>Total Stock: {totalCapacity}</span>
+                        <span>Total: {totalCapacity}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg text-[11px] font-bold w-fit">
+                        <Package size={12} />
+                        <span>Reserved: {addOn.variants?.reduce((sum, v) => sum + (v.stock_reserved || 0), 0) || 0}</span>
                       </div>
                       <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 rounded-lg text-[11px] font-bold w-fit">
                         <PackageOpen size={12} />
-                        <span>Current Stock: {currentStock}</span>
+                        <span>Available: {currentStock}</span>
                       </div>
                     </div>
 
