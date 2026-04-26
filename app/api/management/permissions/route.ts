@@ -10,7 +10,9 @@ export async function GET() {
 
         return NextResponse.json({ success: true, data: permissions });
     } catch (error: any) {
-        console.error('Error fetching permissions:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching permissions:', error);
+        }
         return NextResponse.json(
             { success: false, error: error.message || 'Failed to fetch permissions' },
             { status: 500 }

@@ -202,7 +202,7 @@ export async function GET(request: NextRequest) {
         }
 
         const encoder = new TextEncoder();
-        let intervalId: NodeJS.Timeout;
+        let intervalId: NodeJS.Timeout | undefined;
 
         const stream = new ReadableStream({
             async start(controller) {
@@ -217,7 +217,9 @@ export async function GET(request: NextRequest) {
                         const data = await getNotificationsData(activeOrganizationId);
                         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ success: true, data })}\n\n`));
                     } catch (error) {
-                        console.error('SSE Update error:', error);
+                        if (process.env.NODE_ENV === 'development') {
+                            console.error('SSE Update error:', error);
+                        }
                         controller.enqueue(encoder.encode(`data: ${JSON.stringify({ success: false, data: [] })}\n\n`));
                     }
                 };
@@ -230,11 +232,17 @@ export async function GET(request: NextRequest) {
 
                 // 3. Cleanup on client disconnect
                 request.signal.addEventListener('abort', () => {
-                    clearInterval(intervalId);
+                    if (intervalId) {
+                        clearInterval(intervalId);
+                        intervalId = undefined;
+                    }
                 });
             },
             cancel() {
-                clearInterval(intervalId);
+                if (intervalId) {
+                    clearInterval(intervalId);
+                    intervalId = undefined;
+                }
             }
         });
 
@@ -251,7 +259,9 @@ export async function GET(request: NextRequest) {
             return authResponse;
         }
 
-        console.error('Notifications API error:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Notifications API error:', error);
+        }
         return NextResponse.json({ success: false, data: [] }, { status: 500 });
     }
 }

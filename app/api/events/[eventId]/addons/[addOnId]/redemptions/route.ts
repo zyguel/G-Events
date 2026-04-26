@@ -110,7 +110,9 @@ export async function GET(
 
         return NextResponse.json({ success: true, data: redemptions });
     } catch (error: unknown) {
-        console.error('Error fetching redemption history:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching redemption history:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to fetch redemption history') },
             { status: 500 }

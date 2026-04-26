@@ -22,7 +22,9 @@ export async function GET() {
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error fetching events list:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching events list:', error);
+        }
         return NextResponse.json(
             { success: false, error: 'Failed to fetch events list' },
             { status: 500 }

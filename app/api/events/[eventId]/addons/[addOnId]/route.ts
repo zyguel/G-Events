@@ -116,7 +116,9 @@ async function deleteEventsImageByPublicUrl(publicUrl: string | null | undefined
     const supabase = await getStorageClient();
     const { error } = await supabase.storage.from('events').remove([objectPath]);
     if (error) {
-        console.warn('Failed to delete old add-on image from storage:', error.message);
+        if (process.env.NODE_ENV === 'development') {
+            console.warn('Failed to delete old add-on image from storage:', error.message);
+        }
     }
 }
 
@@ -228,7 +230,9 @@ export async function GET(
         const addOn = await getAddOn(id);
         return NextResponse.json({ success: true, data: addOn });
     } catch (error: unknown) {
-        console.error('Error fetching add-on:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching add-on:', error);
+        }
         if (typeof error === 'object' && error !== null && (error as { code?: string }).code === 'PGRST116') {
             return NextResponse.json(
                 { success: false, error: 'Add-on not found' },
@@ -369,7 +373,9 @@ export async function PATCH(
 
         return NextResponse.json({ success: true, data: addOn });
     } catch (error: unknown) {
-        console.error('Error updating add-on:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error updating add-on:', error);
+        }
         const status = getErrorStatus(error);
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to update add-on') },
@@ -398,7 +404,9 @@ export async function DELETE(
         await deleteAddOn(id);
         return NextResponse.json({ success: true, message: 'Add-on deleted successfully' });
     } catch (error: unknown) {
-        console.error('Error deleting add-on:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error deleting add-on:', error);
+        }
         const status = getErrorStatus(error);
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to delete add-on') },

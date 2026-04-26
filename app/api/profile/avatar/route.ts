@@ -144,7 +144,9 @@ export async function GET(request: NextRequest) {
     }
     return response
   } catch (error) {
-    console.error('Profile avatar fetch API error:', error)
+    if (process.env.NODE_ENV === 'development') {
+        console.error('Profile avatar fetch API error:', error);
+    }
     return internalServerError('Failed to load profile image.')
   }
 }
@@ -222,7 +224,9 @@ export async function POST(request: NextRequest) {
 
     return ok({ avatarUrl, filePath })
   } catch (error) {
-    console.error('Profile avatar upload API error:', error)
+    if (process.env.NODE_ENV === 'development') {
+        console.error('Profile avatar upload API error:', error);
+    }
     return internalServerError('Failed to upload profile image.')
   }
 }

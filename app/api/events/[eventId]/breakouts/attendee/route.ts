@@ -97,11 +97,18 @@ export async function GET(
       });
     }
 
-    const { data: userRow } = await admin
+    const { data: userRow, error: userError } = await admin
       .from('User')
       .select('id')
       .ilike('email', user.email.trim())
       .maybeSingle();
+
+    if (userError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee GET user lookup failed:', userError);
+      }
+      return NextResponse.json({ success: false, error: 'Failed to verify user' }, { status: 500 });
+    }
 
     if (!userRow) {
       return NextResponse.json({
@@ -115,12 +122,19 @@ export async function GET(
       });
     }
 
-    const { data: reg } = await admin
+    const { data: reg, error: regError } = await admin
       .from('Registration')
       .select('id, status, profile_pending')
       .eq('event_id', id)
       .eq('user_id', userRow.id)
       .maybeSingle();
+
+    if (regError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee GET registration lookup failed:', regError);
+      }
+      return NextResponse.json({ success: false, error: 'Failed to verify registration' }, { status: 500 });
+    }
 
     if (!reg) {
       return NextResponse.json({
@@ -184,7 +198,9 @@ export async function GET(
       .order('id', { ascending: true });
 
     if (sErr) {
-      console.error('breakouts/attendee GET sessions', sErr);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee GET sessions', sErr);
+      }
       return NextResponse.json({ success: false, error: sErr.message }, { status: 500 });
     }
 
@@ -207,11 +223,17 @@ export async function GET(
       });
     }
 
-    const { data: pick } = await admin
+    const { data: pick, error: pickError } = await admin
       .from('BreakoutSessionRegistration')
       .select('breakout_session_id')
       .eq('registration_id', reg.id)
       .maybeSingle();
+
+    if (pickError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee GET: Failed to check existing breakout selection', pickError);
+      }
+    }
 
     const selectedSessionId =
       pick && typeof pick.breakout_session_id === 'number' ? pick.breakout_session_id : null;
@@ -229,7 +251,9 @@ export async function GET(
   } catch (e: unknown) {
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
-    console.error('breakouts/attendee GET', e);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('breakouts/attendee GET', e);
+    }
     return NextResponse.json({ success: false, error: 'Unexpected error' }, { status: 500 });
   }
 }
@@ -280,22 +304,36 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Breakouts are not enabled for this event' }, { status: 403 });
     }
 
-    const { data: userRow } = await admin
+    const { data: userRow, error: userError } = await admin
       .from('User')
       .select('id, name, email')
       .ilike('email', user.email!.trim())
       .maybeSingle();
 
+    if (userError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee POST: User lookup failed', userError);
+      }
+      return NextResponse.json({ success: false, error: 'Failed to verify user' }, { status: 500 });
+    }
+
     if (!userRow) {
       return NextResponse.json({ success: false, error: 'User profile not found' }, { status: 403 });
     }
 
-    const { data: reg } = await admin
+    const { data: reg, error: regError } = await admin
       .from('Registration')
       .select('id, status, profile_pending')
       .eq('event_id', id)
       .eq('user_id', userRow.id)
       .maybeSingle();
+
+    if (regError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee POST: Registration lookup failed', regError);
+      }
+      return NextResponse.json({ success: false, error: 'Failed to verify registration' }, { status: 500 });
+    }
 
     if (!reg) {
       return NextResponse.json({ success: false, error: 'You must register for this event first' }, { status: 403 });
@@ -334,9 +372,14 @@ export async function POST(
       }
 
       // Sync Registration table
-      await admin.from('Registration')
+      const { error: syncErr } = await admin.from('Registration')
           .update({ has_breakout_session_registration: false })
           .eq('id', reg.id);
+      if (syncErr) {
+        if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee POST: Failed to sync registration after clearing breakout', syncErr);
+      }
+      }
 
       return NextResponse.json({
         success: true,
@@ -365,10 +408,17 @@ export async function POST(
 
     const cap = Number(sessionRow.room_capacity ?? 0);
 
-    const { data: seatRows } = await admin
+    const { data: seatRows, error: seatError } = await admin
       .from('BreakoutSessionRegistration')
       .select('registration_id')
       .eq('breakout_session_id', breakoutSessionId);
+
+    if (seatError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee POST: Failed to check session capacity', seatError);
+      }
+      return NextResponse.json({ success: false, error: 'Failed to verify session capacity' }, { status: 500 });
+    }
 
     const seats = seatRows || [];
     const alreadyIn = seats.some((r: { registration_id: number }) => r.registration_id === reg.id);
@@ -389,18 +439,30 @@ export async function POST(
       .upsert(payload, { onConflict: 'registration_id' });
 
     if (upErr) {
-      await admin.from('BreakoutSessionRegistration').delete().eq('registration_id', reg.id);
+      const { error: cleanupErr } = await admin.from('BreakoutSessionRegistration').delete().eq('registration_id', reg.id);
+      if (cleanupErr) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn('breakouts/attendee POST: Cleanup delete failed after upsert error', cleanupErr);
+        }
+      }
       const { error: insErr } = await admin.from('BreakoutSessionRegistration').insert(payload);
       if (insErr) {
-        console.error('breakouts/attendee save', upErr, insErr);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('breakouts/attendee save', upErr, insErr);
+        }
         return NextResponse.json({ success: false, error: insErr.message }, { status: 500 });
       }
     }
 
     // Sync Registration table
-    await admin.from('Registration')
+    const { error: syncErr } = await admin.from('Registration')
         .update({ has_breakout_session_registration: true })
         .eq('id', reg.id);
+    if (syncErr) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('breakouts/attendee POST: Failed to sync registration after joining breakout', syncErr);
+      }
+    }
 
     const attendeeName =
       [userRow.name, userRow.email].find((v) => typeof v === 'string' && v.trim().length > 0) || 'Attendee';
@@ -417,7 +479,9 @@ export async function POST(
           folder: `event-${id}/breakouts`,
         });
       } catch (breakoutQrError) {
+        if (process.env.NODE_ENV === 'development') {
         console.warn('Breakout QR image generation failed; sending link-only breakout ticket email.', breakoutQrError);
+      }
       }
       const html = buildBreakoutTicketEmailHtml({
         attendeeName: String(attendeeName),
@@ -434,7 +498,9 @@ export async function POST(
         html,
       });
     } catch (mailErr) {
-      console.warn('Breakout ticket email failed', mailErr);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Breakout ticket email failed', mailErr);
+      }
     }
 
     return NextResponse.json({
@@ -445,7 +511,9 @@ export async function POST(
   } catch (e: unknown) {
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
-    console.error('breakouts/attendee POST', e);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('breakouts/attendee POST', e);
+    }
     return NextResponse.json({ success: false, error: 'Unexpected error' }, { status: 500 });
   }
 }

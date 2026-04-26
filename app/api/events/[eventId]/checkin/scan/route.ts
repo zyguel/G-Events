@@ -227,7 +227,9 @@ export async function POST(
   } catch (e: unknown) {
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
-    console.error('checkin scan POST', e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error('checkin scan POST', e);
+    }
     return NextResponse.json({ success: false, error: 'Unexpected error' }, { status: 500 });
   }
 }

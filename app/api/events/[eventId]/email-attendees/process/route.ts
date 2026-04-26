@@ -33,7 +33,9 @@ export async function POST(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
 
-    console.error("Process scheduled campaigns error:", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("Process scheduled campaigns error:", e);
+    }
     return NextResponse.json(
       {
         success: false,

@@ -56,7 +56,9 @@ export async function DELETE(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
 
-    console.error("Email campaign DELETE error:", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("Email campaign DELETE error:", e);
+    }
     return NextResponse.json(
       {
         success: false,

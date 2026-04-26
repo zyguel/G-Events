@@ -343,7 +343,9 @@ export async function PATCH(
             .single();
 
         if (error) {
-            console.error("ManageBreakouts PATCH: update failed", error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error("ManageBreakouts PATCH: update failed", error);
+            }
             return NextResponse.json(
                 { success: false, error: error.message },
                 { status: 500 }
@@ -355,7 +357,9 @@ export async function PATCH(
 
         return NextResponse.json({ success: true, data: updated });
     } catch (e: any) {
-        console.error("ManageBreakouts PATCH error:", e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error("ManageBreakouts PATCH error:", e);
+        }
         return NextResponse.json(
             { success: false, error: e?.message || "Unexpected error" },
             { status: 500 }
@@ -395,7 +399,9 @@ export async function DELETE(
             .eq("event_id", eventNumericId);
 
         if (error) {
-            console.error("ManageBreakouts DELETE: delete failed", error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error("ManageBreakouts DELETE: delete failed", error);
+            }
             return NextResponse.json(
                 { success: false, error: error.message },
                 { status: 500 }
@@ -415,7 +421,9 @@ export async function DELETE(
 
         return NextResponse.json({ success: true });
     } catch (e: any) {
-        console.error("ManageBreakouts DELETE error:", e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error("ManageBreakouts DELETE error:", e);
+        }
         return NextResponse.json(
             { success: false, error: e?.message || "Unexpected error" },
             { status: 500 }

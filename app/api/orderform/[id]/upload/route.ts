@@ -215,7 +215,9 @@ export async function POST(
     const authError = getAuthErrorResponse(error);
     if (authError) return authError;
 
-    console.error('Order form file upload error:', error);
+    if (process.env.NODE_ENV === 'development') {
+        console.error('Order form file upload error:', error);
+    }
     return NextResponse.json(
       {
         success: false,

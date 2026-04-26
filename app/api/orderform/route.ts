@@ -25,11 +25,13 @@ export async function GET(request: NextRequest) {
         const { data, error } = await supabase
             .from('OrderForm')
             .select('*')
-            .eq('event_id', parseInt(eventId))
+            .eq('event_id', parseInt(eventId, 10))
             .order('updated_at', { ascending: false });
 
         if (error) {
-            console.error('Supabase Error:', error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Supabase Error:', error);
+            }
             return NextResponse.json(
                 { error: error.message },
                 { status: 500 }
@@ -38,7 +40,9 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({ success: true, data });
     } catch (e) {
-        console.error('Error fetching forms:', e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching forms:', e);
+        }
         return NextResponse.json(
             { error: e instanceof Error ? e.message : 'An unexpected error occurred' },
             { status: 500 }
@@ -73,11 +77,13 @@ export async function POST(request: NextRequest) {
         const { data: existingForms, error: existingError } = await supabase
             .from('OrderForm')
             .select('*')
-            .eq('event_id', parseInt(eventId))
+            .eq('event_id', parseInt(eventId, 10))
             .limit(1);
 
         if (existingError) {
-            console.error('Supabase Error (checking existing form):', existingError);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Supabase Error (checking existing form):', existingError);
+            }
             return NextResponse.json(
                 { error: existingError.message },
                 { status: 500 }
@@ -100,7 +106,9 @@ export async function POST(request: NextRequest) {
                 .single();
 
             if (error) {
-                console.error('Supabase Error (updating existing form):', error);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('Supabase Error (updating existing form):', error);
+                }
                 return NextResponse.json(
                     { error: error.message },
                     { status: 500 }
@@ -117,7 +125,7 @@ export async function POST(request: NextRequest) {
             .from('OrderForm')
             .insert([
                 {
-                    event_id: parseInt(eventId),
+                    event_id: parseInt(eventId, 10),
                     title,
                     description: description || '',
                     form_data: form_data || { sections: [] }
@@ -127,7 +135,9 @@ export async function POST(request: NextRequest) {
             .single();
 
         if (error) {
-            console.error('Supabase Error:', error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Supabase Error:', error);
+            }
             return NextResponse.json(
                 { error: error.message },
                 { status: 500 }
@@ -139,7 +149,9 @@ export async function POST(request: NextRequest) {
             { status: 201 }
         );
     } catch (e) {
-        console.error('Error creating form:', e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error creating form:', e);
+        }
         return NextResponse.json(
             { error: e instanceof Error ? e.message : 'An unexpected error occurred' },
             { status: 500 }

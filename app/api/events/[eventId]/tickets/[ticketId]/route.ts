@@ -22,7 +22,9 @@ export async function GET(
         const ticket = await getTicket(id);
         return NextResponse.json({ success: true, data: ticket });
     } catch (error: any) {
-        console.error('Error fetching ticket:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching ticket:', error);
+        }
         if (error.code === 'PGRST116') {
             return NextResponse.json(
                 { success: false, error: 'Ticket not found' },
@@ -70,7 +72,9 @@ export async function PATCH(
         const ticket = await updateTicket(id, body);
         return NextResponse.json({ success: true, data: ticket });
     } catch (error: any) {
-        console.error('Error updating ticket:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error updating ticket:', error);
+        }
         const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
         return NextResponse.json(
             { success: false, error: error.message || 'Failed to update ticket' },
@@ -100,7 +104,9 @@ export async function DELETE(
         await deleteTicket(id, eventNumId);
         return NextResponse.json({ success: true, message: 'Ticket deleted successfully' });
     } catch (error: any) {
-        console.error('Error deleting ticket:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error deleting ticket:', error);
+        }
         const status = typeof error?.statusCode === 'number' ? error.statusCode : 500;
         return NextResponse.json(
             { success: false, error: error.message || 'Failed to delete ticket' },

@@ -96,7 +96,12 @@ export async function POST(
         // Already checked in logic (already in original code, but we use 'reg' here)
         if (!reg.checked_in_at) {
           const now = new Date().toISOString();
-          await admin.from('Registration').update({ checked_in_at: now }).eq('id', reg.id);
+          const { error: patchErr } = await admin.from('Registration').update({ checked_in_at: now }).eq('id', reg.id).eq('event_id', parsedEventId);
+          if (patchErr) {
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Failed to patch missing checked_in_at:', patchErr);
+            }
+          }
         }
         return NextResponse.json({
           success: true,
@@ -114,7 +119,10 @@ export async function POST(
         .eq('event_id', parsedEventId);
 
       if (error) {
-        await admin.from('Registration').update({ has_checked_in: true, checked_in_at: now }).eq('id', reg.id);
+        const { error: adminErr } = await admin.from('Registration').update({ has_checked_in: true, checked_in_at: now }).eq('id', reg.id).eq('event_id', parsedEventId);
+        if (adminErr) {
+          return NextResponse.json({ success: false, error: 'Failed to record check-in' }, { status: 500 });
+        }
       }
 
       return NextResponse.json({
@@ -160,10 +168,16 @@ export async function POST(
         .eq('registration_id', bsr.registration_id);
 
       if (updErr) {
-        await admin.from('BreakoutSessionRegistration').update({
+        const { error: adminErr } = await admin.from('BreakoutSessionRegistration').update({
           check_in_time: now,
           status: 'checked_in',
-        }).eq('id', bsr.id);
+        }).eq('id', bsr.id).eq('registration_id', bsr.registration_id);
+        if (adminErr) {
+          if (process.env.NODE_ENV === 'development') {
+            console.error('Failed to record breakout check-in:', adminErr);
+          }
+          return NextResponse.json({ success: false, error: 'Failed to record breakout check-in' }, { status: 500 });
+        }
       }
 
       return NextResponse.json({
@@ -215,6 +229,9 @@ export async function POST(
             .eq('event_id', parsedEventId);
 
           if (adminPatchMissingTimeError) {
+            if (process.env.NODE_ENV === 'development') {
+              console.error('Failed to patch missing checked_in_at:', adminPatchMissingTimeError);
+            }
             return NextResponse.json(
               { success: false, error: adminPatchMissingTimeError.message },
               { status: 500 }
@@ -247,6 +264,9 @@ export async function POST(
         .eq('event_id', parsedEventId);
 
       if (adminErr) {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('Failed to record check-in:', adminErr);
+        }
         return NextResponse.json(
           { success: false, error: adminErr.message },
           { status: 500 }
@@ -264,7 +284,9 @@ export async function POST(
   } catch (e: unknown) {
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
-    console.error('checkin scan apply POST', e);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('checkin scan apply POST', e);
+    }
     return NextResponse.json({ success: false, error: 'Unexpected error' }, { status: 500 });
   }
 }

@@ -22,7 +22,9 @@ export async function GET() {
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error fetching general analytics:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching general analytics:', error);
+        }
         return NextResponse.json(
             { success: false, error: 'Failed to fetch general analytics' },
             { status: 500 }

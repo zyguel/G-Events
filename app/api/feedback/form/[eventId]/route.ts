@@ -19,7 +19,7 @@ export async function GET(
     try {
         const { eventId } = await params;
 
-        const eventNum = parseInt(eventId);
+        const eventNum = parseInt(eventId, 10);
         if (isNaN(eventNum)) {
             return NextResponse.json(
                 { success: false, error: 'Invalid event ID' },
@@ -53,7 +53,9 @@ export async function GET(
             .maybeSingle();
 
         if (formError) {
-            console.error('Error fetching feedback form:', formError);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Error fetching feedback form:', formError);
+            }
             return NextResponse.json(
                 { success: false, error: 'Failed to fetch feedback form' },
                 { status: 500 }
@@ -82,7 +84,9 @@ export async function GET(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error fetching feedback form:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching feedback form:', error);
+        }
         return NextResponse.json(
             { success: false, error: 'Failed to fetch feedback form' },
             { status: 500 }
@@ -101,7 +105,7 @@ export async function POST(
         await requireUser();
         const { eventId } = await params;
 
-        const eventNum = parseInt(eventId);
+        const eventNum = parseInt(eventId, 10);
         if (isNaN(eventNum)) {
             return NextResponse.json(
                 { success: false, error: 'Invalid event ID' },
@@ -155,7 +159,9 @@ export async function POST(
                 .eq('id', existing.id);
 
             if (updateErr) {
-                console.error('Error updating feedback form:', updateErr);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('Error updating feedback form:', updateErr);
+                }
                 return NextResponse.json(
                     { success: false, error: 'Failed to update feedback form' },
                     { status: 500 }
@@ -176,7 +182,9 @@ export async function POST(
                 .single();
 
             if (insertErr || !form) {
-                console.error('Error creating feedback form:', insertErr);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('Error creating feedback form:', insertErr);
+                }
                 return NextResponse.json(
                     { success: false, error: 'Failed to create feedback form' },
                     { status: 500 }
@@ -186,7 +194,16 @@ export async function POST(
         }
 
         // Full replace: delete existing questions then re-insert
-        await supabase.from('FeedbackQuestion').delete().eq('feedback_form_id', formId);
+        const { error: deleteError } = await supabase.from('FeedbackQuestion').delete().eq('feedback_form_id', formId);
+        if (deleteError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Error deleting existing questions:', deleteError);
+            }
+            return NextResponse.json(
+                { success: false, error: 'Failed to clear existing questions' },
+                { status: 500 }
+            );
+        }
 
         const questionInserts = questions.map((q, idx) => ({
             feedback_form_id: formId,
@@ -203,7 +220,9 @@ export async function POST(
             .insert(questionInserts);
 
         if (qError) {
-            console.error('Error inserting questions:', qError);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Error inserting questions:', qError);
+            }
             return NextResponse.json(
                 { success: false, error: 'Failed to save questions' },
                 { status: 500 }
@@ -219,7 +238,9 @@ export async function POST(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error creating feedback form:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error creating feedback form:', error);
+        }
         return NextResponse.json(
             { success: false, error: 'Failed to create feedback form' },
             { status: 500 }
@@ -237,7 +258,7 @@ export async function DELETE(
         await requireUser();
         const { eventId } = await params;
 
-        const eventNum = parseInt(eventId);
+        const eventNum = parseInt(eventId, 10);
         if (isNaN(eventNum)) {
             return NextResponse.json(
                 { success: false, error: 'Invalid event ID' },
@@ -253,7 +274,9 @@ export async function DELETE(
             .eq('event_id', eventNum);
 
         if (error) {
-            console.error('Error deactivating feedback form:', error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Error deactivating feedback form:', error);
+            }
             return NextResponse.json(
                 { success: false, error: 'Failed to deactivate feedback form' },
                 { status: 500 }
@@ -265,7 +288,9 @@ export async function DELETE(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error deactivating feedback form:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error deactivating feedback form:', error);
+        }
         return NextResponse.json(
             { success: false, error: 'Failed to deactivate feedback form' },
             { status: 500 }

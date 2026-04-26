@@ -28,7 +28,9 @@ export async function GET(request: NextRequest) {
         const { data: users, error: userErr } = await finalQuery;
 
         if (userErr) {
-            console.error("User Search API Error:", userErr);
+            if (process.env.NODE_ENV === 'development') {
+                console.error("User Search API Error:", userErr);
+            }
             return NextResponse.json({ success: false, error: userErr.message }, { status: 500 });
         }
 
@@ -39,7 +41,9 @@ export async function GET(request: NextRequest) {
             return authError;
         }
 
-        console.error("User Search API Error:", error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error("User Search API Error:", error);
+        }
         return NextResponse.json(
             { success: false, error: error instanceof Error ? error.message : "Unexpected error" },
             { status: 500 }

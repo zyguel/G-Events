@@ -123,7 +123,9 @@ export async function POST(
         const authError = getAuthErrorResponse(e);
         if (authError) return authError;
 
-        console.error('checkin claim addon POST', e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('checkin claim addon POST', e);
+        }
         return NextResponse.json(
             { success: false, error: e instanceof Error ? e.message : 'Unexpected error' },
             { status: 500 }
