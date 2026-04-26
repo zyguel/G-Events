@@ -73,7 +73,7 @@ export async function POST(request: Request) {
 
   const selectedOrganizationId =
     typeof organizationIdValue === 'string' && organizationIdValue.trim().length > 0
-      ? Number.parseInt(organizationIdValue, 10)
+      ? Number.parseInt(organizationIdValue.trim(), 10)
       : NaN;
 
   const hasExplicitSelection = Number.isInteger(selectedOrganizationId);

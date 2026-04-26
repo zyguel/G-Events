@@ -201,58 +201,14 @@ export async function GET(request: NextRequest) {
             activeOrganizationId = orgContext.activeOrganizationId;
         }
 
-        const encoder = new TextEncoder();
-        let intervalId: NodeJS.Timeout | undefined;
+        // Stop if organizer has no active organization
+        if (sessionRole === SESSION_ROLE.ORGANIZER && !activeOrganizationId) {
+            return NextResponse.json({ success: true, data: [] });
+        }
 
-        const stream = new ReadableStream({
-            async start(controller) {
-                const sendUpdate = async () => {
-                    try {
-                        // Stop if organizer has no active organization but keep connection open
-                        if (sessionRole === SESSION_ROLE.ORGANIZER && !activeOrganizationId) {
-                            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ success: true, data: [] })}\n\n`));
-                            return;
-                        }
-                        
-                        const data = await getNotificationsData(activeOrganizationId);
-                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ success: true, data })}\n\n`));
-                    } catch (error) {
-                        if (process.env.NODE_ENV === 'development') {
-                            console.error('SSE Update error:', error);
-                        }
-                        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ success: false, data: [] })}\n\n`));
-                    }
-                };
-
-                // 1. Send the initial payload immediately
-                await sendUpdate();
-
-                // 2. Poll locally server-side every 15 seconds 
-                intervalId = setInterval(sendUpdate, 15000);
-
-                // 3. Cleanup on client disconnect
-                request.signal.addEventListener('abort', () => {
-                    if (intervalId) {
-                        clearInterval(intervalId);
-                        intervalId = undefined;
-                    }
-                });
-            },
-            cancel() {
-                if (intervalId) {
-                    clearInterval(intervalId);
-                    intervalId = undefined;
-                }
-            }
-        });
-
-        return new Response(stream, {
-            headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache, no-transform',
-                'Connection': 'keep-alive',
-            },
-        });
+        const data = await getNotificationsData(activeOrganizationId);
+        
+        return NextResponse.json({ success: true, data });
     } catch (error: unknown) {
         const authResponse = getAuthErrorResponse(error);
         if (authResponse) {
