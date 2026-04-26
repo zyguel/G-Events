@@ -249,10 +249,12 @@ export async function POST(
                         folder: `event-${numericEventId}/breakouts`,
                     });
                 } catch (qrError) {
-                    console.warn(
-                        "Breakout backfill: QR image generation failed; sending link-only breakout email.",
-                        qrError
-                    );
+                    if (process.env.NODE_ENV === 'development') {
+                        console.warn(
+                            "Breakout backfill: QR image generation failed; sending link-only breakout email.",
+                            qrError
+                        );
+                    }
                 }
 
                 try {
@@ -295,7 +297,9 @@ export async function POST(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error("Breakout ticket token backfill failed", error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error("Breakout ticket token backfill failed", error);
+        }
         return NextResponse.json(
             { success: false, error: error?.message || "Unexpected error" },
             { status: 500 }

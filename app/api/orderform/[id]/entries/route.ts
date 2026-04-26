@@ -78,40 +78,53 @@ const toSafeNonNegativeInt = (value: unknown): number => {
 async function adjustTicketReservation(
     supabase: SupabaseClient,
     ticketId: number,
-    delta: { reserved: number; available: number }
+    delta: { reserved: number; available: number },
+    maxRetries = 3
 ): Promise<{ success: boolean; error?: string }> {
-    const { data: ticketRow, error: ticketError } = await supabase
-        .from('Ticket')
-        .select('id, available_quantity, waitlist_reserved_quantity')
-        .eq('id', ticketId)
-        .single();
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const { data: ticketRow, error: ticketError } = await supabase
+            .from('Ticket')
+            .select('id, available_quantity, waitlist_reserved_quantity, updated_at')
+            .eq('id', ticketId)
+            .single();
 
-    if (ticketError || !ticketRow) {
-        return { success: false, error: ticketError?.message || 'Ticket not found' };
+        if (ticketError || !ticketRow) {
+            return { success: false, error: ticketError?.message || 'Ticket not found' };
+        }
+
+        const nextReserved = Math.max(
+            0,
+            toSafeNonNegativeInt(ticketRow.waitlist_reserved_quantity) + delta.reserved
+        );
+        const nextAvailable = Math.max(
+            0,
+            toSafeNonNegativeInt(ticketRow.available_quantity) + delta.available
+        );
+
+        // Use updated_at as an optimistic lock - if it changed, another process updated the row
+        const { error: updateError } = await supabase
+            .from('Ticket')
+            .update({
+                waitlist_reserved_quantity: nextReserved,
+                available_quantity: nextAvailable,
+            })
+            .eq('id', ticketId)
+            .eq('updated_at', ticketRow.updated_at);
+
+        if (!updateError) {
+            return { success: true };
+        }
+
+        // If it's the last attempt, return the error
+        if (attempt === maxRetries - 1) {
+            return { success: false, error: updateError.message };
+        }
+
+        // Exponential backoff before retry: 100ms, 200ms, 400ms
+        await new Promise((resolve) => setTimeout(resolve, 100 * Math.pow(2, attempt)));
     }
 
-    const nextReserved = Math.max(
-        0,
-        toSafeNonNegativeInt(ticketRow.waitlist_reserved_quantity) + delta.reserved
-    );
-    const nextAvailable = Math.max(
-        0,
-        toSafeNonNegativeInt(ticketRow.available_quantity) + delta.available
-    );
-
-    const { error: updateError } = await supabase
-        .from('Ticket')
-        .update({
-            waitlist_reserved_quantity: nextReserved,
-            available_quantity: nextAvailable,
-        })
-        .eq('id', ticketId);
-
-    if (updateError) {
-        return { success: false, error: updateError.message };
-    }
-
-    return { success: true };
+    return { success: false, error: 'Max retries exceeded for ticket reservation' };
 }
 
 async function countActiveRegistrationsForUser(
@@ -178,6 +191,13 @@ export async function POST(
         const {
             data: { user: authUser },
         } = await sessionClient.auth.getUser();
+
+        if (!authUser?.email) {
+            return NextResponse.json(
+                { error: 'Authentication required. Please sign in to register.' },
+                { status: 401 }
+            );
+        }
 
         // Verify order form belongs to the same event.
         const { data: existingForm, error: formError } = await supabase
@@ -282,11 +302,17 @@ export async function POST(
         const usageByTicket = new Map<number, number>();
 
         if (ticketIds.length > 0) {
-            const { data: regUsageRows } = await supabase
+            const { data: regUsageRows, error: regUsageError } = await supabase
                 .from('Registration')
                 .select('ticket_id, status')
                 .eq('event_id', numericEventId)
                 .in('ticket_id', ticketIds);
+
+            if (regUsageError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Failed to fetch ticket usage data:', regUsageError);
+                }
+            }
 
             for (const row of ((regUsageRows || []) as RegistrationUsageRow[])) {
                 const status = String(row.status || '').toLowerCase();
@@ -409,7 +435,9 @@ export async function POST(
                 .not('status', 'in', '(cancelled,rejected)');
 
             if (activeCountError) {
-                console.error('[Registration] Event capacity check failed:', activeCountError);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Event capacity check failed:', activeCountError);
+                }
                 return NextResponse.json({ error: 'Failed to validate event capacity. Please try again.' }, { status: 500 });
             }
 
@@ -419,7 +447,9 @@ export async function POST(
                 .eq('event_id', numericEventId);
 
             if (reserveError) {
-                console.error('[Registration] Waitlist reserve capacity check failed:', reserveError);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Waitlist reserve capacity check failed:', reserveError);
+                }
                 return NextResponse.json({ error: 'Failed to validate event capacity. Please try again.' }, { status: 500 });
             }
 
@@ -462,7 +492,9 @@ export async function POST(
             .in('email', uniqueEmails);
 
         if (userLookupError) {
-            console.error('[Registration] User lookup failed:', userLookupError);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('[Registration] User lookup failed:', userLookupError);
+            }
             return NextResponse.json({ error: 'Database check failed: ' + userLookupError.message }, { status: 500 });
         }
 
@@ -477,7 +509,9 @@ export async function POST(
                 .in('user_id', userIds);
 
             if (dupError) {
-                console.error('[Registration] Duplicate check failed:', dupError);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Duplicate check failed:', dupError);
+                }
                 return NextResponse.json({ error: 'Database check failed: ' + dupError.message }, { status: 500 });
             }
 
@@ -561,12 +595,18 @@ export async function POST(
         const shouldSendQrImmediately = registrationStatus === 'confirmed';
 
         if (selectedTicket && promotionCode && typeof promotionCode === 'string') {
-            const { data: promoData } = await supabase
+            const { data: promoData, error: promoError } = await supabase
                 .from('Promotion')
                 .select(`id, discount_type, discount_value, max_uses, current_uses, start_at, end_at, PromotionTicket(ticket_id)`)
                 .eq('event_id', numericEventId)
                 .ilike('code', promotionCode.trim())
                 .single();
+
+            if (promoError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Failed to fetch promotion data:', promoError);
+                }
+            }
 
             if (promoData) {
                 const now = new Date();
@@ -605,14 +645,26 @@ export async function POST(
                 const { data: authPage, error: authLookupError } = await supabase.auth.admin.listUsers({ page, perPage });
 
                 if (authLookupError) {
-                    console.error('[Registration] Auth user lookup failed:', authLookupError);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[Registration] Auth user lookup failed:', authLookupError);
+                    }
                     return NextResponse.json(
                         { error: 'Failed to validate registrant accounts. Please try again.' },
                         { status: 500 }
                     );
                 }
 
-                const users = authPage?.users || [];
+                if (!authPage) {
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[Registration] Auth user lookup returned null data');
+                    }
+                    return NextResponse.json(
+                        { error: 'Failed to validate registrant accounts. Invalid response from auth service.' },
+                        { status: 500 }
+                    );
+                }
+
+                const users = authPage.users || [];
                 for (const auth of users) {
                     const email = String(auth.email || '').trim().toLowerCase();
                     if (!email || !targetEmailSet.has(email)) continue;
@@ -632,7 +684,9 @@ export async function POST(
                 .in('email', uniqueEmails);
 
             if (existingUserLookupError) {
-                console.error('[Registration] User table lookup failed:', existingUserLookupError);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] User table lookup failed:', existingUserLookupError);
+                }
                 return NextResponse.json({ error: 'Database check failed: ' + existingUserLookupError.message }, { status: 500 });
             }
 
@@ -645,7 +699,9 @@ export async function POST(
                 if (existingProfileEmailSet.has(normalizedEmail)) continue;
 
                 if (!authUserNameByEmail.has(normalizedEmail)) {
-                    console.warn('[Registration] Rejected registration because email is not in Supabase Auth:', normalizedEmail);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.warn('[Registration] Rejected registration because email is not in Supabase Auth:', normalizedEmail);
+                    }
                     return NextResponse.json(
                         { error: `The email ${normalizedEmail} does not have an account yet. Please sign up first.` },
                         { status: 400 }
@@ -674,7 +730,9 @@ export async function POST(
                     .insert([{ name: fallbackName, email: normalizedEmail }]);
 
                 if (insertUserError && insertUserError.code !== '23505') {
-                    console.error('[Registration] Failed to auto-provision User row:', insertUserError);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[Registration] Failed to auto-provision User row:', insertUserError);
+                    }
                     return NextResponse.json(
                         { error: 'Failed to initialize attendee profiles. Please try again.' },
                         { status: 500 }
@@ -696,7 +754,9 @@ export async function POST(
                     .single();
 
                 if (groupErr) {
-                    console.error('[Registration] Group creation failed:', groupErr);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[Registration] Group creation failed:', groupErr);
+                    }
                     return NextResponse.json({ error: 'Failed to initialize group: ' + groupErr.message }, { status: 500 });
                 }
                 registrationGroupId = groupData.id;
@@ -704,17 +764,30 @@ export async function POST(
             }
 
             // ── Step 2: Insert PRIMARY registrant first ─────────────────────
-            const { data: pUserRows } = await supabase
+            const { data: pUserRows, error: pUserError } = await supabase
                 .from('User')
                 .select('id')
                 .ilike('email', normalizedPrimaryEmail)
                 .limit(1);
 
-            const primaryUserId = pUserRows![0].id;
+            if (pUserError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Failed to lookup primary user:', pUserError);
+                }
+                return NextResponse.json({ error: 'Failed to verify primary user account' }, { status: 500 });
+            }
+
+            if (!pUserRows || pUserRows.length === 0) {
+                return NextResponse.json({ error: 'Primary user account not found' }, { status: 404 });
+            }
+
+            const primaryUserId = pUserRows[0].id;
 
             const primaryActive = await countActiveRegistrationsForUser(supabase, numericEventId, primaryUserId);
             if (primaryActive.error) {
-                console.error('[Registration] Pre-insert duplicate check failed (primary):', primaryActive.error);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Pre-insert duplicate check failed (primary):', primaryActive.error);
+                }
                 return NextResponse.json(
                     { error: 'Failed to verify registration status. Please try again.' },
                     { status: 500 }
@@ -745,7 +818,9 @@ export async function POST(
                 .single();
 
             if (pErr) {
-                console.error('[Registration] Primary insert failed:', pErr);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Primary insert failed:', pErr);
+                }
                 return NextResponse.json({ error: 'Primary registration failed: ' + pErr.message }, { status: 500 });
             }
 
@@ -760,14 +835,23 @@ export async function POST(
             for (const memberEmail of otherEmails) {
                 const memberTicketToken = newTicketToken();
 
-                const { data: memberUserRows } = await supabase
+                const { data: memberUserRows, error: memberUserError } = await supabase
                     .from('User')
                     .select('id')
                     .ilike('email', memberEmail)
                     .limit(1);
 
+                if (memberUserError) {
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[Registration] Failed to lookup member user:', memberUserError);
+                    }
+                    continue;
+                }
+
                 if (!memberUserRows || memberUserRows.length === 0) {
-                    console.warn('[Registration] Skipping unknown member:', memberEmail);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.warn('[Registration] Skipping unknown member:', memberEmail);
+                    }
                     continue;
                 }
 
@@ -775,7 +859,9 @@ export async function POST(
 
                 const memberActive = await countActiveRegistrationsForUser(supabase, numericEventId, memberUserId);
                 if (memberActive.error) {
-                    console.error('[Registration] Pre-insert duplicate check failed (member):', memberActive.error);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[Registration] Pre-insert duplicate check failed (member):', memberActive.error);
+                    }
                     return NextResponse.json(
                         { error: 'Failed to verify registration status. Please try again.' },
                         { status: 500 }
@@ -807,7 +893,9 @@ export async function POST(
                     .single();
 
                 if (memberErr) {
-                    console.error('[Registration] Member insert failed for', memberEmail, ':', memberErr);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[Registration] Member insert failed for', memberEmail, ':', memberErr);
+                    }
                     return NextResponse.json({ error: 'DB Member Insert Error: ' + memberErr.message }, { status: 500 });
                 }
 
@@ -1006,7 +1094,9 @@ export async function POST(
                             folder: `event-${numericEventId}/breakouts`,
                         });
                     } catch (breakoutQrError) {
-                        console.warn('Breakout QR image generation failed; sending link-only breakout ticket email.', breakoutQrError);
+                        if (process.env.NODE_ENV === 'development') {
+                            console.warn('Breakout QR image generation failed; sending link-only breakout ticket email.', breakoutQrError);
+                        }
                     }
 
                     await sendEmail({
@@ -1036,7 +1126,9 @@ export async function POST(
                 }
             }
         } catch (err) {
-            console.warn('Email failed', err);
+            if (process.env.NODE_ENV === 'development') {
+                console.warn('Email failed', err);
+            }
         }
 
         const checkInPasses = submissionMode === 'registered' && shouldSendQrImmediately
@@ -1056,10 +1148,20 @@ export async function POST(
             : [];
 
         if (validPromotionId && submissionMode === 'registered') {
-            const { data: currentPromo } = await supabase.from('Promotion').select('current_uses').eq('id', validPromotionId).single();
+            const { data: currentPromo, error: promoError } = await supabase.from('Promotion').select('current_uses').eq('id', validPromotionId).single();
+            if (promoError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('[Registration] Failed to fetch current promotion uses:', promoError);
+                }
+            }
             if (currentPromo) {
                 const newUses = Number(currentPromo.current_uses || 0) + totalRequested;
-                await supabase.from('Promotion').update({ current_uses: newUses }).eq('id', validPromotionId);
+                const { error: updateError } = await supabase.from('Promotion').update({ current_uses: newUses }).eq('id', validPromotionId);
+                if (updateError) {
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('[Registration] Failed to update promotion uses:', updateError);
+                    }
+                }
             }
         }
 
@@ -1079,7 +1181,9 @@ export async function POST(
         }, { status: 201 });
 
     } catch (e) {
-        console.error(e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error(e);
+        }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

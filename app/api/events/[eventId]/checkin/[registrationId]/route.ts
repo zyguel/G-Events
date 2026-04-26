@@ -84,7 +84,9 @@ export async function PATCH(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
 
-    console.error("Check-in PATCH error:", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("Check-in PATCH error:", e);
+    }
     return NextResponse.json(
       { success: false, error: "Unexpected error while updating check-in" },
       { status: 500 }

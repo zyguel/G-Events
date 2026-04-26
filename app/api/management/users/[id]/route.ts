@@ -44,7 +44,7 @@ export async function PATCH(
         }
 
         const { id } = await params;
-        const userId = parseInt(id);
+        const userId = parseInt(id, 10);
         const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
         const body = await request.json();
         const { email, roleId } = body;
@@ -104,7 +104,9 @@ export async function PATCH(
 
         return NextResponse.json({ success: true, message: 'User updated successfully' });
     } catch (error: unknown) {
-        console.error('Error updating user:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error updating user:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error) || 'Failed to update user' },
             { status: 500 }
@@ -128,7 +130,7 @@ export async function DELETE(
         }
 
         const { id } = await params;
-        const userId = parseInt(id);
+        const userId = parseInt(id, 10);
         const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
 
         if (isNaN(userId) || !activeOrganizationId) {
@@ -167,7 +169,9 @@ export async function DELETE(
 
         return NextResponse.json({ success: true, message: 'User removed successfully' });
     } catch (error: unknown) {
-        console.error('Error removing user:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error removing user:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error) || 'Failed to remove user' },
             { status: 500 }

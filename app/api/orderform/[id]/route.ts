@@ -11,7 +11,7 @@ export async function GET(
 ) {
     try {
         const { id } = await params;
-        const numericId = parseInt(id);
+        const numericId = parseInt(id, 10);
         if (isNaN(numericId)) {
             return NextResponse.json({ error: 'Invalid form ID' }, { status: 400 });
         }
@@ -24,7 +24,9 @@ export async function GET(
             .single();
 
         if (error) {
-            console.error('Supabase Error:', error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Supabase Error:', error);
+            }
             return NextResponse.json(
                 { error: error.message },
                 { status: 500 }
@@ -40,7 +42,9 @@ export async function GET(
 
         return NextResponse.json({ success: true, data });
     } catch (e) {
-        console.error('Error fetching form:', e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching form:', e);
+        }
         return NextResponse.json(
             { error: e instanceof Error ? e.message : 'An unexpected error occurred' },
             { status: 500 }
@@ -67,7 +71,7 @@ export async function PUT(
         const body = await request.json();
         const { title, description, form_data } = body;
 
-        const numericId = parseInt(id);
+        const numericId = parseInt(id, 10);
         if (isNaN(numericId)) {
             return NextResponse.json({ error: 'Invalid form ID' }, { status: 400 });
         }
@@ -85,7 +89,9 @@ export async function PUT(
             .single();
 
         if (error) {
-            console.error('Supabase Error:', error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Supabase Error:', error);
+            }
             return NextResponse.json(
                 { error: error.message },
                 { status: 500 }
@@ -96,7 +102,9 @@ export async function PUT(
             { success: true, data, message: 'Form updated successfully' }
         );
     } catch (e) {
-        console.error('Error updating form:', e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error updating form:', e);
+        }
         return NextResponse.json(
             { error: e instanceof Error ? e.message : 'An unexpected error occurred' },
             { status: 500 }
@@ -120,7 +128,7 @@ export async function DELETE(
         }
 
         const { id } = await params;
-        const numericId = parseInt(id);
+        const numericId = parseInt(id, 10);
         if (isNaN(numericId)) {
             return NextResponse.json({ error: 'Invalid form ID' }, { status: 400 });
         }
@@ -131,7 +139,9 @@ export async function DELETE(
             .eq('id', numericId);
 
         if (error) {
-            console.error('Supabase Error:', error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Supabase Error:', error);
+            }
             return NextResponse.json(
                 { error: error.message },
                 { status: 500 }
@@ -143,7 +153,9 @@ export async function DELETE(
             message: 'Form deleted successfully'
         });
     } catch (e) {
-        console.error('Error deleting form:', e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error deleting form:', e);
+        }
         return NextResponse.json(
             { error: e instanceof Error ? e.message : 'An unexpected error occurred' },
             { status: 500 }

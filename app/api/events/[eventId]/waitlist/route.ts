@@ -31,40 +31,53 @@ const toSafeNonNegativeInt = (value: unknown): number => {
 async function adjustTicketReservation(
     supabase: any,
     ticketId: number,
-    delta: { reserved: number; available: number }
+    delta: { reserved: number; available: number },
+    maxRetries = 3
 ): Promise<{ success: boolean; error?: string }> {
-    const { data: ticketRow, error: ticketError } = await supabase
-        .from("Ticket")
-        .select("id, available_quantity, waitlist_reserved_quantity")
-        .eq("id", ticketId)
-        .single();
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+        const { data: ticketRow, error: ticketError } = await supabase
+            .from("Ticket")
+            .select("id, available_quantity, waitlist_reserved_quantity, updated_at")
+            .eq("id", ticketId)
+            .single();
 
-    if (ticketError || !ticketRow) {
-        return { success: false, error: ticketError?.message || "Ticket not found" };
+        if (ticketError || !ticketRow) {
+            return { success: false, error: ticketError?.message || "Ticket not found" };
+        }
+
+        const nextReserved = Math.max(
+            0,
+            toSafeNonNegativeInt(ticketRow.waitlist_reserved_quantity) + delta.reserved
+        );
+        const nextAvailable = Math.max(
+            0,
+            toSafeNonNegativeInt(ticketRow.available_quantity) + delta.available
+        );
+
+        // Use updated_at as an optimistic lock - if it changed, another process updated the row
+        const { error: updateError } = await supabase
+            .from("Ticket")
+            .update({
+                waitlist_reserved_quantity: nextReserved,
+                available_quantity: nextAvailable,
+            })
+            .eq("id", ticketId)
+            .eq("updated_at", ticketRow.updated_at);
+
+        if (!updateError) {
+            return { success: true };
+        }
+
+        // If it's the last attempt, return the error
+        if (attempt === maxRetries - 1) {
+            return { success: false, error: updateError.message };
+        }
+
+        // Exponential backoff before retry: 100ms, 200ms, 400ms
+        await new Promise((resolve) => setTimeout(resolve, 100 * Math.pow(2, attempt)));
     }
 
-    const nextReserved = Math.max(
-        0,
-        toSafeNonNegativeInt(ticketRow.waitlist_reserved_quantity) + delta.reserved
-    );
-    const nextAvailable = Math.max(
-        0,
-        toSafeNonNegativeInt(ticketRow.available_quantity) + delta.available
-    );
-
-    const { error: updateError } = await supabase
-        .from("Ticket")
-        .update({
-            waitlist_reserved_quantity: nextReserved,
-            available_quantity: nextAvailable,
-        })
-        .eq("id", ticketId);
-
-    if (updateError) {
-        return { success: false, error: updateError.message };
-    }
-
-    return { success: true };
+    return { success: false, error: "Max retries exceeded for ticket reservation" };
 }
 
 export async function POST(
@@ -125,11 +138,21 @@ export async function POST(
             );
         }
 
-        const { data: userRow } = await supabase
+        const { data: userRow, error: userLookupError } = await supabase
             .from("User")
             .select("id")
             .ilike("email", email)
             .maybeSingle();
+
+        if (userLookupError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error("Waitlist POST: User lookup failed", userLookupError);
+            }
+            return NextResponse.json(
+                { success: false, error: "Failed to verify user. Please try again." },
+                { status: 500 }
+            );
+        }
 
         if (!userRow?.id) {
             return NextResponse.json(
@@ -161,7 +184,7 @@ export async function POST(
             }
         }
 
-        const { data: activeRegistration } = await supabase
+        const { data: activeRegistration, error: activeRegError } = await supabase
             .from("Registration")
             .select("id")
             .eq("event_id", id)
@@ -169,6 +192,16 @@ export async function POST(
             .not("status", "in", "(cancelled,rejected)")
             .limit(1)
             .maybeSingle();
+
+        if (activeRegError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error("Waitlist POST: Failed to check existing registration", activeRegError);
+            }
+            return NextResponse.json(
+                { success: false, error: "Failed to verify registration status. Please try again." },
+                { status: 500 }
+            );
+        }
 
         if (activeRegistration?.id) {
             return NextResponse.json(
@@ -219,6 +252,7 @@ export async function POST(
             );
         }
 
+        let emailWarning = false;
         try {
             const organizationName = getOrganizationName(eventRow);
             await sendEmail({
@@ -234,11 +268,15 @@ export async function POST(
                                 `,
             });
         } catch (mailError) {
-            console.error("Waitlist POST: email send failed", mailError);
+            if (process.env.NODE_ENV === 'development') {
+                console.error("Waitlist POST: email send failed", mailError);
+            }
+            emailWarning = true;
         }
 
         return NextResponse.json({
             success: true,
+            warning: emailWarning ? "Confirmation email could not be sent, but you are on the waitlist." : undefined,
             data: {
                 id: insertedEntry.id,
                 email,

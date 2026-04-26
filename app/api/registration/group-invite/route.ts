@@ -140,11 +140,18 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'This registration link has expired' }, { status: 410 });
         }
 
-        const { data: regUser } = await admin
+        const { data: regUser, error: regUserError } = await admin
             .from('User')
             .select('name, email')
             .eq('id', reg.user_id)
             .maybeSingle();
+
+        if (regUserError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error('group-invite GET: User lookup failed', regUserError);
+            }
+            return NextResponse.json({ error: 'Failed to load registration details' }, { status: 500 });
+        }
 
         const regEmail = regUser?.email ? normalizeEmail(regUser.email) : '';
         if (!regEmail) {
@@ -180,7 +187,9 @@ export async function GET(request: NextRequest) {
             inviteMode,
         });
     } catch (e) {
-        console.error(e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error(e);
+        }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }
@@ -251,7 +260,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'This registration link has expired' }, { status: 410 });
         }
 
-        const { data: regUser } = await admin.from('User').select('email').eq('id', reg.user_id).maybeSingle();
+        const { data: regUser, error: regUserError } = await admin.from('User').select('email').eq('id', reg.user_id).maybeSingle();
+        if (regUserError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error('group-invite POST: User lookup failed', regUserError);
+            }
+            return NextResponse.json({ error: 'Failed to load registration details' }, { status: 500 });
+        }
         const regEmail = regUser?.email ? normalizeEmail(regUser.email) : '';
         if (!regEmail) {
             return NextResponse.json({ error: 'Registration recipient email is unavailable' }, { status: 404 });
@@ -329,7 +344,9 @@ export async function POST(request: NextRequest) {
             registrationStatus,
         });
     } catch (e) {
-        console.error(e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error(e);
+        }
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
     }
 }

@@ -19,7 +19,7 @@ export async function GET(
         await requireUser();
         const { eventId } = await params;
 
-        const eventNum = parseInt(eventId);
+        const eventNum = parseInt(eventId, 10);
         if (isNaN(eventNum)) {
             return NextResponse.json(
                 { success: false, error: 'Invalid event ID' },
@@ -37,7 +37,9 @@ export async function GET(
             .maybeSingle();
 
         if (formError) {
-            console.error('Error fetching feedback form:', formError);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Error fetching feedback form:', formError);
+            }
             return NextResponse.json(
                 { success: false, error: 'Failed to fetch feedback form' },
                 { status: 500 }
@@ -58,11 +60,21 @@ export async function GET(
         }
 
         // 2. Fetch FeedbackSubmission rows for this form (new-style submissions)
-        const { data: submissions } = await supabase
+        const { data: submissions, error: submissionsError } = await supabase
             .from('FeedbackSubmission')
             .select('id, submitter_name, submitter_email, submitted_at')
             .eq('feedback_form_id', form.id)
             .order('submitted_at', { ascending: false });
+
+        if (submissionsError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Failed to fetch feedback submissions:', submissionsError);
+            }
+            return NextResponse.json(
+                { success: false, error: 'Failed to fetch feedback submissions' },
+                { status: 500 }
+            );
+        }
 
         const submissionRows = submissions || [];
 
@@ -73,7 +85,9 @@ export async function GET(
             .eq('feedback_form_id', form.id);
 
         if (ansErr) {
-            console.error('Error fetching answers:', ansErr);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Error fetching answers:', ansErr);
+            }
             return NextResponse.json(
                 { success: false, error: 'Failed to fetch answers' },
                 { status: 500 }
@@ -102,7 +116,7 @@ export async function GET(
             if (dist[key] !== undefined) dist[key]++;
         });
         const ratingDistribution = Object.entries(dist).map(([star, count]) => ({
-            star: parseInt(star),
+            star: parseInt(star, 10),
             count,
         }));
 
@@ -176,7 +190,9 @@ export async function GET(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error fetching feedback analytics:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching feedback analytics:', error);
+        }
         return NextResponse.json(
             { success: false, error: 'Failed to fetch feedback analytics' },
             { status: 500 }
@@ -194,7 +210,7 @@ export async function POST(
     try {
         const { eventId } = await params;
 
-        const eventNum = parseInt(eventId);
+        const eventNum = parseInt(eventId, 10);
         if (isNaN(eventNum)) {
             return NextResponse.json(
                 { success: false, error: 'Invalid event ID' },
@@ -259,7 +275,7 @@ export async function POST(
 
         // 1b. Validate registration_id if provided (must be checked-in attendee of this event)
         if (registration_id) {
-            const { data: regRow } = await supabase
+            const { data: regRow, error: regError } = await supabase
                 .from('Registration')
                 .select('id, has_checked_in, status')
                 .eq('id', registration_id)
@@ -267,6 +283,16 @@ export async function POST(
                 .eq('has_checked_in', true)
                 .not('status', 'in', '(cancelled,rejected)')
                 .maybeSingle();
+
+            if (regError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('Failed to verify registration:', regError);
+                }
+                return NextResponse.json(
+                    { success: false, error: 'Failed to verify registration' },
+                    { status: 500 }
+                );
+            }
 
             if (!regRow) {
                 return NextResponse.json(
@@ -276,12 +302,22 @@ export async function POST(
             }
 
             // 1c. Check for duplicate submission
-            const { data: dupCheck } = await supabase
+            const { data: dupCheck, error: dupError } = await supabase
                 .from('FeedbackSubmission')
                 .select('id')
                 .eq('feedback_form_id', form.id)
                 .eq('registration_id', registration_id)
                 .maybeSingle();
+
+            if (dupError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('Failed to check for duplicate submission:', dupError);
+                }
+                return NextResponse.json(
+                    { success: false, error: 'Failed to verify submission status' },
+                    { status: 500 }
+                );
+            }
 
             if (dupCheck) {
                 return NextResponse.json(
@@ -293,11 +329,21 @@ export async function POST(
 
         // 2. Validate question IDs belong to this form
         const questionIds = answers.map((a) => a.question_id);
-        const { data: questions } = await supabase
+        const { data: questions, error: questionsError } = await supabase
             .from('FeedbackQuestion')
             .select('id, is_required, input_format')
             .eq('feedback_form_id', form.id)
             .in('id', questionIds);
+
+        if (questionsError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Failed to validate question IDs:', questionsError);
+            }
+            return NextResponse.json(
+                { success: false, error: 'Failed to validate feedback questions' },
+                { status: 500 }
+            );
+        }
 
         const validIds = new Set((questions || []).map((q: any) => q.id));
         const invalid = answers.filter((a) => !validIds.has(a.question_id));
@@ -335,7 +381,9 @@ export async function POST(
             .single();
 
         if (subError || !submission) {
-            console.error('Error creating submission:', subError);
+            if (process.env.NODE_ENV === 'development') {
+                console.error('Error creating submission:', subError);
+            }
             return NextResponse.json(
                 { success: false, error: 'Failed to save feedback submission' },
                 { status: 500 }
@@ -358,8 +406,15 @@ export async function POST(
                 .insert(answerInserts);
 
             if (ansError) {
-                console.error('Error inserting answers:', ansError);
-                await supabase.from('FeedbackSubmission').delete().eq('id', submission.id);
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('Error inserting answers:', ansError);
+                }
+                const { error: cleanupError } = await supabase.from('FeedbackSubmission').delete().eq('id', submission.id);
+                if (cleanupError) {
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('Failed to cleanup submission after answer insert error:', cleanupError);
+                    }
+                }
                 return NextResponse.json(
                     { success: false, error: 'Failed to save feedback answers' },
                     { status: 500 }
@@ -373,7 +428,9 @@ export async function POST(
             submissionId: submission.id,
         });
     } catch (error) {
-        console.error('Error submitting feedback:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error submitting feedback:', error);
+        }
         return NextResponse.json(
             { success: false, error: 'Failed to submit feedback' },
             { status: 500 }

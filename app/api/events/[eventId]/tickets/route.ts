@@ -23,7 +23,9 @@ export async function GET(
         const tickets = await getTickets(id, { includeDeleted });
         return NextResponse.json({ success: true, data: tickets });
     } catch (error: unknown) {
-        console.error('Error fetching tickets:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching tickets:', error);
+        }
         return NextResponse.json(
             { success: false, error: error instanceof Error ? error.message : 'Failed to fetch tickets' },
             { status: 500 }
@@ -70,7 +72,9 @@ export async function POST(
 
         return NextResponse.json({ success: true, data: ticket }, { status: 201 });
     } catch (error: unknown) {
-        console.error('Error creating ticket:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error creating ticket:', error);
+        }
         const status =
             typeof (error as { statusCode?: number })?.statusCode === 'number'
                 ? (error as { statusCode: number }).statusCode

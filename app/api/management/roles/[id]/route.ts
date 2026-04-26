@@ -58,7 +58,7 @@ export async function GET(
         }
 
         const { id } = await params;
-        const roleId = parseInt(id);
+        const roleId = parseInt(id, 10);
         const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
 
         if (isNaN(roleId) || !activeOrganizationId) {
@@ -78,7 +78,9 @@ export async function GET(
             }
         });
     } catch (error: unknown) {
-        console.error('Error fetching role details:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching role details:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error) || 'Failed to fetch role details' },
             { status: 500 }
@@ -102,7 +104,7 @@ export async function PATCH(
         }
 
         const { id } = await params;
-        const roleId = parseInt(id);
+        const roleId = parseInt(id, 10);
         const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
         const body = await request.json();
         const { name, description, permissionIds } = body;
@@ -216,7 +218,9 @@ export async function PATCH(
 
         return NextResponse.json({ success: true, message: 'Role updated successfully' });
     } catch (error: unknown) {
-        console.error('Error updating role:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error updating role:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error) || 'Failed to update role' },
             { status: 500 }
@@ -240,7 +244,7 @@ export async function DELETE(
         }
 
         const { id } = await params;
-        const roleId = parseInt(id);
+        const roleId = parseInt(id, 10);
         const activeOrganizationId = await getActiveOrganizationId(request, authenticatedEmail);
 
         if (isNaN(roleId) || !activeOrganizationId) {
@@ -257,7 +261,9 @@ export async function DELETE(
 
         return NextResponse.json({ success: true, message: 'Role deleted successfully' });
     } catch (error: unknown) {
-        console.error('Error deleting role:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error deleting role:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error) || 'Failed to delete role' },
             { status: 500 }

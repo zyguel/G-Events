@@ -71,7 +71,9 @@ export async function GET(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error fetching promotion:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching promotion:', error);
+        }
         if (typeof error === 'object' && error !== null && (error as { code?: unknown }).code === 'PGRST116') {
             return NextResponse.json(
                 { success: false, error: 'Promotion not found' },
@@ -153,7 +155,9 @@ export async function PATCH(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error updating promotion:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error updating promotion:', error);
+        }
         const status = getErrorStatus(error);
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to update promotion') },
@@ -194,7 +198,9 @@ export async function DELETE(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error deleting promotion:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error deleting promotion:', error);
+        }
         const status = getErrorStatus(error);
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to delete promotion') },

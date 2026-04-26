@@ -96,8 +96,8 @@ export async function PATCH(
 
         if (action === "update") {
             const { ticketId } = body;
-            if (ticketId) {
-                const parsedTicketId = parseInt(ticketId, 10);
+            if (ticketId !== undefined && ticketId !== null && ticketId !== '') {
+                const parsedTicketId = parseInt(String(ticketId), 10);
                 const { data: targetTicket, error: targetTicketError } = await supabase
                     .from("Ticket")
                     .select("id, is_deleted")
@@ -147,11 +147,18 @@ export async function PATCH(
 
             const typedRegistration = registration as RegistrationWithUserTicket;
 
-            const { data: eventData } = await supabase
+            const { data: eventData, error: eventError } = await supabase
                 .from("Event")
                 .select("title")
                 .eq("id", id)
                 .single();
+
+            if (eventError) {
+                if (process.env.NODE_ENV === 'development') {
+                console.error("Failed to fetch event data:", eventError);
+            }
+                return NextResponse.json({ success: false, error: "Failed to fetch event data" }, { status: 500 });
+            }
 
             const { data: newTicket, error: newTicketError } = await supabase
                 .from("Ticket")
@@ -211,11 +218,15 @@ export async function PATCH(
                   </div>
                 `;
 
-                await sendEmail({
-                    to: attendeeEmail,
-                    subject: `Ticket updated for ${eventTitle}`,
-                    html,
-                });
+                try {
+                    await sendEmail({
+                        to: attendeeEmail,
+                        subject: `Ticket updated for ${eventTitle}`,
+                        html,
+                    });
+                } catch (emailError) {
+                    console.error('Failed to send ticket update email:', emailError);
+                }
             }
 
             revalidatePath(`/admin/events/${id}/orders`);
@@ -340,12 +351,18 @@ export async function PATCH(
                             html: wrapEmailBody(confirmationBody),
                         });
 
-                        const { data: breakoutRegistration } = await supabase
+                        const { data: breakoutRegistration, error: breakoutRegError } = await supabase
                             .from("BreakoutSessionRegistration")
                             .select("ticket_token, breakout_session_id")
                             .eq("registration_id", regId)
                             .limit(1)
                             .maybeSingle();
+
+                        if (breakoutRegError) {
+                            if (process.env.NODE_ENV === 'development') {
+                console.error("Failed to fetch breakout registration:", breakoutRegError);
+            }
+                        }
 
                         if (breakoutRegistration?.ticket_token) {
                             const breakoutUrl = buildBreakoutEticketUrl(
@@ -368,12 +385,18 @@ export async function PATCH(
                             let breakoutSessionTitle = "Breakout session";
                             let breakoutSessionLocation: string | undefined;
                             if (breakoutRegistration.breakout_session_id) {
-                                const { data: breakoutSession } = await supabase
+                                const { data: breakoutSession, error: sessionError } = await supabase
                                     .from("BreakoutSession")
                                     .select("name, room_name")
                                     .eq("id", breakoutRegistration.breakout_session_id)
                                     .eq("event_id", id)
                                     .maybeSingle();
+
+                                if (sessionError) {
+                                    if (process.env.NODE_ENV === 'development') {
+                console.error("Failed to fetch breakout session:", sessionError);
+            }
+                                }
 
                                 if (breakoutSession?.name) {
                                     breakoutSessionTitle = breakoutSession.name;

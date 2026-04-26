@@ -55,7 +55,9 @@ export async function GET(
         const authError = getAuthErrorResponse(error);
         if (authError) return authError;
 
-        console.error('Error fetching event analytics:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching event analytics:', error);
+        }
         return NextResponse.json(
             { success: false, error: 'Failed to fetch event analytics' },
             { status: 500 }

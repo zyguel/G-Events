@@ -101,7 +101,9 @@ export async function GET(
   } catch (e: unknown) {
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
-    console.error("breakout-roster GET", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("breakout-roster GET", e);
+    }
     return NextResponse.json(
       { success: false, error: "Unexpected error" },
       { status: 500 }

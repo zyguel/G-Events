@@ -242,7 +242,9 @@ export async function GET(
             .order("start_time", { ascending: true });
 
         if (error) {
-            console.error("ManageBreakouts GET: query failed", error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error("ManageBreakouts GET: query failed", error);
+            }
             return NextResponse.json(
                 { success: false, error: error.message },
                 { status: 500 }
@@ -254,7 +256,9 @@ export async function GET(
 
         return NextResponse.json({ success: true, data: sessions });
     } catch (e: any) {
-        console.error("ManageBreakouts GET error:", e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error("ManageBreakouts GET error:", e);
+        }
         return NextResponse.json(
             { success: false, error: e?.message || "Unexpected error" },
             { status: 500 }
@@ -330,7 +334,9 @@ export async function POST(
             .single();
 
         if (error) {
-            console.error("ManageBreakouts POST: insert failed", error);
+            if (process.env.NODE_ENV === 'development') {
+                console.error("ManageBreakouts POST: insert failed", error);
+            }
             return NextResponse.json(
                 { success: false, error: error.message },
                 { status: 500 }
@@ -340,7 +346,9 @@ export async function POST(
         const created = mapRowToSession(data);
         return NextResponse.json({ success: true, data: created }, { status: 201 });
     } catch (e: any) {
-        console.error("ManageBreakouts POST error:", e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error("ManageBreakouts POST error:", e);
+        }
         return NextResponse.json(
             { success: false, error: e?.message || "Unexpected error" },
             { status: 500 }

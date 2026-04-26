@@ -66,7 +66,9 @@ export async function POST(
         });
 
     } catch (error: any) {
-        console.error('Error validating promotion:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error validating promotion:', error);
+        }
         return NextResponse.json(
             { success: false, error: error.message || 'Failed to validate promotion' },
             { status: 500 }

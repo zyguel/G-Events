@@ -29,7 +29,9 @@ export async function GET(request: NextRequest) {
       organizationName: activeMembership?.organizationName || 'Organization',
     })
   } catch (error) {
-    console.error('Profile organization API error:', error)
+    if (process.env.NODE_ENV === 'development') {
+        console.error('Profile organization API error:', error);
+    }
     return internalServerError('Failed to resolve organization')
   }
 }

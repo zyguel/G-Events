@@ -188,7 +188,9 @@ export async function GET(
         const addOns = await getAddOns(id);
         return NextResponse.json({ success: true, data: addOns });
     } catch (error: unknown) {
-        console.error('Error fetching add-ons:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching add-ons:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to fetch add-ons') },
             { status: 500 }
@@ -307,7 +309,9 @@ export async function POST(
 
         return NextResponse.json({ success: true, data: addOn }, { status: 201 });
     } catch (error: unknown) {
-        console.error('Error creating add-on:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error creating add-on:', error);
+        }
         const status = getErrorStatus(error);
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to create add-on') },

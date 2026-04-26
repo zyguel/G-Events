@@ -22,7 +22,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: true, data: auditRows })
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e)
-    console.error('API GET /api/audit error:', message)
+    if (process.env.NODE_ENV === 'development') {
+        console.error('API GET /api/audit error:', message);
+    }
     return NextResponse.json({ success: false, error: message || 'Unexpected error' }, { status: 500 })
   }
 }

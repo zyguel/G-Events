@@ -154,7 +154,9 @@ export async function GET(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
 
-    console.error("EmailAttendees GET error:", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("EmailAttendees GET error:", e);
+    }
     return NextResponse.json(
       {
         success: false,
@@ -404,7 +406,9 @@ export async function POST(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
 
-    console.error("EmailAttendees POST error:", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("EmailAttendees POST error:", e);
+    }
     return NextResponse.json(
       {
         success: false,

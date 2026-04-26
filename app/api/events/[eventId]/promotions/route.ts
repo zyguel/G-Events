@@ -48,7 +48,7 @@ export async function GET(
     try {
         await requireUser();
         const { eventId } = await params;
-        const id = parseInt(eventId);
+        const id = parseInt(eventId, 10);
 
         if (isNaN(id)) {
             return NextResponse.json(
@@ -60,7 +60,9 @@ export async function GET(
         const promotions = await getPromotions(id);
         return NextResponse.json({ success: true, data: promotions });
     } catch (error: unknown) {
-        console.error('Error fetching promotions:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching promotions:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to fetch promotions') },
             { status: 500 }
@@ -76,7 +78,7 @@ export async function POST(
     try {
         await requireUser();
         const { eventId } = await params;
-        const id = parseInt(eventId);
+        const id = parseInt(eventId, 10);
         const body = (await request.json()) as PromotionRequestBody;
 
         if (isNaN(id)) {
@@ -115,7 +117,9 @@ export async function POST(
 
         return NextResponse.json({ success: true, data: promotion }, { status: 201 });
     } catch (error: unknown) {
-        console.error('Error creating promotion:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error creating promotion:', error);
+        }
         const status = getErrorStatus(error);
         return NextResponse.json(
             { success: false, error: getErrorMessage(error, 'Failed to create promotion') },

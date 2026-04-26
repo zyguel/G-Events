@@ -106,7 +106,9 @@ export async function POST(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
 
-    console.error("Email image upload error:", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("Email image upload error:", e);
+    }
     return NextResponse.json(
       {
         success: false,

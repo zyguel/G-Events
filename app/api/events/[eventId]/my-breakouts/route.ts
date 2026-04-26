@@ -65,23 +65,38 @@ export async function POST(
         }
 
         // Get user ID
-        const { data: userRow } = await admin
+        const { data: userRow, error: userError } = await admin
             .from("User")
             .select("id, name, email")
             .ilike("email", user.email)
             .limit(1)
             .maybeSingle();
+
+        if (userError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error('my-breakouts: User lookup failed', userError);
+            }
+            return NextResponse.json({ success: false, error: "Failed to verify user" }, { status: 500 });
+        }
+
         if (!userRow) {
             return NextResponse.json({ success: false, error: "User not found" }, { status: 404 });
         }
 
         // Get Event Registration ID
-        const { data: reg } = await admin
+        const { data: reg, error: regError } = await admin
             .from("Registration")
             .select("id, status, profile_pending")
             .eq("event_id", eventNumericId)
             .eq("user_id", userRow.id)
             .maybeSingle();
+
+        if (regError) {
+            if (process.env.NODE_ENV === 'development') {
+                console.error('my-breakouts: Registration lookup failed', regError);
+            }
+            return NextResponse.json({ success: false, error: "Failed to verify registration" }, { status: 500 });
+        }
 
         if (!reg) {
             return NextResponse.json({ success: false, error: "You are not registered for this event." }, { status: 403 });
@@ -143,7 +158,7 @@ export async function POST(
             }
 
             // 2. Enforce 1 Session Maximum
-            const { data: userRegistrations } = await admin
+            const { data: userRegistrations, error: userRegError } = await admin
                 .from('BreakoutSessionRegistration')
                 .select(`
                     breakout_session_id,
@@ -153,6 +168,13 @@ export async function POST(
                     )
                 `)
                 .eq('registration_id', registrationId);
+
+            if (userRegError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('my-breakouts: Failed to check existing breakout registrations', userRegError);
+                }
+                return NextResponse.json({ success: false, error: "Failed to verify breakout registration status" }, { status: 500 });
+            }
 
             if (userRegistrations && userRegistrations.length > 0) {
                 const alreadyJoined = userRegistrations.some(r => r.breakout_session_id !== breakoutId);
@@ -173,7 +195,12 @@ export async function POST(
                 .upsert(payload, { onConflict: "registration_id" });
 
             if (upsertError) {
-                await admin.from("BreakoutSessionRegistration").delete().eq("registration_id", registrationId);
+                const { error: deleteErr } = await admin.from("BreakoutSessionRegistration").delete().eq("registration_id", registrationId);
+                if (deleteErr) {
+                    if (process.env.NODE_ENV === 'development') {
+                        console.error('my-breakouts POST: Failed to delete in upsert fallback', deleteErr);
+                    }
+                }
                 const { error: insertError } = await admin.from("BreakoutSessionRegistration").insert(payload);
                 if (insertError) {
                     throw insertError;
@@ -181,9 +208,14 @@ export async function POST(
             }
 
             // Sync Registration table
-            await admin.from('Registration')
+            const { error: syncError } = await admin.from('Registration')
                 .update({ has_breakout_session_registration: true })
                 .eq('id', registrationId);
+            if (syncError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('my-breakouts POST: Failed to sync registration breakout status', syncError);
+                }
+            }
 
             const attendeeName =
                 [userRow.name, userRow.email].find((value) => typeof value === "string" && value.trim().length > 0) || "Attendee";
@@ -201,7 +233,9 @@ export async function POST(
                         folder: `event-${eventNumericId}/breakouts`,
                     });
                 } catch (breakoutQrError) {
-                    console.warn("Breakout QR image generation failed; sending link-only breakout ticket email.", breakoutQrError);
+                    if (process.env.NODE_ENV === 'development') {
+                        console.warn("Breakout QR image generation failed; sending link-only breakout ticket email.", breakoutQrError);
+                    }
                 }
 
                 await sendEmail({
@@ -217,7 +251,9 @@ export async function POST(
                     }),
                 });
             } catch (mailError) {
-                console.warn("MyBreakouts: breakout ticket email failed", mailError);
+                if (process.env.NODE_ENV === 'development') {
+                    console.warn("MyBreakouts: breakout ticket email failed", mailError);
+                }
             }
 
         } else if (body.action === 'leave') {
@@ -229,9 +265,14 @@ export async function POST(
             if (deleteError) throw deleteError;
 
             // Sync Registration table
-            await admin.from('Registration')
+            const { error: syncError } = await admin.from('Registration')
                 .update({ has_breakout_session_registration: false })
                 .eq('id', registrationId);
+            if (syncError) {
+                if (process.env.NODE_ENV === 'development') {
+                    console.error('my-breakouts: Failed to sync registration breakout status on leave', syncError);
+                }
+            }
         } else {
             return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
         }
@@ -242,7 +283,9 @@ export async function POST(
     } catch (e: unknown) {
         const authError = getAuthErrorResponse(e);
         if (authError) return authError;
-        console.error("MyBreakouts API error:", e);
+        if (process.env.NODE_ENV === 'development') {
+            console.error("MyBreakouts API error:", e);
+        }
         const errorMessage = e instanceof Error ? e.message : "Unexpected error";
         return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
     }

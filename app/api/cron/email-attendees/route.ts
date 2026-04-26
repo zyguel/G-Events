@@ -60,7 +60,9 @@ export async function GET(request: NextRequest) {
       ...result,
     });
   } catch (error) {
-    console.error('Cron email-attendees processing failed:', error);
+    if (process.env.NODE_ENV === 'development') {
+        console.error('Cron email-attendees processing failed:', error);
+    }
     return Response.json(
       {
         success: false,

@@ -54,7 +54,9 @@ export async function GET(request: NextRequest) {
         response.headers.set('Cache-Control', 'private, max-age=30, stale-while-revalidate=60');
         return response;
     } catch (error: unknown) {
-        console.error('Error fetching roles:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error fetching roles:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error) || 'Failed to fetch roles' },
             { status: 500 }
@@ -103,7 +105,9 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true, data: newRole }, { status: 201 });
     } catch (error: unknown) {
-        console.error('Error creating role:', error);
+        if (process.env.NODE_ENV === 'development') {
+            console.error('Error creating role:', error);
+        }
         return NextResponse.json(
             { success: false, error: getErrorMessage(error) || 'Failed to create role' },
             { status: 500 }

@@ -90,7 +90,9 @@ export async function GET(
     const authError = getAuthErrorResponse(e);
     if (authError) return authError;
 
-    console.error("Check-in GET error:", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("Check-in GET error:", e);
+    }
     return NextResponse.json(
       { success: false, error: "Unexpected error while loading attendees" },
       { status: 500 }

@@ -21,7 +21,9 @@ export async function POST(request: NextRequest) {
       ...result,
     });
   } catch (e) {
-    console.error("Cron email processing error:", e);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("Cron email processing error:", e);
+    }
     return NextResponse.json(
       {
         success: false,

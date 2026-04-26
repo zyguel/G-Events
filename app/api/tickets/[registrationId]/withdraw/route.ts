@@ -87,7 +87,9 @@ export async function POST(
       data: { registrationId: numericRegistrationId, status: "cancelled" },
     });
   } catch (error) {
-    console.error("Withdraw ticket error:", error);
+    if (process.env.NODE_ENV === 'development') {
+        console.error("Withdraw ticket error:", error);
+    }
     return NextResponse.json({ success: false, error: "Internal Server Error" }, { status: 500 });
   }
 }
