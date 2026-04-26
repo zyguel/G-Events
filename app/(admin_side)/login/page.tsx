@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 import { AuthFormHydrationGate } from '@/components/auth/AuthFormHydrationGate';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 export default function LoginPage() {
     return (
@@ -45,6 +46,17 @@ function LoginContent() {
     const [emailError, setEmailError] = useState('');
     const [passwordError, setPasswordError] = useState('');
     const [authSuccess, setAuthSuccess] = useState('');
+    const [captchaToken, setCaptchaToken] = useState<string | undefined>();
+    const [turnstileError, setTurnstileError] = useState(false);
+    const [turnstileLoaded, setTurnstileLoaded] = useState(false);
+
+    // Fallback: assume loaded after 3 seconds if callback doesn't fire
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setTurnstileLoaded(true);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
 
     const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -124,11 +136,19 @@ function LoginContent() {
             setPasswordError('Password is required.');
             return;
         }
+        if (!captchaToken) {
+            setGeneralError('Please complete the CAPTCHA verification.');
+            return;
+        }
+        if (turnstileError) {
+            setGeneralError('CAPTCHA failed to load. Please refresh the page and try again.');
+            return;
+        }
 
         setIsSubmitting(true);
 
         const supabase = createClient();
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
 
         if (error) {
             // Route Supabase errors to the most relevant field
@@ -352,6 +372,36 @@ function LoginContent() {
                                 <Link href="/forgot-password" className="text-sm font-semibold text-blue-600 hover:text-indigo-600 transition-colors">
                                     Forgot Password?
                                 </Link>
+                            </div>
+
+                            {/* Cloudflare Turnstile CAPTCHA */}
+                            <div className="flex flex-col items-center gap-2">
+                                {!turnstileLoaded && (
+                                    <div className="text-xs text-gray-500">Loading CAPTCHA...</div>
+                                )}
+                                <Turnstile
+                                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
+                                    onSuccess={(token) => {
+                                        console.log('Turnstile success:', token);
+                                        setCaptchaToken(token);
+                                        setTurnstileError(false);
+                                    }}
+                                    onError={() => {
+                                        console.error('Turnstile error');
+                                        setTurnstileError(true);
+                                    }}
+                                    onExpire={() => {
+                                        console.log('Turnstile expired');
+                                        setCaptchaToken(undefined);
+                                    }}
+                                    onLoad={() => {
+                                        console.log('Turnstile loaded');
+                                        setTurnstileLoaded(true);
+                                    }}
+                                />
+                                {turnstileError && (
+                                    <div className="text-xs text-red-500">CAPTCHA failed to load. Please refresh.</div>
+                                )}
                             </div>
 
                             <button

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Mail, Lock, Check, ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 type Step = 'email' | 'sent';
 
@@ -15,6 +16,17 @@ export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [captchaToken, setCaptchaToken] = useState<string | undefined>();
+    const [turnstileError, setTurnstileError] = useState(false);
+    const [turnstileLoaded, setTurnstileLoaded] = useState(false);
+
+    // Fallback: assume loaded after 3 seconds if callback doesn't fire
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setTurnstileLoaded(true);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
 
     const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -66,6 +78,14 @@ export default function ForgotPasswordPage() {
         e.preventDefault();
         setError('');
         if (!email) return;
+        if (!captchaToken) {
+            setError('Please complete the CAPTCHA verification.');
+            return;
+        }
+        if (turnstileError) {
+            setError('CAPTCHA failed to load. Please refresh the page and try again.');
+            return;
+        }
 
         const supabase = createClient();
         setIsSubmitting(true);
@@ -76,6 +96,7 @@ export default function ForgotPasswordPage() {
 
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo,
+            captchaToken,
         });
 
         setIsSubmitting(false);
@@ -216,6 +237,36 @@ export default function ForgotPasswordPage() {
                                             />
                                         </div>
                                     </div>
+                                </div>
+
+                                {/* Cloudflare Turnstile CAPTCHA */}
+                                <div className="flex flex-col items-center gap-2">
+                                    {!turnstileLoaded && (
+                                        <div className="text-xs text-gray-500">Loading CAPTCHA...</div>
+                                    )}
+                                    <Turnstile
+                                        siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
+                                        onSuccess={(token) => {
+                                            console.log('Turnstile success:', token);
+                                            setCaptchaToken(token);
+                                            setTurnstileError(false);
+                                        }}
+                                        onError={() => {
+                                            console.error('Turnstile error');
+                                            setTurnstileError(true);
+                                        }}
+                                        onExpire={() => {
+                                            console.log('Turnstile expired');
+                                            setCaptchaToken(undefined);
+                                        }}
+                                        onLoad={() => {
+                                            console.log('Turnstile loaded');
+                                            setTurnstileLoaded(true);
+                                        }}
+                                    />
+                                    {turnstileError && (
+                                        <div className="text-xs text-red-500">CAPTCHA failed to load. Please refresh.</div>
+                                    )}
                                 </div>
 
                                 <button

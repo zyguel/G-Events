@@ -3,10 +3,11 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, User, X } from 'lucide-react';
 import { createClient } from '@/lib/supabase-browser';
 import { AuthFormHydrationGate } from '@/components/auth/AuthFormHydrationGate';
 import { REGISTER_LIMITS, normalizeRegisterInput, validateRegisterInput } from '@/lib/validation/register';
+import { Turnstile } from '@marsidev/react-turnstile';
 
 const NAME_INPUT_SANITIZE_PATTERN = /[^A-Za-z0-9 ]+/g;
 
@@ -40,6 +41,18 @@ export default function RegisterPage() {
     const [authError, setAuthError] = useState('');
     const [authSuccess, setAuthSuccess] = useState('');
     const [currentSlide, setCurrentSlide] = useState(0);
+    const [captchaToken, setCaptchaToken] = useState<string | undefined>();
+    const [turnstileError, setTurnstileError] = useState(false);
+    const [turnstileLoaded, setTurnstileLoaded] = useState(false);
+    const [showTermsModal, setShowTermsModal] = useState(false);
+
+    // Fallback: assume loaded after 3 seconds if callback doesn't fire
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setTurnstileLoaded(true);
+        }, 3000);
+        return () => clearTimeout(timer);
+    }, []);
 
     const slides = [
         {
@@ -99,6 +112,8 @@ export default function RegisterPage() {
         if (validationError) { setAuthError(validationError); return; }
         if (password !== confirmPassword) { setAuthError('Passwords do not match.'); return; }
         if (!agreeTerms) { setAuthError('You must agree to the Terms & Conditions.'); return; }
+        if (!captchaToken) { setAuthError('Please complete the CAPTCHA verification.'); return; }
+        if (turnstileError) { setAuthError('CAPTCHA failed to load. Please refresh the page and try again.'); return; }
 
         setIsSubmitting(true);
 
@@ -152,6 +167,7 @@ export default function RegisterPage() {
                 options: {
                     emailRedirectTo: redirectTo,
                     data: { name: normalizedFullName },
+                    captchaToken,
                 },
             });
 
@@ -432,14 +448,47 @@ export default function RegisterPage() {
                                 />
                                 <label htmlFor="agree-terms" className="cursor-pointer text-[15px] font-medium leading-snug text-gray-600 hover:text-gray-800">
                                     I agree to{' '}
-                                    <Link
-                                        href="#"
-                                        className="font-semibold text-blue-600 hover:text-indigo-600 hover:underline"
-                                        onClick={(e) => e.preventDefault()}
+                                    <button
+                                        type="button"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            setShowTermsModal(true);
+                                        }}
+                                        className="font-semibold text-blue-600 hover:text-indigo-600 hover:underline bg-transparent border-none p-0 cursor-pointer"
                                     >
                                         Terms & Conditions
-                                    </Link>
+                                    </button>
                                 </label>
+                            </div>
+
+                            {/* Cloudflare Turnstile CAPTCHA */}
+                            <div className="flex flex-col items-center gap-2">
+                                {!turnstileLoaded && (
+                                    <div className="text-xs text-gray-500">Loading CAPTCHA...</div>
+                                )}
+                                <Turnstile
+                                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''}
+                                    onSuccess={(token) => {
+                                        console.log('Turnstile success:', token);
+                                        setCaptchaToken(token);
+                                        setTurnstileError(false);
+                                    }}
+                                    onError={() => {
+                                        console.error('Turnstile error');
+                                        setTurnstileError(true);
+                                    }}
+                                    onExpire={() => {
+                                        console.log('Turnstile expired');
+                                        setCaptchaToken(undefined);
+                                    }}
+                                    onLoad={() => {
+                                        console.log('Turnstile loaded');
+                                        setTurnstileLoaded(true);
+                                    }}
+                                />
+                                {turnstileError && (
+                                    <div className="text-xs text-red-500">CAPTCHA failed to load. Please refresh.</div>
+                                )}
                             </div>
 
                             {/* Sign Up Button */}
@@ -504,6 +553,96 @@ export default function RegisterPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Terms & Conditions Modal */}
+            {showTermsModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+                        {/* Header */}
+                        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                            <h3 className="text-2xl font-bold text-slate-900">Terms & Conditions</h3>
+                            <button
+                                type="button"
+                                onClick={() => setShowTermsModal(false)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
+                                aria-label="Close modal"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-2">1. Acceptance of Terms</h4>
+                                <p className="text-gray-600 text-sm leading-relaxed">
+                                    By accessing and using G Events, you agree to be bound by these Terms & Conditions. If you do not agree to these terms, please do not use our service.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-2">2. User Accounts</h4>
+                                <p className="text-gray-600 text-sm leading-relaxed">
+                                    You are responsible for maintaining the confidentiality of your account credentials and for all activities that occur under your account. You agree to notify us immediately of any unauthorized use of your account.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-2">3. Event Management</h4>
+                                <p className="text-gray-600 text-sm leading-relaxed">
+                                    Users may create, manage, and publish events through the platform. You agree to provide accurate and complete information for all events and to comply with all applicable laws and regulations.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-2">4. Privacy Policy</h4>
+                                <p className="text-gray-600 text-sm leading-relaxed">
+                                    Your use of G Events is also governed by our Privacy Policy, which describes how we collect, use, and protect your personal information.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-2">5. Prohibited Activities</h4>
+                                <p className="text-gray-600 text-sm leading-relaxed">
+                                    You agree not to use the platform for any unlawful purpose, to harass others, or to violate any applicable laws. We reserve the right to suspend or terminate accounts that violate these terms.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-2">6. Limitation of Liability</h4>
+                                <p className="text-gray-600 text-sm leading-relaxed">
+                                    G Events shall not be liable for any indirect, incidental, special, or consequential damages arising from your use of the service.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-2">7. Changes to Terms</h4>
+                                <p className="text-gray-600 text-sm leading-relaxed">
+                                    We reserve the right to modify these terms at any time. Continued use of the service after changes constitutes acceptance of the new terms.
+                                </p>
+                            </div>
+
+                            <div>
+                                <h4 className="font-semibold text-slate-900 mb-2">8. Contact Information</h4>
+                                <p className="text-gray-600 text-sm leading-relaxed">
+                                    For questions about these Terms & Conditions, please contact us at gevents2026@gmail.com
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="p-6 border-t border-gray-200 bg-gray-50">
+                            <button
+                                type="button"
+                                onClick={() => setShowTermsModal(false)}
+                                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold py-3 rounded-2xl transition-all duration-300 hover:shadow-lg hover:scale-[1.01] active:scale-[0.98]"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
