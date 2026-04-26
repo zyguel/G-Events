@@ -2,9 +2,11 @@ import { NextRequest } from 'next/server';
 import { createClient, createAdminClient } from '@/lib/supabase-server';
 import { ok, badRequest, internalServerError } from '@/lib/utils/apiResponse';
 import { logger } from '@/lib/logger';
+import { requireUser } from '@/lib/apiAuth';
 
 export async function POST(request: NextRequest) {
     try {
+        await requireUser();
         const body = await request.json();
         const { emails } = body;
 

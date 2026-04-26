@@ -6,7 +6,6 @@ import { NotificationProvider } from "@/contexts/NotificationContext";
 import { PermissionProvider } from "@/contexts/PermissionContext";
 import UnhandledMediaAbortGuard from "@/components/common/UnhandledMediaAbortGuard";
 import { Analytics } from "@vercel/analytics/next";
-
 const figtree = Figtree({
   variable: "--font-figtree",
   subsets: ["latin"],

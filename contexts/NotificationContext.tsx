@@ -105,7 +105,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         } catch { /* ignore */ }
     }, [preferences]);
 
-    // Fetch notifications using Server-Sent Events (SSE)
+    // Fetch notifications using polling
     useEffect(() => {
         const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
         if (!isAdminAppRoute(pathname)) {
@@ -113,53 +113,59 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
         }
 
         const supabase = createClient();
-        let eventSource: EventSource | null = null;
+        let intervalId: NodeJS.Timeout | null = null;
         let isActive = true;
 
-        const connectSSE = () => {
-            if (!isActive || !hasSessionRef.current || eventSource) {
-                return;
-            }
-
-            // Using EventSource relies on next.js automatically resolving the browser's current cookies
-            eventSource = new EventSource('/api/notifications');
-
-            eventSource.onmessage = (event) => {
-                if (!isActive) return;
-                try {
-                    const body = JSON.parse(event.data);
-                    const data = body?.data;
-                    if (Array.isArray(data)) {
-                        const dismissed = getDismissedIds();
-                        const readIds = getReadIds();
-                        const parsed: Notification[] = data
-                            .filter((n: any) => !dismissed.has(n.id))
-                            .map((n: any) => ({
-                                ...n,
-                                timestamp: new Date(n.timestamp),
-                                read: readIds.has(n.id) || n.read,
-                            }));
-                        setNotifications(parsed);
-                        hadFetchErrorRef.current = false;
+        const fetchNotifications = async () => {
+            if (!isActive || !hasSessionRef.current) return;
+            
+            try {
+                const response = await fetch('/api/notifications');
+                if (!response.ok) {
+                    if (!hadFetchErrorRef.current) {
+                        console.warn('Notifications fetch failed:', response.status);
+                        hadFetchErrorRef.current = true;
                     }
-                } catch (err) {
-                    console.error('Error parsing SSE message:', err);
+                    return;
                 }
-            };
-
-            eventSource.onerror = (err) => {
-                // EventSource automatically attempts to reconnect natively on error
+                
+                const body = await response.json();
+                const data = body?.data;
+                if (Array.isArray(data)) {
+                    const dismissed = getDismissedIds();
+                    const readIds = getReadIds();
+                    const parsed: Notification[] = data
+                        .filter((n: any) => !dismissed.has(n.id))
+                        .map((n: any) => ({
+                            ...n,
+                            timestamp: new Date(n.timestamp),
+                            read: readIds.has(n.id) || n.read,
+                        }));
+                    setNotifications(parsed);
+                    hadFetchErrorRef.current = false;
+                }
+            } catch (err) {
                 if (!hadFetchErrorRef.current) {
-                    console.warn('SSE connection error, reconnecting automatically...', err);
+                    console.warn('Notifications fetch error:', err);
                     hadFetchErrorRef.current = true;
                 }
-            };
+            }
         };
 
-        const disconnectSSE = () => {
-            if (eventSource) {
-                eventSource.close();
-                eventSource = null;
+        const startPolling = () => {
+            if (!isActive || !hasSessionRef.current || intervalId) {
+                return;
+            }
+            // Fetch immediately
+            void fetchNotifications();
+            // Then poll every 30 seconds
+            intervalId = setInterval(fetchNotifications, 30000);
+        };
+
+        const stopPolling = () => {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
             }
         };
 
@@ -169,7 +175,7 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 if (error) {
                     console.warn('NotificationContext: failed to read auth session', error);
                     hasSessionRef.current = false;
-                    disconnectSSE();
+                    stopPolling();
                     setNotifications([]);
                     return;
                 }
@@ -177,16 +183,16 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
                 hasSessionRef.current = Boolean(session);
 
                 if (!hasSessionRef.current) {
-                    disconnectSSE();
+                    stopPolling();
                     setNotifications([]);
                     return;
                 }
 
-                connectSSE();
+                startPolling();
             } catch (error) {
                 console.warn('NotificationContext: auth session bootstrap failed', error);
                 hasSessionRef.current = false;
-                disconnectSSE();
+                stopPolling();
                 setNotifications([]);
             }
         };
@@ -195,20 +201,20 @@ export const NotificationProvider = ({ children }: { children: React.ReactNode }
             hasSessionRef.current = Boolean(session);
 
             if (!session) {
-                disconnectSSE();
+                stopPolling();
                 hadFetchErrorRef.current = false;
                 setNotifications([]);
                 return;
             }
 
-            connectSSE();
+            startPolling();
         });
 
         void initializeSession();
 
         return () => {
             isActive = false;
-            disconnectSSE();
+            stopPolling();
             subscription.unsubscribe();
         };
     }, []);
