@@ -1,52 +1,16 @@
 import type { NextRequest } from 'next/server';
 import { createAdminClient } from '@/lib/supabase-server';
 import { processDueCampaigns } from '@/lib/emailCampaigns';
+import { safeCompareSecrets } from '@/lib/security';
 
 export const dynamic = 'force-dynamic';
 
-type CronAuthorizationResult = {
-  ok: boolean;
-  status: number;
-  error?: string;
-};
-
-function authorizeCronRequest(request: NextRequest): CronAuthorizationResult {
-  const cronSecret = process.env.CRON_SECRET?.trim();
-
-  if (!cronSecret) {
-    if (process.env.NODE_ENV === 'production') {
-      return {
-        ok: false,
-        status: 500,
-        error: 'CRON_SECRET is not configured',
-      };
-    }
-
-    return { ok: true, status: 200 };
-  }
-
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return {
-      ok: false,
-      status: 401,
-      error: 'Unauthorized',
-    };
-  }
-
-  return { ok: true, status: 200 };
-}
-
 export async function GET(request: NextRequest) {
-  const authorization = authorizeCronRequest(request);
-  if (!authorization.ok) {
-    return Response.json(
-      {
-        success: false,
-        error: authorization.error || 'Unauthorized',
-      },
-      { status: authorization.status }
-    );
+  const expectedSecret = process.env.CRON_SECRET
+  const providedSecret = request.headers.get("x-cron-secret")
+
+  if (!safeCompareSecrets(expectedSecret, providedSecret)) {
+    return Response.json({ success: false, error: "Unauthorized cron request" }, { status: 401 });
   }
 
   try {
