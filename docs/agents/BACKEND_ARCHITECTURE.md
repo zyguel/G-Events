@@ -55,19 +55,78 @@ The backend has been **refactored** from a monolithic `app/(admin_side)/backend/
 #### Endpoints Available:
 
 ```
+# Events
 /api/events/                    → GET (list), POST (create)
-/api/events/[id]                → GET, PATCH, DELETE
+/api/events/[eventId]            → GET, PATCH, DELETE
+
+# Analytics
 /api/analytics/general          → GET (all-events analytics)
 /api/analytics/event/[eventId]  → GET (event-specific)
 /api/analytics/events           → GET (events list)
+
+# Management (Users, Roles, Permissions)
 /api/management/permissions     → GET (all permissions)
 /api/management/roles           → GET (list), POST (create)
 /api/management/roles/[id]      → GET, PATCH, DELETE
 /api/management/users           → GET (list), POST (invite)
 /api/management/users/[id]      → PATCH (update), DELETE (remove)
+
+# Notifications
 /api/notifications              → GET (dashboard notifications)
-/api/orderform                  → GET (list), POST (create/update)
-/api/orderform/[id]             → GET, PUT, DELETE
+
+# Audit
+/api/audit                      → GET (audit log entries)
+
+# Certificates
+/api/certificates/[token]/download → GET (download certificate PDF)
+/api/certificates/[token]/meta     → GET (certificate metadata)
+/api/certificates/[token]/verify   → GET (verify certificate hash chain)
+
+# Event-specific endpoints
+/api/events/[eventId]/tickets              → GET, POST
+/api/events/[eventId]/tickets/[ticketId]   → GET, PATCH, DELETE
+/api/events/[eventId]/addons                → GET, POST
+/api/events/[eventId]/addons/[addOnId]     → GET, PATCH, DELETE
+/api/events/[eventId]/addons/[addOnId]/redemptions → GET
+/api/events/[eventId]/addons/[addOnId]/reserved → GET
+/api/events/[eventId]/breakouts             → GET, POST
+/api/events/[eventId]/breakouts/[sessionId] → GET, PATCH, DELETE
+/api/events/[eventId]/breakouts/attendee    → GET
+/api/events/[eventId]/breakouts/backfill-ticket-tokens → POST
+/api/events/[eventId]/certificates/templates         → GET, POST
+/api/events/[eventId]/certificates/templates/[templateId] → GET, PATCH, DELETE
+/api/events/[eventId]/certificates/issue             → POST
+/api/events/[eventId]/certificates/process           → POST
+/api/events/[eventId]/certificates/recipients         → GET
+/api/events/[eventId]/checkin                → GET
+/api/events/[eventId]/checkin/[registrationId] → PATCH
+/api/events/[eventId]/checkin/scan            → POST
+/api/events/[eventId]/checkin/scan/apply      → POST
+/api/events/[eventId]/checkin/breakout-roster → GET
+/api/events/[eventId]/checkin/[registrationId]/claim-addon → POST
+/api/events/[eventId]/orders                 → GET, POST
+/api/events/[eventId]/orders/[registrationId] → GET, PATCH, DELETE
+/api/events/[eventId]/promotions             → GET, POST
+/api/events/[eventId]/promotions/[promotionId] → GET, PATCH, DELETE
+/api/events/[eventId]/promotions/validate     → POST
+/api/events/[eventId]/waitlist               → GET, POST
+/api/events/[eventId]/email-attendees        → GET, POST
+/api/events/[eventId]/email-attendees/[campaignId] → GET, PATCH, DELETE
+/api/events/[eventId]/email-attendees/process → POST
+/api/events/[eventId]/email-attendees/images  → POST
+/api/events/[eventId]/my-breakouts            → GET
+
+# Cron endpoints (protected by x-cron-secret header)
+/api/cron/process-email-campaigns            → POST
+/api/cron/process-certificate-emails        → POST
+/api/cron/email-attendees                    → POST
+
+# Feedback
+/api/feedback/[eventId]                      → GET, POST
+/api/feedback/form/[eventId]                 → GET
+
+# Auth
+/api/auth/register/validate                  → POST
 ```
 
 ---
