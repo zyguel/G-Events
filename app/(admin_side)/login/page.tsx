@@ -148,7 +148,22 @@ function LoginContent() {
         setIsSubmitting(true);
 
         const supabase = createClient();
-        const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
+        
+        // Handle Remember Me: store flag in sessionStorage when unchecked
+        // sessionStorage is cleared when browser closes, so we can detect fresh sessions
+        if (rememberMe) {
+            sessionStorage.removeItem('sessionOnly');
+        } else {
+            sessionStorage.setItem('sessionOnly', 'true');
+        }
+        
+        const { error } = await supabase.auth.signInWithPassword({ 
+            email, 
+            password, 
+            options: { 
+                captchaToken
+            } 
+        });
 
         if (error) {
             // Route Supabase errors to the most relevant field
@@ -170,6 +185,14 @@ function LoginContent() {
         setGeneralError('');
         setEmailError('');
         setPasswordError('');
+        
+        // Handle Remember Me for OAuth
+        if (rememberMe) {
+            sessionStorage.removeItem('sessionOnly');
+        } else {
+            sessionStorage.setItem('sessionOnly', 'true');
+        }
+        
         const supabase = createClient();
         let redirectTo = '';
         if (typeof window !== 'undefined') {

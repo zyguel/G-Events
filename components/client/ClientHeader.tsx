@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
-import { LogOut, Home, Ticket, Settings, ChevronDown, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { LogOut, Home, Ticket, Award, Settings, ChevronDown, AlertTriangle, ShieldCheck } from 'lucide-react';
 import ThemeToggle from '../admin/ThemeToggle';
 import NotificationDropdown from '../admin/NotificationDropdown';
 import { createClient } from '@/lib/supabase-browser';
@@ -232,6 +232,7 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
     const navLinks = [
         { label: t('Home'), href: '/home', icon: Home },
         { label: t('Tickets'), href: '/tickets', icon: Ticket },
+        { label: t('Certificates'), href: '/certificates', icon: Award },
         { label: t('Settings'), href: '/home/settings', icon: Settings },
     ];
 
