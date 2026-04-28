@@ -921,6 +921,7 @@ export async function updateEvent(id: number, data: Partial<any>) {
 
         const sanitizedData: Partial<any> = { ...data }
 
+        // Only validate event dates if they are being updated
         if (Object.prototype.hasOwnProperty.call(sanitizedData, 'event_start_at') && sanitizedData.event_start_at) {
             const startMs = Date.parse(String(sanitizedData.event_start_at))
             if (!Number.isFinite(startMs)) {
@@ -943,22 +944,26 @@ export async function updateEvent(id: number, data: Partial<any>) {
         const nextRegistrationOpenMs = nextRegistrationOpenIso ? Date.parse(nextRegistrationOpenIso) : null
         const nextRegistrationCloseMs = nextRegistrationCloseIso ? Date.parse(nextRegistrationCloseIso) : null
 
-        if (nextRegistrationOpenIso && !Number.isFinite(nextRegistrationOpenMs)) {
+        // Only validate registration dates if they are being updated
+        const registrationOpenWasProvided = Object.prototype.hasOwnProperty.call(sanitizedData, 'registration_open_at')
+        const registrationCloseWasProvided = Object.prototype.hasOwnProperty.call(sanitizedData, 'registration_close_at')
+
+        if (registrationOpenWasProvided && nextRegistrationOpenIso && !Number.isFinite(nextRegistrationOpenMs)) {
             return { success: false, error: 'Invalid registration open date/time.' }
         }
 
-        if (nextRegistrationCloseIso && !Number.isFinite(nextRegistrationCloseMs)) {
+        if (registrationCloseWasProvided && nextRegistrationCloseIso && !Number.isFinite(nextRegistrationCloseMs)) {
             return { success: false, error: 'Invalid registration close date/time.' }
         }
 
-        if (Number.isFinite(nextRegistrationOpenMs)) {
+        if (registrationOpenWasProvided && Number.isFinite(nextRegistrationOpenMs)) {
             const registrationOpenDateOnly = new Date(nextRegistrationOpenMs as number).toISOString().split('T')[0]
             if (isPastIsoDate(registrationOpenDateOnly)) {
                 return { success: false, error: 'Registration open date cannot be earlier than today.' }
             }
         }
 
-        if (Number.isFinite(nextRegistrationCloseMs)) {
+        if (registrationCloseWasProvided && Number.isFinite(nextRegistrationCloseMs)) {
             const registrationCloseDateOnly = new Date(nextRegistrationCloseMs as number).toISOString().split('T')[0]
             if (isPastIsoDate(registrationCloseDateOnly)) {
                 return { success: false, error: 'Registration close date cannot be earlier than today.' }
@@ -966,7 +971,8 @@ export async function updateEvent(id: number, data: Partial<any>) {
         }
 
         if (
-            Number.isFinite(nextRegistrationOpenMs)
+            (registrationOpenWasProvided || registrationCloseWasProvided)
+            && Number.isFinite(nextRegistrationOpenMs)
             && Number.isFinite(nextRegistrationCloseMs)
             && (nextRegistrationCloseMs as number) < (nextRegistrationOpenMs as number)
         ) {
