@@ -1304,7 +1304,7 @@ export async function getEventAnalytics(eventId: number) {
             .select('id, created_at, status, final_price_paid, ticket_id')
             .eq('event_id', eventId)
             .order('created_at', { ascending: false })
-            .limit(5),
+            .limit(100),
     ]);
 
     // Extract registration count
@@ -1805,7 +1805,7 @@ export async function getGeneralAnalytics(year?: number) {
         if (year) {
             recQ = recQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
-        const { data: recentRows } = await recQ.order('created_at', { ascending: false }).limit(20);
+        const { data: recentRows } = await recQ.order('created_at', { ascending: false }).limit(100);
 
         const recentTransactions = (recentRows || []).map((r: any) => ({
             id: `REG-${r.id}`,
