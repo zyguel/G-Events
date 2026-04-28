@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ADMIN_EVENTS_ROOT } from '@/lib/appRoutes';
 import { SESSION_ROLE, SESSION_ROLE_COOKIE_NAME } from '@/lib/constants';
 import { legacyAdminEventsRedirectTarget } from '@/lib/legacyAdminEventsRedirect';
+import { createClient } from '@/lib/supabase-server';
 
 const PUBLIC_ROUTES = new Set(['/login', '/register', '/forgot-password', '/auth/callback']);
 const PUBLIC_ROUTE_PREFIXES = ['/auth/session-role'];
@@ -200,6 +201,39 @@ export async function proxy(request: NextRequest) {
       path: '/',
       maxAge: AUTH_VALIDATION_TTL_SECONDS,
     });
+
+    // ── Session Tracking Validation for "Remember Me" ───────────────────────
+    // Check if user has a valid tracked session in our database
+    const { data: trackedSessions, error: sessionError } = await supabase
+      .from('UserSession')
+      .select('id, is_persistent, expires_at')
+      .eq('user_id', user.id)
+      .eq('is_revoked', false)
+      .gt('expires_at', new Date().toISOString())
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (sessionError) {
+      console.error('Session tracking validation error:', sessionError);
+    }
+
+    // No valid tracked session found - this means the session is invalid
+    // Either expired or "Remember Me" was unchecked and browser was closed
+    if (!trackedSessions || trackedSessions.length === 0) {
+      console.log(`No valid tracked session for user ${user.id}, signing out`);
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
+      
+      // Clear cookies
+      clearAuthCookies(request, response);
+      
+      // Redirect to login
+      const loginUrl = request.nextUrl.clone();
+      loginUrl.pathname = '/login';
+      loginUrl.searchParams.set('error', 'session_expired');
+      return NextResponse.redirect(loginUrl);
+    }
   }
 
   const sessionRole = request.cookies.get(SESSION_ROLE_COOKIE_NAME)?.value;

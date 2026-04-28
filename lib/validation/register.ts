@@ -1,4 +1,4 @@
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_PATTERN = /^[^\s+@]+@[^\s@]+\.[^\s@]+$/;
 const ALPHANUMERIC_NAME_PATTERN = /^[A-Za-z0-9 ]+$/;
 
 export const REGISTER_LIMITS = {

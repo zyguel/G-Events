@@ -59,7 +59,7 @@ const SidebarItem = ({
 );
 
 interface ClientSidebarProps {
-    activePage?: 'dashboard' | 'tickets' | 'settings';
+    activePage?: 'dashboard' | 'tickets' | 'certificates' | 'settings';
     disableExpand?: boolean;
 }
 
@@ -71,7 +71,7 @@ const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: Clie
 
     // Calculate the position of the sliding indicator based on active page
     const getIndicatorPosition = () => {
-        const mainItems = ['dashboard', 'tickets'];
+        const mainItems = ['dashboard', 'tickets', 'certificates'];
         const bottomItems = ['settings'];
 
         const mainIndex = mainItems.indexOf(activePage);
@@ -108,6 +108,7 @@ const ClientSidebar = ({ activePage = 'dashboard', disableExpand = false }: Clie
                 )}
                 <SidebarItem iconSrc="/icons/home.png" alt={t('Dashboard')} href="/home" active={activePage === 'dashboard'} label={t('Dashboard')} isExpanded={isExpanded} isPending={isPendingHref('/home')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
                 <SidebarItem iconSrc="/icons/tickets.svg" alt={t('Tickets')} href="/tickets" active={activePage === 'tickets'} label={t('Tickets')} isExpanded={isExpanded} isPending={isPendingHref('/tickets')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
+                <SidebarItem iconSrc="/icons/certificate.svg" alt={t('Certificates')} href="/certificates" active={activePage === 'certificates'} label={t('Certificates')} isExpanded={isExpanded} isPending={isPendingHref('/certificates')} isNavigationLocked={isNavigationLocked} onNavigate={handleNavigate} />
             </div>
 
             {/* Bottom navigation items */}

@@ -1,13 +1,17 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
     FileText, Download, Search, ChevronDown, Filter, X, Info,
-    FileSpreadsheet, FileType, Table2, Check
+    FileSpreadsheet, FileType, Table2, Check, BarChart3, List, PieChart as PieChartIcon
 } from 'lucide-react';
 import ExcelJS from 'exceljs';
 import { usePermissions } from '@/contexts/PermissionContext';
 import TablePaginationControls from '@/components/admin/TablePaginationControls';
+import {
+    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+    PieChart, Pie, Cell, Legend
+} from 'recharts';
 
 // Types
 interface Registrant {
@@ -34,6 +38,18 @@ interface BreakoutSession {
     registered: number;
     checkedIn: number;
     attendanceRate: number;
+}
+
+interface FeedbackResponse {
+    id: string;
+    submitterName: string;
+    submitterEmail: string;
+    submittedAt: string;
+    answers: {
+        question: string;
+        answer: string;
+        inputFormat: string;
+    }[];
 }
 
 // (mock data removed — real data comes from getEventReports() server action)
@@ -427,7 +443,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
     }
 
     // Use real data from server
-    const { registrants, stats, breakoutSessions } = reports;
+    const { registrants, stats, breakoutSessions, feedbackResponses } = reports;
     const generalAttendancePct = stats.attendance.generalTotal > 0
         ? Math.round((stats.attendance.generalAttended / stats.attendance.generalTotal) * 100)
         : 0;
@@ -435,7 +451,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
         ? Math.round((stats.attendance.premiumAttended / stats.attendance.premiumTotal) * 100)
         : 0;
 
-    const [activeTab, setActiveTab] = useState<'registration' | 'attendance' | 'breakout'>('registration');
+    const [activeTab, setActiveTab] = useState<'registration' | 'attendance' | 'breakout' | 'feedback'>('registration');
     const [searchQuery, setSearchQuery] = useState('');
     const [isFilterOpen, setIsFilterOpen] = useState(false);
     const [filters, setFilters] = useState<Record<string, string>>({});
@@ -445,6 +461,10 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
     const [attendanceRowsPerPage, setAttendanceRowsPerPage] = useState(10);
     const [breakoutPage, setBreakoutPage] = useState(1);
     const [breakoutRowsPerPage, setBreakoutRowsPerPage] = useState(10);
+    const [feedbackPage, setFeedbackPage] = useState(1);
+    const [feedbackRowsPerPage, setFeedbackRowsPerPage] = useState(10);
+    const [feedbackView, setFeedbackView] = useState<'summary' | 'individual'>('summary');
+    const [feedbackQuestionFilter, setFeedbackQuestionFilter] = useState('');
 
 
 
@@ -510,6 +530,9 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
         if (activeTab === 'breakout') {
             setBreakoutPage(1);
         }
+        if (activeTab === 'feedback') {
+            setFeedbackPage(1);
+        }
     }, [activeTab, filters, searchQuery]);
 
     useEffect(() => {
@@ -532,6 +555,13 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
             setBreakoutPage(totalPages);
         }
     }, [breakoutPage, breakoutRowsPerPage, filteredBreakoutSessions.length]);
+
+    useEffect(() => {
+        const totalPages = Math.max(1, Math.ceil(feedbackResponses.length / feedbackRowsPerPage));
+        if (feedbackPage > totalPages) {
+            setFeedbackPage(totalPages);
+        }
+    }, [feedbackPage, feedbackRowsPerPage, feedbackResponses.length]);
 
     const [exportedFormat, setExportedFormat] = useState<string | null>(null);
 
@@ -574,11 +604,32 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                     registrants.forEach(r => {
                         csv += `${r.name},${r.email},${r.gender},${r.age},${r.birthdate},${r.ticketType},${r.checkedIn ? 'Checked-In' : 'No-show'}\n`;
                     });
-                } else {
+                } else if (activeTab === 'breakout') {
                     csv += 'Session Name,Speaker,Room,Capacity,Registered,Checked-in,Attendance Rate\n';
                     breakoutSessions.forEach(s => {
                         csv += `${s.name},${s.speaker},${s.room},${s.capacity},${s.registered},${s.checkedIn},${s.attendanceRate}%\n`;
                     });
+                } else if (activeTab === 'feedback') {
+                    // Build feedback CSV with dynamic columns based on questions
+                    if (feedbackResponses.length > 0) {
+                        // Get all unique questions
+                        const allQuestions = Array.from(new Set(
+                            feedbackResponses.flatMap(f => f.answers.map(a => a.question))
+                        ));
+                        csv += 'Submitter Name,Email,Submitted At,' + allQuestions.map(q => `"${q.replace(/"/g, '""')}"`).join(',') + '\n';
+                        feedbackResponses.forEach(f => {
+                            const answerMap = new Map(f.answers.map(a => [a.question, a.answer]));
+                            const row = [
+                                f.submitterName,
+                                f.submitterEmail,
+                                new Date(f.submittedAt).toLocaleString(),
+                                ...allQuestions.map(q => `"${(answerMap.get(q) || '').replace(/"/g, '""')}"`)
+                            ];
+                            csv += row.join(',') + '\n';
+                        });
+                    } else {
+                        csv += 'No feedback responses available\n';
+                    }
                 }
                 const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
                 downloadFile(blob, `${filename}.csv`);
@@ -610,7 +661,7 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                         { header: 'Status', key: 'status', width: 12 },
                     ];
                     sheet.addRows(registrants.map(r => ({ ...r, status: r.checkedIn ? 'Checked-In' : 'No-show' })));
-                } else {
+                } else if (activeTab === 'breakout') {
                     sheet.columns = [
                         { header: 'Session Name', key: 'name', width: 20 },
                         { header: 'Speaker', key: 'speaker', width: 20 },
@@ -621,6 +672,32 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                         { header: 'Attendance Rate', key: 'attendanceRate', width: 16 },
                     ];
                     sheet.addRows(breakoutSessions.map(s => ({ ...s, attendanceRate: `${s.attendanceRate}%` })));
+                } else if (activeTab === 'feedback') {
+                    // Build feedback Excel with dynamic columns based on questions
+                    if (feedbackResponses.length > 0) {
+                        const allQuestions = Array.from(new Set(
+                            feedbackResponses.flatMap(f => f.answers.map(a => a.question))
+                        ));
+                        sheet.columns = [
+                            { header: 'Submitter Name', key: 'submitterName', width: 20 },
+                            { header: 'Email', key: 'submitterEmail', width: 30 },
+                            { header: 'Submitted At', key: 'submittedAt', width: 20 },
+                            ...allQuestions.map((q, idx) => ({ header: q, key: `q${idx}`, width: 30 }))
+                        ];
+                        const rows = feedbackResponses.map(f => {
+                            const answerMap = new Map(f.answers.map(a => [a.question, a.answer]));
+                            const row: Record<string, string> = {
+                                submitterName: f.submitterName,
+                                submitterEmail: f.submitterEmail,
+                                submittedAt: new Date(f.submittedAt).toLocaleString(),
+                            };
+                            allQuestions.forEach((q, idx) => {
+                                row[`q${idx}`] = answerMap.get(q) || '';
+                            });
+                            return row;
+                        });
+                        sheet.addRows(rows);
+                    }
                 }
                 sheet.getRow(1).font = { bold: true };
                 const buffer = await workbook.xlsx.writeBuffer();
@@ -660,13 +737,40 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                         theme: 'striped',
                         headStyles: { fillColor: [61, 81, 140] },
                     });
-                } else {
+                } else if (activeTab === 'breakout') {
                     autoTableFn(doc, {
                         startY: 40,
                         head: [['Session', 'Speaker', 'Room', 'Capacity', 'Registered', 'Checked-in', 'Rate']],
                         body: breakoutSessions.map(s => [s.name, s.speaker, s.room, s.capacity, s.registered, s.checkedIn, `${s.attendanceRate}%`]),
                         theme: 'striped',
                         headStyles: { fillColor: [61, 81, 140] },
+                    });
+                } else if (activeTab === 'feedback') {
+                    // Build feedback PDF with responses table
+                    let yPos = 40;
+                    feedbackResponses.forEach((response, idx) => {
+                        if (yPos > 250) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        doc.setFontSize(12);
+                        doc.setTextColor(55, 65, 81);
+                        doc.text(`${response.submitterName} (${response.submitterEmail})`, 14, yPos);
+                        doc.setFontSize(10);
+                        doc.setTextColor(107, 114, 128);
+                        doc.text(new Date(response.submittedAt).toLocaleString(), 14, yPos + 6);
+                        
+                        const tableData = response.answers.map(a => [a.question, a.answer]);
+                        autoTableFn(doc, {
+                            startY: yPos + 10,
+                            head: [['Question', 'Answer']],
+                            body: tableData,
+                            theme: 'striped',
+                            headStyles: { fillColor: [61, 81, 140] },
+                            styles: { fontSize: 9 },
+                            margin: { bottom: 10 },
+                        });
+                        yPos = (doc as any).lastAutoTable.finalY + 10;
                     });
                 }
                 doc.save(`${filename}.pdf`);
@@ -675,7 +779,82 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
         } catch (error) {
             console.error('Export failed:', error);
         }
-    }, [activeTab, event.name, registrants, breakoutSessions]);
+    }, [activeTab, event.name, registrants, breakoutSessions, feedbackResponses]);
+
+    // Colors for charts
+    const CHART_COLORS = ['#3D518C', '#5C6BC0', '#ABD2FA', '#FF8A65', '#4DB6AC', '#FFD54F', '#9575CD', '#81C784'];
+
+    // Compute feedback question analysis for visual summaries
+    const questionAnalysis = useMemo(() => {
+        if (!feedbackResponses || feedbackResponses.length === 0) return [];
+
+        // Get all unique questions grouped by input format
+        const questionsMap = new Map<string, { question: string; inputFormat: string; answers: string[] }>();
+
+        feedbackResponses.forEach(response => {
+            response.answers.forEach(ans => {
+                if (!questionsMap.has(ans.question)) {
+                    questionsMap.set(ans.question, {
+                        question: ans.question,
+                        inputFormat: ans.inputFormat,
+                        answers: []
+                    });
+                }
+                questionsMap.get(ans.question)!.answers.push(ans.answer);
+            });
+        });
+
+        // Analyze each question
+        return Array.from(questionsMap.values()).map(q => {
+            const answerCounts = new Map<string, number>();
+            q.answers.forEach(ans => {
+                // Handle multiple answers (comma-separated for checkboxes)
+                const individualAnswers = ans.includes(',') ? ans.split(',').map(s => s.trim()) : [ans];
+                individualAnswers.forEach(a => {
+                    if (a) {
+                        answerCounts.set(a, (answerCounts.get(a) || 0) + 1);
+                    }
+                });
+            });
+
+            const total = q.answers.length;
+            const distribution = Array.from(answerCounts.entries())
+                .map(([answer, count]) => ({
+                    answer,
+                    count,
+                    percentage: total > 0 ? ((count / total) * 100).toFixed(1) : '0.0'
+                }))
+                .sort((a, b) => b.count - a.count);
+
+            return {
+                question: q.question,
+                inputFormat: q.inputFormat,
+                total,
+                distribution
+            };
+        });
+    }, [feedbackResponses]);
+
+    // Filter questions for search
+    const filteredQuestionAnalysis = useMemo(() => {
+        if (!feedbackQuestionFilter) return questionAnalysis;
+        return questionAnalysis.filter(q =>
+            q.question.toLowerCase().includes(feedbackQuestionFilter.toLowerCase())
+        );
+    }, [questionAnalysis, feedbackQuestionFilter]);
+
+    // Filtered feedback responses for individual view
+    const filteredFeedbackResponses = useMemo(() => {
+        return feedbackResponses.filter(f =>
+            f.submitterName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            f.submitterEmail.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+    }, [feedbackResponses, searchQuery]);
+
+    const paginatedFeedback = filteredFeedbackResponses.slice(
+        (feedbackPage - 1) * feedbackRowsPerPage,
+        feedbackPage * feedbackRowsPerPage
+    );
 
     return (
         <>
@@ -745,6 +924,18 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                         >
                             Breakout
                             {activeTab === 'breakout' && (
+                                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
+                            )}
+                        </button>
+                        <button
+                            onClick={() => { setActiveTab('feedback'); setFilters({}); setSearchQuery(''); }}
+                            className={`pb-3 text-sm font-medium transition-all relative ${activeTab === 'feedback'
+                                ? 'text-[#3D518C] dark:text-[#ABD2FA]'
+                                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
+                                }`}
+                        >
+                            Feedback
+                            {activeTab === 'feedback' && (
                                 <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#3D518C] dark:bg-[#ABD2FA]" />
                             )}
                         </button>
@@ -1025,6 +1216,254 @@ export default function EventReportsPage({ event, reports }: ReportsClientProps)
                                     }}
                                 />
                             </div>
+                        </div>
+                    )}
+
+                    {/* Feedback Tab */}
+                    {activeTab === 'feedback' && (
+                        <div className="space-y-6 animate-in fade-in duration-300">
+                            {/* Stats Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                <StatCard title="Total Responses" value={feedbackResponses.length} />
+                                <StatCard title="Total Questions" value={questionAnalysis.length} />
+                                <StatCard title="Latest Submission" value={feedbackResponses.length > 0 ? new Date(feedbackResponses[0].submittedAt).toLocaleDateString() : 'N/A'} />
+                            </div>
+
+                            {/* View Toggle */}
+                            <div className="flex items-center justify-between bg-white dark:bg-gray-800 rounded-xl p-2 border border-gray-200 dark:border-gray-700">
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setFeedbackView('summary')}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                            feedbackView === 'summary'
+                                                ? 'bg-[#3D518C] text-white'
+                                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}
+                                    >
+                                        <BarChart3 size={16} />
+                                        Summary
+                                    </button>
+                                    <button
+                                        onClick={() => setFeedbackView('individual')}
+                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                                            feedbackView === 'individual'
+                                                ? 'bg-[#3D518C] text-white'
+                                                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                        }`}
+                                    >
+                                        <List size={16} />
+                                        Individual
+                                    </button>
+                                </div>
+                                <div className="text-sm text-gray-500 dark:text-gray-400 px-3">
+                                    {feedbackView === 'summary' ? (
+                                        <span>Viewing question-by-question analysis</span>
+                                    ) : (
+                                        <span>Viewing {filteredFeedbackResponses.length} individual responses</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Summary View */}
+                            {feedbackView === 'summary' && (
+                                <div className="space-y-6">
+                                    {/* Question Filter */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative flex-1 max-w-md">
+                                            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                value={feedbackQuestionFilter}
+                                                onChange={(e) => setFeedbackQuestionFilter(e.target.value)}
+                                                placeholder="Search questions..."
+                                                className="w-full pl-11 pr-4 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                            />
+                                        </div>
+                                        {feedbackQuestionFilter && (
+                                            <button
+                                                onClick={() => setFeedbackQuestionFilter('')}
+                                                className="text-sm text-[#3D518C] dark:text-[#ABD2FA] hover:underline"
+                                            >
+                                                Clear filter
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Question Cards */}
+                                    {filteredQuestionAnalysis.length === 0 ? (
+                                        <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                                            <PieChartIcon size={48} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
+                                            <p className="text-gray-500 dark:text-gray-400">
+                                                {feedbackQuestionFilter ? 'No questions match your filter.' : 'No feedback responses yet.'}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                            {filteredQuestionAnalysis.map((q, qIdx) => (
+                                                <div key={qIdx} className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                                    <div className="p-5 border-b border-gray-100 dark:border-gray-700">
+                                                        <div className="flex items-start justify-between gap-3">
+                                                            <h3 className="font-semibold text-gray-900 dark:text-white text-sm leading-relaxed">
+                                                                {q.question}
+                                                            </h3>
+                                                            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded-full shrink-0">
+                                                                {q.total} responses
+                                                            </span>
+                                                        </div>
+                                                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 capitalize">
+                                                            Type: {q.inputFormat.replace(/_/g, ' ')}
+                                                        </p>
+                                                    </div>
+
+                                                    <div className="p-5">
+                                                        {/* Chart for multiple choice, dropdown, radio */}
+                                                        {(q.inputFormat === 'multiple_choice' || q.inputFormat === 'dropdown' || q.inputFormat === 'radio' || q.distribution.length <= 10) && q.distribution.length > 0 && (
+                                                            <div className="h-48 mb-4">
+                                                                <ResponsiveContainer width="100%" height="100%">
+                                                                    <BarChart data={q.distribution} layout="vertical" margin={{ left: 80, right: 30, top: 5, bottom: 5 }}>
+                                                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
+                                                                        <XAxis type="number" hide />
+                                                                        <YAxis
+                                                                            dataKey="answer"
+                                                                            type="category"
+                                                                            width={70}
+                                                                            tick={{ fontSize: 11, fill: '#6b7280' }}
+                                                                            interval={0}
+                                                                            tickFormatter={(value: string) => value.length > 15 ? value.substring(0, 15) + '...' : value}
+                                                                        />
+                                                                        <Tooltip
+                                                                            contentStyle={{
+                                                                                backgroundColor: 'white',
+                                                                                border: '1px solid #e5e7eb',
+                                                                                borderRadius: '8px',
+                                                                                fontSize: '12px'
+                                                                            }}
+                                                                            formatter={(value: any, name: any, props: any) => [
+                                                                                `${value} (${props.payload.percentage}%)`,
+                                                                                'Count'
+                                                                            ]}
+                                                                        />
+                                                                        <Bar dataKey="count" fill="#3D518C" radius={[0, 4, 4, 0]}>
+                                                                            {q.distribution.map((entry, index) => (
+                                                                                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                                                                            ))}
+                                                                        </Bar>
+                                                                    </BarChart>
+                                                                </ResponsiveContainer>
+                                                            </div>
+                                                        )}
+
+                                                        {/* Distribution Table */}
+                                                        <div className="space-y-2 max-h-48 overflow-y-auto">
+                                                            {q.distribution.map((item, idx) => (
+                                                                <div key={idx} className="flex items-center gap-3">
+                                                                    <div
+                                                                        className="w-3 h-3 rounded-full shrink-0"
+                                                                        style={{ backgroundColor: CHART_COLORS[idx % CHART_COLORS.length] }}
+                                                                    />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <span className="text-sm text-gray-700 dark:text-gray-300 truncate" title={item.answer}>
+                                                                                {item.answer}
+                                                                            </span>
+                                                                            <span className="text-sm font-medium text-gray-900 dark:text-white ml-2">
+                                                                                {item.count}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 mt-1">
+                                                                            <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                                                <div
+                                                                                    className="h-full rounded-full transition-all"
+                                                                                    style={{
+                                                                                        width: `${item.percentage}%`,
+                                                                                        backgroundColor: CHART_COLORS[idx % CHART_COLORS.length]
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                            <span className="text-xs text-gray-500 dark:text-gray-400 w-10 text-right">
+                                                                                {item.percentage}%
+                                                                            </span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Individual View */}
+                            {feedbackView === 'individual' && (
+                                <div className="space-y-4">
+                                    {/* Search */}
+                                    <div className="flex items-center gap-3">
+                                        <div className="relative flex-1">
+                                            <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                                            <input
+                                                type="text"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                placeholder="Search by submitter name or email"
+                                                className="w-full pl-11 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#3D518C]"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* Row Count */}
+                                    <div className="flex justify-end text-xs text-gray-500 dark:text-gray-400">
+                                        Displaying paginated rows. Use the table controls to navigate.
+                                    </div>
+
+                                    {/* Table */}
+                                    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full">
+                                                <thead className="bg-[#ABD2FA] dark:bg-[#3D518C]">
+                                                    <tr className="text-xs text-gray-700 dark:text-white font-semibold uppercase tracking-wider">
+                                                        <th className="px-5 py-4 text-left">Submitter</th>
+                                                        <th className="px-5 py-4 text-left">Email</th>
+                                                        <th className="px-5 py-4 text-left">Submitted At</th>
+                                                        <th className="px-5 py-4 text-left">Responses</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                                                    {paginatedFeedback.map((response) => (
+                                                        <tr key={response.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                                                            <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{response.submitterName}</td>
+                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{response.submitterEmail}</td>
+                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{new Date(response.submittedAt).toLocaleString()}</td>
+                                                            <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">
+                                                                <div className="space-y-1">
+                                                                    {response.answers.map((answer, idx) => (
+                                                                        <div key={idx} className="text-xs">
+                                                                            <span className="font-medium">{answer.question}:</span> {answer.answer}
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <TablePaginationControls
+                                            totalItems={filteredFeedbackResponses.length}
+                                            currentPage={feedbackPage}
+                                            rowsPerPage={feedbackRowsPerPage}
+                                            onPageChange={setFeedbackPage}
+                                            onRowsPerPageChange={(rows) => {
+                                                setFeedbackRowsPerPage(rows);
+                                                setFeedbackPage(1);
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

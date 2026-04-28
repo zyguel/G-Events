@@ -15,6 +15,7 @@ interface EventSelectorProps {
     showSearch?: boolean;
     showYear?: boolean;
     showClear?: boolean;
+    allYearsOnTop?: boolean;
 }
 
 // Extract year from date string like "July 22, 2025"
@@ -30,7 +31,8 @@ export default function EventSelector({
     onYearChange,
     showSearch = true,
     showYear = true,
-    showClear = true
+    showClear = true,
+    allYearsOnTop = false
 }: EventSelectorProps) {
     const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
@@ -164,7 +166,16 @@ export default function EventSelector({
                     </button>
 
                     {isYearDropdownOpen && (
-                        <div className="absolute top-full right-0 mt-2 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden">
+                        <div className="absolute top-full right-0 mt-2 w-32 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-50 overflow-hidden flex flex-col">
+                            {allYearsOnTop && (
+                                <button
+                                    onClick={() => handleYearSelect(null)}
+                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 ${selectedYear === null ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" : "text-gray-700 dark:text-gray-200"
+                                        }`}
+                                >
+                                    All Years
+                                </button>
+                            )}
                             {availableYears.map(year => (
                                 <button
                                     key={year}
@@ -175,13 +186,15 @@ export default function EventSelector({
                                     {year}
                                 </button>
                             ))}
-                            <button
-                                onClick={() => handleYearSelect(null)}
-                                className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700 ${selectedYear === null ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" : "text-gray-700 dark:text-gray-200"
-                                    }`}
-                            >
-                                All Years
-                            </button>
+                            {!allYearsOnTop && (
+                                <button
+                                    onClick={() => handleYearSelect(null)}
+                                    className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700 ${selectedYear === null ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300" : "text-gray-700 dark:text-gray-200"
+                                        }`}
+                                >
+                                    All Years
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

@@ -492,10 +492,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
               const totalCapacity = currentStock + totalRedeemed;
               const isLowStock = currentStock > 0 && currentStock <= 10;
               const isOutStock = currentStock <= 0;
-              const needsUpdate = (addOn.variants?.reduce((s, v) => s + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0) > 0 && 
-                (addOn.hasVariants ? 
-                  addOn.variants?.some(v => v.stock < (v.stock_reserved || 0) + (v.stock_redeemed || 0)) : 
-                  addOn.stock < (addOn.variants?.reduce((s, v) => s + (v.stock_reserved || 0) + (v.stock_redeemed || 0), 0) || 0));
 
               return (
                 <motion.div
@@ -534,12 +530,6 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         {isOutStock ? <AlertCircle size={10} /> : isLowStock ? <AlertCircle size={10} /> : <CheckCircle2 size={10} />}
                         {isOutStock ? 'Out of Stock' : isLowStock ? 'Low Stock' : 'In Stock'}
                       </div>
-                      {needsUpdate && (
-                        <div className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider shadow-sm backdrop-blur-md bg-orange-500/90 text-white shadow-orange-200 dark:shadow-none">
-                          <AlertCircle size={10} />
-                          Needs Update
-                        </div>
-                      )}
                     </div>
                   </div>
 
@@ -606,7 +596,7 @@ export default function AddOnsTab({ event }: AddOnsTabProps) {
                         <button
                           onClick={() => handleDeleteClick(addOn.id)}
                           disabled={isSavingAddOn || isDeletingAddOn}
-                          className="w-11 h-11 flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 dark:text-gray-400 hover:text-red-500 rounded-2xl transition-all"
+                          className="w-11 h-11 flex items-center justify-center rounded-2xl transition-all bg-gray-50 dark:bg-gray-700/50 hover:bg-red-50 dark:hover:bg-red-900/30 text-gray-500 dark:text-gray-400 hover:text-red-500"
                           title="Delete"
                         >
                           <Trash2 size={18} />

@@ -4,6 +4,7 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import EventSelector from "@/components/admin/EventSelector";
 import ExportButton from "@/components/admin/ExportButton";
 import { useEffect, useState } from "react";
+import { DollarSign } from "lucide-react";
 
 import { EventSummary } from "@/lib/types";
 
@@ -13,9 +14,11 @@ interface AnalyticsHeaderProps {
     data: any; // Full data object for ExportButton
     title?: string;
     description?: string;
+    usePeso?: boolean;
+    onCurrencyToggle?: () => void;
 }
 
-export default function AnalyticsHeader({ events, currentEventId, data, title = "Analytics", description = "Track and analyze your event performance metrics" }: AnalyticsHeaderProps) {
+export default function AnalyticsHeader({ events, currentEventId, data, title = "Analytics", description = "Track and analyze your event performance metrics", usePeso = false, onCurrencyToggle }: AnalyticsHeaderProps) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -51,6 +54,35 @@ export default function AnalyticsHeader({ events, currentEventId, data, title = 
         router.push(`${pathname}?${params.toString()}`);
     };
 
+    const isPerEvent = currentEventId !== "all";
+
+    if (isPerEvent) {
+        return (
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                        {title}
+                    </h1>
+                    <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
+                        {description}
+                    </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <EventSelector
+                        events={events}
+                        currentEventId={currentEventId}
+                        selectedYear={searchYear}
+                        onYearChange={setSearchYear}
+                        showYear={true}
+                        showSearch={true}
+                        showClear={true}
+                    />
+                    <ExportButton data={data} />
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -62,6 +94,18 @@ export default function AnalyticsHeader({ events, currentEventId, data, title = 
                         {description}
                     </p>
                 </div>
+                {onCurrencyToggle && (
+                    <button
+                        onClick={onCurrencyToggle}
+                        className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                        title={`Switch to ${usePeso ? 'USD' : 'PHP'}`}
+                    >
+                        <DollarSign size={18} className="text-gray-600 dark:text-gray-400" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
+                            {usePeso ? '₱ (PHP)' : '$ (USD)'}
+                        </span>
+                    </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">

@@ -2008,6 +2008,19 @@ export interface EventReportsData {
         };
     };
     breakoutSessions: ReportBreakoutSession[];
+    feedbackResponses: FeedbackResponse[];
+}
+
+export interface FeedbackResponse {
+    id: string;
+    submitterName: string;
+    submitterEmail: string;
+    submittedAt: string;
+    answers: {
+        question: string;
+        answer: string;
+        inputFormat: string;
+    }[];
 }
 
 export async function getEventReports(eventId: number): Promise<EventReportsData> {
@@ -2020,6 +2033,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
             attendance: { totalRegistered: 0, checkedIn: 0, noShow: 0, attendanceRate: 0, generalAttended: 0, generalTotal: 0, premiumAttended: 0, premiumTotal: 0 },
         },
         breakoutSessions: [],
+        feedbackResponses: [],
     };
 
     try {
@@ -2182,8 +2196,8 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
             return {
                 id: s.id.toString(),
                 name: s.name || `Session ${s.id}`,
-                speaker: s.speaker_name || 'ΓÇö',
-                room: s.room_name || 'ΓÇö',
+                speaker: s.speaker_name || 'N/A',
+                room: s.room_name || 'N/A',
                 capacity: s.room_capacity || 0,
                 registered: registeredCount,
                 checkedIn: checkedInCount,
@@ -2193,6 +2207,37 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
             };
         });
 
+        // Fetch feedback responses
+        const { data: feedbackSubmissions } = await supabase
+            .from('FeedbackSubmission')
+            .select('id, submitter_name, submitter_email, submitted_at, feedback_form_id')
+            .eq('event_id', eventId)
+            .order('submitted_at', { ascending: false });
+
+        const feedbackResponses: FeedbackResponse[] = [];
+        if (feedbackSubmissions && feedbackSubmissions.length > 0) {
+            for (const submission of feedbackSubmissions) {
+                const { data: answers } = await supabase
+                    .from('FeedbackAnswer')
+                    .select('answer, FeedbackQuestion(question_text, input_format)')
+                    .eq('feedback_submission_id', submission.id);
+
+                if (answers) {
+                    feedbackResponses.push({
+                        id: submission.id.toString(),
+                        submitterName: submission.submitter_name || 'Anonymous',
+                        submitterEmail: submission.submitter_email || '',
+                        submittedAt: submission.submitted_at,
+                        answers: answers.map((a: any) => ({
+                            question: a.FeedbackQuestion?.question_text || '',
+                            answer: a.answer || '',
+                            inputFormat: a.FeedbackQuestion?.input_format || 'text',
+                        })),
+                    });
+                }
+            }
+        }
+
         return {
             registrants,
             stats: {
@@ -2200,6 +2245,7 @@ export async function getEventReports(eventId: number): Promise<EventReportsData
                 attendance: { totalRegistered: total, checkedIn: checkedInAll, noShow, attendanceRate, generalAttended, generalTotal, premiumAttended, premiumTotal },
             },
             breakoutSessions,
+            feedbackResponses,
         };
     } catch (e) {
         console.error('getEventReports error:', e);

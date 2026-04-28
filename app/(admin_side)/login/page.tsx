@@ -148,7 +148,22 @@ function LoginContent() {
         setIsSubmitting(true);
 
         const supabase = createClient();
-        const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken } });
+        
+        // Handle Remember Me: store flag in sessionStorage when unchecked
+        // sessionStorage is cleared when browser closes, so we can detect fresh sessions
+        if (rememberMe) {
+            sessionStorage.removeItem('sessionOnly');
+        } else {
+            sessionStorage.setItem('sessionOnly', 'true');
+        }
+        
+        const { error } = await supabase.auth.signInWithPassword({ 
+            email, 
+            password, 
+            options: { 
+                captchaToken
+            } 
+        });
 
         if (error) {
             // Route Supabase errors to the most relevant field
@@ -162,6 +177,21 @@ function LoginContent() {
             return;
         }
 
+        // Create tracked session for server-side "Remember Me" enforcement
+        try {
+            await fetch('/api/auth/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    isPersistent: rememberMe,
+                    userAgent: navigator.userAgent,
+                }),
+            });
+        } catch (sessionError) {
+            console.error('Failed to create tracked session:', sessionError);
+            // Continue anyway - login succeeded
+        }
+
         router.replace(roleSelectionPath);
         router.refresh();
     };
@@ -170,10 +200,19 @@ function LoginContent() {
         setGeneralError('');
         setEmailError('');
         setPasswordError('');
+        
+        // Handle Remember Me for OAuth
+        if (rememberMe) {
+            sessionStorage.removeItem('sessionOnly');
+        } else {
+            sessionStorage.setItem('sessionOnly', 'true');
+        }
+        
         const supabase = createClient();
         let redirectTo = '';
         if (typeof window !== 'undefined') {
-            redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}`;
+            // Include remember_me in the callback URL for server-side session tracking
+            redirectTo = `${window.location.origin}/auth/callback?next=${encodeURIComponent(nextPath)}&remember_me=${rememberMe}`;
         }
         const { data, error } = await supabase.auth.signInWithOAuth({
             provider: 'google',

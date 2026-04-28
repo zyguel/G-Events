@@ -1,11 +1,8 @@
 import React from 'react';
 import { notFound } from "next/navigation";
 
-import StatCard from '@/components/admin/StatCard';
-import DashboardTabs from '@/components/admin/DashboardTabs';
-import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
 import { getEventById, getEvents, getEventAnalytics, getEventDemographics, getEventTickets } from "@/lib/actions/events";
-
+import AnalyticsPageClient from "./AnalyticsPageClient";
 
 export const metadata = {
     title: 'Analytics',
@@ -94,63 +91,12 @@ export default async function EventAnalyticsPage({ params }: { params: Promise<{
         };
     });
 
-    // Format currency
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('en-US', {
-            style: 'currency',
-            currency: 'USD',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(value);
-    };
-
-    // Format number with commas
-    const formatNumber = (value: number) => {
-        return new Intl.NumberFormat('en-US').format(value);
-    };
-
     return (
-        <div className="h-full p-8">
-            <div className="max-w-7xl mx-auto space-y-8">
-
-                {/* Header Section with Event Selector & Export */}
-                <AnalyticsHeader
-                    events={events}
-                    currentEventId={eventId}
-                    data={{ ...data, demographics }}
-                    title={data.name}
-                    description={`Performance analytics for ${data.name} • ${data.date ? new Date(data.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
-                />
-
-                {/* KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <StatCard
-                        title="Registrations"
-                        value={formatNumber(data.stats.registrations)}
-                    />
-                    <StatCard
-                        title="Revenue"
-                        value={formatCurrency(data.stats.revenue)}
-                    />
-                    <StatCard
-                        title="Net Profit"
-                        value={formatCurrency(data.stats.netProfit)}
-                    />
-                    <StatCard
-                        title="Satisfaction"
-                        value={data.stats.satisfaction > 0 ? `${data.stats.satisfaction}/5.0` : 'N/A'}
-                    />
-                </div>
-
-                {/* Summary & Trends Section */}
-                <DashboardTabs 
-                    data={data} 
-                    demographics={demographics} 
-                    tickets={tickets}
-                    eventId={id}
-                />
-
-            </div>
-        </div>
+        <AnalyticsPageClient 
+            data={{ ...data, events }}
+            demographics={demographics}
+            tickets={tickets}
+            eventId={id}
+        />
     );
 }
