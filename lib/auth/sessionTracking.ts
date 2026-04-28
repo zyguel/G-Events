@@ -1,5 +1,4 @@
-import { createClient } from '@/lib/supabase-server';
-import { cookies } from 'next/headers';
+import { createClient, createAdminClient } from '@/lib/supabase-server';
 
 export interface SessionInfo {
   id: number;
@@ -18,14 +17,15 @@ export async function createTrackedSession(
   ipAddress?: string,
   userAgent?: string
 ): Promise<SessionInfo> {
-  const supabase = await createClient();
+  // Use admin client to bypass RLS for session creation
+  const adminSupabase = await createAdminClient();
   
   // Calculate expiry: 1 week for persistent, 8 hours for session-only
   const expiresAt = isPersistent 
     ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)  // 1 week
     : new Date(Date.now() + 8 * 60 * 60 * 1000);    // 8 hours (or until browser close)
 
-  const { data, error } = await supabase
+  const { data, error } = await adminSupabase
     .from('UserSession')
     .insert({
       user_id: userId,
@@ -100,9 +100,10 @@ export async function validateCurrentSession(): Promise<SessionInfo | null> {
  * Revoke a specific session
  */
 export async function revokeSession(sessionId: number): Promise<void> {
-  const supabase = await createClient();
+  // Use admin client to bypass RLS
+  const adminSupabase = await createAdminClient();
   
-  const { error } = await supabase
+  const { error } = await adminSupabase
     .from('UserSession')
     .update({
       is_revoked: true,
@@ -120,9 +121,10 @@ export async function revokeSession(sessionId: number): Promise<void> {
  * Revoke all sessions for a user (e.g., on password change)
  */
 export async function revokeAllUserSessions(userId: string): Promise<void> {
-  const supabase = await createClient();
+  // Use admin client to bypass RLS
+  const adminSupabase = await createAdminClient();
   
-  const { error } = await supabase
+  const { error } = await adminSupabase
     .from('UserSession')
     .update({
       is_revoked: true,

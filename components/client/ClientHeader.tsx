@@ -224,6 +224,12 @@ const ClientHeader = ({ variant = 'default' }: ClientHeaderProps) => {
 
     const handleLogoutConfirm = async () => {
         setIsLoggingOut(true);
+        try {
+            // Revoke tracked session first
+            await fetch('/api/auth/session', { method: 'DELETE' });
+        } catch (err) {
+            console.error('Failed to revoke tracked session:', err);
+        }
         const supabase = createClient();
         await supabase.auth.signOut();
         router.replace('/login');
