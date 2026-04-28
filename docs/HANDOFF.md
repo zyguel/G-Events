@@ -16,7 +16,6 @@ Create `.env.local`:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_DEFAULT_ORG_ID=1
-TS_TRANSLATION_MODEL=Xenova/m2m100_418M
 EMAIL_PROVIDER=smtp
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=465
@@ -29,6 +28,8 @@ SMTP_FROM_EMAIL=noreply@your-domain.com
 # RESEND_API_KEY=your_resend_api_key
 # RESEND_FROM_EMAIL=noreply@your-domain.com
 CRON_SECRET=your_cron_secret
+# Optional for production
+APP_URL=https://your-domain.com
 ```
 
 Generate `CRON_SECRET`:
@@ -101,7 +102,7 @@ Response includes:
 8. Run production build:
 
 ```bash
-npm run build -- --webpack
+npm run build
 ```
 
 ## 8) Handoff Notes

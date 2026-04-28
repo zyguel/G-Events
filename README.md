@@ -222,6 +222,14 @@ For adviser/panel/new-maintainer quick review, see:
 | `npm run build` | Compile production build |
 | `npm run start` | Serve production build locally |
 | `npm run lint` | Run ESLint checks |
+| `npm run test` | Run all tests (unit + integration) |
+| `npm run test:unit` | Run unit tests only |
+| `npm run test:integration` | Run integration tests only |
+| `npm run test:auth-api` | Run auth API tests (unit + integration) |
+| `npm run audit:deps` | Run npm audit for high-severity vulnerabilities |
+| `npm run sast:owasp` | Run Semgrep OWASP Top 10 security scan |
+| `npm run perf:smoke` | Run smoke test for auth API performance |
+| `npm run ci:baseline` | Run full CI baseline (lint, build, test, audit, SAST, perf) |
 | `npm run push -- "<message>"` | Stage/commit/pull-merge/push helper for `nightly` |
 | `npm run debug:supabase` | Verify Supabase storage access and list buckets |
 | `npm run check:event-schema` | Check `Event` table schema visibility |
@@ -229,6 +237,7 @@ For adviser/panel/new-maintainer quick review, see:
 | `npm run check:theme` | Verify `Event.theme` column availability |
 | `npm run debug:login-layout-diff` | Compare login branding sections between auth pages |
 | `npm run translations:split-static` | Split static translation map into per-language modules |
+| `npm run backfill:addon-entitlements` | Backfill add-on entitlements for existing registrations |
 
 ### Maintainability Baseline (Enterprise)
 
@@ -236,10 +245,14 @@ The codebase now includes shared primitives to keep API and server behavior cons
 
 - **Shared constants:** use `lib/constants.ts` for defaults and HTTP status codes (avoid repeated env parsing).
 - **Structured logging:** use `lib/logger.ts` with scope-based logging (`debug/info/warn/error`) instead of ad-hoc `console.log`.
-- **Typed API responses:** use `lib/utils/apiResponse.ts` for standardized success/error response shape.
 - **Script organization:** debug and maintenance utilities are primarily under `scripts/debug/` and `scripts/maintenance/`, with additional helper checks under `scripts/`.
 
 When adding or updating routes, prefer these shared modules first to keep behavior predictable across the API surface.
+
+### Architecture Documentation
+
+For detailed architectural analysis, module breakdown, data flows, and dependency diagrams, see:
+- [architecture-analysis.md](architecture-analysis.md)
 
 ---
 
