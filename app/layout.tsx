@@ -27,13 +27,6 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        <script
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-          async
-          defer
-        ></script>
-      </head>
       <body className={`${figtree.variable} font-sans antialiased`} suppressHydrationWarning={true}>
         <LocaleProvider>
           <UnhandledMediaAbortGuard />

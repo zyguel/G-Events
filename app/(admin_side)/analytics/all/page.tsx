@@ -25,7 +25,7 @@ export default async function AggregatedAnalyticsPage({ searchParams }: { search
 
     // Format helpers
     const formatCurrency = (v: number) =>
-        new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(v);
+        new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP', maximumFractionDigits: 0 }).format(v);
     const formatNumber = (v: number) =>
         new Intl.NumberFormat('en-US').format(v);
 

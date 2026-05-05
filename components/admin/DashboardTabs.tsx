@@ -269,7 +269,7 @@ export default function DashboardTabs({
                                     {!activeYear ? 'Cumulative Revenue' : 'Gross Revenue'}
                                 </p>
                                 <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
-                                    ${data.stats.revenue.toLocaleString()}
+                                    ₱{data.stats.revenue.toLocaleString()}
                                 </h3>
                                 <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400">
                                     {!activeYear ? 'Based on confirmed registrations' : 'Based on confirmed registrations'}
@@ -292,7 +292,7 @@ export default function DashboardTabs({
                                                 style={{ height: `${(item.amount / maxRev) * 100}%`, minHeight: item.amount > 0 ? '4px' : '0' }}
                                             >
                                                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
-                                                    ${Math.round(item.amount).toLocaleString()}
+                                                    ₱{Math.round(item.amount).toLocaleString()}
                                                 </div>
                                             </div>
                                         ))}
@@ -325,7 +325,7 @@ export default function DashboardTabs({
                                                 >
                                                     {item.name.length > 30 ? `${item.name.substring(0, 30)}...` : item.name}
                                                 </span>
-                                                <span className="text-gray-900 dark:text-white font-bold">${item.value.toLocaleString()}</span>
+                                                <span className="text-gray-900 dark:text-white font-bold">₱{item.value.toLocaleString()}</span>
                                             </div>
                                             <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2.5">
                                                 <div
@@ -367,7 +367,7 @@ export default function DashboardTabs({
                                                             {tx.user} <span className="block text-xs text-gray-400 dark:text-gray-500 font-normal">{tx.id}</span>
                                                         </td>
                                                         <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-600 dark:text-gray-300">{tx.type}</td>
-                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-bold">${tx.amount.toLocaleString()}</td>
+                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-bold">₱{tx.amount.toLocaleString()}</td>
                                                         <td className="py-4 border-b border-gray-50 dark:border-gray-700">
                                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${tx.status === "Success" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" :
                                                                 tx.status === "Pending" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"

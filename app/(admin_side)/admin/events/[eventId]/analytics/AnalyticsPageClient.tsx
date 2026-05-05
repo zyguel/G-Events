@@ -1,6 +1,5 @@
 "use client";
 
-import React from 'react';
 import StatCard from '@/components/admin/StatCard';
 import DashboardTabs from '@/components/admin/DashboardTabs';
 import AnalyticsHeader from '@/components/admin/AnalyticsHeader';
@@ -13,12 +12,10 @@ interface AnalyticsPageClientProps {
 }
 
 export default function AnalyticsPageClient({ data, demographics, tickets, eventId }: AnalyticsPageClientProps) {
-    const [usePeso, setUsePeso] = React.useState(false);
-
     const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat(usePeso ? 'en-PH' : 'en-US', {
+        return new Intl.NumberFormat('en-PH', {
             style: 'currency',
-            currency: usePeso ? 'PHP' : 'USD',
+            currency: 'PHP',
             minimumFractionDigits: 0,
             maximumFractionDigits: 0,
         }).format(value);
@@ -37,8 +34,6 @@ export default function AnalyticsPageClient({ data, demographics, tickets, event
                     data={{ ...data, demographics }}
                     title={data.name}
                     description={`Performance analytics for ${data.name} • ${data.date ? new Date(data.date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}`}
-                    usePeso={usePeso}
-                    onCurrencyToggle={() => setUsePeso(!usePeso)}
                 />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -47,12 +42,8 @@ export default function AnalyticsPageClient({ data, demographics, tickets, event
                         value={formatNumber(data.stats.registrations)}
                     />
                     <StatCard
-                        title="Revenue"
+                        title="Total Revenue"
                         value={formatCurrency(data.stats.revenue)}
-                    />
-                    <StatCard
-                        title="Net Profit"
-                        value={formatCurrency(data.stats.netProfit)}
                     />
                     <StatCard
                         title="Satisfaction"
