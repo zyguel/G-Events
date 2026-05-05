@@ -19,7 +19,7 @@ import {
   Loader2,
   AlertCircle,
 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, Reorder, useDragControls } from "framer-motion";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +139,7 @@ function QuestionCard({
   onDuplicate: () => void;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const dragControls = useDragControls();
 
   const updateField = <K extends keyof Question>(key: K, val: Question[K]) =>
     onChange({ ...q, [key]: val });
@@ -153,16 +154,27 @@ function QuestionCard({
   const removeOption = (i: number) => updateField("options", (q.options ?? []).filter((_, idx) => idx !== i));
 
   return (
-    <motion.div
-      layout
+    <Reorder.Item
+      value={q}
+      dragListener={false}
+      dragControls={dragControls}
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow"
+      transition={{ duration: 0.2 }}
     >
+      <div className="relative group/card">
+        {/* Drag Handle — appears on hover, absolutely to the left like OrderForm */}
+        <div
+          className="absolute -left-6 top-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing text-gray-300 dark:text-gray-600 opacity-0 group-hover/card:opacity-100 transition-opacity p-1"
+          onPointerDown={(e) => dragControls.start(e)}
+        >
+          <GripVertical className="w-5 h-5" />
+        </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow">
       {/* Card Header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100 dark:border-gray-700">
-        <GripVertical size={16} className="text-gray-300 dark:text-gray-600 cursor-grab shrink-0" />
         <span className="w-6 h-6 rounded-full bg-[#3D518C]/10 text-[#3D518C] dark:bg-indigo-900/40 dark:text-indigo-300 flex items-center justify-center text-xs font-bold shrink-0">
           {index + 1}
         </span>
@@ -209,7 +221,7 @@ function QuestionCard({
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="overflow-hidden"
+            className="overflow-hidden rounded-b-2xl"
           >
             <div className="px-5 py-4 space-y-4">
               {/* Question Type selector */}
@@ -323,7 +335,9 @@ function QuestionCard({
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+      </div>
+      </div>
+    </Reorder.Item>
   );
 }
 
@@ -708,18 +722,27 @@ export default function FeedbackPage() {
               </h2>
             </div>
 
-            <AnimatePresence>
-              {questions.map((q, i) => (
-                <QuestionCard
-                  key={q.id}
-                  q={q}
-                  index={i}
-                  onChange={(updated) => updateQuestion(q.id, updated)}
-                  onDelete={() => deleteQuestion(q.id)}
-                  onDuplicate={() => duplicateQuestion(q)}
-                />
-              ))}
-            </AnimatePresence>
+            <Reorder.Group
+              axis="y"
+              values={questions}
+              onReorder={(newOrder) =>
+                setQuestions(newOrder.map((item, i) => ({ ...item, displayOrder: i })))
+              }
+              className="space-y-3 pl-6"
+            >
+              <AnimatePresence>
+                {questions.map((q, i) => (
+                  <QuestionCard
+                    key={q.id}
+                    q={q}
+                    index={i}
+                    onChange={(updated) => updateQuestion(q.id, updated)}
+                    onDelete={() => deleteQuestion(q.id)}
+                    onDuplicate={() => duplicateQuestion(q)}
+                  />
+                ))}
+              </AnimatePresence>
+            </Reorder.Group>
 
             {questions.length === 0 && (
               <motion.div
