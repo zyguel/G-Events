@@ -413,7 +413,7 @@ export default function PublishEventContent({ event, tickets }: { event: EventDa
                         </label>
                         <div className="relative w-full aspect-[21/9] bg-gray-100 dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 flex items-center justify-center">
                             {event.bannerImage ? (
-                                <Image src={event.bannerImage} alt="Event Banner" fill sizes="(max-width: 768px) 100vw, 900px" className="object-cover" />
+                                <Image src={event.bannerImage} alt="Event Banner" fill sizes="(max-width: 768px) 100vw, 900px" className="object-cover" priority />
                             ) : (
                                 <div className="flex flex-col items-center gap-2 text-gray-400">
                                     <ImageIcon size={32} className="opacity-50" />

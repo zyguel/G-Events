@@ -245,10 +245,11 @@ export default function CertificateView({ token }: { token: string }) {
                     className="object-cover"
                     sizes="(max-width: 768px) 100vw, 720px"
                     unoptimized
+                    priority
                   />
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element -- data URLs from template
-                  <img src={bg} alt="" className="h-full w-full object-cover" />
+                  <img src={bg} alt="" className="h-full w-full object-cover" loading="eager" />
                 )
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-sm text-gray-400">

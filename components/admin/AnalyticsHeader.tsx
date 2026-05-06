@@ -3,8 +3,8 @@
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import EventSelector from "@/components/admin/EventSelector";
 import ExportButton from "@/components/admin/ExportButton";
-import { useEffect, useState } from "react";
-import { DollarSign } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { DollarSign, Loader2 } from "lucide-react";
 
 import { EventSummary } from "@/lib/types";
 
@@ -22,6 +22,7 @@ export default function AnalyticsHeader({ events, currentEventId, data, title = 
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
     
     // Default to 2026 if no year param is present
     const [selectedYear, setSelectedYear] = useState<number | null>(() => {
@@ -51,7 +52,9 @@ export default function AnalyticsHeader({ events, currentEventId, data, title = 
         } else {
             params.set("year", year.toString());
         }
-        router.push(`${pathname}?${params.toString()}`);
+        startTransition(() => {
+            router.push(`${pathname}?${params.toString()}`);
+        });
     };
 
     const isPerEvent = currentEventId !== "all";
@@ -84,7 +87,16 @@ export default function AnalyticsHeader({ events, currentEventId, data, title = 
     }
 
     return (
-        <div className="space-y-6">
+        <>
+            {isPending && (
+                <div className="fixed inset-0 bg-white/50 dark:bg-gray-900/50 backdrop-blur-[2px] flex items-center justify-center z-[100]">
+                    <div className="flex flex-col items-center gap-3 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700">
+                        <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Updating Analytics...</p>
+                    </div>
+                </div>
+            )}
+            <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
@@ -144,5 +156,6 @@ export default function AnalyticsHeader({ events, currentEventId, data, title = 
                 </div>
             </div>
         </div>
+        </>
     );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, Star, Users, DollarSign } from "lucide-react";
+import { TrendingUp, Star, Users, Banknote, Loader2 } from "lucide-react";
 
 interface Event {
     id: string;
@@ -20,10 +20,11 @@ type FilterType = "registrations" | "revenue" | "satisfaction" | "attendance";
 
 export default function TopPerformingEvents({ events }: TopPerformingEventsProps) {
     const [filter, setFilter] = useState<FilterType>("registrations");
+    const [isLoading, setIsLoading] = useState(false);
 
     const filterConfig = {
         registrations: { label: "Registrations", icon: Users, format: (v: number) => (v ?? 0).toLocaleString() },
-        revenue: { label: "Revenue", icon: DollarSign, format: (v: number) => `$${(v ?? 0).toLocaleString()}` },
+        revenue: { label: "Revenue", icon: Banknote, format: (v: number) => `₱${(v ?? 0).toLocaleString()}` },
         satisfaction: { label: "Avg Rating", icon: Star, format: (v: number) => v ? `${v}/5` : "N/A" },
         attendance: { label: "Attendance", icon: TrendingUp, format: (v: number) => v ? `${v}%` : "N/A" },
     };
@@ -31,8 +32,21 @@ export default function TopPerformingEvents({ events }: TopPerformingEventsProps
     // Sort events by the selected filter and take the top 5
     const sortedEvents = [...events].sort((a, b) => b[filter] - a[filter]).slice(0, 5);
 
+    const handleFilterChange = (newFilter: FilterType) => {
+        setIsLoading(true);
+        setTimeout(() => {
+            setFilter(newFilter);
+            setIsLoading(false);
+        }, 400); // 400ms loading effect for UI consistency
+    };
+
     return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm relative min-h-[300px]">
+            {isLoading && (
+                <div className="absolute inset-0 bg-white/50 dark:bg-gray-800/50 backdrop-blur-[1px] flex items-center justify-center z-20 rounded-xl">
+                    <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                </div>
+            )}
             <div className="flex justify-between items-center mb-4">
                 <div>
                     <h3 className="font-semibold text-gray-900 dark:text-white">Top Performing Events</h3>
@@ -40,7 +54,7 @@ export default function TopPerformingEvents({ events }: TopPerformingEventsProps
                 </div>
                 <select
                     value={filter}
-                    onChange={(e) => setFilter(e.target.value as FilterType)}
+                    onChange={(e) => handleFilterChange(e.target.value as FilterType)}
                     className="text-sm border border-gray-200 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 px-3 py-1.5 cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                     <option value="registrations">Registrations</option>
@@ -67,7 +81,7 @@ export default function TopPerformingEvents({ events }: TopPerformingEventsProps
                                         }`}>
                                         {index + 1}
                                     </span>
-                                    <span 
+                                    <span
                                         className="text-sm font-medium text-gray-700 dark:text-gray-200 cursor-default"
                                         title={event.name.length > 30 ? event.name : undefined}
                                     >

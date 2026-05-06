@@ -8,6 +8,7 @@ import {
   CERTIFICATE_CANVAS_WIDTH,
 } from "@/lib/certificateLayout";
 import { validateCertificateBackgroundDataUrl } from "@/lib/certificateImageValidation";
+import Modal from "@/components/admin/Modal";
 
 interface CertificateTemplate {
   id: string;
@@ -47,6 +48,9 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(!event.id.startsWith("evt-"));
   const [toast, setToast] = useState<string>("");
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
+  const deletingTemplateIdRef = useRef<string | null>(null);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -370,11 +374,28 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     }
   };
 
+  const handleIssueTemplateChoice = async (queueEmail: boolean) => {
+    setIsIssueModalOpen(false);
+    await issueCertificates(queueEmail);
+  };
+
   const deleteCertificate = async (id: string) => {
+    if (deletingTemplateIdRef.current === id) {
+      return;
+    }
+
+    deletingTemplateIdRef.current = id;
+    setDeletingTemplateId(id);
+
     if (event.id.startsWith("evt-")) {
-      setCertificates(certificates.filter((c) => c.id !== id));
-      if (selectedCert?.id === id) setSelectedCert(null);
-      showToast("Deleted");
+      try {
+        setCertificates((prev) => prev.filter((c) => c.id !== id));
+        if (selectedCert?.id === id) setSelectedCert(null);
+        showToast("Deleted");
+      } finally {
+        deletingTemplateIdRef.current = null;
+        setDeletingTemplateId(null);
+      }
       return;
     }
 
@@ -392,6 +413,9 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
     } catch (err) {
       console.error("Delete template error:", err);
       showToast(err instanceof Error ? err.message : "Failed deleting template");
+    } finally {
+      deletingTemplateIdRef.current = null;
+      setDeletingTemplateId(null);
     }
   };
 
@@ -657,7 +681,7 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                 {backgroundImage ? (
                   <>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={backgroundImage} alt="" className="h-full w-full object-cover" />
+                    <img src={backgroundImage} alt="" className="h-full w-full object-cover" loading="lazy" />
                     <div
                       role="button"
                       tabIndex={0}
@@ -741,26 +765,6 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
             <h2 className="text-lg font-bold text-gray-900 dark:text-white">
               Saved templates ({certificates.length})
             </h2>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <button
-                type="button"
-                onClick={() => issueCertificates(false)}
-                disabled={!selectedCert || isLoading || certificates.length === 0 || isInitialLoading}
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
-              >
-                {isLoading ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
-                Issue ({recipients.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => issueCertificates(true)}
-                disabled={!selectedCert || isLoading || certificates.length === 0 || isInitialLoading}
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#3D518C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#324373] disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
-              >
-                <Mail size={16} />
-                Issue + email
-              </button>
-            </div>
           </div>
 
           {isInitialLoading ? (
@@ -793,7 +797,7 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                   <div className="mb-3 flex gap-3">
                     <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={cert.backgroundImage} alt="" className="h-full w-full object-cover" />
+                      <img src={cert.backgroundImage} alt="" className="h-full w-full object-cover" loading="lazy" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
@@ -804,10 +808,11 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                             e.stopPropagation();
                             deleteCertificate(cert.id);
                           }}
+                          disabled={deletingTemplateId === cert.id}
                           className="shrink-0 rounded-lg p-1.5 text-red-500 transition hover:bg-red-50 dark:hover:bg-red-900/20 touch-manipulation"
                           aria-label="Delete template"
                         >
-                          <X size={16} />
+                          {deletingTemplateId === cert.id ? <RefreshCw size={16} className="animate-spin" /> : <X size={16} />}
                         </button>
                       </div>
                       <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -824,9 +829,10 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          issueCertificates(false);
+                          setIsIssueModalOpen(true);
                         }}
-                        className="w-full rounded-lg bg-[#3D518C] py-2.5 text-xs font-semibold text-white hover:bg-[#324373] touch-manipulation"
+                        disabled={isLoading}
+                        className="w-full rounded-lg bg-[#3D518C] py-2.5 text-xs font-semibold text-white hover:bg-[#324373] disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
                       >
                         Issue with this template
                       </button>
@@ -838,6 +844,39 @@ export default function CertificatesClient({ event }: CertificatesClientProps) {
           )}
         </section>
       </div>
+      <Modal
+        isOpen={isIssueModalOpen}
+        onClose={() => setIsIssueModalOpen(false)}
+        title="Issue certificate template"
+        subtitle={selectedCert ? `Template: ${selectedCert.name}` : undefined}
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-300">
+            Choose whether to issue certificates only or issue them and queue the email notifications.
+          </p>
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={() => handleIssueTemplateChoice(false)}
+              disabled={!selectedCert || isLoading || certificates.length === 0 || isInitialLoading}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
+            >
+              {isLoading ? <RefreshCw size={16} className="animate-spin" /> : <Download size={16} />}
+              Issue only
+            </button>
+            <button
+              type="button"
+              onClick={() => handleIssueTemplateChoice(true)}
+              disabled={!selectedCert || isLoading || certificates.length === 0 || isInitialLoading}
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#3D518C] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#324373] disabled:cursor-not-allowed disabled:opacity-50 touch-manipulation"
+            >
+              <Mail size={16} />
+              Issue and email
+            </button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }

@@ -173,15 +173,15 @@ export default function DashboardTabs({
                     Feedback
                 </button>
                 {!hideDemographics && (
-                <button
-                    onClick={() => setActiveTab("demographics")}
-                    className={`pb-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "demographics"
-                        ? "border-indigo-500 text-gray-900 dark:border-indigo-400 dark:text-white"
-                        : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                        }`}
-                >
-                    Demographics
-                </button>
+                    <button
+                        onClick={() => setActiveTab("demographics")}
+                        className={`pb-3 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${activeTab === "demographics"
+                            ? "border-indigo-500 text-gray-900 dark:border-indigo-400 dark:text-white"
+                            : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                            }`}
+                    >
+                        Demographics
+                    </button>
                 )}
             </div>
 
@@ -194,8 +194,8 @@ export default function DashboardTabs({
                         {/* Top Row: Chart and Attendance */}
                         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             {/* The Main Chart */}
-                            <RegistrationChart 
-                                data={data.trends.registrations} 
+                            <RegistrationChart
+                                data={data.trends.registrations}
                                 tickets={tickets}
                                 eventId={eventId}
                                 activeYear={activeYear}
@@ -269,10 +269,10 @@ export default function DashboardTabs({
                                     {!activeYear ? 'Cumulative Revenue' : 'Gross Revenue'}
                                 </p>
                                 <h3 className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
-                                    ${data.stats.revenue.toLocaleString()}
+                                    ₱{data.stats.revenue.toLocaleString()}
                                 </h3>
                                 <span className="inline-flex items-center px-2 py-0.5 mt-2 rounded text-xs font-medium bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400">
-                                    {!activeYear ? 'Across all years — confirmed registrations' : 'Based on confirmed registrations'}
+                                    {!activeYear ? 'Based on confirmed registrations' : 'Based on confirmed registrations'}
                                 </span>
                             </div>
                         </div>
@@ -292,7 +292,7 @@ export default function DashboardTabs({
                                                 style={{ height: `${(item.amount / maxRev) * 100}%`, minHeight: item.amount > 0 ? '4px' : '0' }}
                                             >
                                                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-gray-700 text-white text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10 whitespace-nowrap">
-                                                    ${Math.round(item.amount).toLocaleString()}
+                                                    ₱{Math.round(item.amount).toLocaleString()}
                                                 </div>
                                             </div>
                                         ))}
@@ -319,13 +319,13 @@ export default function DashboardTabs({
                                     {data.revenueBreakdown.map((item, i) => (
                                         <div key={i}>
                                             <div className="flex justify-between items-center text-sm mb-1">
-                                                <span 
+                                                <span
                                                     className="text-gray-600 dark:text-gray-300 font-medium cursor-default"
                                                     title={item.name.length > 30 ? item.name : undefined}
                                                 >
                                                     {item.name.length > 30 ? `${item.name.substring(0, 30)}...` : item.name}
                                                 </span>
-                                                <span className="text-gray-900 dark:text-white font-bold">${item.value.toLocaleString()}</span>
+                                                <span className="text-gray-900 dark:text-white font-bold">₱{item.value.toLocaleString()}</span>
                                             </div>
                                             <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2.5">
                                                 <div
@@ -367,7 +367,7 @@ export default function DashboardTabs({
                                                             {tx.user} <span className="block text-xs text-gray-400 dark:text-gray-500 font-normal">{tx.id}</span>
                                                         </td>
                                                         <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-600 dark:text-gray-300">{tx.type}</td>
-                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-bold">${tx.amount.toLocaleString()}</td>
+                                                        <td className="py-4 border-b border-gray-50 dark:border-gray-700 text-gray-900 dark:text-white font-bold">₱{tx.amount.toLocaleString()}</td>
                                                         <td className="py-4 border-b border-gray-50 dark:border-gray-700">
                                                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${tx.status === "Success" ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" :
                                                                 tx.status === "Pending" ? "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400" : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400"
@@ -457,7 +457,7 @@ export default function DashboardTabs({
                                                         <span className="text-xs text-yellow-500">{"★".repeat(comment.rating)}</span>
                                                     )}
                                                     {comment.eventName && (
-                                                        <span 
+                                                        <span
                                                             className="text-[10px] px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded font-medium cursor-default"
                                                             title={comment.eventName.length > 50 ? comment.eventName : undefined}
                                                         >

@@ -1600,24 +1600,38 @@ function formatAbsoluteTimestamp(isoString: string): string {
 
 export async function getGeneralAnalytics(year?: number) {
     const supabase = await createClient();
+    const activeOrganizationId = await getActiveOrganizationIdOrThrow();
 
     try {
+        // Fetch user's event IDs to restrict subsequent queries and prevent cross-organization data leaks
+        let orgEventsQ = supabase.from('Event').select('id').eq('organization_id', activeOrganizationId);
+        const { data: orgEventsData } = await orgEventsQ;
+        const allOrgEventIds = (orgEventsData || []).map((e: any) => e.id);
+
+        if (allOrgEventIds.length === 0) {
+            return {
+                stats: { totalEvents: 0, registrations: 0, revenue: 0, satisfaction: 0, growth: { registrations: null, revenue: null } },
+                trends: { registrations: year ? { monthly: [], monthLabels: [] } : { yearly: [], yearLabels: [] }, attendance: { checkedIn: 0, noShow: 0, waitlisted: 0 } },
+                revenueBreakdown: [], revenueByYear: [], satisfactionByYear: [], topEvents: [], recentTransactions: [], comments: []
+            };
+        }
+
         // 1. Total events (published or not)
-        let eventQ = supabase.from('Event').select('*', { count: 'exact', head: true });
+        let eventQ = supabase.from('Event').select('*', { count: 'exact', head: true }).eq('organization_id', activeOrganizationId);
         if (year) {
             eventQ = eventQ.gte('event_start_at', new Date(year, 0, 1).toISOString()).lte('event_start_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
         const { count: totalEvents } = await eventQ;
 
         // 2. Total registrations across all events (non-cancelled)
-        let regQ = supabase.from('Registration').select('*', { count: 'exact', head: true }).neq('status', 'cancelled');
+        let regQ = supabase.from('Registration').select('*', { count: 'exact', head: true }).in('event_id', allOrgEventIds).neq('status', 'cancelled');
         if (year) {
             regQ = regQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
         const { count: totalRegistrations } = await regQ;
 
         // 3. Total revenue across all confirmed registrations
-        let revQ = supabase.from('Registration').select('final_price_paid, created_at').eq('status', 'confirmed');
+        let revQ = supabase.from('Registration').select('final_price_paid, created_at').in('event_id', allOrgEventIds).eq('status', 'confirmed');
         if (year) {
             revQ = revQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
@@ -1651,11 +1665,13 @@ export async function getGeneralAnalytics(year?: number) {
             const [prevRegResult, prevRevResult] = await Promise.all([
                 supabase.from('Registration')
                     .select('*', { count: 'exact', head: true })
+                    .in('event_id', allOrgEventIds)
                     .neq('status', 'cancelled')
                     .gte('created_at', prevStart)
                     .lte('created_at', prevEnd),
                 supabase.from('Registration')
                     .select('final_price_paid')
+                    .in('event_id', allOrgEventIds)
                     .eq('status', 'confirmed')
                     .gte('created_at', prevStart)
                     .lte('created_at', prevEnd),
@@ -1678,7 +1694,7 @@ export async function getGeneralAnalytics(year?: number) {
         }
 
         // 4. Avg satisfaction across all events (rating questions)
-        let feedbackQuery = supabase.from('FeedbackAnswer').select('answer, created_at, FeedbackQuestion(input_format), FeedbackForm(event_id)').eq('FeedbackQuestion.input_format', 'rating');
+        let feedbackQuery = supabase.from('FeedbackAnswer').select('answer, created_at, FeedbackQuestion(input_format), FeedbackForm!inner(event_id)').eq('FeedbackQuestion.input_format', 'rating').in('FeedbackForm.event_id', allOrgEventIds);
         if (year) {
             feedbackQuery = feedbackQuery.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
@@ -1728,6 +1744,7 @@ export async function getGeneralAnalytics(year?: number) {
         let trendQ = supabase
             .from('Registration')
             .select('created_at')
+            .in('event_id', allOrgEventIds)
             .neq('status', 'cancelled')
             .order('created_at', { ascending: true });
         if (year) {
@@ -1741,7 +1758,7 @@ export async function getGeneralAnalytics(year?: number) {
             : buildYearlyTrend(trendData || []);
 
         // 6. Attendance breakdown across all events
-        let attQ = supabase.from('Registration').select('has_checked_in, is_waitlisted, status');
+        let attQ = supabase.from('Registration').select('has_checked_in, is_waitlisted, status').in('event_id', allOrgEventIds);
         if (year) {
             attQ = attQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
@@ -1753,7 +1770,7 @@ export async function getGeneralAnalytics(year?: number) {
         const noShow = Math.max(0, totalReg - checkedIn - waitlisted);
 
         // 7. Revenue breakdown by ticket type
-        let tRevQ = supabase.from('Registration').select('final_price_paid, Ticket(name)').eq('status', 'confirmed');
+        let tRevQ = supabase.from('Registration').select('final_price_paid, Ticket(name)').in('event_id', allOrgEventIds).eq('status', 'confirmed');
         if (year) {
             tRevQ = tRevQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
@@ -1771,7 +1788,7 @@ export async function getGeneralAnalytics(year?: number) {
         }));
 
         // 8. Top performing events — registrations + revenue + attendance per event
-        let topEvQ = supabase.from('Registration').select('event_id, status, final_price_paid, has_checked_in, Event(title)').neq('status', 'cancelled');
+        let topEvQ = supabase.from('Registration').select('event_id, status, final_price_paid, has_checked_in, Event(title)').in('event_id', allOrgEventIds).neq('status', 'cancelled');
         if (year) {
             topEvQ = topEvQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
@@ -1801,7 +1818,7 @@ export async function getGeneralAnalytics(year?: number) {
             }));
 
         // 9. Recent transactions across all events
-        let recQ = supabase.from('Registration').select('id, status, final_price_paid, created_at, Event(title), User(name)').neq('status', 'cancelled');
+        let recQ = supabase.from('Registration').select('id, status, final_price_paid, created_at, Event(title), User(name)').in('event_id', allOrgEventIds).neq('status', 'cancelled');
         if (year) {
             recQ = recQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
         }
@@ -1818,18 +1835,18 @@ export async function getGeneralAnalytics(year?: number) {
                     : 'Cancelled',
         }));
 
-        // 10. Feedback comments across events ΓÇö use FeedbackSubmission for rich data
+        // 10. Feedback comments across events — use FeedbackSubmission for rich data
         let comments: { user: string; rating: number; text: string; time: string; eventName?: string }[] = [];
         try {
             // Fetch all FeedbackAnswer rows with question type + form/event name
-            let ansQ = supabase.from('FeedbackAnswer').select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format, question_text), FeedbackForm(Event(title))');
+            let ansQ = supabase.from('FeedbackAnswer').select('feedback_submission_id, registration_id, answer, FeedbackQuestion(input_format, question_text), FeedbackForm!inner(event_id, Event(title))').in('FeedbackForm.event_id', allOrgEventIds);
             if (year) {
                 ansQ = ansQ.gte('created_at', new Date(year, 0, 1).toISOString()).lte('created_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
             }
             const { data: allAnswerRows } = await ansQ.limit(200);
 
             // Fetch FeedbackSubmission rows (new-style) for name + timestamp
-            let subQ = supabase.from('FeedbackSubmission').select('id, submitter_name, submitted_at, FeedbackForm(Event(title))');
+            let subQ = supabase.from('FeedbackSubmission').select('id, submitter_name, submitted_at, FeedbackForm!inner(event_id, Event(title))').in('FeedbackForm.event_id', allOrgEventIds);
             if (year) {
                 subQ = subQ.gte('submitted_at', new Date(year, 0, 1).toISOString()).lte('submitted_at', new Date(year, 11, 31, 23, 59, 59, 999).toISOString());
             }

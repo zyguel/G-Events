@@ -30,6 +30,7 @@ export default function CertificatesClient({ certificates, userEmail }: Certific
 
     const filteredCertificates = certificates.filter(cert => {
         if (filter === 'all') return true;
+        if (filter === 'issued') return cert.status === 'issued' || cert.status === 'sent';
         return cert.status === filter;
     });
 
