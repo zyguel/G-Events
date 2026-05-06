@@ -529,6 +529,7 @@ export default function EventOverview({ initialData }: { initialData: any }) {
 
             if (event.id !== 'new') {
                 setToast({ message: 'Saving agenda item...', type: 'info' });
+                const localItemId = itemToSave.id;
                 const res = await saveAgendaSlot(parseInt(event.id), {
                     id: itemToSave.id,
                     title: itemToSave.title,
@@ -539,6 +540,16 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                 });
 
                 if (res.success) {
+                    if (res.slotId && localItemId !== res.slotId) {
+                        setEvent(prev => ({
+                            ...prev,
+                            agenda: prev.agenda.map(item =>
+                                item.id === localItemId
+                                    ? { ...item, id: res.slotId as string }
+                                    : item
+                            )
+                        }));
+                    }
                     setToast({ message: 'Agenda item saved!', type: 'success' });
                 } else {
                     setToast({ message: 'Failed to save agenda item: ' + res.error, type: 'error' });
@@ -1135,8 +1146,8 @@ export default function EventOverview({ initialData }: { initialData: any }) {
                         <div className="space-y-3">
                             {[...event.agenda]
                                 .sort((a, b) => (a.startTime || '').localeCompare(b.startTime || ''))
-                                .map((slot, i) => (
-                                    <div key={i} className="flex gap-4 py-4 px-6 rounded-xl border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md bg-white dark:bg-gray-800/50 group/item shadow-sm">
+                                .map((slot) => (
+                                    <div key={slot.id} className="flex gap-4 py-4 px-6 rounded-xl border border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md bg-white dark:bg-gray-800/50 group/item shadow-sm">
                                         <div className="min-w-[120px] pt-1">
                                             <div className="text-sm font-bold text-[#3D518C] dark:text-indigo-400 whitespace-nowrap bg-indigo-50 dark:bg-indigo-900/20 px-3 py-1 rounded-lg inline-block">
                                                 {formatTimeDisplay(slot.startTime)}

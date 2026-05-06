@@ -40,7 +40,7 @@ export default function NewEventOverviewPage() {
                 <Sidebar activePage="events" disableExpand={true} />
 
                 {/* Event Specific Sidebar */}
-                <div className="lg:ml-20 hidden lg:block h-full flex-shrink-0">
+                <div className="lg:ml-14 hidden lg:block h-full shrink-0">
                     <EventsSidebar event={sidebarEvent} />
                 </div>
 

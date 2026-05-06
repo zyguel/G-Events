@@ -18,6 +18,8 @@ type EventTicketRow = {
   price: number | null;
   available_quantity: number | null;
   waitlist_reserved_quantity: number | null;
+  selling_start_at: string | null;
+  selling_end_at: string | null;
 };
 
 type RegistrationUsageRow = {
@@ -84,7 +86,7 @@ export default async function PublicEventRegistrationPage({
 
   const { data: ticketRows } = await adminClient
       .from("Ticket")
-      .select("id, name, price, available_quantity, waitlist_reserved_quantity")
+      .select("id, name, price, available_quantity, waitlist_reserved_quantity, selling_start_at, selling_end_at")
       .eq("event_id", numericEventId)
       .eq("is_deleted", false)
       .eq("is_hidden", false)
@@ -122,18 +124,27 @@ export default async function PublicEventRegistrationPage({
       .eq("event_id", numericEventId);
   const hasPromotions = (promoCount || 0) > 0;
 
+  const now = new Date();
+
   const enrichedTickets = eventTickets.map((t) => {
       const total = Number(t.available_quantity ?? 0);
       const reservedForWaitlist = Number(t.waitlist_reserved_quantity ?? 0);
       const publicTotal = Math.max(0, total - Math.max(0, reservedForWaitlist));
       const used = usageByTicket.get(Number(t.id)) || 0;
+      const start = t.selling_start_at ? new Date(t.selling_start_at) : null;
+      const end = t.selling_end_at ? new Date(t.selling_end_at) : null;
+      const isSalesNotStarted = start ? start > now : false;
+      const isSalesEnded = end ? end < now : false;
+      
       return {
           id: t.id,
           name: t.name,
           price: Number(t.price ?? 0),
-        available_quantity: publicTotal,
+          available_quantity: publicTotal,
           used_quantity: used,
           is_sold_out: publicTotal <= 0 ? true : used >= publicTotal,
+          is_sales_not_started: isSalesNotStarted,
+          is_sales_ended: isSalesEnded,
       };
   });
 

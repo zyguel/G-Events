@@ -24,6 +24,8 @@ type RegistrationTicket = {
     available_quantity: number;
     used_quantity: number;
     is_sold_out: boolean;
+    is_sales_not_started?: boolean;
+    is_sales_ended?: boolean;
 };
 
 interface RegistrationFlowProps {
@@ -425,8 +427,9 @@ function ChooseTicketStep({
     const [appliedPromo, setAppliedPromo] = useState<{ code: string; discount_type: string; discount_value: number; ticket_ids: number[] } | null>(null);
     const [isJoiningWaitlist, setIsJoiningWaitlist] = useState<number | null>(null);
     const [waitlistFeedback, setWaitlistFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+    const [joinedWaitlists, setJoinedWaitlists] = useState<number[]>([]);
 
-    const allTicketsUnavailable = tickets.length === 0 || tickets.every((ticket) => ticket.is_sold_out);
+    const allTicketsUnavailable = tickets.length === 0 || tickets.every((ticket) => ticket.is_sold_out || ticket.is_sales_not_started || ticket.is_sales_ended);
 
     const handleJoinWaitlist = async (ticketId?: number) => {
         if (!userEmail) {
@@ -451,6 +454,7 @@ function ChooseTicketStep({
                 type: 'success',
                 message: 'You were added to the waitlist. Watch your email for invitation updates.',
             });
+            setJoinedWaitlists(prev => [...prev, ticketId ?? -1]);
         } catch (error) {
             setWaitlistFeedback({
                 type: 'error',
@@ -462,6 +466,26 @@ function ChooseTicketStep({
     };
 
     if (allTicketsUnavailable) {
+        const allSoldOut = tickets.length > 0 && tickets.every(t => t.is_sold_out);
+        const allNotStarted = tickets.length > 0 && tickets.every(t => t.is_sales_not_started);
+        const allEnded = tickets.length > 0 && tickets.every(t => t.is_sales_ended);
+        const someWaitlistable = tickets.some(t => t.is_sold_out && !t.is_sales_not_started && !t.is_sales_ended);
+
+        let unavailableMessage = 'There are no tickets currently available for purchase.';
+        if (allNotStarted) {
+            unavailableMessage = `Ticket sales for ${eventTitle} have not started yet.`;
+        } else if (allEnded) {
+            unavailableMessage = `Ticket sales for ${eventTitle} have ended.`;
+        } else if (allSoldOut) {
+            unavailableMessage = allowWaitlist
+                ? `All tickets for ${eventTitle} are sold out. Join the waitlist to get invited when a slot opens.`
+                : `All tickets for ${eventTitle} are sold out right now.`;
+        } else {
+            unavailableMessage = allowWaitlist && someWaitlistable
+                ? `There are no tickets currently available for purchase. Join the waitlist for sold out tickets to get invited when a slot opens.`
+                : `There are no tickets currently available for purchase.`;
+        }
+
         return (
             <div className="animate-fade-in">
                 <div className="text-center mb-8">
@@ -469,9 +493,7 @@ function ChooseTicketStep({
                         Tickets Are Currently Unavailable
                     </h2>
                     <p className="text-sm text-gray-500 dark:text-gray-400">
-                        {allowWaitlist
-                            ? `All tickets for ${eventTitle} are sold out. Join the waitlist to get invited when a slot opens.`
-                            : 'All tickets are sold out right now.'}
+                        {unavailableMessage}
                     </p>
                 </div>
 
@@ -483,16 +505,24 @@ function ChooseTicketStep({
                                     <div key={ticket.id} className="rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                         <div>
                                             <p className="text-sm font-bold text-gray-900 dark:text-white">{ticket.name}</p>
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Sold out</p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                                {ticket.is_sales_not_started ? 'Sales not started' : ticket.is_sales_ended ? 'Sales ended' : 'Sold out'}
+                                            </p>
                                         </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => handleJoinWaitlist(ticket.id)}
-                                            disabled={isJoiningWaitlist !== null}
-                                            className="min-h-11 px-4 py-2 rounded-xl bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-semibold hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
-                                        >
-                                            {isJoiningWaitlist === ticket.id ? 'Joining...' : 'Join Waitlist'}
-                                        </button>
+                                        {!(ticket.is_sales_not_started || ticket.is_sales_ended) && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleJoinWaitlist(ticket.id)}
+                                                disabled={isJoiningWaitlist !== null || joinedWaitlists.includes(ticket.id)}
+                                                className={`min-h-11 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                                                    joinedWaitlists.includes(ticket.id)
+                                                    ? 'bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                                                    : 'bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed'
+                                                }`}
+                                            >
+                                                {isJoiningWaitlist === ticket.id ? 'Joining...' : joinedWaitlists.includes(ticket.id) ? 'Waitlist Joined' : 'Join Waitlist'}
+                                            </button>
+                                        )}
                                     </div>
                                 ))}
                             </div>
@@ -502,10 +532,14 @@ function ChooseTicketStep({
                                 <button
                                     type="button"
                                     onClick={() => handleJoinWaitlist(undefined)}
-                                    disabled={isJoiningWaitlist !== null}
-                                    className="min-h-11 px-5 py-2 rounded-xl bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white text-sm font-semibold hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed transition-all"
+                                    disabled={isJoiningWaitlist !== null || joinedWaitlists.includes(-1)}
+                                    className={`min-h-11 px-5 py-2 rounded-xl text-sm font-semibold transition-all ${
+                                        joinedWaitlists.includes(-1)
+                                        ? 'bg-gray-100 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                                        : 'bg-linear-to-r from-[#3D518C] to-[#5C6BC0] text-white hover:opacity-95 disabled:opacity-60 disabled:cursor-not-allowed'
+                                    }`}
                                 >
-                                    {isJoiningWaitlist === -1 ? 'Joining...' : 'Join Event Waitlist'}
+                                    {isJoiningWaitlist === -1 ? 'Joining...' : joinedWaitlists.includes(-1) ? 'Waitlist Joined' : 'Join Event Waitlist'}
                                 </button>
                             </div>
                         )}
@@ -586,13 +620,13 @@ function ChooseTicketStep({
                 {tickets.map((ticket) => (
                     <button
                         key={ticket.id}
-                        onClick={() => !ticket.is_sold_out && onSelect(ticket.id, appliedPromo?.code)}
+                        onClick={() => !ticket.is_sold_out && !ticket.is_sales_not_started && !ticket.is_sales_ended && onSelect(ticket.id, appliedPromo?.code)}
                         onMouseEnter={() => setHovered(ticket.id)}
                         onMouseLeave={() => setHovered(null)}
-                        disabled={ticket.is_sold_out}
+                        disabled={ticket.is_sold_out || ticket.is_sales_not_started || ticket.is_sales_ended}
                         className={`
                             relative group flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-5 sm:p-6 rounded-2xl border-2 transition-all duration-300 text-left w-full min-h-[52px]
-                            ${ticket.is_sold_out 
+                            ${(ticket.is_sold_out || ticket.is_sales_not_started || ticket.is_sales_ended)
                                 ? 'opacity-60 grayscale border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40 cursor-not-allowed' 
                                 : `cursor-pointer ${hovered === ticket.id
                                     ? 'border-[#3D518C] bg-gradient-to-r from-[#3D518C]/5 to-[#5C6BC0]/5 shadow-lg shadow-blue-100 dark:shadow-blue-900/20 scale-[1.01]'
@@ -612,7 +646,11 @@ function ChooseTicketStep({
                             </div>
                             <div className="text-left">
                                 <p className="text-base font-bold text-gray-900 dark:text-white">{ticket.name}</p>
-                                {ticket.is_sold_out ? (
+                                {ticket.is_sales_not_started ? (
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">Sales not yet started</p>
+                                ) : ticket.is_sales_ended ? (
+                                    <p className="text-xs font-semibold text-red-500 dark:text-red-400">Sales ended</p>
+                                ) : ticket.is_sold_out ? (
                                     <p className="text-xs font-semibold text-red-500 dark:text-red-400">Sold out</p>
                                 ) : (
                                     <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -636,7 +674,7 @@ function ChooseTicketStep({
                                     {ticket.price === 0 ? 'FREE' : `$${ticket.price}`}
                                 </p>
                             )}
-                            {!ticket.is_sold_out && (
+                            {!(ticket.is_sold_out || ticket.is_sales_not_started || ticket.is_sales_ended) && (
                                 <div className={`
                                     flex items-center gap-1 text-xs font-bold transition-all duration-300
                                     ${hovered === ticket.id ? 'text-[#3D518C] dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}

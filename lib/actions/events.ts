@@ -1198,13 +1198,17 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
 
         const slotIdStr = slot.id ? slot.id.toString() : '';
         let error;
+        let savedSlotId: number | null = null;
         if (slotIdStr && !slotIdStr.startsWith('new-') && !isNaN(parseInt(slotIdStr))) {
             // Update
-            const { error: updateError } = await supabase
+            const { data: updatedSlot, error: updateError } = await supabase
                 .from('AgendaSlot')
                 .update(payload)
-                .eq('id', parseInt(slotIdStr));
+                .eq('id', parseInt(slotIdStr))
+                .select('id')
+                .single();
             error = updateError;
+            savedSlotId = updatedSlot?.id ?? parseInt(slotIdStr);
         } else {
             // Insert - Need to calculate order
             // Get current count/max order
@@ -1215,16 +1219,19 @@ export async function saveAgendaSlot(event_id: number, slot: { id?: string, titl
 
             payload.order = count || 0;
 
-            const { error: insertError } = await supabase
+            const { data: insertedSlot, error: insertError } = await supabase
                 .from('AgendaSlot')
-                .insert([payload]);
+                .insert([payload])
+                .select('id')
+                .single();
             error = insertError;
+            savedSlotId = insertedSlot?.id ?? null;
         }
 
         if (error) throw error;
 
         revalidatePath(`/events/${event_id}`);
-        return { success: true };
+        return { success: true, slotId: savedSlotId ? String(savedSlotId) : undefined };
     } catch (e: any) {
         console.error('Error saving agenda slot:', e);
         return { success: false, error: e.message };
