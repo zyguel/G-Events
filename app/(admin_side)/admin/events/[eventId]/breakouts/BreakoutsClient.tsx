@@ -154,7 +154,7 @@ const SpeakerAvatar = ({ speaker, size = 'sm' }: { speaker: Speaker; size?: 'sm'
     const initials = speaker.name.split(' ').map(n => n[0]).join('').slice(0, 2);
 
     return speaker.imageUrl ? (
-        <img src={speaker.imageUrl} alt={speaker.name} className={`${sizeClass} rounded-full object-cover`} />
+        <img src={speaker.imageUrl} alt={speaker.name} className={`${sizeClass} rounded-full object-cover`} loading="lazy" />
     ) : (
         <div className={`${sizeClass} rounded-full bg-gradient-to-br from-[#3D518C] to-[#5C6BC0] text-white flex items-center justify-center font-medium`}>
             {initials}
