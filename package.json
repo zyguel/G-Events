@@ -22,7 +22,9 @@
     "check:theme": "node scripts/debug/check_theme.js",
     "debug:login-layout-diff": "node scripts/debug/diff.js",
     "translations:split-static": "node scripts/maintenance/split-translations.js",
-    "backfill:addon-entitlements": "node scripts/maintenance/backfill_addon_entitlements.js"
+    "backfill:addon-entitlements": "node scripts/maintenance/backfill_addon_entitlements.js",
+    "dedupe:agenda": "node scripts/maintenance/dedupe_agenda_slots.js",
+    "dedupe:agenda:apply": "node scripts/maintenance/dedupe_agenda_slots.js --apply"
   },
   "dependencies": {
     "@floating-ui/react": "^0.27.18",
