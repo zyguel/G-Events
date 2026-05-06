@@ -94,6 +94,18 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 // DB → FRONTEND MAPPERS
 // ============================================================================
 
+function toLocalDateTimeString(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return String(isoString);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapDbTicket(row: any): Ticket {
   const rawApprovalMode = String(row.free_ticket_approval_mode || '').toLowerCase();
@@ -109,8 +121,8 @@ function mapDbTicket(row: any): Ticket {
     waitlistReservedQuantity: Number(row.waitlist_reserved_quantity ?? 0),
     price: row.price ? Number(row.price) : 0,
     currency: 'PHP',
-    startDate: row.selling_start_at ?? '',
-    endDate: row.selling_end_at ?? '',
+    startDate: toLocalDateTimeString(row.selling_start_at),
+    endDate: toLocalDateTimeString(row.selling_end_at),
     timezone: 'Asia/Manila',
     description: row.description ?? '',
     visibility: row.is_hidden ? 'hidden' : 'visible',
@@ -214,8 +226,12 @@ function ticketToDb(ticket: Partial<Omit<Ticket, 'id' | 'createdAt' | 'usedQuant
   if (ticket.description !== undefined) fields.description = ticket.description;
   if (ticket.price !== undefined) fields.price = ticket.price;
   if (ticket.quantity !== undefined) fields.available_quantity = ticket.quantity;
-  if (ticket.startDate !== undefined) fields.selling_start_at = ticket.startDate || null;
-  if (ticket.endDate !== undefined) fields.selling_end_at = ticket.endDate || null;
+  if (ticket.startDate !== undefined) {
+    fields.selling_start_at = ticket.startDate ? new Date(ticket.startDate).toISOString() : null;
+  }
+  if (ticket.endDate !== undefined) {
+    fields.selling_end_at = ticket.endDate ? new Date(ticket.endDate).toISOString() : null;
+  }
   if (ticket.visibility !== undefined) fields.is_hidden = ticket.visibility === 'hidden';
   if (ticket.isDeleted !== undefined) fields.is_deleted = ticket.isDeleted;
 

@@ -125,21 +125,21 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                     const href = event.id === 'new' ? '#' : `/admin/events/${slug}/overview`;
                                     const active = isActive('overview');
                                     return (
-                                <GuardedSidebarLink
-                                    href={href}
-                                    isCurrent={active}
-                                    onNavigate={handleNavigate}
-                                    isNavigationLocked={isNavigationLocked}
-                                    isPending={isPendingHref(href)}
-                                    disabled={event.id === 'new'}
-                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive('overview')
-                                        ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                        }`}
-                                >
-                                    <LayoutDashboard size={16} />
-                                    {t('Overview')}
-                                </GuardedSidebarLink>
+                                        <GuardedSidebarLink
+                                            href={href}
+                                            isCurrent={active}
+                                            onNavigate={handleNavigate}
+                                            isNavigationLocked={isNavigationLocked}
+                                            isPending={isPendingHref(href)}
+                                            disabled={event.id === 'new'}
+                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${isActive('overview')
+                                                ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                                : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                }`}
+                                        >
+                                            <LayoutDashboard size={16} />
+                                            {t('Overview')}
+                                        </GuardedSidebarLink>
                                     );
                                 })()}
                             </li>
@@ -158,26 +158,26 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                         const href = event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`;
                                         const active = isActive(page);
                                         return (
-                                    <GuardedSidebarLink
-                                        href={href}
-                                        isCurrent={active}
-                                        onNavigate={handleNavigate}
-                                        isNavigationLocked={isNavigationLocked}
-                                        isPending={isPendingHref(href)}
-                                        disabled={event.id === 'new'}
-                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active
-                                            ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                            } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
-                                        {page === 'tickets' && <Ticket size={16} />}
-                                        {page === 'orderform' && <ClipboardList size={16} />}
-                                        {page === 'orderconfirmation' && <CheckCircle size={16} />}
-                                        {page === 'publish' && <Send size={16} />}
-                                        {page === 'tickets' && t('Tickets')}
-                                        {page === 'orderform' && t('Order Form')}
-                                        {page === 'orderconfirmation' && t('Order Confirmation')}
-                                        {page === 'publish' && t('Publish Event')}
-                                    </GuardedSidebarLink>
+                                            <GuardedSidebarLink
+                                                href={href}
+                                                isCurrent={active}
+                                                onNavigate={handleNavigate}
+                                                isNavigationLocked={isNavigationLocked}
+                                                isPending={isPendingHref(href)}
+                                                disabled={event.id === 'new'}
+                                                className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active
+                                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                    } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
+                                                {page === 'tickets' && <Ticket size={16} />}
+                                                {page === 'orderform' && <ClipboardList size={16} />}
+                                                {page === 'orderconfirmation' && <CheckCircle size={16} />}
+                                                {page === 'publish' && <Send size={16} />}
+                                                {page === 'tickets' && t('Tickets')}
+                                                {page === 'orderform' && t('Order Form')}
+                                                {page === 'orderconfirmation' && t('Order Confirmation')}
+                                                {page === 'publish' && t('Publish Event')}
+                                            </GuardedSidebarLink>
                                         );
                                     })()}
                                 </li>
@@ -207,17 +207,17 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                             const href = event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`;
                                             const active = isActive(page);
                                             return (
-                                        <GuardedSidebarLink
-                                            href={href}
-                                            isCurrent={active}
-                                            onNavigate={handleNavigate}
-                                            isNavigationLocked={isNavigationLocked}
-                                            isPending={isPendingHref(href)}
-                                            disabled={event.id === 'new'}
-                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
-                                            {icon}{label}
-                                        </GuardedSidebarLink>
+                                                <GuardedSidebarLink
+                                                    href={href}
+                                                    isCurrent={active}
+                                                    onNavigate={handleNavigate}
+                                                    isNavigationLocked={isNavigationLocked}
+                                                    isPending={isPendingHref(href)}
+                                                    disabled={event.id === 'new'}
+                                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                        } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
+                                                    {icon}{label}
+                                                </GuardedSidebarLink>
                                             );
                                         })()}
                                     </li>
@@ -243,17 +243,17 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                             const href = event.id === 'new' ? '#' : `/admin/events/${slug}/${page}`;
                                             const active = isActive(page);
                                             return (
-                                        <GuardedSidebarLink
-                                            href={href}
-                                            isCurrent={active}
-                                            onNavigate={handleNavigate}
-                                            isNavigationLocked={isNavigationLocked}
-                                            isPending={isPendingHref(href)}
-                                            disabled={event.id === 'new'}
-                                            className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                                } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
-                                            {icon}{label}
-                                        </GuardedSidebarLink>
+                                                <GuardedSidebarLink
+                                                    href={href}
+                                                    isCurrent={active}
+                                                    onNavigate={handleNavigate}
+                                                    isNavigationLocked={isNavigationLocked}
+                                                    isPending={isPendingHref(href)}
+                                                    disabled={event.id === 'new'}
+                                                    className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                        } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}>
+                                                    {icon}{label}
+                                                </GuardedSidebarLink>
                                             );
                                         })()}
                                     </li>
@@ -274,21 +274,21 @@ export default function EventsSidebar({ event }: EventsSidebarProps) {
                                         const href = event.id === 'new' ? '#' : `/events/${slug}/feedback`;
                                         const active = isActive('feedback');
                                         return (
-                                    <GuardedSidebarLink
-                                        href={href}
-                                        isCurrent={active}
-                                        onNavigate={handleNavigate}
-                                        isNavigationLocked={isNavigationLocked}
-                                        isPending={isPendingHref(href)}
-                                        disabled={event.id === 'new'}
-                                        className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active
-                                            ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
-                                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                        } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}
-                                    >
-                                        <MessageSquareDot size={16} />
-                                        {t('Feedback Form')}
-                                    </GuardedSidebarLink>
+                                            <GuardedSidebarLink
+                                                href={href}
+                                                isCurrent={active}
+                                                onNavigate={handleNavigate}
+                                                isNavigationLocked={isNavigationLocked}
+                                                isPending={isPendingHref(href)}
+                                                disabled={event.id === 'new'}
+                                                className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl transition-all duration-300 ${active
+                                                    ? 'bg-[#ABD2FA] text-[#3D518C] shadow-sm'
+                                                    : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                                    } ${event.id === 'new' ? 'cursor-not-allowed' : ''}`}
+                                            >
+                                                <MessageSquareDot size={16} />
+                                                {t('Feedback Form')}
+                                            </GuardedSidebarLink>
                                         );
                                     })()}
                                 </li>

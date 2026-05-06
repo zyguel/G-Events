@@ -533,6 +533,30 @@ export default function ClientEventDetailPage() {
                                     Check back soon for registration access.
                                 </div>
                             </>
+                        ) : tickets.length > 0 && tickets.every(t => t.startDate && new Date(t.startDate) > new Date()) ? (
+                            <>
+                                <div className="min-w-0 space-y-3 text-center md:text-left">
+                                    <h3 className="text-xl font-extrabold text-white sm:text-2xl">Ticket sales not yet started</h3>
+                                    <p className="text-sm text-blue-100/90">
+                                        Ticket sales for <span className="font-semibold text-white">{event.title}</span> will begin soon.
+                                    </p>
+                                </div>
+                                <div className="w-full md:w-auto rounded-2xl bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white/95 border border-white/20">
+                                    Check back later
+                                </div>
+                            </>
+                        ) : tickets.length > 0 && tickets.every(t => t.endDate && new Date(t.endDate) < new Date()) ? (
+                            <>
+                                <div className="min-w-0 space-y-3 text-center md:text-left">
+                                    <h3 className="text-xl font-extrabold text-white sm:text-2xl">Ticket sales ended</h3>
+                                    <p className="text-sm text-blue-100/90">
+                                        Ticket sales for <span className="font-semibold text-white">{event.title}</span> have closed.
+                                    </p>
+                                </div>
+                                <div className="w-full md:w-auto rounded-2xl bg-white/15 px-5 py-3 text-center text-sm font-semibold text-white/95 border border-white/20">
+                                    Sales closed
+                                </div>
+                            </>
                         ) : (
                             <>
                                 <div className="min-w-0 space-y-3 text-center md:text-left">

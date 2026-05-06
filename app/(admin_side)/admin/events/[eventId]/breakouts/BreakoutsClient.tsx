@@ -9,6 +9,8 @@ import {
 import { useLocale } from '@/contexts/LocaleContext';
 import TablePaginationControls from '@/components/admin/TablePaginationControls';
 import Modal, { ModalInput, ModalFooter, ModalSelect } from '@/components/admin/Modal';
+import DateInput from '@/components/admin/DateInput';
+import TimeInput from '@/components/admin/TimeInput';
 
 // Types
 import { EventSummary } from '@/lib/types';
@@ -370,25 +372,26 @@ const SessionModal = ({
                     {/* Date & Time */}
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-                            <ModalInput
-                                type="date"
-                                value={formData.sessionDate || ''}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                    setFormData({ ...formData, sessionDate: e.target.value });
+                            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Date</label>
+                            <DateInput
+                                value={formData.sessionDate ? (() => {
+                                    const d = new Date(formData.sessionDate);
+                                    return isNaN(d.getTime()) ? null : d;
+                                })() : null}
+                                onChange={(date) => {
+                                    let formattedDate = '';
+                                    if (date) {
+                                        const year = date.getFullYear();
+                                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                                        const day = String(date.getDate()).padStart(2, '0');
+                                        formattedDate = `${year}-${month}-${day}`;
+                                    }
+                                    setFormData({ ...formData, sessionDate: formattedDate });
                                     if (validationErrors.sessionDate) {
                                         setValidationErrors((prev) => ({ ...prev, sessionDate: '' }));
                                     }
                                 }}
-                                onClick={(e: React.MouseEvent<HTMLInputElement>) => {
-                                    try {
-                                        (e.currentTarget as HTMLInputElement).showPicker?.();
-                                    } catch {
-                                        // Fallback: focus will naturally open picker on most browsers
-                                        e.currentTarget.focus();
-                                    }
-                                }}
-                                className={validationErrors.sessionDate ? "border-red-500" : ""}
+                                placeholder="Select session date"
                             />
                             {validationErrors.sessionDate && (
                                 <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.sessionDate}</p>
@@ -396,48 +399,32 @@ const SessionModal = ({
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Start Time</label>
-                                <ModalInput
-                                    type="time"
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">Start Time</label>
+                                <TimeInput
                                     value={formData.startTime || ''}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                        setFormData({ ...formData, startTime: e.target.value });
+                                    onChange={(time) => {
+                                        setFormData({ ...formData, startTime: time });
                                         if (validationErrors.startTime) {
                                             setValidationErrors((prev) => ({ ...prev, startTime: '' }));
                                         }
                                     }}
-                                    onClick={(e: React.MouseEvent<HTMLInputElement>) => {
-                                        try {
-                                            (e.currentTarget as HTMLInputElement).showPicker?.();
-                                        } catch {
-                                            e.currentTarget.focus();
-                                        }
-                                    }}
-                                    className={validationErrors.startTime ? "border-red-500" : ""}
+                                    placeholder="Select start time"
                                 />
                                 {validationErrors.startTime && (
                                     <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.startTime}</p>
                                 )}
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">End Time</label>
-                                <ModalInput
-                                    type="time"
+                                <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">End Time</label>
+                                <TimeInput
                                     value={formData.endTime || ''}
-                                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                                        setFormData({ ...formData, endTime: e.target.value });
+                                    onChange={(time) => {
+                                        setFormData({ ...formData, endTime: time });
                                         if (validationErrors.endTime) {
                                             setValidationErrors((prev) => ({ ...prev, endTime: '' }));
                                         }
                                     }}
-                                    onClick={(e: React.MouseEvent<HTMLInputElement>) => {
-                                        try {
-                                            (e.currentTarget as HTMLInputElement).showPicker?.();
-                                        } catch {
-                                            e.currentTarget.focus();
-                                        }
-                                    }}
-                                    className={validationErrors.endTime ? "border-red-500" : ""}
+                                    placeholder="Select end time"
                                 />
                                 {validationErrors.endTime && (
                                     <p className="mt-1 text-xs text-red-600 dark:text-red-400">{validationErrors.endTime}</p>
@@ -516,14 +503,6 @@ const SessionModal = ({
                                 value={newSpeakerName}
                                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSpeakerName(e.target.value)}
                                 placeholder="Speaker Name"
-                            />
-                        </div>
-                        <div className="flex-1">
-                            <ModalInput
-                                type="text"
-                                value={newSpeakerImage}
-                                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewSpeakerImage(e.target.value)}
-                                placeholder="Image URL (Optional)"
                             />
                         </div>
                         <button
