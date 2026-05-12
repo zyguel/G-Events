@@ -6,33 +6,33 @@
 
 | Area | Value | Evidence |
 |------|-------|----------|
-| Primary language | TypeScript | `package.json`, `tsconfig.json` |
-| Runtime + version | Node.js 20+ (recommended) | `README.md` |
-| Package manager | npm | `package.json` scripts |
-| Module/build system | Next.js App Router + ES module-based TypeScript | `package.json`, `next.config.ts`, `app/layout.tsx` |
+| Primary language | TypeScript (React) | package.json, tsconfig.json |
+| Runtime + version | Node.js 20+ (dev), Next.js App Router runtime | README.md, package.json |
+| Package manager | npm | README.md, package.json |
+| Module/build system | Next.js (App Router) + Vite config for Vitest | package.json, vitest.config.ts |
 
 ### 2) Production Frameworks and Dependencies
 
 | Dependency | Version | Role in system | Evidence |
 |------------|---------|----------------|----------|
-| `next` | `latest` | React App Router framework, SSR/SSG, API routes | `package.json` |
-| `react` / `react-dom` | `19.2.3` | UI components and client rendering | `package.json` |
-| `@supabase/supabase-js` | `^2.97.0` | Supabase client for database, auth, storage, realtime | `package.json`, `lib/supabase.ts` |
-| `@supabase/ssr` | `^0.9.0` | Server-side Supabase client support for cookies and SSR | `package.json`, `lib/supabase-server.ts` |
-| `tailwindcss` / `@tailwindcss/postcss` | `^4` | Utility-first styling pipeline | `package.json`, `postcss.config.mjs` |
-| `nodemailer` | `^8.0.4` | SMTP email transport backend | `package.json`, `lib/emailProvider.ts` |
-| `exceljs` | `^4.4.0` | XLSX export generator | `package.json` |
-| `jspdf` / `jspdf-autotable` | `^4.2.1` / `^5.0.7` | PDF export generation | `package.json` |
+| next | ^16.2.6 | App Router framework/runtime | package.json |
+| react / react-dom | 19.2.3 | UI runtime | package.json |
+| @supabase/supabase-js | ^2.97.0 | Database/auth client | package.json |
+| @supabase/ssr | ^0.9.0 | Server/client Supabase helpers | package.json |
+| nodemailer | ^8.0.4 | SMTP email transport | package.json, lib/emailProvider.ts |
+| jspdf / jspdf-autotable | ^4.2.1 / ^5.0.7 | PDF export | package.json |
+| exceljs | ^4.4.0 | XLSX export | package.json |
+| framer-motion | ^12.29.2 | UI animation | package.json |
+| tiptap packages | ^3.17.1 | Rich-text editor | package.json |
 
 ### 3) Development Toolchain
 
 | Tool | Purpose | Evidence |
 |------|---------|----------|
-| `typescript` | Static typing and compile-time validation | `package.json`, `tsconfig.json` |
-| `eslint` / `eslint-config-next` | Linting and code quality | `package.json`, `eslint.config.mjs` |
-| `vitest` | Unit and integration testing | `package.json`, `vitest.config.ts` |
-| `vite-tsconfig-paths` | Resolve TS path alias imports in tests | `package.json`, `vitest.config.ts` |
-| `tailwindcss` | CSS utilities compiler | `package.json`, `postcss.config.mjs` |
+| eslint + eslint-config-next | Linting | eslint.config.mjs, package.json |
+| typescript | Type checking | tsconfig.json, package.json |
+| vitest | Unit/integration tests | vitest.config.ts, package.json |
+| tailwindcss + @tailwindcss/postcss | Styling build pipeline | package.json, postcss.config.mjs |
 
 ### 4) Key Commands
 
@@ -45,15 +45,18 @@ npm run lint
 
 ### 5) Environment and Config
 
-- Config sources: `.env.local`, `process.env`, `next.config.ts`, `lib/emailProvider.ts`, `lib/supabase-server.ts`
-- Required env vars: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_DEFAULT_ORG_ID`, `CRON_SECRET`, `APP_URL`, `EMAIL_PROVIDER`, `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM_EMAIL`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`.
-- Deployment/runtime constraints: Next.js App Router host; production uses Vercel and requires `APP_URL` for secure absolute URLs and email HTML URL normalization.
+- Config sources: package.json, tsconfig.json, next.config.ts, eslint.config.mjs, postcss.config.mjs
+- Required env vars: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, NEXT_PUBLIC_DEFAULT_ORG_ID, EMAIL_PROVIDER, SMTP_* or RESEND_*, CRON_SECRET, APP_URL
+- Deployment/runtime constraints: README.md documents Node.js v20+ and npm v10+ as prerequisites; APP_URL required for production email link normalization.
 
 ### 6) Evidence
 
-- `package.json`
-- `README.md`
-- `tsconfig.json`
-- `next.config.ts`
-- `lib/emailProvider.ts`
-- `lib/supabase-server.ts`
+- package.json
+- tsconfig.json
+- next.config.ts
+- README.md
+- docs/HANDOFF.md
+
+## Extended Sections (Optional)
+
+- [TODO]

@@ -1,6 +1,6 @@
 # 🚀 G-Events
 
-![Build Status](https://img.shields.io/badge/build-passed-brightgreen) ![License](https://img.shields.io/badge/license-Proprietary-red) ![Version](https://img.shields.io/badge/version-0.9.4-orange)
+![Build Status](https://img.shields.io/badge/build-passed-brightgreen) ![License](https://img.shields.io/badge/license-Proprietary-red) ![Version](https://img.shields.io/badge/version-1.0.0--alpha-orange)
 
 **G-Events** is a **comprehensive event management dashboard** designed to give organizers full control over every stage of an event — from creation and registration to check-in, analytics, and certificate distribution.
 
