@@ -52,10 +52,7 @@
     "i18n-iso-countries": "^7.13.0",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",
-<<<<<<< Updated upstream
     "jsqr": "^1.4.0",
-=======
->>>>>>> Stashed changes
     "leaflet": "^1.9.4",
     "lucide-react": "^0.562.0",
     "next": "^16.2.6",

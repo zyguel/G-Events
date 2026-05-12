@@ -1,12 +1,8 @@
 'use server'
 
-<<<<<<< Updated upstream
-import { createClient } from "@/lib/supabase-server"
+import { createClient, createAdminClient } from "@/lib/supabase-server"
 import { createClient as createSupabaseClient, SupabaseClient } from '@supabase/supabase-js'
 import { cache } from 'react'
-=======
-import { createClient, createAdminClient } from "@/lib/supabase-server"
->>>>>>> Stashed changes
 import { revalidatePath } from "next/cache"
 import { cookies } from 'next/headers'
 import { logAuditEntry } from '@/lib/actions/audit'
@@ -242,13 +238,8 @@ export async function createEvent(prevState: CreateEventState, formData: FormDat
 
         try {
             console.log('Uploading banner for new event...');
-<<<<<<< Updated upstream
             const adminSupabase = await getStorageClient();
             bannerUrl = await uploadFileToStorage(adminSupabase, bannerFileValue);
-=======
-            const adminSupabase = await createAdminClient();
-            bannerUrl = await uploadFileToStorage(adminSupabase, bannerFile);
->>>>>>> Stashed changes
         } catch (e) {
             console.error('Failed to upload banner during create:', e);
             // We continue creating the event even if banner fails, or we could return error.
@@ -1090,7 +1081,6 @@ export async function uploadEventBanner(formData: FormData) {
             return { success: false, error: 'No file provided' }
         }
 
-<<<<<<< Updated upstream
         const imageValidationError = await validateUploadedImageFile(file, {
             allowedMimeTypes: ALLOWED_EVENT_BANNER_MIME_TYPES,
             allowedFormatsLabel: ALLOWED_EVENT_BANNER_FORMAT_LABEL,
@@ -1110,10 +1100,6 @@ export async function uploadEventBanner(formData: FormData) {
 
         const storageClient = await getStorageClient()
         const publicUrl = await uploadFileToStorage(storageClient, file)
-=======
-        const adminSupabase = await createAdminClient();
-        const publicUrl = await uploadFileToStorage(adminSupabase, file)
->>>>>>> Stashed changes
         return { success: true, url: publicUrl }
     } catch (e: any) {
         console.error('Unexpected error uploading banner:', e)

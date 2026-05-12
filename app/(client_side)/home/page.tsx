@@ -144,11 +144,7 @@ export default function ClientDashboardPage() {
                                         className="group relative bg-white/95 dark:bg-[#1a1c23]/95 backdrop-blur-sm rounded-4xl p-5 md:p-6 flex flex-col md:flex-row gap-6 lg:gap-8 shadow-[0_4px_20px_rgb(0,0,0,0.03)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.06)] border border-gray-100/80 dark:border-gray-800/80 transition-all duration-300"
                                     >
                                         {/* Event Image Banner (Mockup Style) */}
-<<<<<<< Updated upstream
                                         <div className="relative flex h-44 w-full shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-sm transition-shadow duration-300 sm:h-48 md:h-52 md:w-72">
-=======
-                                        <div className="w-full md:w-70 h-45 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl overflow-hidden relative shrink-0 shadow-sm transition-shadow duration-300 flex items-center justify-center">
->>>>>>> Stashed changes
                                             {event.imageUrl !== '/placeholder-event.png' ? (
                                                 <Image src={event.imageUrl} alt={event.title} fill sizes="(max-width: 768px) 100vw, 288px" className="object-cover" priority />
                                             ) : (

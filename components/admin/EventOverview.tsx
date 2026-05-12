@@ -8,11 +8,7 @@ import { useRouter } from "next/navigation";
 import DateTimeInput from "./DateTimeInput";
 import TimeInput from "./TimeInput";
 import dynamic from "next/dynamic";
-<<<<<<< Updated upstream
 import { createEvent, saveAgendaSlot, deleteAgendaSlot, deleteEvent } from '@/lib/actions/events';
-=======
-import { createEvent, saveAgendaSlot, deleteAgendaSlot } from '@/lib/actions/events';
->>>>>>> Stashed changes
 import DateInput from "./DateInput";
 
 const LocationMapPicker = dynamic(() => import('./LocationMapPicker'), {
@@ -124,12 +120,9 @@ export default function EventOverview({ initialData }: { initialData: any }) {
     const [tempStartTime, setTempStartTime] = useState<string>('');
     const [tempEndTime, setTempEndTime] = useState<string>('');
     const [tempLocation, setTempLocation] = useState<string>('');
-<<<<<<< Updated upstream
     const [tempTitle, setTempTitle] = useState<string>('');
     const [tempDescription, setTempDescription] = useState<string>('');
     const [tempTheme, setTempTheme] = useState<string>('');
-=======
->>>>>>> Stashed changes
 
     const [activeModal, setActiveModal] = useState<null | 'banner' | 'title' | 'dateLocation' | 'overview' | 'agenda' | 'deleteBanner' | 'deleteEvent'>(null);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -215,7 +208,6 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             setTempStartTime(event.startTime || '');
             setTempEndTime(event.endTime || '');
             setTempLocation(event.location || '');
-<<<<<<< Updated upstream
         } else if (activeModal === 'overview') {
             setTempTitle(event.name || '');
             setTempDescription(event.description || '');
@@ -224,10 +216,6 @@ export default function EventOverview({ initialData }: { initialData: any }) {
             setDeleteConfirmation('');
         }
     }, [activeModal, event.date, event.startTime, event.endTime, event.location, event.name, event.description, event.theme]);
-=======
-        }
-    }, [activeModal, event.date, event.startTime, event.endTime, event.location]);
->>>>>>> Stashed changes
 
 
     const handleSaveDateLocation = (e: React.FormEvent) => {

@@ -23,7 +23,7 @@ export interface Event {
     ticketsSold: number;
     totalTickets: number;
     attendees: number;
-    status: 'Draft' | 'Upcoming' | 'Live' | 'Completed';
+        status: string;
     type: 'draft' | 'upcoming' | 'past';
     image?: string;
     analyticsId?: string; // Maps to the API event ID for analytics
@@ -349,11 +349,14 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredEvents.map((event) => {
+                                        const href = eventListHref(event);
+
                                         return (
-<<<<<<< Updated upstream:app/(admin_side)/admin/events/EventsPageClient.tsx
                                             <div
                                                 key={event.id}
-                                                onClick={() => router.push(eventListHref(event))}
+                                                onClick={() => {
+                                                    if (href !== '#') router.push(href);
+                                                }}
                                                 className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
                                             >
                                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -370,44 +373,6 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                                                             ) : (
                                                                 event.name.charAt(0)
                                                             )}
-=======
-                                            <Link key={event.id} href={event.analyticsId ? `/events/${slug}/overview` : '#'} className="block">
-                                                <div className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md">
-                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg md:text-xl flex-shrink-0 relative overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-600">
-                                                                {event.image ? (
-                                                                    <Image
-                                                                        src={event.image}
-                                                                        alt={event.name}
-                                                                        fill
-                                                                        className="object-cover"
-                                                                    />
-                                                                ) : (
-                                                                    event.name.charAt(0)
-                                                                )}
-                                                            </div>
-                                                            <div className="min-w-0 flex-1">
-                                                                <div className="flex items-center gap-2">
-                                                                    <Image
-                                                                        src={getStatusIcon(event.status)}
-                                                                        alt={event.status}
-                                                                        width={16}
-                                                                        height={16}
-                                                                        className="w-4 h-4 md:w-[18px] md:h-[18px]"
-                                                                    />
-                                                                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm md:text-base">{event.name}</h3>
-                                                                </div>
-                                                                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs md:text-sm text-gray-500 dark:text-gray-400">
-                                                                    <span className="flex items-center gap-1">
-                                                                        <MapPin size={12} className="md:w-[14px] md:h-[14px]" /> {event.location}
-                                                                    </span>
-                                                                    <span className="flex items-center gap-1">
-                                                                        <Calendar size={12} className="md:w-[14px] md:h-[14px]" /> {formatDate(event.date)}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
->>>>>>> Stashed changes:app/(admin_side)/events/page.tsx
                                                         </div>
                                                         <div className="min-w-0 flex-1">
                                                             <div className="flex items-center gap-2">
@@ -457,7 +422,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                                                     </div>
                                                 </div>
                                             </div>
-                                        )
+                                        );
                                     })}
                                 </div>
                             </div>
