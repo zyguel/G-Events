@@ -20,6 +20,7 @@ interface UserProfile {
     location: string;
     role: string;
     department: string;
+    gender: string;
     joinedDate: string;
     avatarSeed: string;
     metadataAvatarUrl: string | null;
@@ -40,7 +41,7 @@ export default function ProfilePage() {
     const [isSaving, setIsSaving] = useState(false);
     const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
     const [profile, setProfile] = useState<UserProfile | null>(null);
-    const [editData, setEditData] = useState({ name: '', phone: '', location: '', department: '' });
+    const [editData, setEditData] = useState({ name: '', phone: '', location: '', department: '', gender: '' });
     const [recentEvents, setRecentEvents] = useState<RecentEvent[]>([]);
     const [organizationName, setOrganizationName] = useState('Organization');
     const [isLoading, setIsLoading] = useState(true);
@@ -345,6 +346,7 @@ export default function ProfilePage() {
                     location,
                     role,
                     department,
+                    gender: user.user_metadata?.gender || '',
                     joinedDate,
                     avatarSeed: encodeURIComponent(name),
                     metadataAvatarUrl,
@@ -353,7 +355,7 @@ export default function ProfilePage() {
                     totalAttendees: totalAttendees ?? 0,
                     emailConfirmed: !!user.email_confirmed_at,
                 });
-                setEditData({ name, phone, location, department });
+                setEditData({ name, phone, location, department, gender: user.user_metadata?.gender || '' });
                 setAvatarSourceIndex(0);
             } finally {
                 setIsLoading(false);
@@ -374,6 +376,7 @@ export default function ProfilePage() {
                 phone: editData.phone,
                 location: editData.location,
                 department: editData.department,
+                gender: editData.gender,
             },
         });
         if (!error) {
@@ -388,7 +391,7 @@ export default function ProfilePage() {
     };
 
     const handleCancelEdit = () => {
-        if (profile) setEditData({ name: profile.name, phone: profile.phone, location: profile.location, department: profile.department });
+        if (profile) setEditData({ name: profile.name, phone: profile.phone, location: profile.location, department: profile.department, gender: profile.gender });
         setIsEditing(false);
     };
 
@@ -789,6 +792,32 @@ export default function ProfilePage() {
                                             />
                                         ) : (
                                             <p className="font-medium text-gray-900 dark:text-white">{profile?.location || <span className="text-gray-400 italic text-sm">Not set</span>}</p>
+                                        )}
+                                    </div>
+
+                                    {/* Gender */}
+                                    <div className="space-y-1">
+                                        <label className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                                            <Users size={14} /> Gender
+                                        </label>
+                                        {isLoading ? <SkeletonLine w="w-24" /> : isEditing ? (
+                                            <select
+                                                value={editData.gender}
+                                                onChange={e => setEditData(d => ({ ...d, gender: e.target.value }))}
+                                                className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                                            >
+                                                <option value="">Select Gender</option>
+                                                <option value="male">Male</option>
+                                                <option value="female">Female</option>
+                                            </select>
+                                        ) : (
+                                            <p className="font-medium text-gray-900 dark:text-white">
+                                                {profile?.gender ? (
+                                                    profile.gender.charAt(0).toUpperCase() + profile.gender.slice(1).replace('_', ' ')
+                                                ) : (
+                                                    <span className="text-gray-400 italic text-sm">Not set</span>
+                                                )}
+                                            </p>
                                         )}
                                     </div>
 

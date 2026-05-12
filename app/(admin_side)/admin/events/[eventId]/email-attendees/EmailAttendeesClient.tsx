@@ -309,6 +309,8 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     // const editorRef = useRef<HTMLDivElement>(null); // Removed ref
     const { t } = useLocale();
 
+    const submitInFlightRef = useRef(false);
+
     const [activeTab, setActiveTab] = useState<'create' | 'emails' | 'drafts'>('create');
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -609,11 +611,14 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
     }, [event.id, ticketTypes, statuses, attendanceTypes]);
 
     const handleSaveAsDraft = async () => {
+        if (submitInFlightRef.current) return;
+
         if (!emailSubject.trim()) {
             setToast({ message: 'Please enter at least a subject to save as draft', type: 'error' });
             return;
         }
 
+        submitInFlightRef.current = true;
         if (event.id.startsWith('evt-')) {
             const draft: SentEmail = {
                 id: Date.now().toString(),
@@ -625,6 +630,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
             };
             setSentEmails(prev => [draft, ...prev]);
             setToast({ message: 'Draft saved locally (draft event).', type: 'success' });
+            submitInFlightRef.current = false;
             return;
         }
 
@@ -654,15 +660,18 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
             setToast({ message: e instanceof Error ? e.message : 'Failed to save draft', type: 'error' });
         } finally {
             setIsLoading(false);
+            submitInFlightRef.current = false;
         }
     };
 
     // Send email
     const handleSendEmail = async () => {
+        if (submitInFlightRef.current) return;
         if (!validateForm()) return;
 
-        if (sendOption === 'attendees') {
-            try {
+        submitInFlightRef.current = true;
+        try {
+            if (sendOption === 'attendees') {
                 const recipientCount = await fetchRecipientEstimate();
                 setEstimatedAttendeesCount(recipientCount);
 
@@ -670,14 +679,9 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                     setToast({ message: 'No recipient, email cannot be sent.', type: 'error' });
                     return;
                 }
-            } catch (error) {
-                setToast({ message: error instanceof Error ? error.message : 'Failed to estimate recipients', type: 'error' });
-                return;
             }
-        }
 
-        setIsLoading(true);
-        try {
+            setIsLoading(true);
             if (event.id.startsWith('evt-')) {
                 const newEmail: SentEmail = {
                     id: Date.now().toString(),
@@ -739,6 +743,7 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
             setToast({ message: e instanceof Error ? e.message : 'Failed to send email', type: 'error' });
         } finally {
             setIsLoading(false);
+            submitInFlightRef.current = false;
         }
     };
 
@@ -1106,7 +1111,8 @@ export default function EmailAttendeesClient({ event }: EmailAttendeesProps) {
                                 <div className="flex items-center gap-3">
                                     <button
                                         onClick={handleSaveAsDraft}
-                                        className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200"
+                                        disabled={isLoading}
+                                        className="px-5 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed"
                                     >
                                         Save as Draft
                                     </button>
