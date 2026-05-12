@@ -540,16 +540,22 @@ function EditOrderModal({
     onClose: () => void;
     order: Order | null;
     availableTickets: any[];
-    onSave: (orderId: string, ticketId: string) => void;
+    onSave: (orderId: string, ticketId: string, newName: string) => void;
     isSaving: boolean;
 }) {
     const [selectedTicketId, setSelectedTicketId] = useState("");
+    const [name, setName] = useState("");
 
     useEffect(() => {
-        if (order) setSelectedTicketId(order.ticketId);
+        if (order) {
+            setSelectedTicketId(order.ticketId);
+            setName(order.name);
+        }
     }, [order]);
 
-    const isChanged = order ? selectedTicketId !== order.ticketId : false;
+    const trimmedName = name.trim();
+    const isChanged = order ? (selectedTicketId !== order.ticketId || trimmedName !== order.name) : false;
+    const isNameValid = trimmedName.length > 0;
 
     return (
         <Modal
@@ -566,11 +572,17 @@ function EditOrderModal({
                     <div className="absolute top-0 right-0 w-24 h-24 bg-linear-to-bl from-[#3D518C]/5 to-transparent rounded-bl-full" />
                     <div className="p-5 flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-linear-to-br from-[#3D518C] to-indigo-500 flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-[#3D518C]/20 shrink-0">
-                            {order?.name?.charAt(0)?.toUpperCase() || "?"}
+                            {name?.charAt(0)?.toUpperCase() || "?"}
                         </div>
-                        <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-gray-900 dark:text-white truncate">{order?.name}</p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5">{order?.email}</p>
+                        <div className="flex-1 min-w-0 pr-2">
+                            <input
+                                type="text"
+                                value={name}
+                                onChange={(e) => setName(e.target.value)}
+                                className="w-full text-sm font-bold text-gray-900 dark:text-white bg-white/50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#3D518C] dark:focus:border-blue-400 focus:ring-1 focus:ring-[#3D518C] dark:focus:ring-blue-400 transition-all"
+                                placeholder="Attendee Name"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate mt-1 px-1">{order?.email}</p>
                         </div>
                         <span className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 ${order?.status === "Confirmed"
                             ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400"
@@ -645,11 +657,11 @@ function EditOrderModal({
 
             <ModalFooter
                 onCancel={onClose}
-                onSave={() => order && onSave(order.id, selectedTicketId)}
+                onSave={() => order && onSave(order.id, selectedTicketId, trimmedName)}
                 isSubmitting={isSaving}
                 saveText={isChanged ? "Save Changes" : "No Changes"}
                 submitType="button"
-                disableSave={!selectedTicketId || !isChanged}
+                disableSave={!selectedTicketId || !isChanged || !isNameValid}
             />
         </Modal>
     );
@@ -903,7 +915,7 @@ export default function ManageOrdersClient({ event, initialOrders }: ManageOrder
         }
     };
 
-    const handleUpdateOrder = async (orderId: string, newTicketId: string) => {
+    const handleUpdateOrder = async (orderId: string, newTicketId: string, newName: string) => {
 
 
         const selectedTicket = availableTickets.find(t => String(t.id) === newTicketId);
@@ -912,7 +924,7 @@ export default function ManageOrdersClient({ event, initialOrders }: ManageOrder
         // Optimistic update
         setOrders(prev =>
             prev.map(order =>
-                order.id === orderId ? { ...order, ticketId: newTicketId, ticketType: selectedTicket.name } : order
+                order.id === orderId ? { ...order, ticketId: newTicketId, ticketType: selectedTicket.name, name: newName } : order
             )
         );
 
@@ -921,7 +933,7 @@ export default function ManageOrdersClient({ event, initialOrders }: ManageOrder
             const res = await fetch(`/api/events/${event.id}/orders/${orderId}`, {
                 method: "PATCH",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ action: "update", ticketId: newTicketId }),
+                body: JSON.stringify({ action: "update", ticketId: newTicketId, name: newName }),
             });
             if (!res.ok) throw new Error("Failed to update order");
             setIsEditModalOpen(false);

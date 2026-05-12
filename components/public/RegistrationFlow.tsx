@@ -663,15 +663,15 @@ function ChooseTicketStep({
                             {appliedPromo && getDiscountedPrice(ticket) < ticket.price ? (
                                 <div className="flex flex-col items-end">
                                     <span className="text-sm line-through text-gray-400 dark:text-gray-500">
-                                        {ticket.price === 0 ? 'FREE' : `$${ticket.price}`}
+                                        {ticket.price === 0 ? 'FREE' : `₱${ticket.price}`}
                                     </span>
                                     <p className="text-lg font-black text-green-600 dark:text-green-400">
-                                        {getDiscountedPrice(ticket) === 0 ? 'FREE' : `$${getDiscountedPrice(ticket).toFixed(2)}`}
+                                        {getDiscountedPrice(ticket) === 0 ? 'FREE' : `₱${getDiscountedPrice(ticket).toFixed(2)}`}
                                     </p>
                                 </div>
                             ) : (
                                 <p className="text-lg font-black text-[#3D518C] dark:text-blue-400">
-                                    {ticket.price === 0 ? 'FREE' : `$${ticket.price}`}
+                                    {ticket.price === 0 ? 'FREE' : `₱${ticket.price}`}
                                 </p>
                             )}
                             {!(ticket.is_sold_out || ticket.is_sales_not_started || ticket.is_sales_ended) && (
@@ -701,7 +701,7 @@ function ChooseTicketStep({
                                 <div>
                                     <p className="text-xs font-bold text-green-700 dark:text-green-400 uppercase tracking-wider">{appliedPromo.code}</p>
                                     <p className="text-[10px] font-medium text-green-600 dark:text-green-500">
-                                        {appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}% off` : `$${appliedPromo.discount_value} off`} applied
+                                        {appliedPromo.discount_type === 'percentage' ? `${appliedPromo.discount_value}% off` : `₱${appliedPromo.discount_value} off`} applied
                                     </p>
                                 </div>
                             </div>

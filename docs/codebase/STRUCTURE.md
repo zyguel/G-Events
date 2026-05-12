@@ -6,46 +6,45 @@
 
 | Path | Purpose | Evidence |
 |------|---------|----------|
-| `app/` | Next.js App Router routes, layouts, client and server page code, API route handlers | `app/layout.tsx`, `app/api/cron/process-email-campaigns/route.ts` |
-| `components/` | Reusable UI components grouped by admin, client, common, auth, and public flows | `components/admin/Header.tsx`, `components/public/OrderFormDisplay.tsx` |
-| `contexts/` | React context providers for locale, notifications, permissions, and admin UI state | `contexts/LocaleContext.tsx`, `contexts/NotificationContext.tsx` |
-| `lib/` | Shared services, Supabase wrappers, auth/session logic, helpers, email provider, security utilities | `lib/supabase-server.ts`, `lib/emailProvider.ts`, `lib/security.ts` |
-| `database/` | SQL migration scripts and schema update files | `database/add_order_form_entries_table.sql` |
-| `tests/` | Unit and integration test suites | `tests/unit/auth`, `tests/integration/api` |
-| `scripts/` | Debug, maintenance, and perf scripts | `scripts/debug/debug_supabase.js`, `scripts/maintenance/backfill_addon_entitlements.js` |
-| `.github/` | GitHub workflow and documentation metadata | `.github/instructions/nextjs.instructions.md` |
-| `public/` | Static assets served by Next.js | `public/` |
-| `next.config.ts` | Next.js configuration and remote image allow list | `next.config.ts` |
-| `tsconfig.json` | TypeScript compiler and path alias config | `tsconfig.json` |
+| app/ | Next.js App Router routes, layouts, API routes | docs/codebase/.codebase-scan.txt |
+| components/ | Shared UI components | docs/codebase/.codebase-scan.txt |
+| contexts/ | React context providers (locale, permissions, notifications) | docs/codebase/.codebase-scan.txt |
+| lib/ | Server actions, helpers, integrations | docs/codebase/.codebase-scan.txt |
+| database/ | SQL migrations and DB docs | docs/codebase/.codebase-scan.txt |
+| docs/ | Product and technical documentation | docs/codebase/.codebase-scan.txt |
+| scripts/ | Debug, maintenance, perf scripts | docs/codebase/.codebase-scan.txt |
+| tests/ | Unit/integration tests | docs/codebase/.codebase-scan.txt |
+| public/ | Static assets | docs/codebase/.codebase-scan.txt |
 
 ### 2) Entry Points
 
-- Main runtime entry: `app/layout.tsx` is the root layout for the Next.js App Router.
-- Secondary runtime entry points: `app/api/*` route handlers and cron endpoints under `app/api/cron/`.
-- Shell entry selection: `package.json` scripts (`npm run dev`, `npm run build`, `npm run start`) launch the Next.js app.
-- Middleware entry: `proxy.ts` acts as a custom route gate for admin/attendee role enforcement.
+- Main runtime entry: app/layout.tsx (App Router root layout)
+- Secondary entry points (worker/cli/jobs): scripts/*.js, app/api/* route handlers
+- How entry is selected (script/config): Next.js App Router discovers app/; npm scripts in package.json
 
 ### 3) Module Boundaries
 
 | Boundary | What belongs here | What must not be here |
 |----------|-------------------|------------------------|
-| `app/` | Route definitions, layouts, page components, API route handlers | Business logic utility functions, shared service helpers |
-| `components/` | Reusable presentation/UI components and page-specific widgets | Direct data access or Supabase queries |
-| `contexts/` | Runtime state providers and UI-level feature state | Route or API request handling |
-| `lib/` | Integration wrappers, auth/session helpers, shared business utilities, email provider | UI rendering or page markup |
-| `database/` | PostgreSQL schema migration SQL | Application runtime code |
+| app/ | Route handlers, layouts, page composition | Low-level integrations and shared helpers |
+| components/ | Reusable UI components | Server-only logic and API handlers |
+| contexts/ | Client-side providers/state | Direct DB access |
+| lib/ | Supabase clients, server actions, helpers | JSX route layout markup |
+| database/ | SQL migration scripts | Runtime application code |
 
 ### 4) Naming and Organization Rules
 
-- Directory names use `kebab-case` for routes and feature folders (`app/(admin_side)`, `app/(client_side)`).
-- React component filenames use `PascalCase` with `.tsx` extension (`Header.tsx`, `OrderFormDisplay.tsx`).
-- Utility modules use `camelCase` or descriptive names (`emailProvider.ts`, `supabase-server.ts`).
-- Path aliasing uses `@/*` mapped to the repository root via `tsconfig.json`.
+- File naming pattern: Next.js route files use page.tsx/layout.tsx/route.ts; components use PascalCase (e.g., components/admin/EventOverview.tsx).
+- Directory organization pattern: feature-oriented with admin vs client route groups under app/(admin_side) and app/(client_side).
+- Import aliasing or path conventions: @/* alias maps to repo root (tsconfig.json paths).
 
 ### 5) Evidence
 
-- `package.json`
-- `tsconfig.json`
-- `app/layout.tsx`
-- `proxy.ts`
-- `app/(admin_side)/events/[eventId]/layout.tsx`
+- docs/codebase/.codebase-scan.txt
+- app/layout.tsx
+- package.json
+- tsconfig.json
+
+## Extended Sections (Optional)
+
+- [TODO]

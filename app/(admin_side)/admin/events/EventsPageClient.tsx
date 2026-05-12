@@ -23,7 +23,7 @@ export interface Event {
     ticketsSold: number;
     totalTickets: number;
     attendees: number;
-    status: 'Draft' | 'Upcoming' | 'Live' | 'Completed';
+        status: string;
     type: 'draft' | 'upcoming' | 'past';
     image?: string;
     analyticsId?: string; // Maps to the API event ID for analytics
@@ -349,10 +349,14 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm overflow-hidden">
                                 <div className="divide-y divide-gray-100 dark:divide-gray-700">
                                     {filteredEvents.map((event) => {
+                                        const href = eventListHref(event);
+
                                         return (
                                             <div
                                                 key={event.id}
-                                                onClick={() => router.push(eventListHref(event))}
+                                                onClick={() => {
+                                                    if (href !== '#') router.push(href);
+                                                }}
                                                 className="p-4 md:p-5 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300 cursor-pointer hover:scale-[1.01] hover:shadow-md"
                                             >
                                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -418,7 +422,7 @@ export default function EventsPageClient({ initialEvents }: EventsPageClientProp
                                                     </div>
                                                 </div>
                                             </div>
-                                        )
+                                        );
                                     })}
                                 </div>
                             </div>
