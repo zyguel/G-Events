@@ -95,7 +95,7 @@ export async function PATCH(
         let eventTitle = "Event";
 
         if (action === "update") {
-            const { ticketId } = body;
+            const { ticketId, name } = body;
             if (ticketId !== undefined && ticketId !== null && ticketId !== '') {
                 const parsedTicketId = parseInt(String(ticketId), 10);
                 const { data: targetTicket, error: targetTicketError } = await supabase
@@ -114,7 +114,23 @@ export async function PATCH(
                 updateData.ticket_id = parsedTicketId;
             }
             
-            if (Object.keys(updateData).length === 0) {
+            if (name !== undefined && name !== null && name.trim() !== '') {
+                const { data: registration } = await supabase
+                    .from("Registration")
+                    .select("user_id")
+                    .eq("id", regId)
+                    .eq("event_id", id)
+                    .single();
+
+                if (registration?.user_id) {
+                    await supabase
+                        .from("User")
+                        .update({ name: name.trim() })
+                        .eq("id", registration.user_id);
+                }
+            }
+            
+            if (Object.keys(updateData).length === 0 && (!name || name.trim() === '')) {
                 return NextResponse.json(
                     { success: false, error: "No update data provided" },
                     { status: 400 }
@@ -272,18 +288,20 @@ export async function PATCH(
             }
         }
 
-        const { error } = await supabase
-            .from("Registration")
-            .update(updateData)
-            .eq("id", regId)
-            .eq("event_id", id);
+        if (Object.keys(updateData).length > 0) {
+            const { error } = await supabase
+                .from("Registration")
+                .update(updateData)
+                .eq("id", regId)
+                .eq("event_id", id);
 
-        if (error) {
-            console.error("ManageOrders PATCH: update failed", error);
-            return NextResponse.json(
-                { success: false, error: error.message },
-                { status: 500 }
-            );
+            if (error) {
+                console.error("ManageOrders PATCH: update failed", error);
+                return NextResponse.json(
+                    { success: false, error: error.message },
+                    { status: 500 }
+                );
+            }
         }
 
         if ((action === "confirm" || action === "reject") && registrationForNotification) {

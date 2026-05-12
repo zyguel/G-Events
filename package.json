@@ -55,7 +55,7 @@
     "jsqr": "^1.4.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.562.0",
-    "next": "latest",
+    "next": "^16.2.6",
     "nodemailer": "^8.0.4",
     "pdfjs-dist": "^5.4.624",
     "qrcode": "^1.5.4",
