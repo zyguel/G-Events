@@ -5,7 +5,13 @@ vi.mock("@/lib/supabase-server", () => ({
     auth: {
       exchangeCodeForSession: vi.fn(),
       verifyOtp: vi.fn(),
+      getUser: vi.fn(async () => ({ data: { user: { id: 'test-user' } } })),
     },
+  })),
+  createAdminClient: vi.fn(async () => ({
+    from: vi.fn(() => ({
+      insert: vi.fn(),
+    })),
   })),
 }));
 
